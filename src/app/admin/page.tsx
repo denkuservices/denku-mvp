@@ -1,14 +1,20 @@
 export const dynamic = "force-dynamic";
 
-async function getData() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "";
-  const headers: Record<string, string> = {};
+async function getBaseUrl() {
+  // Prefer explicit base URL (works on Vercel + local if set)
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
 
-  // If you later add admin auth, put it here.
+  // Local dev fallback
+  return "http://localhost:3000";
+}
+
+async function getData() {
+  const base = await getBaseUrl();
+
   const [leadsRes, apptRes, ticketRes] = await Promise.all([
-    fetch(`${base}/api/admin/leads`, { cache: "no-store", headers }),
-    fetch(`${base}/api/admin/appointments`, { cache: "no-store", headers }),
-    fetch(`${base}/api/admin/tickets`, { cache: "no-store", headers }),
+    fetch(`${base}/api/admin/leads`, { cache: "no-store" }),
+    fetch(`${base}/api/admin/appointments`, { cache: "no-store" }),
+    fetch(`${base}/api/admin/tickets`, { cache: "no-store" }),
   ]);
 
   return {
@@ -17,6 +23,7 @@ async function getData() {
     tickets: await ticketRes.json(),
   };
 }
+
 
 export default async function AdminPage() {
   const data = await getData();
