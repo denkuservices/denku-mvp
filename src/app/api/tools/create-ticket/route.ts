@@ -2,6 +2,38 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const ALLOWED_CATEGORIES = ["billing", "technical", "order", "account", "general", "other"];
+function normalizePhone(input: unknown) {
+  if (input === null || input === undefined) return null;
+
+  const raw = String(input).trim();
+  if (!raw) return null;
+
+  // 1) If it already contains digits, strip non-digits
+  const digitsOnly = raw.replace(/[^0-9]/g, "");
+  if (digitsOnly.length >= 7) return digitsOnly;
+
+  // 2) Convert "one two three" style to digits
+  const s = raw.toLowerCase();
+
+  const map: Record<string, string> = {
+    zero: "0", oh: "0",
+    one: "1",
+    two: "2", to: "2", too: "2",
+    three: "3",
+    four: "4", for: "4",
+    five: "5",
+    six: "6",
+    seven: "7",
+    eight: "8", ate: "8",
+    nine: "9",
+  };
+
+  const tokens = s.split(/[\s\-_.]+/g).filter(Boolean);
+  const converted = tokens.map(t => map[t]).filter(Boolean).join("");
+
+  return converted.length >= 7 ? converted : raw; // fallback to raw if cannot parse
+}
+
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +61,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabaseAdmin
       .from("tickets")
       .insert({
-        caller_phone: caller_phone ?? null,
+        caller_phone: normalizePhone(caller_phone),
         caller_name: caller_name ?? null,
         company: company ?? null,
         category: safeCategory,
