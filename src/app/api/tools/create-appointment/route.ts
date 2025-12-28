@@ -39,6 +39,11 @@ function normalizePhone(input: unknown) {
 }
 
 export async function POST(req: Request) {
+    const secret = req.headers.get("x-denku-secret");
+if (secret !== process.env.VAPI_TOOL_SECRET) {
+  return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+}
+
   try {
     // Robust JSON parsing (Vapi / proxies sometimes send weird bodies)
     const raw = await req.text();
