@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { rateLimit } from "@/lib/rateLimit";
 
 function normalizePhone(input: unknown) {
   if (input === null || input === undefined) return null;
@@ -40,6 +41,19 @@ function normalizePhone(input: unknown) {
 
 export async function POST(req: Request) {
     const secret = req.headers.get("x-denku-secret");
+    const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+const rl = rateLimit(`tool:create-appointment:${ip}`, 30, 60_000);
+if (!rl.ok) {
+  return NextResponse.json(
+    { ok: false, error: "Rate limit exceeded" },
+    { status: 429 }
+  );
+}
+
 if (secret !== process.env.VAPI_TOOL_SECRET) {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 }
