@@ -1,100 +1,116 @@
 import Link from 'next/link';
+import { Button } from './Button';
+import { Container } from './Container';
+import { Section } from './Section';
 
 const plans = [
   {
     name: 'Starter',
-    price: '$99',
-    note: 'per month',
-    desc: 'For small teams launching their first AI agent.',
-    features: ['1–2 agents', 'Basic analytics', 'Standard support'],
-    cta: { label: 'Start', href: '/signup' },
+    price: 'From $49',
+    note: '',
+    desc: 'For small teams getting started with their first AI agent.',
+    features: ['1 Agent', 'Basic Analytics', 'Standard Integrations'],
+    cta: { label: 'Choose Plan', href: '/pricing' },
   },
   {
     name: 'Pro',
-    price: '$299',
-    note: 'per month',
-    desc: 'For growing teams with multiple channels and workflows.',
-    features: ['Up to 10 agents', 'Tools & webhooks', 'Advanced analytics'],
+    price: 'From $99',
+    note: '',
+    desc: 'For growing teams that need more power and customization.',
+    features: [
+      'Up to 10 Agents',
+      'Advanced Analytics',
+      'Custom Tools & Webhooks',
+      'Priority Support',
+    ],
     highlight: true,
-    cta: { label: 'Get Pro', href: '/signup' },
+    cta: { label: 'Choose Plan', href: '/pricing' },
   },
   {
     name: 'Enterprise',
     price: 'Custom',
-    note: '',
-    desc: 'For regulated teams and high-volume operations.',
-    features: ['Custom isolation', 'SLA & security reviews', 'Dedicated support'],
-    cta: { label: 'Contact sales', href: '/contact' },
+    note: 'annual billing',
+    desc: 'For organizations with advanced security and compliance needs.',
+    features: [
+      'Unlimited Agents',
+      'Custom Isolation Architecture',
+      'Security Reviews & SLA',
+      'Dedicated Support',
+    ],
+    cta: { label: 'Contact Sales', href: '/contact' },
   },
 ];
 
 export function PricingPreview() {
   return (
-    <section className="py-10 md:py-14">
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Pricing</h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Simple plans. Upgrade as you scale. Enterprise options available for custom requirements.
+    <Section>
+      <Container>
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+            Simple, Transparent Pricing
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+            Find the right plan for your team. Scale up as you grow.
           </p>
         </div>
 
-        <Link
-          href="/pricing"
-          className="hidden md:inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition"
-        >
-          See full pricing
-        </Link>
-      </div>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {plans.map((p) => (
-          <div
-            key={p.name}
-            className={[
-              'rounded-2xl border bg-background p-6',
-              p.highlight ? 'border-foreground/40 shadow-sm' : '',
-            ].join(' ')}
-          >
-            <div className="flex items-baseline justify-between">
-              <div className="text-lg font-semibold tracking-tight">{p.name}</div>
-              {p.highlight ? (
-                <span className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground">
-                  Most popular
-                </span>
-              ) : null}
-            </div>
-
-            <div className="mt-4">
-              <div className="text-3xl font-semibold tracking-tight">{p.price}</div>
-              {p.note ? <div className="text-sm text-muted-foreground">{p.note}</div> : null}
-            </div>
-
-            <p className="mt-3 text-sm text-muted-foreground">{p.desc}</p>
-
-            <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
-              {p.features.map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-foreground/60" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href={p.cta.href}
+        <div className="mt-12 grid gap-8 md:grid-cols-3">
+          {plans.map((p) => (
+            <div
+              key={p.name}
               className={[
-                'mt-6 inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition',
-                p.highlight
-                  ? 'bg-foreground text-background hover:opacity-90'
-                  : 'border hover:bg-muted',
+                'flex flex-col rounded-2xl border p-6 shadow-sm',
+                p.highlight ? 'border-foreground/40' : '',
               ].join(' ')}
             >
-              {p.cta.label}
-            </Link>
-          </div>
-        ))}
-      </div>
-    </section>
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-xl font-semibold tracking-tight">{p.name}</h3>
+                {p.highlight && (
+                  <span className="rounded-full border bg-background px-3 py-1 text-xs font-medium text-foreground">
+                    Most Popular
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <span className="text-4xl font-semibold tracking-tight">{p.price}</span>
+                {p.note && <span className="ml-2 text-sm text-muted-foreground">{p.note}</span>}
+              </div>
+
+              <p className="mt-3 text-sm text-muted-foreground">{p.desc}</p>
+
+              <ul className="mt-6 flex-1 space-y-3 text-sm">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-center gap-3">
+                    <svg
+                      className="h-5 w-5 flex-none text-foreground/60"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                asChild
+                size="lg"
+                className="mt-8 w-full"
+                variant={p.highlight ? 'default' : 'outline'}
+              >
+                <Link href={p.cta.href}>{p.cta.label}</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Container>
+    </Section>
   );
 }

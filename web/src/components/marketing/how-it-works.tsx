@@ -1,49 +1,60 @@
 import Link from 'next/link';
+import { Button } from './Button';
+import { Container } from './Container';
+import { Section } from './Section';
 
 const steps = [
   {
-    title: 'Sign up',
-    desc: 'Create your workspace and choose your plan.',
+    title: 'Provision Your Environment',
+    desc: 'Create a secure, isolated workspace for your agents and data.',
   },
   {
-    title: 'Configure your agent',
-    desc: 'Set language, behavior, channels, and business tools.',
+    title: 'Configure Agent Behavior',
+    desc: 'Define skills, connect tools, and set operational boundaries.',
   },
   {
-    title: 'Go live',
-    desc: 'Deploy to phone or web and start handling customers instantly.',
+    title: 'Deploy & Scale',
+    desc: 'Go live on any channel and monitor performance with built-in observability.',
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section className="py-10 md:py-14">
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">How it works</h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            A clean onboarding flow designed for speed—without sacrificing tenant isolation
-            and operational control.
+    <Section className="bg-muted/30">
+      <Container>
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+            A Better Way to Build, Deploy, and Manage Agents
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+            SovereignAI is built for SaaS teams who need a secure, reliable, and scalable
+            platform for production-grade AI agents.
           </p>
         </div>
 
-        <Link
-          href="/contact"
-          className="hidden md:inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition"
-        >
-          Talk to sales
-        </Link>
-      </div>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {steps.map((s, i) => (
-          <div key={s.title} className="rounded-2xl border bg-background p-6">
-            <div className="text-sm text-muted-foreground">Step {i + 1}</div>
-            <div className="mt-2 text-xl font-semibold tracking-tight">{s.title}</div>
-            <p className="mt-3 text-sm text-muted-foreground">{s.desc}</p>
+        <div className="relative mt-12">
+          <div className="grid gap-8 md:grid-cols-3 md:gap-12">
+            {steps.map((s, i) => (
+              <div
+                key={s.title}
+                className="relative flex flex-col items-center text-center"
+              >
+                <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full border bg-background text-lg font-semibold">
+                  {i + 1}
+                </div>
+                <h3 className="text-xl font-semibold tracking-tight">{s.title}</h3>
+                <p className="mt-2 text-muted-foreground">{s.desc}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </section>
+        </div>
+
+        <div className="mt-12 text-center">
+          <Button asChild size="lg" variant="outline">
+            <Link href="/contact">Talk to sales</Link>
+          </Button>
+        </div>
+      </Container>
+    </Section>
   );
 }

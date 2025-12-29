@@ -1,67 +1,57 @@
 import Link from 'next/link';
+import { Button } from './Button';
+import { Container } from './Container';
+import { Section } from './Section';
 
 const trustItems = [
-  'Multi-tenant architecture',
-  'Secure by design',
-  'Deploy in minutes',
-  'Voice, chat, and automation',
+  'Multi-Tenant Architecture',
+  'Secure Tool Integration',
+  'Production-Ready from Day One',
+  'Voice, Chat & Automation',
 ];
 
 export function Hero() {
   return (
-    <section className="py-16 md:py-24">
-      <div className="relative overflow-hidden rounded-2xl border bg-background">
-        {/* subtle background */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-foreground/5 blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-foreground/5 blur-3xl" />
+    <Section className="py-20 text-center md:py-32">
+      <Container>
+        <p className="text-sm text-muted-foreground">SovereignAI · Sovereign-grade AI agents</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-6xl md:leading-tight">
+          Build Production-Ready AI Agents
+        </h1>
+        <p className="mx-auto mt-4 max-w-3xl text-lg text-muted-foreground md:text-xl">
+          A secure platform for SaaS teams to build, deploy, and manage production-grade AI agents
+          with multi-tenant isolation, operational control, and full observability.
+        </p>
+
+        <div className="mt-8 flex justify-center gap-4">
+          <Button asChild size="lg">
+            <Link href="/pricing">Get Started</Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/contact">Request Demo</Link>
+          </Button>
         </div>
 
-        <div className="relative px-6 py-14 md:px-12 md:py-20">
-          <div className="max-w-3xl">
-            <p className="text-sm text-muted-foreground">
-              SovereignAI · AI agents for modern businesses
-            </p>
-
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-6xl">
-              Rent AI agents. Deploy in minutes.
-            </h1>
-
-            <p className="mt-5 text-lg text-muted-foreground md:text-xl">
-              Launch voice, chat, and automation agents with multi-tenant isolation,
-              observability, and fast onboarding—built for SaaS teams.
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/signup"
-                className="inline-flex items-center justify-center rounded-md bg-foreground px-5 py-3 text-sm font-medium text-background hover:opacity-90 transition"
+        <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {trustItems.map((item) => (
+            <div key={item} className="flex items-center gap-3 text-sm text-muted-foreground">
+              <svg
+                className="h-5 w-5 flex-none text-foreground/60"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
               >
-                Get started
-              </Link>
-
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center rounded-md border px-5 py-3 text-sm font-medium hover:bg-muted transition"
-              >
-                Request demo
-              </Link>
+                <path
+                  fillRule="evenodd"
+                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{item}</span>
             </div>
-
-            <div className="mt-10 grid gap-3 sm:grid-cols-2">
-              {trustItems.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-3 rounded-lg border bg-background px-4 py-3 text-sm text-muted-foreground"
-                >
-                  <span className="inline-block h-2 w-2 rounded-full bg-foreground/60" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
-    </section>
+      </Container>
+    </Section>
   );
 }
