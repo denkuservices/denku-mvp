@@ -182,9 +182,10 @@ export async function POST(request: NextRequest) {
 
   let createdTicketId: string | null = null;
   let createdAppointmentId: string | null = null;
-
+// MVP: disable auto-create. Tools handle appointment/ticket creation.
+    const AUTO_CREATE_FROM_WEBHOOK = false;
   // Appointment: placeholder time slot (now + 1h)
-  if (intent === 'appointment') {
+  if (AUTO_CREATE_FROM_WEBHOOK && intent === 'appointment') {
     const start = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const end = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Ticket: create support ticket using transcript
-  if (intent === 'ticket') {
+  if (AUTO_CREATE_FROM_WEBHOOK && intent === 'ticket') {
     const { data: t, error: tErr } = await supabaseServer
       .from('tickets')
       .insert({
