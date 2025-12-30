@@ -1,18 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
+import "server-only";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export async function createSupabaseServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Supabase env variables are missing');
-}
-
-export const supabaseServer = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-    },
+  if (!url || !anonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
-);
+
+  const cookieStore = await cookies();
+
+  return createServerClient(url, anonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+      set(name: string, value: string, options: CookieOptions) {
+        cookieStore.set({ name, value, ...options });
+      },
+      remove(name: string, options: CookieOptions) {
+        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+      },
+    },
+  });
+}
