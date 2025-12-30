@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBasicAuth } from '@/lib/auth/basic';
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   if (!requireBasicAuth(request)) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAdmin
     .from('calls')
     .select('id, org_id, vapi_call_id, from_phone, to_phone, started_at, ended_at, outcome, transcript, created_at')
     .eq('org_id', orgId)
@@ -37,3 +37,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ calls: data ?? [] });
 }
+

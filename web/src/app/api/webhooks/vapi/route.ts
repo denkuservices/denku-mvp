@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
 
 function normalizePhone(input?: string | null) {
   if (!input) return null;
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 3) Tenant mapping via organizations.phone_number
-  const { data: org, error: orgErr } = await supabaseServer
+  const { data: org, error: orgErr } = await supabaseAdmin
     .from("organizations")
     .select("id, phone_number")
     .eq("phone_number", toPhone)
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
   let leadId: string | null = null;
 
   if (fromPhone) {
-    const { data: existingLead, error: leadFindErr } = await supabaseServer
+    const { data: existingLead, error: leadFindErr } = await supabaseAdmin
       .from("leads")
       .select("id")
       .eq("org_id", org.id)
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     if (existingLead?.id) {
       leadId = existingLead.id;
     } else {
-      const { data: newLead, error: leadCreateErr } = await supabaseServer
+      const { data: newLead, error: leadCreateErr } = await supabaseAdmin
         .from("leads")
         .insert({
           org_id: org.id,
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
   const startedAt = payload.startedAt ? new Date(payload.startedAt).toISOString() : null;
   const endedAt = payload.endedAt ? new Date(payload.endedAt).toISOString() : null;
 
-  const { data: callRow, error: callErr } = await supabaseServer
+  const { data: callRow, error: callErr } = await supabaseAdmin
     .from("calls")
     .upsert(
       {
@@ -191,3 +192,4 @@ export async function POST(request: NextRequest) {
     { status: 200 }
   );
 }
+

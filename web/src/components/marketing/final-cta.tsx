@@ -25,9 +25,19 @@ export function FinalCta() {
               <Button asChild size="lg" className="bg-background text-foreground hover:bg-background/90">
                 <Link href="/pricing">Get Started</Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
+                <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="border-white/60 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                >
                 <Link href="/contact">Talk to Sales</Link>
-              </Button>
+                </Button>
+
+
+
+
+
             </div>
           </div>
         </div>

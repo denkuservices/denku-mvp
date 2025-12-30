@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBasicAuth } from '@/lib/auth/basic';
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   if (!requireBasicAuth(request)) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAdmin
     .from('appointments')
     .select('id, org_id, lead_id, start_at, end_at, status, notes, created_at, updated_at')
     .eq('org_id', orgId)
@@ -37,3 +37,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ appointments: data ?? [] });
 }
+

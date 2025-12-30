@@ -1,4 +1,4 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type SearchParams = {
   org?: string;
@@ -30,25 +30,25 @@ export default async function AdminPage({
   }
 
   const [leadsRes, callsRes, ticketsRes, apptsRes] = await Promise.all([
-    supabaseServer
+    supabaseAdmin
       .from('leads')
       .select('id, name, phone, status, source, created_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(20),
-    supabaseServer
+    supabaseAdmin
       .from('calls')
       .select('id, vapi_call_id, from_phone, to_phone, outcome, created_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(20),
-    supabaseServer
+    supabaseAdmin
       .from('tickets')
       .select('id, subject, status, priority, created_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(20),
-    supabaseServer
+    supabaseAdmin
       .from('appointments')
       .select('id, start_at, end_at, status, created_at')
       .eq('org_id', orgId)
@@ -190,3 +190,4 @@ function formatDate(input: any) {
     return String(input);
   }
 }
+

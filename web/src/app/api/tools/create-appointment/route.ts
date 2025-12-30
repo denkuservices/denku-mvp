@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function normalizePhone(input?: string | null) {
   if (!input) return null;
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1) Resolve org by to_phone
-  const { data: org, error: orgErr } = await supabaseServer
+  const { data: org, error: orgErr } = await supabaseAdmin
     .from("organizations")
     .select("id, phone_number")
     .eq("phone_number", toPhone)
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) Upsert lead by (org_id, phone)
-  const { data: existingLead } = await supabaseServer
+  const { data: existingLead } = await supabaseAdmin
     .from("leads")
     .select("id")
     .eq("org_id", org.id)
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   if (existingLead?.id) {
     leadId = existingLead.id;
   } else {
-    const { data: newLead, error: leadErr } = await supabaseServer
+    const { data: newLead, error: leadErr } = await supabaseAdmin
       .from("leads")
       .insert({
         org_id: org.id,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
   const startAtIso = new Date(input.start_at).toISOString();
   const endAtIso = input.end_at ? new Date(input.end_at).toISOString() : null;
 
-  const { data: appt, error: apptErr } = await supabaseServer
+  const { data: appt, error: apptErr } = await supabaseAdmin
     .from("appointments")
     .insert({
       org_id: org.id,
@@ -141,3 +141,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, appointment: appt }, { status: 200 });
 }
+

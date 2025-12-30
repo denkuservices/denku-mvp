@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -14,15 +15,15 @@ export async function signupAction(formData: FormData) {
   const email = mustString(formData.get("email"), "email");
   const password = mustString(formData.get("password"), "password");
 
-  // 1) Create auth user
-  const { data, error } = await supabaseServer.auth.signUp({ email, password });
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw new Error(error.message);
 
   const user = data.user;
   if (!user) throw new Error("Signup failed: no user returned");
 
-  // 2) Create org
-  const { data: org, error: orgErr } = await supabaseServer
+  const { data: org, error: orgErr } = await supabaseAdmin
     .from("orgs")
     .insert({ name: org_name, created_by: user.id })
     .select("id")
@@ -30,8 +31,7 @@ export async function signupAction(formData: FormData) {
 
   if (orgErr) throw new Error(orgErr.message);
 
-  // 3) Create profile
-  const { error: profErr } = await supabaseServer.from("profiles").insert({
+  const { error: profErr } = await supabaseAdmin.from("profiles").insert({
     id: user.id,
     org_id: org.id,
     email,
@@ -40,11 +40,9 @@ export async function signupAction(formData: FormData) {
 
   if (profErr) throw new Error(profErr.message);
 
-  // 4) If email confirmation is enabled, session may be null
   if (!data.session) {
     redirect(`/verify-email?email=${encodeURIComponent(email)}`);
   }
 
-  // 5) Otherwise, user is signed in; go to dashboard
   redirect("/dashboard");
 }

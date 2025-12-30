@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireBasicAuth } from '@/lib/auth/basic';
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /* -----------------------------
    Validation Schemas
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 3) DB query
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAdmin
     .from('leads')
     .select(
       'id, org_id, name, phone, email, source, status, notes, created_at, updated_at'
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   const payload = parsed.data;
 
   // 3) Insert
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAdmin
     .from('leads')
     .insert({
       org_id: payload.org_id,
@@ -120,3 +120,4 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ lead: data }, { status: 201 });
 }
+

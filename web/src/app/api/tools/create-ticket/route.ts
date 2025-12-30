@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function normalizePhone(input?: string | null) {
   if (!input) return null;
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1) Resolve org by to_phone
-  const { data: org, error: orgErr } = await supabaseServer
+  const { data: org, error: orgErr } = await supabaseAdmin
     .from("organizations")
     .select("id, phone_number")
     .eq("phone_number", toPhone)
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) Upsert lead by (org_id, phone)
-  const { data: existingLead } = await supabaseServer
+  const { data: existingLead } = await supabaseAdmin
     .from("leads")
     .select("id")
     .eq("org_id", org.id)
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   if (existingLead?.id) {
     leadId = existingLead.id;
   } else {
-    const { data: newLead, error: leadErr } = await supabaseServer
+    const { data: newLead, error: leadErr } = await supabaseAdmin
       .from("leads")
       .insert({
         org_id: org.id,
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) Create ticket
-  const { data: ticket, error: tErr } = await supabaseServer
+  const { data: ticket, error: tErr } = await supabaseAdmin
     .from("tickets")
     .insert({
       org_id: org.id,
@@ -144,3 +144,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, ticket }, { status: 200 });
 }
+

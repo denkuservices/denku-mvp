@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBasicAuth } from '@/lib/auth/basic';
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   if (!requireBasicAuth(request)) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let q = supabaseServer
+  let q = supabaseAdmin
     .from('tickets')
     .select('id, org_id, lead_id, subject, status, priority, description, created_at, updated_at')
     .eq('org_id', orgId)
@@ -43,3 +43,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ tickets: data ?? [] });
 }
+
