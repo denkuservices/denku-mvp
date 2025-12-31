@@ -10,10 +10,8 @@ function mustString(v: FormDataEntryValue | null, field: string) {
   return v.trim();
 }
 
-type VapiCreateAssistantResponse = {
-  id: string;
-  name?: string;
-};
+type VapiCreateAssistantResponse = { id: string };
+type VapiCreatePhoneNumberResponse = { id: string };
 
 export async function createAgentAction(formData: FormData) {
   const name = mustString(formData.get("name"), "name");
@@ -24,7 +22,6 @@ export async function createAgentAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
-
   if (!user) redirect("/login");
 
   // org_id
@@ -37,16 +34,24 @@ export async function createAgentAction(formData: FormData) {
   if (profErr) throw new Error(profErr.message);
   if (!profile?.org_id) throw new Error("No org found for this user.");
 
-  // 1) Vapi Assistant Create  (POST /assistant)
-  // Base URL: https://api.vapi.ai  :contentReference[oaicite:2]{index=2}
-  const created = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
+  const orgId = profile.org_id;
+
+  // 1) Vapi: phone number create (tenant-specific)
+  const phone = await vapiFetch<VapiCreatePhoneNumberResponse>("/phone-number", {
+    method: "POST",
+    body: JSON.stringify({
+      metadata: { org_id: orgId, created_by: user.id },
+    }),
+  });
+  if (!phone?.id) throw new Error("Vapi phone number id missing.");
+
+  // 2) Vapi: assistant create
+  const assistant = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
     method: "POST",
     body: JSON.stringify({
       name,
-      // MVP: basit model/voice bağlama. Detayı sonra "Agent Detail" ekranından editleriz.
-      // Not: Vapi tarafında voice/language mapping provider'a göre değişebilir; şimdilik "metadata" ile saklıyoruz.
       metadata: {
-        org_id: profile.org_id,
+        org_id: orgId,
         created_by: user.id,
         language,
         voice,
@@ -54,20 +59,25 @@ export async function createAgentAction(formData: FormData) {
       },
     }),
   });
+  if (!assistant?.id) throw new Error("Vapi assistant id missing.");
 
-  if (!created?.id) throw new Error("Vapi assistant id missing from response.");
+  // 3) Vapi: bind phone number → assistant
+  await vapiFetch(`/phone-number/${phone.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ assistantId: assistant.id }),
+  });
 
-  // 2) DB insert (agents)
+  // 4) Supabase: insert agent (single source of truth)
   const { error: insErr } = await supabaseAdmin.from("agents").insert({
-    org_id: profile.org_id,
+    org_id: orgId,
     name,
     language,
     voice,
     timezone,
     created_by: user.id,
-    vapi_assistant_id: created.id,
+    vapi_assistant_id: assistant.id,
+    vapi_phone_number_id: phone.id,
   });
-
   if (insErr) throw new Error(insErr.message);
 
   redirect("/dashboard");

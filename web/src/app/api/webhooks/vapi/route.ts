@@ -189,6 +189,12 @@ export async function POST(req: NextRequest) {
     /* 6) Call upsert
        KRİTİK: kolon adın duration_seconds (duration_sec değil)
     */
+    console.log("DURATION CALC", {
+  startedAt,
+  endedAt,
+  durationSec
+});
+
     await supabaseAdmin.from("calls").upsert(
       {
         org_id: orgId,
