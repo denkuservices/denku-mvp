@@ -60,10 +60,11 @@ async function getLastCalls(agentId: string): Promise<CallRow[]> {
 export default async function Page({
   params,
 }: {
-  params: { agentId: string };
+  params: Promise<{ agentId: string }>;
 }) {
-  const kpiRes = await getAgentKPI(params.agentId);
-  const calls = await getLastCalls(params.agentId);
+  const { agentId } = await params;
+  const kpiRes = await getAgentKPI(agentId);
+  const calls = await getLastCalls(agentId);
 
   const kpi = kpiRes.kpi;
 
