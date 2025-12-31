@@ -29,53 +29,59 @@ export async function GET(
   try {
     const { agentId } = await ctx.params;
 
-    // Basic Auth
+    // Basic Auth guard
     const creds = parseBasicAuth(req);
     if (!creds) return unauthorized();
 
-    if (
-      creds.user !== process.env.ADMIN_USER ||
-      creds.pass !== process.env.ADMIN_PASS
-    ) {
+    const expectedUser = process.env.ADMIN_USER || "";
+    const expectedPass = process.env.ADMIN_PASS || "";
+    if (!expectedUser || !expectedPass) return unauthorized();
+    if (creds.user !== expectedUser || creds.pass !== expectedPass)
       return unauthorized();
-    }
 
     const { searchParams } = new URL(req.url);
-    const days = Number(searchParams.get("days") ?? "7");
+    const days = Math.max(1, Math.min(Number(searchParams.get("days") ?? "7"), 90));
 
-    const since = new Date();
-    since.setDate(since.getDate() - days);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    // 🔧 FIX: agent_id = agentId OR agent_id IS NULL
     const { data, error } = await supabaseAdmin
       .from("calls")
-      .select("started_at, duration_sec, cost_usd, outcome")
-      .or(`agent_id.eq.${agentId},agent_id.is.null`)
-      .gte("started_at", since.toISOString());
+      .select("started_at, duration_seconds, cost_usd, outcome")
+      .eq("agent_id", agentId)
+      .gte("started_at", since)
+      .order("started_at", { ascending: false });
 
     if (error) {
-      console.error("agent kpi query failed", error);
+      console.error("kpi query failed", error);
       return NextResponse.json({ error: "db_error" }, { status: 500 });
     }
 
     const totalCalls = data?.length ?? 0;
+
     const totalCost =
-      data?.reduce((sum, c) => sum + (c.cost_usd ?? 0), 0) ?? 0;
+      data?.reduce((sum, c: any) => sum + (Number(c.cost_usd) || 0), 0) ?? 0;
+
     const totalDuration =
-      data?.reduce((sum, c) => sum + (c.duration_sec ?? 0), 0) ?? 0;
+      data?.reduce((sum, c: any) => sum + (Number(c.duration_seconds) || 0), 0) ?? 0;
+
+    const completedCalls =
+      data?.filter((c: any) => (c.outcome || "").toString().toLowerCase() === "completed")
+        .length ?? 0;
+
+    const avgDuration = totalCalls > 0 ? totalDuration / totalCalls : 0;
+    const successRate = totalCalls > 0 ? (completedCalls / totalCalls) * 100 : 0;
 
     return NextResponse.json({
+      ok: true,
+      agent_id: agentId,
       days,
       total_calls: totalCalls,
-      total_cost_usd: totalCost,
-      avg_duration_sec: totalCalls > 0 ? totalDuration / totalCalls : 0,
-      success_rate:
-        totalCalls > 0
-          ? data.filter((c) => c.outcome === "Completed").length / totalCalls
-          : 0,
+      total_cost_usd: Number(totalCost.toFixed(4)),
+      avg_duration_sec: Number(avgDuration.toFixed(2)),
+      success_rate_pct: Number(successRate.toFixed(2)),
     });
   } catch (err) {
-    console.error("agent kpi endpoint error", err);
+    console.error("kpi endpoint error", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }

@@ -1,103 +1,129 @@
-﻿export const runtime = "nodejs";
-
+﻿// src/app/(app)/dashboard/agents/page.tsx
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AgentRow = {
   id: string;
-  name: string;
+  name: string | null;
+  created_at: string | null;
   vapi_assistant_id: string | null;
   vapi_phone_number_id: string | null;
-  created_at?: string | null;
 };
 
-export default async function Page() {
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
+
+export const dynamic = "force-dynamic";
+
+export default async function AgentsPage() {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
 
-  if (!user) redirect("/login");
-
-  const { data: profile, error: profErr } = await supabaseAdmin
-    .from("profiles")
-    .select("org_id")
-    .eq("id", user.id)
-    .single<{ org_id: string | null }>();
-
-  if (profErr) throw new Error(profErr.message);
-  if (!profile?.org_id) throw new Error("No org found for this user.");
-
-  const { data: agents, error: agentsErr } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("agents")
-    .select("id,name,vapi_assistant_id,vapi_phone_number_id,created_at")
-    .eq("org_id", profile.org_id)
+    .select("id,name,created_at,vapi_assistant_id,vapi_phone_number_id")
     .order("created_at", { ascending: false })
-    .returns<AgentRow[]>();
+    .limit(50);
 
-  if (agentsErr) throw new Error(agentsErr.message);
+  const agents = (data ?? []) as AgentRow[];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Agents</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your deployed voice agents and view performance.
+          <h1 className="text-xl font-semibold">Agents</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            View agents and drill into KPI and recent calls.
           </p>
         </div>
 
         <Link
           href="/dashboard/agents/new"
-          className="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
+          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:opacity-90"
         >
-          Create agent
+          Create Agent
         </Link>
       </div>
 
-      {(!agents || agents.length === 0) ? (
-        <div className="border rounded-lg p-6 text-sm text-muted-foreground">
-          No agents yet. Create your first agent to start receiving calls.
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Failed to load agents: {error.message}
+        </div>
+      ) : agents.length === 0 ? (
+        <div className="rounded-md border bg-white p-6 text-sm text-gray-700">
+          No agents found yet.
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-md border bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-muted">
+            <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
-                <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left hidden md:table-cell">Vapi Assistant</th>
-                <th className="p-3 text-left hidden md:table-cell">Phone Number</th>
-                <th className="p-3 text-right">Actions</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Status</th>
+                <th className="hidden px-4 py-3 md:table-cell">Created</th>
+                <th className="px-4 py-3 text-right">Open</th>
               </tr>
             </thead>
+
             <tbody>
-              {agents.map((a) => (
-                <tr key={a.id} className="border-t">
-                  <td className="p-3 font-medium">{a.name}</td>
+              {agents.map((a) => {
+                // UI-only status (no DB column)
+                const statusLabel = a.vapi_assistant_id ? "Active" : "Draft";
+                const statusClass = a.vapi_assistant_id
+                  ? "bg-green-100 text-green-800"
+                  : "bg-gray-100 text-gray-800";
 
-                  <td className="p-3 hidden md:table-cell">
-                    <span className="text-xs text-muted-foreground">
-                      {a.vapi_assistant_id ?? "—"}
-                    </span>
-                  </td>
+                return (
+                  <tr key={a.id} className="border-t">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">
+                        {a.name ?? "Untitled Agent"}
+                      </div>
+                      <div className="mt-0.5 text-xs text-gray-500">{a.id}</div>
 
-                  <td className="p-3 hidden md:table-cell">
-                    <span className="text-xs text-muted-foreground">
-                      {a.vapi_phone_number_id ?? "—"}
-                    </span>
-                  </td>
+                      {/* mobile details */}
+                      <div className="mt-2 space-y-1 text-xs text-gray-600 sm:hidden">
+                        <div>
+                          <span className="text-gray-500">Status:</span>{" "}
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${statusClass}`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Created:</span>{" "}
+                          {formatDate(a.created_at)}
+                        </div>
+                      </div>
+                    </td>
 
-                  <td className="p-3 text-right">
-                    <Link
-                      href={`/dashboard/agents/${a.id}`}
-                      className="text-sm underline underline-offset-4"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    <td className="hidden px-4 py-3 sm:table-cell">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
+                      >
+                        {statusLabel}
+                      </span>
+                    </td>
+
+                    <td className="hidden px-4 py-3 md:table-cell text-gray-700">
+                      {formatDate(a.created_at)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/dashboard/agents/${a.id}`}
+                        className="rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

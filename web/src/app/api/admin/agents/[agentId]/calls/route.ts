@@ -27,28 +27,25 @@ export async function GET(
   ctx: { params: Promise<{ agentId: string }> }
 ) {
   try {
-    // ✅ Next 15: params is Promise
     const { agentId } = await ctx.params;
 
-    // ✅ Basic Auth guard (ADMIN_USER / ADMIN_PASS)
+    // Basic Auth guard
     const creds = parseBasicAuth(req);
     if (!creds) return unauthorized();
 
     const expectedUser = process.env.ADMIN_USER || "";
     const expectedPass = process.env.ADMIN_PASS || "";
-
     if (!expectedUser || !expectedPass) return unauthorized();
-    if (creds.user !== expectedUser || creds.pass !== expectedPass) return unauthorized();
+    if (creds.user !== expectedUser || creds.pass !== expectedPass)
+      return unauthorized();
 
-    // query params
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") ?? "10"), 50);
 
-    // 🔧 FIX: agent_id = agentId OR agent_id IS NULL
     const { data, error } = await supabaseAdmin
       .from("calls")
-      .select("id, vapi_call_id, started_at, ended_at, duration_sec, cost_usd, outcome")
-      .or(`agent_id.eq.${agentId},agent_id.is.null`)
+      .select("id, vapi_call_id, started_at, ended_at, duration_seconds, cost_usd, outcome")
+      .eq("agent_id", agentId)
       .order("started_at", { ascending: false, nullsFirst: false })
       .limit(limit);
 
