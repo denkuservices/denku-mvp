@@ -44,11 +44,11 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") ?? "10"), 50);
 
-    // fetch last calls for agent
+    // 🔧 FIX: agent_id = agentId OR agent_id IS NULL
     const { data, error } = await supabaseAdmin
       .from("calls")
-      .select("id, vapi_call_id, started_at, ended_at, duration_seconds, cost_usd, outcome")
-      .eq("agent_id", agentId)
+      .select("id, vapi_call_id, started_at, ended_at, duration_sec, cost_usd, outcome")
+      .or(`agent_id.eq.${agentId},agent_id.is.null`)
       .order("started_at", { ascending: false, nullsFirst: false })
       .limit(limit);
 
@@ -57,7 +57,12 @@ export async function GET(
       return NextResponse.json({ error: "db_error" }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, agent_id: agentId, limit, data: data ?? [] });
+    return NextResponse.json({
+      ok: true,
+      agent_id: agentId,
+      limit,
+      data: data ?? [],
+    });
   } catch (err) {
     console.error("agent calls endpoint error", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });

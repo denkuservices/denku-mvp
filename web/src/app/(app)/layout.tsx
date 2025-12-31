@@ -1,24 +1,24 @@
 import Link from "next/link";
+import DashboardHeader from "@/app/(app)/DashboardHeader";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="min-h-screen">
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="font-semibold">
-            SovereignAI
-          </Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/dashboard" className="hover:underline">
-              Dashboard
-            </Link>
-{/* <Link href="/admin">Admin</Link> */}
-
-          </nav>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="border-b bg-white">
+        <div className="mx-auto max-w-5xl px-4 py-3">
+          <DashboardHeader />
         </div>
-      </header>
+      </div>
 
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      {/* Content */}
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        {children}
+      </main>
     </div>
   );
 }
