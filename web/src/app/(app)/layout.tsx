@@ -12,9 +12,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link href="/dashboard" className="hover:underline">
               Dashboard
             </Link>
-            <Link href="/admin" className="hover:underline">
-              Admin
-            </Link>
+{/* <Link href="/admin">Admin</Link> */}
+
           </nav>
         </div>
       </header>
