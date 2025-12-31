@@ -2,7 +2,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-
 function normalizePhone(input?: string | null) {
   if (!input) return null;
   const cleaned = input.replace(/[^\d+]/g, "");
@@ -39,12 +38,45 @@ function inferIntent(text?: string | null) {
   return "none";
 }
 
-// Minimal schema: require call id; keep rest flexible
+/**
+ * Accept both:
+ *  A) Vapi webhook:
+ *     { message: { call: { id, assistantId?, phoneNumberId?, customer?.number?, to?, from?, createdAt?, ... }, type?, endedAt?, transcript? } }
+ *  B) Legacy flat:
+ *     { id, to?, from?, startedAt?, endedAt?, status?, transcript? }
+ */
 const VapiWebhookSchema = z
   .object({
-    id: z.string().min(1), // Vapi call id
-    to: z.string().min(3).optional().nullable(),
-    from: z.string().min(3).optional().nullable(),
+    message: z
+      .object({
+        call: z
+          .object({
+            id: z.string().min(1),
+            assistantId: z.string().optional().nullable(),
+            phoneNumberId: z.string().optional().nullable(),
+            customer: z
+              .object({
+                number: z.string().optional().nullable(),
+              })
+              .optional()
+              .nullable(),
+            to: z.string().optional().nullable(),
+            from: z.string().optional().nullable(),
+            createdAt: z.string().optional().nullable(),
+            endedAt: z.string().optional().nullable(),
+            status: z.string().optional().nullable(),
+            transcript: z.string().optional().nullable(),
+          })
+          .passthrough(),
+        type: z.string().optional().nullable(),
+        endedAt: z.string().optional().nullable(),
+        transcript: z.string().optional().nullable(),
+      })
+      .optional(),
+    // legacy flat fallback
+    id: z.string().optional(),
+    to: z.string().optional().nullable(),
+    from: z.string().optional().nullable(),
     startedAt: z.string().optional().nullable(),
     endedAt: z.string().optional().nullable(),
     status: z.string().optional().nullable(),
@@ -54,32 +86,15 @@ const VapiWebhookSchema = z
 
 export async function POST(request: NextRequest) {
   // 1) Shared secret check (webhook only)
-    // DEBUG: log every incoming webhook attempt (before auth)
-  try {
-    const rawBody = await request.clone().json().catch(() => null);
-    const headersObj = Object.fromEntries(request.headers.entries());
-
-    await supabaseAdmin.from("webhook_debug").insert({
-      source: "vapi",
-      headers: headersObj,
-      body: rawBody,
-    });
-  } catch {
-    // ignore debug failures
-  }
-
-    const expectedSecret = process.env.VAPI_WEBHOOK_SECRET;
-    if (expectedSecret) {
-      const incoming =
-        request.headers.get("x-vapi-secret") || // Vapi Server URL secret :contentReference[oaicite:1]{index=1}
-        request.headers.get("x-webhook-secret"); // legacy support
-
-      if (!incoming || incoming !== expectedSecret) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+  const expectedSecret = process.env.VAPI_WEBHOOK_SECRET;
+  if (expectedSecret) {
+    const incoming =
+      request.headers.get("x-vapi-secret") || // Vapi standard
+      request.headers.get("x-webhook-secret"); // legacy / manual tests
+    if (!incoming || incoming !== expectedSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-
+  }
 
   // 2) Parse JSON
   let body: unknown;
@@ -98,43 +113,108 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data;
-  const vapiCallId = payload.id;
+  const call = payload.message?.call;
 
-  const toPhone = normalizePhone(payload.to);
-  const fromPhone = normalizePhone(payload.from);
-
-  if (!toPhone) {
-    return NextResponse.json({ error: "Missing to phone" }, { status: 400 });
+  // Normalize core fields
+  const vapiCallId = call?.id ?? payload.id;
+  if (!vapiCallId) {
+    return NextResponse.json({ error: "Missing call id" }, { status: 400 });
   }
 
-  // 3) Tenant mapping via organizations.phone_number
-  const { data: org, error: orgErr } = await supabaseAdmin
-    .from("organizations")
-    .select("id, phone_number")
-    .eq("phone_number", toPhone)
-    .single();
+  const phoneNumberId = call?.phoneNumberId ?? null;
+  const assistantId = call?.assistantId ?? null;
 
-  if (orgErr || !org) {
+  const toPhone = normalizePhone(call?.to ?? payload.to ?? null);
+  const fromPhone = normalizePhone(
+    call?.from ?? payload.from ?? call?.customer?.number ?? null
+  );
+
+  const startedAtRaw = call?.createdAt ?? payload.startedAt ?? null;
+  const endedAtRaw =
+    payload.message?.endedAt ?? call?.endedAt ?? payload.endedAt ?? null;
+
+  const startedAt = startedAtRaw ? new Date(startedAtRaw).toISOString() : null;
+  const endedAt = endedAtRaw ? new Date(endedAtRaw).toISOString() : null;
+
+  const status =
+    (call?.status ?? payload.status ?? payload.message?.type ?? null) as
+      | string
+      | null;
+
+  const transcript =
+    (call?.transcript ??
+      payload.transcript ??
+      payload.message?.transcript ??
+      null) as string | null;
+
+  // 3) Multi-tenant mapping
+  // Prefer: agents.vapi_phone_number_id == phoneNumberId
+  // Fallback: agents.vapi_assistant_id == assistantId
+  // Last resort: organizations.phone_number == toPhone (legacy)
+  let orgId: string | null = null;
+
+  if (phoneNumberId) {
+    const { data: agentByPhone, error } = await supabaseAdmin
+      .from("agents")
+      .select("org_id")
+      .eq("vapi_phone_number_id", phoneNumberId)
+      .maybeSingle<{ org_id: string }>();
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to map org via phoneNumberId", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    if (agentByPhone?.org_id) orgId = agentByPhone.org_id;
+  }
+
+  if (!orgId && assistantId) {
+    const { data: agentByAssistant, error } = await supabaseAdmin
+      .from("agents")
+      .select("org_id")
+      .eq("vapi_assistant_id", assistantId)
+      .maybeSingle<{ org_id: string }>();
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to map org via assistantId", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    if (agentByAssistant?.org_id) orgId = agentByAssistant.org_id;
+  }
+
+  if (!orgId && toPhone) {
+    const { data: org, error: orgErr } = await supabaseAdmin
+      .from("organizations")
+      .select("id, phone_number")
+      .eq("phone_number", toPhone)
+      .maybeSingle<{ id: string; phone_number: string | null }>();
+
+    if (orgErr) {
+      return NextResponse.json(
+        { error: "Failed to map org via organizations.phone_number", details: orgErr.message },
+        { status: 500 }
+      );
+    }
+
+    if (org?.id) orgId = org.id;
+  }
+
+  if (!orgId) {
     return NextResponse.json(
-      { error: "Organization not found for phone_number", phone_number: toPhone },
+      {
+        error: "Organization not found (no mapping matched)",
+        phoneNumberId,
+        assistantId,
+        toPhone,
+      },
       { status: 404 }
     );
   }
-  // 3.5) Agent mapping via agents.inbound_phone
-  const { data: agent, error: agentErr } = await supabaseAdmin
-    .from("agents")
-    .select("id")
-    .eq("org_id", org.id)
-    .eq("inbound_phone", toPhone)
-    .maybeSingle();
-
-  if (agentErr) {
-    return NextResponse.json(
-      { error: "Failed to lookup agent", details: agentErr.message },
-      { status: 500 }
-    );
-  }
-
 
   // 4) Lead lookup/create by from_phone (optional)
   let leadId: string | null = null;
@@ -143,9 +223,9 @@ export async function POST(request: NextRequest) {
     const { data: existingLead, error: leadFindErr } = await supabaseAdmin
       .from("leads")
       .select("id")
-      .eq("org_id", org.id)
+      .eq("org_id", orgId)
       .eq("phone", fromPhone)
-      .maybeSingle();
+      .maybeSingle<{ id: string }>();
 
     if (leadFindErr) {
       return NextResponse.json(
@@ -160,7 +240,7 @@ export async function POST(request: NextRequest) {
       const { data: newLead, error: leadCreateErr } = await supabaseAdmin
         .from("leads")
         .insert({
-          org_id: org.id,
+          org_id: orgId,
           name: null,
           phone: fromPhone,
           email: null,
@@ -169,7 +249,7 @@ export async function POST(request: NextRequest) {
           notes: "Auto-created from call webhook",
         })
         .select("id")
-        .single();
+        .single<{ id: string }>();
 
       if (leadCreateErr) {
         return NextResponse.json(
@@ -183,30 +263,29 @@ export async function POST(request: NextRequest) {
   }
 
   // 5) Upsert call record
-  const startedAt = payload.startedAt ? new Date(payload.startedAt).toISOString() : null;
-  const endedAt = payload.endedAt ? new Date(payload.endedAt).toISOString() : null;
-
   const { data: callRow, error: callErr } = await supabaseAdmin
     .from("calls")
     .upsert(
       {
-        org_id: org.id,
-        agent_id: agent?.id ?? null,
+        org_id: orgId,
         vapi_call_id: vapiCallId,
+        vapi_phone_number_id: phoneNumberId,
+        vapi_assistant_id: assistantId,
         direction: "inbound",
         from_phone: fromPhone,
         to_phone: toPhone,
         started_at: startedAt,
         ended_at: endedAt,
-        outcome: payload.status ?? null,
-        transcript: payload.transcript ?? null,
+        outcome: status ?? null,
+        transcript: transcript ?? null,
         raw_payload: payload,
       },
       { onConflict: "org_id,vapi_call_id" }
     )
-    .select("id, org_id, agent_id, vapi_call_id, from_phone, to_phone, started_at, ended_at, outcome, created_at")
+    .select(
+      "id, org_id, vapi_call_id, from_phone, to_phone, started_at, ended_at, outcome, created_at"
+    )
     .single();
-
 
   if (callErr) {
     return NextResponse.json(
@@ -216,7 +295,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 6) Intent inference (logging only; no auto-create)
-  const intent = inferIntent(payload.transcript ?? null);
+  const intent = inferIntent(transcript);
 
   return NextResponse.json(
     {
@@ -228,4 +307,3 @@ export async function POST(request: NextRequest) {
     { status: 200 }
   );
 }
-
