@@ -54,6 +54,20 @@ const VapiWebhookSchema = z
 
 export async function POST(request: NextRequest) {
   // 1) Shared secret check (webhook only)
+    // DEBUG: log every incoming webhook attempt (before auth)
+  try {
+    const rawBody = await request.clone().json().catch(() => null);
+    const headersObj = Object.fromEntries(request.headers.entries());
+
+    await supabaseAdmin.from("webhook_debug").insert({
+      source: "vapi",
+      headers: headersObj,
+      body: rawBody,
+    });
+  } catch {
+    // ignore debug failures
+  }
+
     const expectedSecret = process.env.VAPI_WEBHOOK_SECRET;
     if (expectedSecret) {
       const incoming =
@@ -190,8 +204,9 @@ export async function POST(request: NextRequest) {
       },
       { onConflict: "org_id,vapi_call_id" }
     )
-    .select("id, org_id, vapi_call_id, from_phone, to_phone, started_at, ended_at, outcome, created_at")
+    .select("id, org_id, agent_id, vapi_call_id, from_phone, to_phone, started_at, ended_at, outcome, created_at")
     .single();
+
 
   if (callErr) {
     return NextResponse.json(
