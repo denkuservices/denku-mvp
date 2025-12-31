@@ -17,8 +17,9 @@ async function getAgentKPI(agentId: string) {
   const pass = process.env.ADMIN_PASS!;
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
-  const h = headers();
-  const host = h.get("host"); // denku-mvp.vercel.app
+  const h = await headers();
+  const host = h.get("host");
+
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
 
   const url = `${protocol}://${host}/api/admin/agents/${agentId}/kpi?days=7`;
