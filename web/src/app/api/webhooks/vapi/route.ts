@@ -112,7 +112,17 @@ export async function POST(req: NextRequest) {
     }
 
     const msg = parsed.data.message;
-    const call = msg.call;
+const call = msg.call;
+
+console.log("VAPI IDS", {
+  type: msg.type,
+  callId: call?.id,
+  assistantId: call?.assistantId,
+  phoneNumberId: call?.phoneNumberId,
+  rawAssistantId: (body as any)?.message?.call?.assistantId,
+  rawPhoneNumberId: (body as any)?.message?.call?.phoneNumberId,
+});
+
 
     console.log("VAPI WEBHOOK HIT ✅", msg.type, call?.id);
 
