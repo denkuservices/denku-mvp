@@ -134,7 +134,7 @@ console.log("VAPI IDS", {
     /* 3) Agent → org mapping */
     const { data: agent, error: agentErr } = await supabaseAdmin
       .from("agents")
-      .select("id, org_id, name, phone_number")
+      .select("id, org_id, name")
       .or(
         [
           call.assistantId ? `vapi_assistant_id.eq.${call.assistantId}` : null,
@@ -216,7 +216,7 @@ console.log("VAPI IDS", {
 
         direction: "inbound",
         from_phone: fromPhone,
-        to_phone: normalizePhone(call.to) ?? agent.phone_number ?? null,
+        to_phone: normalizePhone(call.to) ?? null,
 
         started_at: startedAt,
         ended_at: endedAt,
