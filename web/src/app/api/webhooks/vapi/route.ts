@@ -5,27 +5,39 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /* -------------------------------------------------
    Schema (minimum ama güvenli)
 ------------------------------------------------- */
-const VapiWebhookSchema = z.object({
-  message: z.object({
-    type: z.string(),
-    timestamp: z.number().optional(),
-    call: z
+const VapiWebhookSchema = z
+  .object({
+    message: z
       .object({
-        id: z.string(),
-        assistantId: z.string().optional().nullable(),
-        phoneNumberId: z.string().optional().nullable(),
-        startedAt: z.string().optional().nullable(),
-        endedAt: z.string().optional().nullable(),
-        transcript: z.string().optional().nullable(),
-        to: z.string().optional().nullable(),
-        from: z.string().optional().nullable(),
+        type: z.string(),
+        timestamp: z.number().optional(),
+        call: z
+          .object({
+            id: z.string(),
+            assistantId: z.string().optional().nullable(),
+            phoneNumberId: z.string().optional().nullable(),
+            startedAt: z.string().optional().nullable(),
+            endedAt: z.string().optional().nullable(),
+            transcript: z.string().optional().nullable(),
+            to: z.string().optional().nullable(),
+            from: z.string().optional().nullable(),
+
+            // bazen gelir
+            durationSeconds: z.number().optional().nullable(),
+            cost: z.number().optional().nullable(),
+          })
+          .passthrough()
+          .optional()
+          .nullable(),
+
+        // bazen buradan gelir
+        cost: z.number().optional().nullable(),
+        usage: z.any().optional(),
+        data: z.any().optional(),
       })
-      .passthrough()
-      .optional()
-      .nullable(),
-    cost: z.number().optional().nullable(),
-  }).passthrough(),
-}).passthrough();
+      .passthrough(),
+  })
+  .passthrough();
 
 /* -------------------------------------------------
    Helpers
@@ -38,6 +50,41 @@ function normalizePhone(input?: string | null) {
   if (!input) return null;
   const cleaned = input.replace(/[^\d+]/g, "");
   return cleaned || null;
+}
+
+function safeNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function computeDurationSec(startedAt?: string | null, endedAt?: string | null) {
+  if (!startedAt || !endedAt) return null;
+  const s = Date.parse(startedAt);
+  const e = Date.parse(endedAt);
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
+  const diff = Math.round((e - s) / 1000);
+  return diff >= 0 ? diff : null;
+}
+
+function extractCostUsd(msg: any, call: any): number | null {
+  const candidates = [
+    msg?.cost,
+    call?.cost,
+    msg?.usage?.costUsd,
+    msg?.usage?.totalCostUsd,
+    msg?.data?.costUsd,
+    msg?.data?.totalCostUsd,
+    msg?.billing?.totalUsd,
+  ];
+  for (const c of candidates) {
+    const n = safeNumber(c);
+    if (n !== null) return n;
+  }
+  return null;
 }
 
 /* -------------------------------------------------
@@ -69,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     console.log("VAPI WEBHOOK HIT ✅", msg.type, call?.id);
 
-    // end-of-call-report değilse DB yazma, ama 200 dön
+    // Sadece end-of-call-report → DB yaz
     if (msg.type !== "end-of-call-report" || !call?.id) {
       return NextResponse.json({ ok: true, ignored: true });
     }
@@ -89,7 +136,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (agentErr || !agent?.org_id) {
-      console.error("Agent mapping failed", agentErr);
+      console.error("Agent mapping failed", agentErr, {
+        assistantId: call.assistantId,
+        phoneNumberId: call.phoneNumberId,
+      });
       return NextResponse.json({ ok: true, warning: "agent_not_found" });
     }
 
@@ -117,6 +167,7 @@ export async function POST(req: NextRequest) {
             phone: fromPhone,
             source: "vapi",
             status: "new",
+            notes: "Auto-created from Vapi end-of-call-report",
           })
           .select("id")
           .single();
@@ -125,28 +176,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 5) Call upsert */
+    /* 5) KPI-ready fields */
+    const startedAt = call.startedAt ?? null;
+    const endedAt = call.endedAt ?? null;
+
+    const durationSec =
+      safeNumber((call as any)?.durationSeconds) ??
+      computeDurationSec(startedAt, endedAt);
+
+    const costUsd = extractCostUsd(msg, call);
+
+    /* 6) Call upsert
+       KRİTİK: kolon adın duration_seconds (duration_sec değil)
+    */
     await supabaseAdmin.from("calls").upsert(
       {
         org_id: orgId,
         agent_id: agent.id,
         vapi_call_id: call.id,
+
+        vapi_assistant_id: call.assistantId ?? null,
+        vapi_phone_number_id: call.phoneNumberId ?? null,
+
         direction: "inbound",
         from_phone: fromPhone,
-        to_phone: normalizePhone(call.to) ?? agent.phone_number,
-        started_at: call.startedAt,
-        ended_at: call.endedAt,
-        transcript: call.transcript,
-        cost_usd: msg.cost ?? null,
-        outcome: msg.type,
+        to_phone: normalizePhone(call.to) ?? agent.phone_number ?? null,
+
+        started_at: startedAt,
+        ended_at: endedAt,
+
+        duration_seconds: durationSec,
+        cost_usd: costUsd,
+
+        transcript: call.transcript ?? null,
+        outcome: "end-of-call-report",
         raw_payload: body,
-        lead_id: leadId,
-      },
+
+        lead_id: leadId, // eğer tablonda varsa
+      } as any,
       { onConflict: "org_id,vapi_call_id" }
     );
 
-    /* 6) Done */
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      vapi_call_id: call.id,
+      duration_seconds: durationSec,
+      cost_usd: costUsd,
+    });
   } catch (err) {
     console.error("VAPI WEBHOOK ERROR ❌", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
