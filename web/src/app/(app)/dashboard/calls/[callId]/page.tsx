@@ -35,9 +35,11 @@ async function getCall(callId: string): Promise<CallDetail> {
 export default async function Page({
   params,
 }: {
-  params: { callId: string };
+  params: Promise<{ callId: string }>;
 }) {
-  const call = await getCall(params.callId);
+  const { callId } = await params;
+  const call = await getCall(callId);
+
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
