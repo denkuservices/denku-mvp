@@ -187,12 +187,25 @@ console.log("VAPI IDS", {
     }
 
     /* 5) KPI-ready fields */
-    const startedAt = call.startedAt ?? null;
-    const endedAt = call.endedAt ?? null;
+    const startedAt =
+  call?.startedAt ??
+  (body as any)?.message?.call?.startedAt ??
+  (body as any)?.message?.call?.startAt ??
+  (body as any)?.message?.startedAt ??
+  null;
 
-    const durationSec =
-      safeNumber((call as any)?.durationSeconds) ??
-      computeDurationSec(startedAt, endedAt);
+const endedAt =
+  call?.endedAt ??
+  (body as any)?.message?.call?.endedAt ??
+  (body as any)?.message?.call?.endAt ??
+  (body as any)?.message?.endedAt ??
+  null;
+
+const durationSec =
+  safeNumber((call as any)?.durationSeconds) ??
+  safeNumber((body as any)?.message?.call?.durationSeconds) ??
+  computeDurationSec(startedAt, endedAt);
+
 
     const costUsd = extractCostUsd(msg, call);
 
@@ -202,36 +215,39 @@ console.log("VAPI IDS", {
     console.log("DURATION CALC", {
   startedAt,
   endedAt,
-  durationSec
+  durationSecduration_seconds: durationSec,
 });
 
-    await supabaseAdmin.from("calls").upsert(
-      {
-        org_id: orgId,
-        agent_id: agent.id,
-        vapi_call_id: call.id,
+console.log("END REPORT FIELDS", {
+  startedAt,
+  endedAt,
+  durationSec,
+  rawStartedAt: (body as any)?.message?.call?.startedAt,
+  rawEndedAt: (body as any)?.message?.call?.endedAt,
+});
 
-        vapi_assistant_id: call.assistantId ?? null,
-        vapi_phone_number_id: call.phoneNumberId ?? null,
+await supabaseAdmin.from("calls").upsert(
+  {
+    org_id: orgId,
+    agent_id: agent.id,
+    vapi_call_id: call.id,
+    vapi_assistant_id: call.assistantId ?? null,
+    vapi_phone_number_id: call.phoneNumberId ?? null,
+    direction: "inbound",
+    from_phone: fromPhone,
+    to_phone: normalizePhone(call.to) ?? null,
+    started_at: startedAt,
+    ended_at: endedAt,
+    duration_seconds: durationSec,
+    cost_usd: costUsd,
+    transcript: call.transcript ?? null,
+    outcome: "end-of-call-report",
+    raw_payload: body,
+    // lead_id: leadId,  // calls tablosunda yoksa sil
+  },
+  { onConflict: "org_id,vapi_call_id" }
+);
 
-        direction: "inbound",
-        from_phone: fromPhone,
-        to_phone: normalizePhone(call.to) ?? null,
-
-        started_at: startedAt,
-        ended_at: endedAt,
-
-        duration_seconds: durationSec,
-        cost_usd: costUsd,
-
-        transcript: call.transcript ?? null,
-        outcome: "end-of-call-report",
-        raw_payload: body,
-
-        lead_id: leadId, // eğer tablonda varsa
-      } as any,
-      { onConflict: "org_id,vapi_call_id" }
-    );
 
     return NextResponse.json({
       ok: true,
