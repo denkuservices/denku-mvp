@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 repo_map.txt
 src/app/api/debug/
+
+# local env
+.env.local
+.env.*.local
+

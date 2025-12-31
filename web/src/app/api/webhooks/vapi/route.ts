@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -54,13 +54,18 @@ const VapiWebhookSchema = z
 
 export async function POST(request: NextRequest) {
   // 1) Shared secret check (webhook only)
-  const expectedSecret = process.env.VAPI_WEBHOOK_SECRET;
-  if (expectedSecret) {
-    const incomingSecret = request.headers.get("x-webhook-secret");
-    if (!incomingSecret || incomingSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const expectedSecret = process.env.VAPI_WEBHOOK_SECRET;
+    if (expectedSecret) {
+      const incoming =
+        request.headers.get("x-vapi-secret") || // Vapi Server URL secret :contentReference[oaicite:1]{index=1}
+        request.headers.get("x-webhook-secret"); // legacy support
+
+      if (!incoming || incoming !== expectedSecret) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
-  }
+
+
 
   // 2) Parse JSON
   let body: unknown;
@@ -101,6 +106,21 @@ export async function POST(request: NextRequest) {
       { status: 404 }
     );
   }
+  // 3.5) Agent mapping via agents.inbound_phone
+  const { data: agent, error: agentErr } = await supabaseAdmin
+    .from("agents")
+    .select("id")
+    .eq("org_id", org.id)
+    .eq("inbound_phone", toPhone)
+    .maybeSingle();
+
+  if (agentErr) {
+    return NextResponse.json(
+      { error: "Failed to lookup agent", details: agentErr.message },
+      { status: 500 }
+    );
+  }
+
 
   // 4) Lead lookup/create by from_phone (optional)
   let leadId: string | null = null;
@@ -157,6 +177,7 @@ export async function POST(request: NextRequest) {
     .upsert(
       {
         org_id: org.id,
+        agent_id: agent?.id ?? null,
         vapi_call_id: vapiCallId,
         direction: "inbound",
         from_phone: fromPhone,

@@ -1,243 +1,278 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { signOutAction } from "./actions";
-
-type Org = {
-  id: string;
-  name: string;
-  created_at?: string;
-};
-
-type Profile = {
-  id: string;
-  org_id: string | null;
-  email: string | null;
-  full_name: string | null;
-};
+import { getDashboardOverview } from "@/lib/dashboard/getDashboardOverview";
+import {
+  Users,
+  MessageSquare,
+  Clock,
+  Zap,
+  Plus,
+  Settings,
+  BookOpen,
+  Shield,
+  CheckCircle2,
+  Circle,
+  Bot,
+} from "lucide-react";
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const user = auth.user;
-
-  if (!user) redirect("/login");
-
-  // Profile
-  const { data: profile, error: profErr } = await supabase
-    .from("profiles")
-    .select("id, org_id, email, full_name")
-    .eq("id", user.id)
-    .single<Profile>();
-
-  if (profErr) {
-    // Profile yoksa, MVP'de login'i bloklamıyoruz; ama kullanıcıya net bilgi veriyoruz
-    // (İstersen burada otomatik repair yaparız.)
-  }
-
-  let org: Org | null = null;
-  // Agent count (org bazlı)
-  let agentCount: number | null = null;
-  if (profile?.org_id) {
-    const { count } = await supabase
-      .from("agents")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", profile.org_id);
-
-    agentCount = typeof count === "number" ? count : null;
-  }
-
-  if (profile?.org_id) {
-    const { data: orgData } = await supabase
-      .from("orgs")
-      .select("id, name, created_at")
-      .eq("id", profile.org_id)
-      .single<Org>();
-    org = orgData ?? null;
-  }
-
-  const displayName =
-    profile?.full_name?.trim() ||
-    user.user_metadata?.full_name ||
-    user.email ||
-    "User";
+  const data = await getDashboardOverview();
+  const hasAgents = data.metrics.agents_total > 0;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Welcome, {displayName}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Signed in as <span className="font-medium">{user.email}</span>
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border px-2 py-1">
-              Org: <span className="font-medium">{org?.name ?? "—"}</span>
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              Status: <span className="font-medium">Active</span>
-            </span>
+    <div className="space-y-6 pb-10">
+      {/* 1) DashboardHeader */}
+      <DashboardHeader userName={data.user.name} orgName={data.user.org} />
+
+      {/* Empty State or Operational Overview */}
+      {!hasAgents ? (
+        <EmptyStatePanel />
+      ) : (
+        <>
+          {/* 2) OperationalOverviewCard */}
+          <OperationalOverviewCard metrics={data.metrics} />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* 3) WorkloadCard */}
+            <div className="lg:col-span-2">
+              <WorkloadCard data={data.workload} />
+            </div>
+
+            {/* 4) LiveFeedCard */}
+            <div className="lg:col-span-1">
+              <LiveFeedCard feed={data.feed} />
+            </div>
           </div>
+        </>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 5) QuickActionsCard */}
+        <div className="lg:col-span-2">
+          <QuickActionsCard />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin"
-            className="rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
-          >
-            Admin
-          </Link>
-
-          <form action={signOutAction}>
-            <button className="rounded-md bg-black text-white px-3 py-2 text-sm">
-              Sign out
-            </button>
-          </form>
+        {/* 6) GoLiveReadinessCard */}
+        <div className="lg:col-span-1">
+          <GoLiveReadinessCard
+            score={data.readiness.score}
+            steps={data.readiness.steps}
+          />
         </div>
       </div>
-
-      {/* KPI / Status cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Agents" value={agentCount === null ? "—" : String(agentCount)} hint="Create your first agent" />
-        <Card title="Leads (7d)" value="—" hint="Wire CRM intake next" />
-        <Card title="Tickets (7d)" value="—" hint="Support workflow" />
-        <Card title="Calls (7d)" value="—" hint="Connect voice logs" />
-      </section>
-
-      {/* Quick actions */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border p-5 lg:col-span-2">
-          <h2 className="text-lg font-semibold">Quick actions</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Common setup tasks to get value quickly.
-          </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Action
-              title="Create an agent"
-              desc="Name, language, and tools in under a minute."
-              href="/dashboard/agents/new"
-              badge="Next"
-            />
-            <Action
-              title="Connect channels"
-              desc="Web chat, WhatsApp, phone—route into the same brain."
-              href="/dashboard/channels"
-              badge="Next"
-            />
-            <Action
-              title="View leads"
-              desc="See captured leads and structured fields."
-              href="/admin"
-              badge="Now"
-            />
-            <Action
-              title="Test a workflow"
-              desc="Send a sample payload and verify responses."
-              href="/dashboard/tools"
-              badge="Next"
-            />
-          </div>
-        </div>
-
-        {/* Setup checklist */}
-        <div className="rounded-2xl border p-5">
-          <h2 className="text-lg font-semibold">Setup checklist</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Minimum steps for a client-ready demo.
-          </p>
-
-          <ol className="mt-4 space-y-3 text-sm">
-            <ChecklistItem done={false} title="Create first agent" />
-            <ChecklistItem done={false} title="Set language + tone" />
-            <ChecklistItem done={false} title="Enable 1 tool (create ticket)" />
-            <ChecklistItem done={false} title="Connect 1 channel (web chat)" />
-          </ol>
-
-          <div className="mt-5">
-            <Link
-              href="/dashboard/agents/new"
-              className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
-            >
-              Start setup
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Debug (only if profile missing) */}
-      {!profile && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm">
-          <div className="font-semibold text-red-800">Profile not found</div>
-          <div className="mt-1 text-red-700">
-            Your auth user exists, but a matching row in <code>profiles</code> was
-            not found. This can happen if signup was interrupted. We can add an
-            auto-repair action next.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-function Card({ title, value, hint }: { title: string; value: string; hint: string }) {
+// --- Inline Components ---
+
+function DashboardHeader({ userName, orgName }: { userName: string; orgName: string }) {
   return (
-    <div className="rounded-2xl border p-5">
-      <div className="text-sm text-muted-foreground">{title}</div>
-      <div className="mt-2 text-3xl font-semibold">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Mission Control</h1>
+        <p className="text-sm text-muted-foreground">
+          Welcome back, <span className="font-medium text-foreground">{userName}</span>
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-gray-50 px-3 py-1.5 rounded-full border">
+        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+        <span>{orgName}</span>
+        <span className="mx-1 text-gray-300">|</span>
+        <span>System Operational</span>
+      </div>
     </div>
   );
 }
 
-function Action({
-  title,
-  desc,
-  href,
-  badge,
-}: {
-  title: string;
-  desc: string;
-  href: string;
-  badge: "Now" | "Next";
-}) {
+interface Metrics {
+  agents_total: number;
+  agents_active: number;
+  total_conversations: number;
+  avg_response_time: string;
+  uptime: string;
+}
+
+function OperationalOverviewCard({ metrics }: { metrics: Metrics }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatItem
+        icon={Users}
+        label="Active Agents"
+        value={metrics.agents_active.toString()}
+        trend="+1 this week"
+      />
+      <StatItem
+        icon={MessageSquare}
+        label="Total Conversations"
+        value={metrics.total_conversations.toLocaleString()}
+        trend="+12% vs last week"
+      />
+      <StatItem
+        icon={Clock}
+        label="Avg Response Time"
+        value={metrics.avg_response_time}
+        trend="Optimal"
+      />
+      <StatItem
+        icon={Zap}
+        label="System Uptime"
+        value={metrics.uptime}
+        trend="Stable"
+      />
+    </div>
+  );
+}
+
+function StatItem({ icon: Icon, label, value, trend }: any) {
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xs text-muted-foreground mt-1">{trend}</div>
+    </div>
+  );
+}
+
+interface Workload {
+  current_load: string;
+  requests_per_min: number;
+  status: string;
+}
+
+function WorkloadCard({ data }: { data: Workload }) {
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">System Workload</h3>
+        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+          {data.status}
+        </span>
+      </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Current Load</span>
+          <span className="font-medium">{data.current_load}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Throughput</span>
+          <span className="font-medium">{data.requests_per_min} req/min</span>
+        </div>
+        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full bg-black w-[35%]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface FeedItem {
+  id: string;
+  message: string;
+  time: string;
+}
+
+function LiveFeedCard({ feed }: { feed: FeedItem[] }) {
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm h-full">
+      <h3 className="font-semibold mb-4">Live Feed</h3>
+      <div className="space-y-4">
+        {feed.map((item) => (
+          <div key={item.id} className="flex gap-3 items-start text-sm">
+            <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-gray-900">{item.message}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
+            </div>
+          </div>
+        ))}
+        {feed.length === 0 && (
+          <div className="text-sm text-muted-foreground">No recent activity.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuickActionsCard() {
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <h3 className="font-semibold mb-4">Quick Actions</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <ActionItem href="/dashboard/agents/new" icon={Plus} label="New Agent" primary />
+        <ActionItem href="/dashboard/knowledge" icon={BookOpen} label="Add Knowledge" />
+        <ActionItem href="/dashboard/tools" icon={Settings} label="Configure Tools" />
+        <ActionItem href="/dashboard/risk" icon={Shield} label="Risk Policies" />
+      </div>
+    </div>
+  );
+}
+
+function ActionItem({ href, icon: Icon, label, primary }: any) {
   return (
     <Link
       href={href}
-      className="group rounded-2xl border p-4 hover:bg-gray-50 transition-colors"
+      className={`flex items-center justify-center gap-2 p-3 rounded-lg text-sm font-medium transition-colors ${
+        primary ? "bg-black text-white hover:bg-gray-800" : "bg-gray-50 text-gray-700 hover:bg-gray-100 border"
+      }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-semibold">{title}</div>
-          <div className="mt-1 text-sm text-muted-foreground">{desc}</div>
-        </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-1 text-xs border ${
-            badge === "Now" ? "bg-white" : "bg-gray-50"
-          }`}
-        >
-          {badge}
-        </span>
-      </div>
-      <div className="mt-3 text-sm underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        Open
-      </div>
+      <Icon className="h-4 w-4" />
+      {label}
     </Link>
   );
 }
 
-function ChecklistItem({ done, title }: { done: boolean; title: string }) {
+interface Step {
+  label: string;
+  done: boolean;
+}
+
+function GoLiveReadinessCard({ score, steps }: { score: number; steps: Step[] }) {
   return (
-    <li className="flex items-start gap-2">
-      <span
-        className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs ${
-          done ? "bg-black text-white" : "bg-white"
-        }`}
-      >
-        {done ? "✓" : ""}
-      </span>
-      <span className={done ? "line-through text-muted-foreground" : ""}>{title}</span>
-    </li>
+    <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">Go-Live Readiness</h3>
+        <span className="text-sm font-bold">{score}%</span>
+      </div>
+      <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
+        <div
+          className="bg-black h-2 rounded-full transition-all"
+          style={{ width: `${score}%` }}
+        />
+      </div>
+      <div className="space-y-3">
+        {steps.map((step, i) => (
+          <div key={i} className="flex items-center gap-3 text-sm">
+            {step.done ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            ) : (
+              <Circle className="h-4 w-4 text-gray-300" />
+            )}
+            <span className={step.done ? "text-gray-900" : "text-muted-foreground"}>{step.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyStatePanel() {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 p-8 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm mb-4">
+        <Bot className="h-6 w-6 text-gray-500" />
+      </div>
+      <h3 className="text-lg font-semibold">No agents deployed</h3>
+      <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+        Your mission control is empty. Deploy your first AI agent to start monitoring activity.
+      </p>
+      <div className="mt-6">
+        <Link href="/dashboard/agents/new" className="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">
+          Create Agent
+        </Link>
+      </div>
+    </div>
   );
 }
