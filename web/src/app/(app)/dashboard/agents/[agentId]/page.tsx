@@ -43,14 +43,13 @@ async function getLastCalls(agentId: string): Promise<CallRow[]> {
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/calls?agent_id=${agentId}&limit=10`,
-    {
-      headers: {
-        Authorization: `Basic ${auth}`,
-      },
-      cache: "no-store",
-    }
-  );
+  `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/agents/${agentId}/calls?limit=10`,
+  {
+    headers: { Authorization: `Basic ${auth}` },
+    cache: "no-store",
+  }
+);
+
 
   if (!res.ok) throw new Error("Failed to load calls");
 
