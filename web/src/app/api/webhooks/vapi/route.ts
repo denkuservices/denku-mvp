@@ -114,14 +114,7 @@ export async function POST(req: NextRequest) {
     const msg = parsed.data.message;
 const call = msg.call;
 
-console.log("VAPI IDS", {
-  type: msg.type,
-  callId: call?.id,
-  assistantId: call?.assistantId,
-  phoneNumberId: call?.phoneNumberId,
-  rawAssistantId: (body as any)?.message?.call?.assistantId,
-  rawPhoneNumberId: (body as any)?.message?.call?.phoneNumberId,
-});
+
 
 
     console.log("VAPI WEBHOOK HIT ✅", msg.type, call?.id);
@@ -212,19 +205,9 @@ const durationSec =
     /* 6) Call upsert
        KRİTİK: kolon adın duration_seconds (duration_sec değil)
     */
-    console.log("DURATION CALC", {
-  startedAt,
-  endedAt,
-  durationSecduration_seconds: durationSec,
-});
 
-console.log("END REPORT FIELDS", {
-  startedAt,
-  endedAt,
-  durationSec,
-  rawStartedAt: (body as any)?.message?.call?.startedAt,
-  rawEndedAt: (body as any)?.message?.call?.endedAt,
-});
+
+
 
 await supabaseAdmin.from("calls").upsert(
   {
