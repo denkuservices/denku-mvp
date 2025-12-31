@@ -1,6 +1,8 @@
 ﻿export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
 
 async function getAgentKPI(agentId: string) {
   const since = new Date();
@@ -38,9 +40,11 @@ async function getAgentKPI(agentId: string) {
 export default async function Page({
   params,
 }: {
-  params: { agentId: string };
+  params: Promise<{ agentId: string }>;
 }) {
-  const kpi = await getAgentKPI(params.agentId);
+  const { agentId } = await params;   // ✅
+  const kpi = await getAgentKPI(agentId);
+
 
   return (
     <div className="p-6 space-y-4">
