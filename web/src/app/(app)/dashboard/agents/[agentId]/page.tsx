@@ -15,8 +15,9 @@ async function getAgentKPI(agentId: string) {
   const pass = process.env.ADMIN_PASS!;
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/agents/${agentId}/kpi?days=7`,
+    const res = await fetch(
+      `/api/admin/agents/${agentId}/kpi?days=7`,
+
     {
       headers: {
         Authorization: `Basic ${auth}`,
