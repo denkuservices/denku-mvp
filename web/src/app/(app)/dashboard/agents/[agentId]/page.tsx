@@ -1,4 +1,5 @@
 ﻿export const runtime = "nodejs";
+
 import { headers } from "next/headers";
 
 type KPIResponse = {
@@ -16,16 +17,18 @@ async function getAgentKPI(agentId: string) {
   const pass = process.env.ADMIN_PASS!;
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
-    const res = await fetch(
-      `/api/admin/agents/${agentId}/kpi?days=7`,
+  const h = headers();
+  const host = h.get("host"); // denku-mvp.vercel.app
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
 
-    {
-      headers: {
-        Authorization: `Basic ${auth}`,
-      },
-      cache: "no-store",
-    }
-  );
+  const url = `${protocol}://${host}/api/admin/agents/${agentId}/kpi?days=7`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error("Failed to load KPI");
