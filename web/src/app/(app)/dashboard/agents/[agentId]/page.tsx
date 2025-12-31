@@ -1,4 +1,5 @@
-﻿import { headers } from "next/headers";
+﻿export const runtime = "nodejs";
+import { headers } from "next/headers";
 
 type KPIResponse = {
   ok: boolean;
