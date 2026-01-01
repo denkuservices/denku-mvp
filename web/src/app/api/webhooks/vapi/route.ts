@@ -16,20 +16,12 @@ const VapiWebhookSchema = z.object({
           id: z.string(),
           assistantId: z.string().optional().nullable(),
           phoneNumberId: z.string().optional().nullable(),
-          startedAt: z.string().optional().nullable(),
-          endedAt: z.string().optional().nullable(),
-          transcript: z.string().optional().nullable(),
-          from: z.string().optional().nullable(),
-          to: z.string().optional().nullable(),
           durationSeconds: z.number().optional().nullable(),
-          cost: z.number().optional().nullable(),
+          endedAt: z.string().optional().nullable(),
+          startedAt: z.string().optional().nullable(),
         })
         .passthrough()
-        .optional()
-        .nullable(),
-      cost: z.number().optional().nullable(),
-      usage: z.any().optional(),
-      data: z.any().optional(),
+        .optional(),
     })
     .passthrough(),
 });
@@ -37,65 +29,109 @@ const VapiWebhookSchema = z.object({
 /* -----------------------------
    Helpers
 ----------------------------- */
-function normalizePhone(v?: string | null) {
-  if (!v) return null;
-  const out = v.replace(/[^\d+]/g, "");
-  return out ? out : null;
+function asString(v: unknown) {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  try {
+    return String(v);
+  } catch {
+    return null;
+  }
 }
 
-function safeNumber(v: unknown): number | null {
+function normalizePhone(input?: string | null) {
+  if (!input) return null;
+  const digits = input.replace(/[^\d+]/g, "");
+  if (!digits) return null;
+
+  // Keep a leading + if present, otherwise keep digits only
+  if (digits.startsWith("+")) return digits;
+  return digits.replace(/\D/g, "");
+}
+
+function safeNumber(v: unknown) {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
     const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+    if (Number.isFinite(n)) return n;
   }
   return null;
 }
 
-function computeDurationSec(start?: string | null, end?: string | null) {
-  if (!start || !end) return null;
-  const s = Date.parse(start);
-  const e = Date.parse(end);
-  if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
-  return Math.max(0, Math.round((e - s) / 1000));
+function toIsoOrNull(v?: string | null) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
-function extractCost(msg: any, call: any): number | null {
-  const candidates = [
-    msg?.cost,
-    call?.cost,
-    msg?.usage?.costUsd,
-    msg?.usage?.totalCostUsd,
-    msg?.data?.costUsd,
-  ];
-  for (const c of candidates) {
-    const n = safeNumber(c);
-    if (n !== null) return n;
-  }
-  return null;
+function computeDurationSec(startedAt: string | null, endedAt: string | null) {
+  if (!startedAt || !endedAt) return null;
+  const s = new Date(startedAt).getTime();
+  const e = new Date(endedAt).getTime();
+  if (Number.isNaN(s) || Number.isNaN(e)) return null;
+  const diff = Math.round((e - s) / 1000);
+  return diff >= 0 ? diff : null;
 }
 
-function asString(v: unknown): string | null {
-  return typeof v === "string" ? v : null;
-}
-
+/**
+ * Extract started/ended from either msg/call variants.
+ */
 function extractStartedEnded(msg: any, call: any) {
   const startedAt =
-    asString(call?.startedAt) ?? asString(msg?.artifact?.startedAt) ?? null;
+    toIsoOrNull(call?.startedAt) ??
+    toIsoOrNull(msg?.startedAt) ??
+    toIsoOrNull(msg?.artifact?.startedAt) ??
+    null;
+
   const endedAt =
-    asString(call?.endedAt) ?? asString(msg?.artifact?.endedAt) ?? null;
+    toIsoOrNull(call?.endedAt) ??
+    toIsoOrNull(msg?.endedAt) ??
+    toIsoOrNull(msg?.artifact?.endedAt) ??
+    null;
+
   return { startedAt, endedAt };
 }
 
-function extractTranscript(msg: any, call: any): string | null {
+/**
+ * Extract transcript if present (keep backward compatible).
+ */
+function extractTranscript(msg: any, call: any) {
   return (
     asString(call?.transcript) ??
+    asString(msg?.transcript) ??
     asString(msg?.artifact?.transcript) ??
-    asString(msg?.data?.transcript) ??
     null
   );
 }
 
+/**
+ * Extract cost.
+ */
+function extractCost(msg: any, call: any) {
+  const direct =
+    safeNumber(call?.costUsd) ??
+    safeNumber(call?.cost) ??
+    safeNumber(msg?.costUsd) ??
+    safeNumber(msg?.cost);
+
+  if (direct != null) return direct;
+
+  // Some payloads include costs in artifacts/variables
+  const artifactCost =
+    safeNumber(msg?.artifact?.costUsd) ??
+    safeNumber(msg?.artifact?.cost) ??
+    safeNumber(msg?.variables?.costUsd) ??
+    safeNumber(msg?.variableValues?.costUsd);
+
+  return artifactCost ?? null;
+}
+
+/**
+ * Extract phone(s).
+ * - from_phone: caller/customer
+ * - to_phone: destination/agent number
+ */
 function extractPhones(msg: any, call: any) {
   const from =
     normalizePhone(asString(call?.from)) ??
@@ -115,13 +151,18 @@ function extractPhones(msg: any, call: any) {
 }
 
 function safeRawPayload(body: unknown) {
-  // DB column is text (raw_payload). Store as JSON string.
-  if (typeof body === "string") return body;
-  try {
-    return JSON.stringify(body);
-  } catch {
-    return String(body);
+  // calls.raw_payload is jsonb in your schema; any JSON value is acceptable
+  if (body === null) return null;
+  if (typeof body === "object") return body;
+  if (typeof body === "string") {
+    // attempt parse; if fails store as string (still valid JSON)
+    try {
+      return JSON.parse(body);
+    } catch {
+      return body;
+    }
   }
+  return body;
 }
 
 /**
@@ -151,7 +192,58 @@ async function resolveAgentId(input: {
     .maybeSingle();
 
   if (error || !data?.id) return { agentId: null, orgId: null };
-  return { agentId: data.id, orgId: data.org_id ?? null };
+  return { agentId: data.id, orgId: (data as any).org_id ?? null };
+}
+
+/**
+ * Resolve (or create) a lead by phone within org.
+ * - Uses leads.phone exact match (store normalized).
+ * - Creates lead with status='new' and source='inbound_call' if missing.
+ */
+async function resolveLeadId(input: {
+  orgId: string;
+  phone: string | null;
+  name?: string | null;
+  email?: string | null;
+}) {
+  const phone = normalizePhone(input.phone) ?? null;
+  if (!phone) return null;
+
+  // 1) Try existing
+  const { data: existing, error: findErr } = await supabaseAdmin
+    .from("leads")
+    .select("id")
+    .eq("org_id", input.orgId)
+    .eq("phone", phone)
+    .maybeSingle();
+
+  if (!findErr && existing?.id) return existing.id as string;
+
+  // 2) Create (non-breaking)
+  const { data: created, error: insErr } = await supabaseAdmin
+    .from("leads")
+    .insert({
+      org_id: input.orgId,
+      name: input.name ?? null,
+      phone,
+      email: input.email ?? null,
+      source: "inbound_call",
+      status: "new",
+      notes: null,
+    })
+    .select("id")
+    .single();
+
+  if (insErr) {
+    // If insert fails (e.g., constraints), do not break webhook; just skip lead_id
+    console.warn("[vapi-webhook] lead insert failed", {
+      message: insErr.message,
+      code: (insErr as any).code,
+    });
+    return null;
+  }
+
+  return created?.id ?? null;
 }
 
 /* -----------------------------
@@ -160,10 +252,7 @@ async function resolveAgentId(input: {
 export async function POST(req: NextRequest) {
   try {
     const secret = req.headers.get("x-vapi-secret") ?? "";
-    if (
-      process.env.VAPI_WEBHOOK_SECRET &&
-      secret !== process.env.VAPI_WEBHOOK_SECRET
-    ) {
+    if (process.env.VAPI_WEBHOOK_SECRET && secret !== process.env.VAPI_WEBHOOK_SECRET) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
@@ -173,8 +262,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
     }
 
-    const msg = parsed.data.message;
-    const call = msg.call;
+    const msg = parsed.data.message as any;
+    const call = msg.call as any;
 
     if (msg.type !== "end-of-call-report" || !call?.id) {
       return NextResponse.json({ ok: true, ignored: true });
@@ -204,6 +293,22 @@ export async function POST(req: NextRequest) {
     const transcript = extractTranscript(msg, call);
     const { from_phone, to_phone } = extractPhones(msg, call);
 
+    // Lead linking: caller is lead for inbound calls in your current payload
+    const leadId = await resolveLeadId({
+      orgId,
+      phone: from_phone,
+      name:
+        asString(msg?.variables?.customer?.name) ??
+        asString(msg?.variableValues?.customer?.name) ??
+        asString(msg?.customer?.name) ??
+        null,
+      email:
+        asString(msg?.variables?.customer?.email) ??
+        asString(msg?.variableValues?.customer?.email) ??
+        asString(msg?.customer?.email) ??
+        null,
+    });
+
     const payload = {
       org_id: orgId,
       agent_id: agentId,
@@ -212,9 +317,13 @@ export async function POST(req: NextRequest) {
       vapi_assistant_id: call.assistantId ?? null,
       vapi_phone_number_id: call.phoneNumberId ?? null,
 
+      // keep your current behavior
       direction: "inbound",
       from_phone,
       to_phone,
+
+      // New: relational link
+      lead_id: leadId,
 
       started_at: startedAt,
       ended_at: endedAt,
@@ -222,7 +331,7 @@ export async function POST(req: NextRequest) {
       cost_usd: costUsd,
 
       transcript,
-      outcome: "completed",
+      outcome: call?.outcome ?? "completed",
       raw_payload: safeRawPayload(body),
     };
 
@@ -243,7 +352,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, lead_id: leadId ?? null });
   } catch (err) {
     console.error("VAPI WEBHOOK ERROR", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });

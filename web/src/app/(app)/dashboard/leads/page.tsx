@@ -1,15 +1,19 @@
 ﻿import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type LeadStatus = "new" | "contacted" | "qualified" | "unqualified";
+type LeadSource = "web" | "inbound_call" | "referral" | "import";
 
 type LeadRow = {
   id: string;
-  name: string;
-  phone: string;
-  status: LeadStatus;
-  source: "web" | "inbound_call" | "referral" | "import";
-  created_at: string; // ISO
-  last_contacted_at?: string | null; // ISO
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string; // DB is text
+  source: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function asString(v: string | string[] | undefined) {
@@ -24,8 +28,8 @@ function formatDate(value?: string | null) {
   return d.toLocaleString();
 }
 
-function formatPhone(input: string) {
-  // Very lightweight formatting for demo. Keep raw in DB later.
+function formatPhone(input?: string | null) {
+  if (!input) return "—";
   const digits = input.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
     const a = digits.slice(1, 4);
@@ -42,6 +46,18 @@ function formatPhone(input: string) {
   return input;
 }
 
+function safeStatus(s: string): LeadStatus {
+  const v = (s || "").toLowerCase();
+  if (v === "new" || v === "contacted" || v === "qualified" || v === "unqualified") return v;
+  return "new";
+}
+
+function safeSource(s?: string | null): LeadSource | "unknown" {
+  const v = (s || "").toLowerCase();
+  if (v === "web" || v === "inbound_call" || v === "referral" || v === "import") return v;
+  return "unknown";
+}
+
 function statusLabel(s: LeadStatus) {
   switch (s) {
     case "new":
@@ -56,7 +72,6 @@ function statusLabel(s: LeadStatus) {
 }
 
 function statusBadgeClass(s: LeadStatus) {
-  // Neutral, product-console style (no custom colors required).
   switch (s) {
     case "new":
       return "bg-zinc-900 text-white";
@@ -69,7 +84,7 @@ function statusBadgeClass(s: LeadStatus) {
   }
 }
 
-function sourceLabel(s: LeadRow["source"]) {
+function sourceLabel(s: ReturnType<typeof safeSource>) {
   switch (s) {
     case "web":
       return "Web";
@@ -79,99 +94,86 @@ function sourceLabel(s: LeadRow["source"]) {
       return "Referral";
     case "import":
       return "Import";
+    default:
+      return "—";
   }
 }
 
 /**
- * Mock dataset for MVP UI.
- * Replace later with Supabase query:
- * - filter by org_id
- * - order by created_at desc
- * - apply q + status in SQL
+ * Resolve org_id for tenant scoping.
+ * Tries common column names in `profiles` (because schemas differ between projects).
  */
-function getMockLeads(): LeadRow[] {
-  const now = Date.now();
-  const days = (n: number) => new Date(now - n * 24 * 60 * 60 * 1000).toISOString();
+async function resolveOrgId() {
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  if (authErr) throw new Error(authErr.message);
+  if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
 
-  return [
-    {
-      id: "lead_001",
-      name: "Alex Johnson",
-      phone: "+1 407 555 0139",
-      status: "new",
-      source: "inbound_call",
-      created_at: days(1),
-      last_contacted_at: null,
-    },
-    {
-      id: "lead_002",
-      name: "Maria Garcia",
-      phone: "+1 321 555 0194",
-      status: "contacted",
-      source: "web",
-      created_at: days(3),
-      last_contacted_at: days(2),
-    },
-    {
-      id: "lead_003",
-      name: "Kevin Patel",
-      phone: "+1 689 555 0144",
-      status: "qualified",
-      source: "referral",
-      created_at: days(6),
-      last_contacted_at: days(1),
-    },
-    {
-      id: "lead_004",
-      name: "Samantha Lee",
-      phone: "+1 407 555 0108",
-      status: "unqualified",
-      source: "web",
-      created_at: days(12),
-      last_contacted_at: days(10),
-    },
-    {
-      id: "lead_005",
-      name: "Noah Brown",
-      phone: "+1 561 555 0151",
-      status: "contacted",
-      source: "import",
-      created_at: days(18),
-      last_contacted_at: null,
-    },
-  ];
+  const profileId = auth.user.id;
+
+  const candidates = ["org_id", "organization_id", "current_org_id", "orgs_id"] as const;
+
+  for (const col of candidates) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`${col}`)
+      .eq("id", profileId)
+      .maybeSingle();
+
+    if (!error && data && (data as any)[col]) {
+      return (data as any)[col] as string;
+    }
+  }
+
+  throw new Error(
+    "Could not resolve org_id for this user. Expected one of: profiles.org_id / organization_id / current_org_id / orgs_id."
+  );
 }
 
-export default function Page({
+async function getLeadsFromDb(opts: { orgId: string; q?: string; status?: string }) {
+  const supabase = await createSupabaseServerClient();
+
+  let query = supabase
+    .from("leads")
+    .select("id,name,phone,email,source,status,notes,created_at,updated_at")
+    .eq("org_id", opts.orgId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (opts.status) query = query.eq("status", opts.status);
+
+  if (opts.q) {
+    const q = opts.q.replace(/"/g, '""');
+    query = query.or(`name.ilike."%${q}%",phone.ilike."%${q}%",email.ilike."%${q}%"`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as LeadRow[];
+}
+
+export const dynamic = "force-dynamic";
+
+export default async function Page({
   searchParams,
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const q = asString(searchParams?.q).trim();
-  const status = asString(searchParams?.status).trim() as LeadStatus | "";
+  const status = asString(searchParams?.status).trim();
 
-  const all = getMockLeads();
+  const orgId = await resolveOrgId();
+  const rows = await getLeadsFromDb({ orgId, q: q || undefined, status: status || undefined });
 
-  const filtered = all.filter((row) => {
-    const qOk =
-      !q ||
-      row.name.toLowerCase().includes(q.toLowerCase()) ||
-      row.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
-    const statusOk = !status || row.status === status;
-    return qOk && statusOk;
-  });
+  const totalLeads = rows.length;
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const new7d = rows.filter((l) => new Date(l.created_at).getTime() >= sevenDaysAgo).length;
 
-  const now = Date.now();
-  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-
-  const totalLeads = all.length;
-
-  const new7d = all.filter((l) => {
-    const t = new Date(l.created_at).getTime();
-    return !Number.isNaN(t) && t >= sevenDaysAgo;
+  const contactedCount = rows.filter((l) => {
+    const s = safeStatus(l.status);
+    return s === "contacted" || s === "qualified";
   }).length;
 
-  const contactedCount = all.filter((l) => l.status === "contacted" || l.status === "qualified").length;
   const contactRate = totalLeads === 0 ? 0 : Math.round((contactedCount / totalLeads) * 100);
 
   return (
@@ -200,7 +202,7 @@ export default function Page({
         <div className="rounded-xl border bg-white p-4">
           <p className="text-sm text-muted-foreground">Total leads</p>
           <p className="mt-1 text-2xl font-semibold">{totalLeads}</p>
-          <p className="mt-1 text-xs text-muted-foreground">All time</p>
+          <p className="mt-1 text-xs text-muted-foreground">In this org</p>
         </div>
         <div className="rounded-xl border bg-white p-4">
           <p className="text-sm text-muted-foreground">New</p>
@@ -221,7 +223,7 @@ export default function Page({
           <input
             name="q"
             defaultValue={q}
-            placeholder="Name or phone…"
+            placeholder="Name, phone, or email…"
             className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
           />
         </div>
@@ -242,10 +244,7 @@ export default function Page({
         </div>
 
         <div className="flex gap-2">
-          <button
-            type="submit"
-            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
-          >
+          <button type="submit" className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50">
             Apply
           </button>
           <Link
@@ -262,17 +261,13 @@ export default function Page({
       <div className="rounded-xl border bg-white">
         <div className="border-b p-4">
           <p className="text-sm font-medium">Results</p>
-          <p className="text-xs text-muted-foreground">
-            {filtered.length} of {all.length} leads
-          </p>
+          <p className="text-xs text-muted-foreground">{rows.length} leads</p>
         </div>
 
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-sm font-medium">No leads found</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Try adjusting your search or status filter.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or status filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -283,49 +278,48 @@ export default function Page({
                   <th className="px-4 py-3 font-medium">Phone</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Source</th>
-                  <th className="px-4 py-3 font-medium">Last contacted</th>
+                  <th className="px-4 py-3 font-medium">Last activity</th>
                   <th className="px-4 py-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((row) => (
-                  <tr key={row.id} className="border-b last:border-b-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{row.name}</div>
-                      <div className="text-xs text-muted-foreground">ID: {row.id}</div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs md:text-sm">{formatPhone(row.phone)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                          row.status
-                        )}`}
-                      >
-                        {statusLabel(row.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{sourceLabel(row.source)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(row.last_contacted_at ?? null)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/dashboard/leads/${row.id}`}
-                        className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  const st = safeStatus(row.status);
+                  const src = safeSource(row.source);
+                  return (
+                    <tr key={row.id} className="border-b last:border-b-0">
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{row.name || "—"}</div>
+                        <div className="text-xs text-muted-foreground">ID: {row.id}</div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs md:text-sm">{formatPhone(row.phone)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
+                            st
+                          )}`}
+                        >
+                          {statusLabel(st)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">{sourceLabel(src)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(row.updated_at)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/dashboard/leads/${row.id}`}
+                          className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Note: This page is currently using mock data. Replace <span className="font-mono">getMockLeads()</span> with a
-        Supabase query once the schema is finalized.
-      </p>
     </div>
   );
 }

@@ -1,24 +1,19 @@
 ﻿import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type TicketStatus = "open" | "in_progress" | "closed";
 type TicketPriority = "low" | "medium" | "high";
 
 type TicketRow = {
   id: string;
-  summary: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  created_at: string; // ISO
-  updated_at: string; // ISO
-  linked_lead_id?: string | null;
-  linked_call_id?: string | null;
-  description?: string | null;
-};
-
-type ActivityItem = {
-  id: string;
-  at: string; // ISO
-  text: string;
+  org_id: string;
+  lead_id: string | null;
+  subject: string;
+  status: string;
+  priority: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function formatDate(value?: string | null) {
@@ -26,6 +21,18 @@ function formatDate(value?: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function safeStatus(s: string): TicketStatus {
+  const v = (s || "").toLowerCase();
+  if (v === "open" || v === "in_progress" || v === "closed") return v;
+  return "open";
+}
+
+function safePriority(p: string): TicketPriority {
+  const v = (p || "").toLowerCase();
+  if (v === "low" || v === "medium" || v === "high") return v;
+  return "low";
 }
 
 function statusLabel(s: TicketStatus) {
@@ -72,81 +79,53 @@ function priorityBadgeClass(p: TicketPriority) {
   }
 }
 
-function getMockTicketById(ticketId: string): TicketRow {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
+async function resolveOrgId() {
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  if (authErr) throw new Error(authErr.message);
+  if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
 
-  const known: TicketRow[] = [
-    {
-      id: "tkt_001",
-      summary: "Customer asked to reschedule appointment; confirm availability.",
-      status: "open",
-      priority: "high",
-      created_at: hours(28),
-      updated_at: hours(2),
-      linked_lead_id: "lead_002",
-      linked_call_id: "call_9f2a",
-      description:
-        "Lead requested a reschedule. Confirm next available slots and follow up via SMS or email once confirmed.",
-    },
-    {
-      id: "tkt_002",
-      summary: "Follow up with lead regarding pricing details.",
-      status: "in_progress",
-      priority: "medium",
-      created_at: hours(52),
-      updated_at: hours(10),
-      linked_lead_id: "lead_003",
-      linked_call_id: null,
-      description: "Prepare pricing breakdown and send to the lead. Capture objections.",
-    },
-    {
-      id: "tkt_003",
-      summary: "Incorrect contact number; request updated phone.",
-      status: "closed",
-      priority: "low",
-      created_at: hours(90),
-      updated_at: hours(36),
-      linked_lead_id: "lead_005",
-      linked_call_id: null,
-      description: "The number appears invalid. Request updated contact details and re-attempt outreach.",
-    },
-  ];
+  const profileId = auth.user.id;
+  const candidates = ["org_id", "organization_id", "current_org_id", "orgs_id"] as const;
 
-  return (
-    known.find((t) => t.id === ticketId) ?? {
-      id: ticketId,
-      summary: "Unknown ticket",
-      status: "open",
-      priority: "low",
-      created_at: hours(1),
-      updated_at: hours(0),
-      linked_lead_id: null,
-      linked_call_id: null,
-      description: null,
+  for (const col of candidates) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`${col}`)
+      .eq("id", profileId)
+      .maybeSingle();
+
+    if (!error && data && (data as any)[col]) {
+      return (data as any)[col] as string;
     }
+  }
+
+  throw new Error(
+    "Could not resolve org_id for this user. Expected one of: profiles.org_id / organization_id / current_org_id / orgs_id."
   );
 }
 
-function getMockActivity(ticketId: string): ActivityItem[] {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
+async function getTicket(orgId: string, ticketId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("id,org_id,lead_id,subject,status,priority,description,created_at,updated_at")
+    .eq("org_id", orgId)
+    .eq("id", ticketId)
+    .single();
 
-  // Small deterministic variation
-  const seed = ticketId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const base: ActivityItem[] = [
-    { id: "act_001", at: hours(24), text: "Ticket created from call review." },
-    { id: "act_002", at: hours(12), text: "Assigned to operations queue." },
-    { id: "act_003", at: hours(2), text: "Attempted outreach; awaiting response." },
-  ];
-
-  if (seed % 3 === 0) return base.slice(0, 2);
-  return base;
+  if (error) throw new Error(error.message);
+  return data as TicketRow;
 }
 
-export default function Page({ params }: { params: { ticketId: string } }) {
-  const ticket = getMockTicketById(params.ticketId);
-  const activity = getMockActivity(params.ticketId);
+export const dynamic = "force-dynamic";
+
+export default async function Page({ params }: { params: { ticketId: string } }) {
+  const orgId = await resolveOrgId();
+  const ticket = await getTicket(orgId, params.ticketId);
+
+  const st = safeStatus(ticket.status);
+  const pr = safePriority(ticket.priority);
 
   return (
     <div className="p-6 space-y-6">
@@ -160,7 +139,7 @@ export default function Page({ params }: { params: { ticketId: string } }) {
             <span className="text-sm text-muted-foreground">/</span>
             <h1 className="text-2xl font-semibold tracking-tight">{ticket.id}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Ticket detail, status, and activity history.</p>
+          <p className="text-sm text-muted-foreground">Ticket detail, status, and metadata.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -186,18 +165,18 @@ export default function Page({ params }: { params: { ticketId: string } }) {
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm font-medium">Summary</p>
-          <p className="mt-2 text-sm">{ticket.summary}</p>
+          <p className="text-sm font-medium">Subject</p>
+          <p className="mt-2 text-sm">{ticket.subject}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Priority</p>
               <span
                 className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${priorityBadgeClass(
-                  ticket.priority
+                  pr
                 )}`}
               >
-                {priorityLabel(ticket.priority)}
+                {priorityLabel(pr)}
               </span>
             </div>
 
@@ -205,10 +184,10 @@ export default function Page({ params }: { params: { ticketId: string } }) {
               <p className="text-xs text-muted-foreground">Status</p>
               <span
                 className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                  ticket.status
+                  st
                 )}`}
               >
-                {statusLabel(ticket.status)}
+                {statusLabel(st)}
               </span>
             </div>
 
@@ -224,9 +203,9 @@ export default function Page({ params }: { params: { ticketId: string } }) {
 
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Linked lead</p>
-              {ticket.linked_lead_id ? (
-                <Link className="text-sm underline" href={`/dashboard/leads/${ticket.linked_lead_id}`}>
-                  {ticket.linked_lead_id}
+              {ticket.lead_id ? (
+                <Link className="text-sm underline" href={`/dashboard/leads/${ticket.lead_id}`}>
+                  {ticket.lead_id}
                 </Link>
               ) : (
                 <p className="text-sm text-muted-foreground">—</p>
@@ -234,14 +213,8 @@ export default function Page({ params }: { params: { ticketId: string } }) {
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Linked call</p>
-              {ticket.linked_call_id ? (
-                <Link className="text-sm underline" href={`/dashboard/calls/${ticket.linked_call_id}`}>
-                  {ticket.linked_call_id}
-                </Link>
-              ) : (
-                <p className="text-sm text-muted-foreground">—</p>
-              )}
+              <p className="text-xs text-muted-foreground">Ticket ID</p>
+              <p className="text-sm font-mono text-muted-foreground">{ticket.id}</p>
             </div>
           </div>
         </div>
@@ -257,35 +230,16 @@ export default function Page({ params }: { params: { ticketId: string } }) {
         </div>
       </div>
 
-      {/* Activity */}
+      {/* Future: Activity log */}
       <div className="rounded-xl border bg-white">
         <div className="border-b p-4">
           <p className="text-sm font-medium">Activity</p>
-          <p className="text-xs text-muted-foreground">A lightweight audit trail of ticket updates.</p>
+          <p className="text-xs text-muted-foreground">Audit trail will be added when settings/audit is wired.</p>
         </div>
-
-        {activity.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-medium">No activity yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Updates will appear here.</p>
-          </div>
-        ) : (
-          <div className="p-4 space-y-3">
-            {activity.map((a) => (
-              <div key={a.id} className="rounded-lg border bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm">{a.text}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(a.at)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground">No activity entries yet.</p>
+        </div>
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Note: This page is currently using mock data. Replace the mock getters with Supabase queries once the schema is finalized.
-      </p>
     </div>
   );
 }

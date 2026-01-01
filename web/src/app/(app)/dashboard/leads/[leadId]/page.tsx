@@ -1,26 +1,28 @@
 ﻿import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type LeadStatus = "new" | "contacted" | "qualified" | "unqualified";
 
 type LeadRow = {
   id: string;
-  name: string;
-  phone: string;
-  status: LeadStatus;
-  source: "web" | "inbound_call" | "referral" | "import";
-  created_at: string; // ISO
-  last_contacted_at?: string | null; // ISO
-  notes?: string | null;
+  org_id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type CallRow = {
   id: string;
-  started_at: string;
-  duration_seconds: number;
-  cost_usd: number;
-  outcome: "completed" | "no_answer" | "failed" | "voicemail";
+  started_at: string | null;
+  outcome: string | null;
+  duration_seconds: number | null;
+  cost_usd: number | null;
 };
-
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -41,7 +43,8 @@ function formatDuration(sec: number) {
   return `${m}m ${r}s`;
 }
 
-function formatPhone(input: string) {
+function formatPhone(input?: string | null) {
+  if (!input) return "—";
   const digits = input.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
     const a = digits.slice(1, 4);
@@ -56,6 +59,12 @@ function formatPhone(input: string) {
     return `(${a}) ${b}-${c}`;
   }
   return input;
+}
+
+function safeStatus(s: string): LeadStatus {
+  const v = (s || "").toLowerCase();
+  if (v === "new" || v === "contacted" || v === "qualified" || v === "unqualified") return v;
+  return "new";
 }
 
 function statusLabel(s: LeadStatus) {
@@ -84,154 +93,76 @@ function statusBadgeClass(s: LeadStatus) {
   }
 }
 
-function sourceLabel(s: LeadRow["source"]) {
-  switch (s) {
-    case "web":
-      return "Web";
-    case "inbound_call":
-      return "Inbound call";
-    case "referral":
-      return "Referral";
-    case "import":
-      return "Import";
+async function resolveOrgId() {
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  if (authErr) throw new Error(authErr.message);
+  if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
+
+  const profileId = auth.user.id;
+  const candidates = ["org_id", "organization_id", "current_org_id", "orgs_id"] as const;
+
+  for (const col of candidates) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`${col}`)
+      .eq("id", profileId)
+      .maybeSingle();
+
+    if (!error && data && (data as any)[col]) {
+      return (data as any)[col] as string;
+    }
   }
+
+  throw new Error(
+    "Could not resolve org_id for this user. Expected one of: profiles.org_id / organization_id / current_org_id / orgs_id."
+  );
 }
 
-/**
- * NOTE:
- * These mock getters intentionally mirror the list page.
- * Later replace with:
- * - SELECT lead by id
- * - SELECT calls WHERE lead_id = :id OR phone match
- */
-function getMockLeadById(leadId: string): LeadRow {
-  const now = Date.now();
-  const days = (n: number) => new Date(now - n * 24 * 60 * 60 * 1000).toISOString();
+async function getLead(orgId: string, leadId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id,org_id,name,phone,email,source,status,notes,created_at,updated_at")
+    .eq("org_id", orgId)
+    .eq("id", leadId)
+    .single();
 
-  const fallback: LeadRow = {
-    id: leadId,
-    name: "Unknown lead",
-    phone: "+1 000 000 0000",
-    status: "new",
-    source: "web",
-    created_at: days(0),
-    last_contacted_at: null,
-    notes: null,
-  };
-
-  const known: LeadRow[] = [
-    {
-      id: "lead_001",
-      name: "Alex Johnson",
-      phone: "+1 407 555 0139",
-      status: "new",
-      source: "inbound_call",
-      created_at: days(1),
-      last_contacted_at: null,
-      notes: "Inbound call. Requested a demo next week.",
-    },
-    {
-      id: "lead_002",
-      name: "Maria Garcia",
-      phone: "+1 321 555 0194",
-      status: "contacted",
-      source: "web",
-      created_at: days(3),
-      last_contacted_at: days(2),
-      notes: "Asked about pricing and Spanish language support.",
-    },
-    {
-      id: "lead_003",
-      name: "Kevin Patel",
-      phone: "+1 689 555 0144",
-      status: "qualified",
-      source: "referral",
-      created_at: days(6),
-      last_contacted_at: days(1),
-      notes: "Strong fit. Wants to go live after onboarding.",
-    },
-    {
-      id: "lead_004",
-      name: "Samantha Lee",
-      phone: "+1 407 555 0108",
-      status: "unqualified",
-      source: "web",
-      created_at: days(12),
-      last_contacted_at: days(10),
-      notes: "Not a fit right now. Budget constraints.",
-    },
-    {
-      id: "lead_005",
-      name: "Noah Brown",
-      phone: "+1 561 555 0151",
-      status: "contacted",
-      source: "import",
-      created_at: days(18),
-      last_contacted_at: null,
-      notes: "Imported list. Needs first outreach.",
-    },
-  ];
-
-  return known.find((l) => l.id === leadId) ?? fallback;
+  if (error) throw new Error(error.message);
+  return data as LeadRow;
 }
 
-function getMockCallsForLead(leadId: string): CallRow[] {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
+async function getCallsByLeadId(orgId: string, leadId: string) {
+  const supabase = await createSupabaseServerClient();
 
-  // Basic deterministic variety by leadId (so different leads look different)
-  const seed = leadId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const pick = <T,>(arr: T[]) => arr[seed % arr.length];
+  // Preferred path: calls.lead_id (you added this)
+  const { data, error } = await supabase
+    .from("calls")
+    .select("id,started_at,outcome,duration_seconds,cost_usd")
+    .eq("org_id", orgId)
+    .eq("lead_id", leadId)
+    .order("started_at", { ascending: false })
+    .limit(50);
 
-  const outcomes: CallRow["outcome"][] = ["completed", "no_answer", "failed", "voicemail"];
-  const baseOutcome = pick(outcomes);
-
-  // Provide a few calls; adjust per lead.
-  const base: CallRow[] = [
-    { id: "call_a1", started_at: hours(6), duration_seconds: 182, cost_usd: 0.0132, outcome: "completed" },
-    { id: "call_a2", started_at: hours(30), duration_seconds: 42, cost_usd: 0.0041, outcome: baseOutcome },
-    { id: "call_a3", started_at: hours(52), duration_seconds: 305, cost_usd: 0.0218, outcome: "completed" },
-  ];
-
-  if (leadId === "lead_001") return base.slice(0, 1);
-  if (leadId === "lead_004") return base.slice(0, 2).map((c) => ({ ...c, outcome: "no_answer" }));
-  return base;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CallRow[];
 }
 
-function outcomeLabel(o: CallRow["outcome"]) {
-  switch (o) {
-    case "completed":
-      return "Completed";
-    case "no_answer":
-      return "No answer";
-    case "failed":
-      return "Failed";
-    case "voicemail":
-      return "Voicemail";
-  }
-}
+export const dynamic = "force-dynamic";
 
-function outcomeBadgeClass(o: CallRow["outcome"]) {
-  switch (o) {
-    case "completed":
-      return "bg-zinc-100 text-zinc-900 border border-zinc-200";
-    case "no_answer":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
-    case "failed":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
-    case "voicemail":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
-  }
-}
-
-export default function Page({ params }: { params: { leadId: string } }) {
-  const lead = getMockLeadById(params.leadId);
-  const calls = getMockCallsForLead(params.leadId);
+export default async function Page({ params }: { params: { leadId: string } }) {
+  const orgId = await resolveOrgId();
+  const lead = await getLead(orgId, params.leadId);
+  const calls = await getCallsByLeadId(orgId, params.leadId);
 
   const totalCalls = calls.length;
-  const totalCost = calls.reduce((sum, c) => sum + c.cost_usd, 0);
+  const totalCost = calls.reduce((sum, c) => sum + (c.cost_usd ?? 0), 0);
   const avgDuration =
-    totalCalls === 0 ? 0 : Math.round(calls.reduce((sum, c) => sum + c.duration_seconds, 0) / totalCalls);
+    totalCalls === 0
+      ? 0
+      : Math.round(calls.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0) / totalCalls);
+
+  const st = safeStatus(lead.status);
 
   return (
     <div className="p-6 space-y-6">
@@ -243,11 +174,9 @@ export default function Page({ params }: { params: { leadId: string } }) {
               Leads
             </Link>
             <span className="text-sm text-muted-foreground">/</span>
-            <h1 className="text-2xl font-semibold tracking-tight">{lead.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{lead.name || lead.id}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Lead profile and related call activity.
-          </p>
+          <p className="text-sm text-muted-foreground">Lead profile and related call activity.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -282,19 +211,24 @@ export default function Page({ params }: { params: { leadId: string } }) {
             </div>
 
             <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Email</p>
+              <p className="text-sm">{lead.email || "—"}</p>
+            </div>
+
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Status</p>
               <span
                 className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                  lead.status
+                  st
                 )}`}
               >
-                {statusLabel(lead.status)}
+                {statusLabel(st)}
               </span>
             </div>
 
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Source</p>
-              <p className="text-sm">{sourceLabel(lead.source)}</p>
+              <p className="text-sm">{lead.source || "—"}</p>
             </div>
 
             <div className="space-y-1">
@@ -303,8 +237,8 @@ export default function Page({ params }: { params: { leadId: string } }) {
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Last contacted</p>
-              <p className="text-sm text-muted-foreground">{formatDate(lead.last_contacted_at ?? null)}</p>
+              <p className="text-xs text-muted-foreground">Last activity</p>
+              <p className="text-sm text-muted-foreground">{formatDate(lead.updated_at)}</p>
             </div>
 
             <div className="space-y-1">
@@ -319,7 +253,7 @@ export default function Page({ params }: { params: { leadId: string } }) {
           <div>
             <p className="text-sm text-muted-foreground">Calls</p>
             <p className="mt-1 text-2xl font-semibold">{totalCalls}</p>
-            <p className="mt-1 text-xs text-muted-foreground">All time</p>
+            <p className="mt-1 text-xs text-muted-foreground">Related to this lead</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Avg duration</p>
@@ -341,11 +275,7 @@ export default function Page({ params }: { params: { leadId: string } }) {
           <p className="text-xs text-muted-foreground">Internal notes for your team.</p>
         </div>
         <div className="p-4">
-          {lead.notes ? (
-            <p className="text-sm">{lead.notes}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">No notes yet.</p>
-          )}
+          {lead.notes ? <p className="text-sm">{lead.notes}</p> : <p className="text-sm text-muted-foreground">No notes yet.</p>}
         </div>
       </div>
 
@@ -359,7 +289,9 @@ export default function Page({ params }: { params: { leadId: string } }) {
         {calls.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-sm font-medium">No calls yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Once the lead interacts with an agent, calls will appear here.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Once calls are linked to this lead (calls.lead_id), they will appear here.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -377,17 +309,9 @@ export default function Page({ params }: { params: { leadId: string } }) {
                 {calls.map((c) => (
                   <tr key={c.id} className="border-b last:border-b-0">
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(c.started_at)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${outcomeBadgeClass(
-                          c.outcome
-                        )}`}
-                      >
-                        {outcomeLabel(c.outcome)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{formatDuration(c.duration_seconds)}</td>
-                    <td className="px-4 py-3">{formatUSD(c.cost_usd)}</td>
+                    <td className="px-4 py-3">{c.outcome || "—"}</td>
+                    <td className="px-4 py-3">{formatDuration(c.duration_seconds ?? 0)}</td>
+                    <td className="px-4 py-3">{formatUSD(c.cost_usd ?? 0)}</td>
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/dashboard/calls/${c.id}`}
@@ -403,10 +327,6 @@ export default function Page({ params }: { params: { leadId: string } }) {
           </div>
         )}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Note: This page is currently using mock data. Replace the mock getters with Supabase queries once the schema is finalized.
-      </p>
     </div>
   );
 }
