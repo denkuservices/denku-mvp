@@ -151,6 +151,23 @@ async function getCallsByLeadId(orgId: string, leadId: string) {
 export default async function Page({ params }: { params: { leadId: string } }) {
   const leadId = params.leadId;
 
+// Guard: route param must be a UUID
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+if (!leadId || leadId === "undefined" || !uuidRegex.test(leadId)) {
+  return (
+    <div className="p-6 space-y-2">
+      <h1 className="text-2xl font-semibold">Lead not found</h1>
+      <p className="text-sm text-muted-foreground">
+        Missing or invalid lead id in route params.
+      </p>
+      <Link href="/dashboard/leads" className="text-sm underline">
+        Back to Leads
+      </Link>
+    </div>
+  );
+}
+
+
   try {
     const orgId = await resolveOrgId();
     const lead = await getLead(orgId, leadId);

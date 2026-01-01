@@ -282,40 +282,61 @@ export default async function Page({
                   <th className="px-4 py-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const st = safeStatus(row.status);
-                  const src = safeSource(row.source);
-                  return (
-                    <tr key={row.id} className="border-b last:border-b-0">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{row.name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">ID: {row.id}</div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs md:text-sm">{formatPhone(row.phone)}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                            st
-                          )}`}
-                        >
-                          {statusLabel(st)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">{sourceLabel(src)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(row.updated_at)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/dashboard/leads/${row.id}`}
-                          className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+<tbody>
+  {rows.map((row) => {
+    const st = safeStatus(row.status);
+    const src = safeSource(row.source);
+
+    const leadId = (row as any)?.id;
+    const isUuid =
+      typeof leadId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(leadId);
+
+    return (
+      <tr key={leadId ?? `${row.name ?? "lead"}-${row.updated_at ?? Math.random()}`} className="border-b last:border-b-0">
+        <td className="px-4 py-3">
+          <div className="font-medium">{row.name || "—"}</div>
+          <div className="text-xs text-muted-foreground">ID: {leadId ?? "—"}</div>
+        </td>
+
+        <td className="px-4 py-3 font-mono text-xs md:text-sm">{formatPhone(row.phone)}</td>
+
+        <td className="px-4 py-3">
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(st)}`}
+          >
+            {statusLabel(st)}
+          </span>
+        </td>
+
+        <td className="px-4 py-3">{sourceLabel(src)}</td>
+
+        <td className="px-4 py-3 text-muted-foreground">{formatDate(row.updated_at)}</td>
+
+        <td className="px-4 py-3 text-right">
+          {isUuid ? (
+            <Link
+              href={`/dashboard/leads/${leadId}`}
+              className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
+            >
+              View
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-md border bg-white px-3 py-2 text-xs font-medium opacity-50 cursor-not-allowed"
+              title="Invalid lead id"
+            >
+              View
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
+
             </table>
           </div>
         )}
