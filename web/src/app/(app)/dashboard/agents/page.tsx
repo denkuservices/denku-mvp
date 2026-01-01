@@ -77,46 +77,59 @@ export default async function AgentsPage() {
                   : "bg-gray-100 text-gray-800";
 
                 return (
-                  <tr key={a.id} className="border-t">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {a.name ?? "Untitled Agent"}
-                      </div>
-                      <div className="mt-0.5 text-xs text-gray-500">{a.id}</div>
-
-                      {/* mobile details */}
-                      <div className="mt-2 space-y-1 text-xs text-gray-600 sm:hidden">
-                        <div>
-                          <span className="text-gray-500">Status:</span>{" "}
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${statusClass}`}
-                          >
-                            {statusLabel}
-                          </span>
+                  <tr
+                    key={a.id}
+                    className="border-t hover:bg-gray-50"
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <Link href={`/dashboard/agents/${a.id}`} className="block group">
+                        <div className="font-medium text-gray-900 group-hover:underline">
+                          {a.name ?? "Untitled Agent"}
                         </div>
-                        <div>
-                          <span className="text-gray-500">Created:</span>{" "}
-                          {formatDate(a.created_at)}
+                        <div className="mt-0.5 text-xs text-gray-500">
+                          {a.vapi_assistant_id
+                            ? "Vapi: connected"
+                            : "Vapi: not connected"}
                         </div>
-                      </div>
+
+                        {/* mobile details */}
+                        <div className="mt-2 space-y-1 text-xs text-gray-600 sm:hidden">
+                          <div>
+                            <span className="text-gray-500">Status:</span>{" "}
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${statusClass}`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Created:</span>{" "}
+                            {formatDate(a.created_at)}
+                          </div>
+                        </div>
+                      </Link>
                     </td>
 
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
-                      >
-                        {statusLabel}
-                      </span>
+                    <td className="hidden px-4 py-3 align-top sm:table-cell">
+                      <Link href={`/dashboard/agents/${a.id}`} className="block" tabIndex={-1}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </Link>
                     </td>
 
-                    <td className="hidden px-4 py-3 md:table-cell text-gray-700">
-                      {formatDate(a.created_at)}
+                    <td className="hidden px-4 py-3 align-top md:table-cell text-gray-700">
+                      <Link href={`/dashboard/agents/${a.id}`} className="block" tabIndex={-1}>
+                        {formatDate(a.created_at)}
+                      </Link>
                     </td>
 
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right align-top">
                       <Link
                         href={`/dashboard/agents/${a.id}`}
-                        className="rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                        className="rounded-md border bg-white px-2.5 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                       >
                         View
                       </Link>

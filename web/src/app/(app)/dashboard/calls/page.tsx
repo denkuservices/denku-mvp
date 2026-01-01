@@ -107,15 +107,12 @@ type CallRow = {
   agent_id: string | null;
 };
 
-type AgentResponse = {
-  agent?: { name: string | null };
-};
-
 // =================================================================================
 // Page Component
 // =================================================================================
 
 export default async function CallsPage() {
+  console.log("[CallsPage] ADMIN_USER is set:", !!process.env.ADMIN_USER);
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -127,6 +124,7 @@ export default async function CallsPage() {
   const callRows: CallRow[] = Array.isArray(data) ? (data as CallRow[]) : [];
 
   // Batch resolve agent names using the new endpoint
+  let resolverError: { status: number } | null = null;
   const agentNameMap = new Map<string, string>();
   const agentIdsToFetch = [
     ...new Set(
@@ -149,16 +147,25 @@ export default async function CallsPage() {
         body: JSON.stringify({ ids: agentIdsToFetch }),
       });
 
+      console.log(`[CallsPage] Agent resolver response status: ${res.status}`);
+
       if (res.ok) {
         const body = (await res.json()) as { agents: { id: string; name: string }[] };
+        const receivedCount = body.agents?.length ?? 0;
+        console.log(`[CallsPage] Requested ${agentIdsToFetch.length} agent IDs, got ${receivedCount} names.`);
+
         for (const agent of body.agents) {
           if (agent.id && agent.name) {
             agentNameMap.set(agent.id, agent.name);
           }
         }
+      } else {
+        resolverError = { status: res.status };
+        console.warn(`[CallsPage] Agent resolver failed with status ${res.status}`);
       }
-    } catch (e) {
-      // Fail silently and render "—"
+    } catch (e: any) {
+      resolverError = { status: 500 };
+      console.error("[CallsPage] Agent resolver fetch threw an error:", e.message);
     }
   }
 
@@ -174,6 +181,25 @@ export default async function CallsPage() {
           </p>
         </div>
       </div>
+
+      {resolverError && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-amber-800">
+                Agent names may be missing
+              </h3>
+              <div className="mt-2 text-sm text-amber-700">
+                <p>
+                  The agent name resolver failed with status code{' '}
+                  <b>{resolverError.status}</b>. This might be due to a
+                  misconfigured environment variable on the server.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -270,3 +296,4 @@ export default async function CallsPage() {
     </div>
   );
 }
+
