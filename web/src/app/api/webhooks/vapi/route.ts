@@ -153,24 +153,38 @@ export async function POST(req: NextRequest) {
     const costUsd = extractCost(msg, call);
 
     /* Call upsert — TEK KAYNAK */
-    await supabaseAdmin.from("calls").upsert(
-      {
-        org_id: orgId,
-        agent_id: agentId,
-        vapi_call_id: call.id,
-        started_at: startedAt,
-        ended_at: endedAt,
-        duration_seconds: durationSec,
-        cost_usd: costUsd,
-        transcript: call.transcript ?? null,
-        outcome: "completed",
-        // Optional: keep phones if you want (won't break schema if columns exist)
-        // from_phone: normalizePhone(call.from) ?? null,
-        // to_phone: normalizePhone(call.to) ?? null,
-        raw: body,
-      },
-      { onConflict: "vapi_call_id" }
-    );
+const payload: any = {
+  org_id: orgId,
+  agent_id: agentId,
+  vapi_call_id: call.id,
+  started_at: startedAt,
+  ended_at: endedAt,
+  duration_seconds: durationSec,
+  cost_usd: costUsd,
+  transcript: call.transcript ?? null,
+  outcome: "completed",
+  raw: body,
+};
+
+const { error: upErr } = await supabaseAdmin
+  .from("calls")
+  .upsert(payload, { onConflict: "vapi_call_id" });
+
+if (upErr) {
+  console.error("[vapi-webhook] calls upsert failed", {
+    message: upErr.message,
+    details: (upErr as any).details,
+    hint: (upErr as any).hint,
+    code: (upErr as any).code,
+    payloadKeys: Object.keys(payload),
+  });
+
+  return NextResponse.json(
+    { ok: false, error: "calls_upsert_failed", details: upErr.message },
+    { status: 500 }
+  );
+}
+
 
     return NextResponse.json({ ok: true });
   } catch (err) {
