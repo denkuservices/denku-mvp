@@ -157,14 +157,25 @@ const payload: any = {
   org_id: orgId,
   agent_id: agentId,
   vapi_call_id: call.id,
+
+  vapi_assistant_id: call.assistantId ?? null,
+  vapi_phone_number_id: call.phoneNumberId ?? null,
+
+  from_phone: normalizePhone(call.from) ?? null,
+  to_phone: normalizePhone(call.to) ?? null,
+
   started_at: startedAt,
   ended_at: endedAt,
   duration_seconds: durationSec,
   cost_usd: costUsd,
+
   transcript: call.transcript ?? null,
   outcome: "completed",
-  raw: body,
+
+  // calls tablon string raw_payload tutuyor
+  raw_payload: JSON.stringify(body),
 };
+
 
 const { error: upErr } = await supabaseAdmin
   .from("calls")
@@ -176,14 +187,13 @@ if (upErr) {
     details: (upErr as any).details,
     hint: (upErr as any).hint,
     code: (upErr as any).code,
-    payloadKeys: Object.keys(payload),
   });
-
   return NextResponse.json(
     { ok: false, error: "calls_upsert_failed", details: upErr.message },
     { status: 500 }
   );
 }
+
 
 
     return NextResponse.json({ ok: true });
