@@ -76,11 +76,105 @@ function getOutcomeDisplayLabel(call: {
   return "Completed";
 }
 
+function getDurationClass(seconds: number | null): string {
+  if (seconds === null) return "text-gray-900";
+  if (seconds < 30) return "text-gray-500";
+  if (seconds > 300) return "font-semibold text-gray-900";
+  return "text-gray-900";
+}
+
+function getCostClass(cost: number | string | null): string {
+  const n = Number(cost);
+  if (!Number.isFinite(n)) return "text-gray-900";
+  if (n < 0.01) return "text-gray-500";
+  if (n > 0.1) return "font-semibold text-gray-900";
+  return "text-gray-900";
+}
+
+// ================================
+// Components
+// ================================
+
+function FilterToolbar({
+  q,
+  outcome,
+  since,
+}: {
+  q?: string;
+  outcome?: string;
+  since?: string;
+}) {
+  return (
+    <div className="rounded-md border bg-white p-4">
+      <form method="GET" className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="flex-grow">
+          <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+            Search
+          </label>
+          <input
+            type="text"
+            name="q"
+            id="search"
+            defaultValue={q}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            placeholder="Search agent, outcome, etc."
+          />
+        </div>
+        <div className="min-w-[150px]">
+          <label htmlFor="outcome" className="block text-sm font-medium text-gray-700">
+            Outcome
+          </label>
+          <select
+            name="outcome"
+            id="outcome"
+            defaultValue={outcome}
+            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="">All</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div className="min-w-[150px]">
+          <label htmlFor="since" className="block text-sm font-medium text-gray-700">
+            Time range
+          </label>
+          <select
+            name="since"
+            id="since"
+            defaultValue={since}
+            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="">Any time</option>
+            <option value="1d">Last 24h</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+          </select>
+        </div>
+        <div className="flex-shrink-0">
+          <button
+            type="submit"
+            className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+          >
+            Filter
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
 // ================================
 // Page
 // ================================
 
-export default async function CallsPage() {
+export default async function CallsPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -100,7 +194,7 @@ export default async function CallsPage() {
     `
     )
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (error) {
     return (
@@ -111,6 +205,52 @@ export default async function CallsPage() {
   }
 
   const calls = Array.isArray(data) ? data : [];
+  
+  const q = typeof searchParams.q === "string" ? searchParams.q : undefined;
+  const outcomeFilter = typeof searchParams.outcome === "string" ? searchParams.outcome : undefined;
+  const sinceFilter = typeof searchParams.since === "string" ? searchParams.since : undefined;
+
+  const filteredCalls = calls.filter(call => {
+    if (q) {
+      const lowerQuery = q.toLowerCase();
+      const agent = Array.isArray(call.agent) ? call.agent[0] : call.agent;
+      const agentName = agent?.name ?? '';
+      
+      const searchable = [
+        agentName,
+        call.outcome,
+        call.transcript,
+        getOutcomeDisplayLabel(call),
+      ].join(' ').toLowerCase();
+
+      if (!searchable.includes(lowerQuery)) {
+        return false;
+      }
+    }
+
+    if (outcomeFilter) {
+      const callOutcome = (call.outcome ?? "").toLowerCase();
+      const isCompleted = callOutcome.includes("completed") || callOutcome.includes("end-of-call-report");
+      const isFailed = callOutcome.includes("failed") || callOutcome.includes("error") || callOutcome.includes("no-answer");
+      
+      if (outcomeFilter === 'completed' && !isCompleted) return false;
+      if (outcomeFilter === 'failed' && !isFailed) return false;
+      if (outcomeFilter === 'other' && (isCompleted || isFailed)) return false;
+    }
+    
+    if (sinceFilter) {
+      const days = parseInt(sinceFilter.replace('d', ''), 10);
+      if (!isNaN(days)) {
+        const sinceDate = new Date();
+        sinceDate.setDate(sinceDate.getDate() - days);
+        if (!call.created_at || new Date(call.created_at) < sinceDate) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -123,9 +263,13 @@ export default async function CallsPage() {
         </p>
       </div>
 
-      {calls.length === 0 ? (
+      <div className="mb-6">
+        <FilterToolbar q={q} outcome={outcomeFilter} since={sinceFilter} />
+      </div>
+
+      {filteredCalls.length === 0 ? (
         <div className="rounded-md border bg-white p-6 text-center text-sm text-gray-700">
-          No calls found yet.
+          {calls.length === 0 ? 'No calls found yet.' : 'No calls match your filters.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border bg-white">
@@ -148,7 +292,7 @@ export default async function CallsPage() {
             </thead>
 
             <tbody>
-              {calls.map((call) => {
+              {filteredCalls.map((call) => {
                 const href = `/dashboard/calls/${call.id}`;
                 const agentObj = Array.isArray(call.agent)
                   ? call.agent[0]
@@ -190,13 +334,17 @@ export default async function CallsPage() {
 
                     <td className="hidden px-4 py-3 align-top sm:table-cell">
                       <Link href={href} className="block" tabIndex={-1}>
-                        {formatDuration(call.duration_seconds)}
+                        <span className={getDurationClass(call.duration_seconds)}>
+                          {formatDuration(call.duration_seconds)}
+                        </span>
                       </Link>
                     </td>
 
                     <td className="hidden px-4 py-3 align-top lg:table-cell">
                       <Link href={href} className="block" tabIndex={-1}>
-                        {money(call.cost_usd)}
+                        <span className={getCostClass(call.cost_usd)}>
+                          {money(call.cost_usd)}
+                        </span>
                       </Link>
                     </td>
 

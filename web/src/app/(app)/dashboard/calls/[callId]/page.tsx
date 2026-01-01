@@ -34,6 +34,15 @@ function formatMoney(v?: number | string | null) {
   return `$${n.toFixed(4)}`;
 }
 
+function maskPhoneNumber(phone?: string | null): string {
+  if (!phone) return "—";
+  // Simple check for +E.164 format, allow flexibility
+  if (phone.length < 8) return phone;
+  const start = phone.slice(0, 4);
+  const end = phone.slice(-4);
+  return `${start}****${end}`;
+}
+
 function outcomeBadgeClass(outcome?: string | null) {
   const lower = (outcome ?? "").toLowerCase();
   if (lower.includes("completed") || lower.includes("end-of-call-report")) {
@@ -91,6 +100,147 @@ function findRecordingUrl(obj: any): string | null {
     if (typeof c === "string" && c.startsWith("http")) return c;
   }
   return null;
+}
+
+function generateCallSummary(transcript: string | null): string[] {
+  if (!transcript) return [];
+
+  const summary: Set<string> = new Set();
+  const lowerTranscript = transcript.toLowerCase();
+
+  if (/\b(support|issue|problem)\b/.test(lowerTranscript)) {
+    summary.add("Caller requested support");
+  }
+  if (/\b(demo|pricing|sales|buy)\b/.test(lowerTranscript)) {
+    summary.add("Sales-related inquiry");
+  }
+  if (/\b(appointment|schedule|meeting)\b/.test(lowerTranscript)) {
+    summary.add("Appointment discussion");
+  }
+  if (/\b(name|phone)\b/.test(lowerTranscript)) {
+    summary.add("Agent collected caller details");
+  }
+
+  return Array.from(summary);
+}
+
+function getCallStatus(outcome: string | null, ended_at: string | null): string {
+  const lowerOutcome = (outcome ?? "").toLowerCase();
+  if (lowerOutcome.includes("completed") || lowerOutcome.includes("end-of-call-report")) {
+    return "Completed";
+  }
+  if (!ended_at) {
+    return "In progress";
+  }
+  return "Unknown";
+}
+
+function getDurationDescriptor(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  if (seconds < 30) return "Short call";
+  if (seconds > 300) return "Long call";
+  return null;
+}
+
+function getCostDescriptor(cost: number | string | null): string | null {
+  const n = Number(cost);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0.01) return "Low cost";
+  if (n > 0.1) return "High cost";
+  return null;
+}
+
+type TranscriptSegment = {
+  speaker: "AI" | "User" | "Other";
+  text: string;
+};
+
+function parseTranscript(transcript: string | null): TranscriptSegment[] {
+  if (!transcript) return [];
+
+  const segments: TranscriptSegment[] = [];
+  const lines = transcript.split("\n");
+  let currentSpeaker: "AI" | "User" | "Other" | null = null;
+  let currentText = "";
+
+  for (const line of lines) {
+    const match = line.match(/^(AI|User):\s*(.*)/);
+    if (match) {
+      const speaker = match[1] as "AI" | "User";
+      const text = match[2];
+
+      if (currentSpeaker && currentSpeaker !== speaker) {
+        segments.push({ speaker: currentSpeaker, text: currentText.trim() });
+        currentText = "";
+      }
+
+      currentSpeaker = speaker;
+      currentText += (currentText ? "\n" : "") + text;
+    } else {
+      currentText += (currentText ? "\n" : "") + line;
+    }
+  }
+
+  if (currentSpeaker && currentText) {
+    segments.push({ speaker: currentSpeaker, text: currentText.trim() });
+  } else if (currentText) {
+    // Handle transcripts with no speaker prefix
+    segments.push({ speaker: "Other", text: currentText.trim() });
+  }
+
+  return segments.filter((s) => s.text);
+}
+
+function generateCallOutcomeInsights(call: CallRow): string[] {
+  const insights = new Set<string>();
+  const { transcript, outcome, duration_seconds } = call;
+
+  if (transcript) {
+    const lowerTranscript = transcript.toLowerCase();
+    if (lowerTranscript.includes("support") || lowerTranscript.includes("issue") || lowerTranscript.includes("problem")) {
+      insights.add("Caller likely requested support.");
+    }
+    if (lowerTranscript.includes("appointment") || lowerTranscript.includes("schedule")) {
+      if (lowerTranscript.includes("scheduled") || lowerTranscript.includes("booked")) {
+        insights.add("An appointment was scheduled.");
+      } else {
+        insights.add("Appointment scheduling was discussed.");
+      }
+    } else {
+      insights.add("No appointment was scheduled.");
+    }
+    if (lowerTranscript.includes("sales") || lowerTranscript.includes("pricing") || lowerTranscript.includes("buy")) {
+      insights.add("This was a sales-related inquiry.");
+    }
+    if (lowerTranscript.includes("name") || lowerTranscript.includes("phone") || lowerTranscript.includes("email")) {
+      insights.add("Agent asked for contact details.");
+    }
+  }
+
+  if (outcome) {
+    const lowerOutcome = outcome.toLowerCase();
+    if (lowerOutcome.includes("failed") || lowerOutcome.includes("error")) {
+      insights.add("Call ended with a technical failure.");
+    } else if (lowerOutcome.includes("no-answer")) {
+      insights.add("The call was not answered.");
+    } else if (!lowerOutcome.includes("completed") && !lowerOutcome.includes("end-of-call-report")) {
+      insights.add("Call may have ended without a clear resolution.");
+    }
+  }
+
+  if (duration_seconds !== null) {
+    if (duration_seconds < 30) {
+      insights.add("This was a very short call.");
+    } else if (duration_seconds > 600) {
+      insights.add("This was a lengthy call, indicating a complex issue.");
+    }
+  }
+
+  if (insights.size === 0) {
+    insights.add("No specific insights could be generated for this call.");
+  }
+
+  return Array.from(insights).slice(0, 5);
 }
 
 export default async function CallDetailPage({
@@ -155,7 +305,15 @@ export default async function CallDetailPage({
   }
 
   const parsedRaw = safeParseRawPayload(call.raw_payload);
+  const fromNumber = parsedRaw?.call?.from ?? parsedRaw?.message?.call?.from ?? null;
+  const toNumber = parsedRaw?.call?.to ?? parsedRaw?.message?.call?.to ?? null;
   const recordingUrl = findRecordingUrl(parsedRaw);
+  const callSummary = generateCallSummary(call.transcript);
+  const callStatus = getCallStatus(call.outcome, call.ended_at);
+  const durationDescriptor = getDurationDescriptor(call.duration_seconds);
+  const costDescriptor = getCostDescriptor(call.cost_usd);
+  const parsedTranscript = parseTranscript(call.transcript);
+  const callInsights = generateCallOutcomeInsights(call);
 
   const outcome = call.outcome ?? "";
   const badgeClass = outcomeBadgeClass(outcome);
@@ -180,22 +338,6 @@ export default async function CallDetailPage({
           </div>
 
           <h1 className="mt-2 text-xl font-semibold">Call Detail</h1>
-
-          <p className="mt-1 text-sm text-gray-600">
-            Call ID: <span className="font-mono">{call.id}</span>
-          </p>
-
-          {agentName ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Agent: <span className="font-medium text-gray-900">{agentName}</span>
-            </p>
-          ) : null}
-
-          {call.vapi_call_id ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Vapi call id: <span className="font-mono">{call.vapi_call_id}</span>
-            </p>
-          ) : null}
         </div>
 
         <Link
@@ -204,6 +346,26 @@ export default async function CallDetailPage({
         >
           {backLabel}
         </Link>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border bg-white p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Agent Context</h3>
+          <dl className="mt-2 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-gray-600">Agent</dt>
+              <dd className="font-medium text-gray-800">{agentName ?? "Unassigned"}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-600">Call Type</dt>
+              <dd className="font-medium text-gray-800">Inbound</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-600">Status</dt>
+              <dd className="font-medium text-gray-800">{callStatus}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
 
       <div className="mt-2">
@@ -226,47 +388,231 @@ export default async function CallDetailPage({
             </div>
             <div>
               <dt className="text-xs text-gray-600">Duration</dt>
-              <dd className="text-sm text-gray-900">
-                {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+              <dd className="flex items-baseline gap-2 text-sm text-gray-900">
+                <span>{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</span>
+                {durationDescriptor && (
+                  <span className="text-xs text-gray-500">({durationDescriptor})</span>
+                )}
               </dd>
             </div>
             <div>
               <dt className="text-xs text-gray-600">Cost</dt>
-              <dd className="text-sm text-gray-900">{formatMoney(call.cost_usd)}</dd>
+              <dd className="flex items-baseline gap-2 text-sm text-gray-900">
+                <span>{formatMoney(call.cost_usd)}</span>
+                {costDescriptor && (
+                  <span className="text-xs text-gray-500">({costDescriptor})</span>
+                )}
+              </dd>
             </div>
           </dl>
         </div>
 
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-sm font-semibold">Recording</h2>
-{recordingUrl && (
-  <div className="mt-3">
-    <div className="rounded-xl border bg-gray-50 p-4">
-      <audio controls className="h-14 w-full">
-        <source src={recordingUrl} />
-      </audio>
-    </div>
-  </div>
-)}
-
-
+          {recordingUrl && (
+            <div className="mt-3">
+              <div className="rounded-xl border bg-gray-50 p-4">
+                <audio controls className="h-14 w-full">
+                  <source src={recordingUrl} />
+                </audio>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-2">
+      <div className="mt-6">
+        <div className="rounded-md border bg-gray-50 p-4">
+          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Summary</h2>
+          <div className="mt-3">
+            {callSummary.length > 0 ? (
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {callSummary.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-600">No summary available for this call.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="rounded-md border bg-white p-4">
+          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Timeline</h2>
+          <div className="mt-4 flow-root">
+            <ul className="-mb-8">
+              <li>
+                <div className="relative pb-8">
+                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                  <div className="relative flex space-x-3">
+                    <div>
+                      <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
+                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                      <div>
+                        <p className="text-sm text-gray-800">Call Started</p>
+                      </div>
+                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                        <time>{formatDate(call.started_at)}</time>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li>
+                <div className="relative pb-8">
+                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                  <div className="relative flex space-x-3">
+                    <div>
+                      <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-8 ring-white">
+                        <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                      <div>
+                        <p className="text-sm text-gray-800">Conversation</p>
+                      </div>
+                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                        <span>{call.duration_seconds != null ? `${call.duration_seconds}s` : ""}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li>
+                <div className="relative">
+                  <div className="relative flex space-x-3">
+                    <div>
+                      <span
+                        className={`h-8 w-8 rounded-full ${
+                          call.ended_at ? "bg-green-500" : "bg-gray-200"
+                        } flex items-center justify-center ring-8 ring-white`}
+                      >
+                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                      <div>
+                        <p className="text-sm text-gray-800">Call Ended</p>
+                      </div>
+                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                        {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="rounded-md border bg-white p-4">
+          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Outcome Insights</h2>
+          <div className="mt-3">
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {callInsights.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {parsedTranscript.length > 0 && (
+        <div className="mt-6">
+          <div className="rounded-md border bg-white p-4">
+            <h2 className="text-base font-semibold leading-6 text-gray-900">Conversation Timeline</h2>
+            <div className="mt-4 space-y-6">
+              {parsedTranscript.map((segment, index) => (
+                <div key={index} className="relative flex gap-x-3">
+                  <div className="flex-none text-sm font-semibold leading-6 text-gray-500">
+                    {segment.speaker === "AI" ? "Agent" : "Caller"}
+                  </div>
+                  <div className="flex-auto rounded-md p-3 ring-1 ring-inset ring-gray-200">
+                    <div className="text-sm leading-6 text-gray-700">
+                      <p className="whitespace-pre-wrap">{segment.text}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-3 lg:grid-cols-1">
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-sm font-semibold">Transcript</h2>
-          <pre className="mt-3 whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800">
+          <pre className="mt-3 whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800 font-mono">
             {call.transcript ?? "—"}
           </pre>
         </div>
+      </div>
 
-        <div className="rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Raw Payload</h2>
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800">
-            {parsedRaw ? JSON.stringify(parsedRaw, null, 2) : call.raw_payload ?? "—"}
-          </pre>
-        </div>
+      <div className="mt-6">
+        <details className="group rounded-lg border bg-white p-4">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-gray-900 group-open:mb-4">
+            Audit & Metadata
+          </summary>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="text-gray-600">Call ID</dt>
+              <dd className="font-mono text-gray-800">{call.id}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Provider Call ID</dt>
+              <dd className="font-mono text-gray-800">{call.vapi_call_id ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Agent</dt>
+              <dd className="text-gray-800">{agentName ?? call.agent_id ?? "Unassigned"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Direction</dt>
+              <dd className="text-gray-800">Inbound</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">From</dt>
+              <dd className="font-mono text-gray-800">{maskPhoneNumber(fromNumber)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">To</dt>
+              <dd className="font-mono text-gray-800">{maskPhoneNumber(toNumber)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Started</dt>
+              <dd className="text-gray-800">{formatDate(call.started_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Ended</dt>
+              <dd className="text-gray-800">{formatDate(call.ended_at)}</dd>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   );
