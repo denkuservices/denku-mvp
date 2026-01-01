@@ -70,58 +70,35 @@ function extractCost(msg: any, call: any): number | null {
   return null;
 }
 
-async function resolveAgentId({
-  assistantId,
-  phoneNumberId,
-}: {
+/**
+ * Resolve agents.id safely by vapi assistantId or phoneNumberId.
+ * Returns null if not found.
+ */
+async function resolveAgentId(input: {
   assistantId?: string | null;
   phoneNumberId?: string | null;
-}): Promise<string | null> {
-  try {
-    if (assistantId) {
-      const { data, error } = await supabaseAdmin
-        .from("agents")
-        .select("id")
-        .eq("vapi_assistant_id", assistantId)
-        .maybeSingle();
+}): Promise<{ agentId: string | null; orgId: string | null }> {
+  const assistantId = input.assistantId ?? null;
+  const phoneNumberId = input.phoneNumberId ?? null;
 
-      if (error) {
-        console.error(
-          "[vapi-webhook] resolveAgentId by assistantId failed",
-          error
-        );
-      }
-      if (data?.id) {
-        return data.id;
-      }
-    }
+  const ors = [
+    assistantId ? `vapi_assistant_id.eq.${assistantId}` : null,
+    phoneNumberId ? `vapi_phone_number_id.eq.${phoneNumberId}` : null,
+  ]
+    .filter(Boolean)
+    .join(",");
 
-    if (phoneNumberId) {
-      const { data, error } = await supabaseAdmin
-        .from("agents")
-        .select("id")
-        .eq("vapi_phone_number_id", phoneNumberId)
-        .maybeSingle();
+  if (!ors) return { agentId: null, orgId: null };
 
-      if (error) {
-        console.error(
-          "[vapi-webhook] resolveAgentId by phoneNumberId failed",
-          error
-        );
-      }
-      if (data?.id) {
-        return data.id;
-      }
-    }
+  const { data, error } = await supabaseAdmin
+    .from("agents")
+    .select("id, org_id")
+    .or(ors)
+    .maybeSingle();
 
-    return null;
-  } catch (err) {
-    console.error(
-      "[vapi-webhook] resolveAgentId threw an unexpected error",
-      err
-    );
-    return null;
-  }
+  if (error || !data?.id) return { agentId: null, orgId: null };
+
+  return { agentId: data.id, orgId: data.org_id ?? null };
 }
 
 /* -----------------------------
@@ -150,66 +127,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ignored: true });
     }
 
-    try {
-      const agentId = await resolveAgentId({
-        assistantId: call.assistantId,
-        phoneNumberId: call.phoneNumberId,
-      });
+    // Resolve agent/org safely (assistantId / phoneNumberId)
+    const { agentId, orgId } = await resolveAgentId({
+      assistantId: call.assistantId ?? null,
+      phoneNumberId: call.phoneNumberId ?? null,
+    });
 
-      if (agentId) {
-        console.log(
-          `[vapi-webhook] DRY_RUN resolved agent_id=${agentId} for call_id=${call.id}`
-        );
-      }
-    } catch (e) {
-      console.error(
-        "[vapi-webhook] DRY_RUN agent resolution block failed unexpectedly",
-        e
-      );
-    }
+    console.log(
+      `[vapi-webhook] resolved agent_id=${agentId ?? "null"} for call_id=${
+        call.id
+      }`
+    );
 
-    /* Agent mapping */
-    const { data: agent } = await supabaseAdmin
-      .from("agents")
-      .select("id, org_id")
-      .or(
-        [
-          call.assistantId
-            ? `vapi_assistant_id.eq.${call.assistantId}`
-            : null,
-          call.phoneNumberId
-            ? `vapi_phone_number_id.eq.${call.phoneNumberId}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(",")
-      )
-      .maybeSingle();
-
-    if (!agent?.id || !agent.org_id) {
+    // If we cannot resolve, don't fail webhook (backward-compatible)
+    if (!agentId || !orgId) {
       return NextResponse.json({ ok: true, warning: "agent_not_found" });
     }
 
     const startedAt = call.startedAt ?? null;
     const endedAt = call.endedAt ?? null;
+
     const durationSec =
-      safeNumber(call.durationSeconds) ??
-      computeDurationSec(startedAt, endedAt);
+      safeNumber(call.durationSeconds) ?? computeDurationSec(startedAt, endedAt);
 
     const costUsd = extractCost(msg, call);
 
     /* Call upsert — TEK KAYNAK */
     await supabaseAdmin.from("calls").upsert(
       {
-        org_id: agent.org_id,
-        agent_id: agent.id,
+        org_id: orgId,
+        agent_id: agentId,
         vapi_call_id: call.id,
         started_at: startedAt,
         ended_at: endedAt,
-        duration_sec: durationSec,
+        duration_seconds: durationSec,
         cost_usd: costUsd,
         transcript: call.transcript ?? null,
         outcome: "completed",
+        // Optional: keep phones if you want (won't break schema if columns exist)
+        // from_phone: normalizePhone(call.from) ?? null,
+        // to_phone: normalizePhone(call.to) ?? null,
         raw: body,
       },
       { onConflict: "vapi_call_id" }
