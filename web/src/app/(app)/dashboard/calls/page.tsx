@@ -54,6 +54,28 @@ function outcomeBadgeClass(outcome?: string | null) {
   return "bg-blue-100 text-blue-800";
 }
 
+function getOutcomeDisplayLabel(call: {
+  outcome: string | null;
+  transcript: string | null;
+  duration_seconds: number | null;
+}): string {
+  const transcript = (call.transcript ?? "").toLowerCase();
+  const outcome = (call.outcome ?? "").toLowerCase();
+
+  if (/\b(appointment|meeting|schedule)\b/.test(transcript)) {
+    return "Meeting Scheduled";
+  }
+  if (/\b(support|issue|problem|help)\b/.test(transcript)) {
+    return "Support Request";
+  }
+  const isShortCall =
+    call.duration_seconds !== null && call.duration_seconds < 20;
+  if (outcome.includes("ended") && isShortCall) {
+    return "Dropped Call";
+  }
+  return "Completed";
+}
+
 // ================================
 // Page
 // ================================
@@ -63,17 +85,20 @@ export default async function CallsPage() {
 
   const { data, error } = await supabase
     .from("calls")
-    .select(`
+    .select(
+      `
       id,
       created_at,
       outcome,
+      transcript,
       duration_seconds,
       cost_usd,
       agent:agents (
         id,
         name
       )
-    `)
+    `
+    )
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -125,41 +150,57 @@ export default async function CallsPage() {
             <tbody>
               {calls.map((call) => {
                 const href = `/dashboard/calls/${call.id}`;
-                const agentObj = Array.isArray(call.agent) ? call.agent[0] : call.agent;
+                const agentObj = Array.isArray(call.agent)
+                  ? call.agent[0]
+                  : call.agent;
                 const agentName = agentObj?.name ?? "—";
-
+                const outcomeLabel = getOutcomeDisplayLabel(call);
 
                 return (
                   <tr key={call.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link href={href} className="font-medium text-gray-900 hover:underline">
-                        {agentName}
+                    <td className="px-4 py-3 align-top">
+                      <Link href={href} className="block group">
+                        <div className="font-medium text-gray-900 group-hover:underline">
+                          {agentName}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 md:hidden">
+                          {formatDate(call.created_at)}
+                        </div>
                       </Link>
                     </td>
 
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${outcomeBadgeClass(
-                          call.outcome
-                        )}`}
-                      >
-                        {call.outcome ?? "—"}
-                      </span>
+                    <td className="px-4 py-3 align-top">
+                      <Link href={href} className="block" tabIndex={-1}>
+                        <span
+                          className={`inline-block max-w-[140px] truncate rounded-full px-2 py-0.5 text-xs font-medium sm:max-w-[200px] ${outcomeBadgeClass(
+                            call.outcome
+                          )}`}
+                          title={call.outcome ?? ""}
+                        >
+                          {outcomeLabel}
+                        </span>
+                      </Link>
                     </td>
 
-                    <td className="hidden px-4 py-3 md:table-cell">
-                      {formatDate(call.created_at)}
+                    <td className="hidden px-4 py-3 align-top md:table-cell">
+                      <Link href={href} className="block" tabIndex={-1}>
+                        {formatDate(call.created_at)}
+                      </Link>
                     </td>
 
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      {formatDuration(call.duration_seconds)}
+                    <td className="hidden px-4 py-3 align-top sm:table-cell">
+                      <Link href={href} className="block" tabIndex={-1}>
+                        {formatDuration(call.duration_seconds)}
+                      </Link>
                     </td>
 
-                    <td className="hidden px-4 py-3 lg:table-cell">
-                      {money(call.cost_usd)}
+                    <td className="hidden px-4 py-3 align-top lg:table-cell">
+                      <Link href={href} className="block" tabIndex={-1}>
+                        {money(call.cost_usd)}
+                      </Link>
                     </td>
 
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right align-top">
                       <Link
                         href={href}
                         className="rounded-md border bg-white px-2.5 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
