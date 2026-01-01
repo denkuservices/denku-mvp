@@ -26,6 +26,11 @@ type CallRow = {
   cost_usd: number | null;
 };
 
+function isUuid(v?: string | null) {
+  if (!v) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const d = new Date(value);
@@ -34,11 +39,11 @@ function formatDate(value?: string | null) {
 }
 
 function formatUSD(value: number) {
-  return `$${value.toFixed(4)}`;
+  return `$${Number(value ?? 0).toFixed(4)}`;
 }
 
 function formatDuration(sec: number) {
-  const s = Math.max(0, Math.floor(sec));
+  const s = Math.max(0, Math.floor(Number(sec ?? 0)));
   const m = Math.floor(s / 60);
   const r = s % 60;
   if (m <= 0) return `${r}s`;
@@ -111,9 +116,7 @@ async function resolveOrgId() {
       .eq("id", profileId)
       .maybeSingle();
 
-    if (!error && data && (data as any)[col]) {
-      return (data as any)[col] as string;
-    }
+    if (!error && data && (data as any)[col]) return (data as any)[col] as string;
   }
 
   throw new Error(
@@ -149,230 +152,225 @@ async function getCallsByLeadId(orgId: string, leadId: string) {
 }
 
 export default async function Page({ params }: { params: { leadId: string } }) {
-  const leadId = params.leadId;
+  const leadId = params?.leadId;
 
-// Guard: route param must be a UUID
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-if (!leadId || leadId === "undefined" || !uuidRegex.test(leadId)) {
-  return (
-    <div className="p-6 space-y-2">
-      <h1 className="text-2xl font-semibold">Lead not found</h1>
-      <p className="text-sm text-muted-foreground">
-        Missing or invalid lead id in route params.
-      </p>
-      <Link href="/dashboard/leads" className="text-sm underline">
-        Back to Leads
-      </Link>
-    </div>
-  );
-}
-
-
-  try {
-    const orgId = await resolveOrgId();
-    const lead = await getLead(orgId, leadId);
-
-    if (!lead) {
-      return (
-        <div className="p-6 space-y-2">
-          <h1 className="text-2xl font-semibold">Lead not found</h1>
-          <p className="text-sm text-muted-foreground">This lead does not exist or you do not have access.</p>
-          <Link href="/dashboard/leads" className="text-sm underline">
-            Back to Leads
-          </Link>
-        </div>
-      );
-    }
-
-    const calls = await getCallsByLeadId(orgId, leadId);
-
-    const totalCalls = calls.length;
-    const totalCost = calls.reduce((sum, c) => sum + Number(c.cost_usd ?? 0), 0);
-    const avgDuration =
-      totalCalls === 0
-        ? 0
-        : Math.round(calls.reduce((sum, c) => sum + Number(c.duration_seconds ?? 0), 0) / totalCalls);
-
-    const st = safeStatus(lead.status);
-
-    return (
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Link href="/dashboard/leads" className="text-sm text-muted-foreground hover:underline">
-                Leads
-              </Link>
-              <span className="text-sm text-muted-foreground">/</span>
-              <h1 className="text-2xl font-semibold tracking-tight">{lead.name || lead.id}</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">Lead profile and related call activity.</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50 opacity-60"
-              title="Coming soon"
-            >
-              Add note
-            </button>
-            <button
-              type="button"
-              disabled
-              className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60"
-              title="Coming soon"
-            >
-              Update status
-            </button>
-          </div>
-        </div>
-
-        {/* Lead summary */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-            <p className="text-sm font-medium">Lead</p>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Phone</p>
-                <p className="font-mono text-sm">{formatPhone(lead.phone)}</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="text-sm">{lead.email || "—"}</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Status</p>
-                <span
-                  className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                    st
-                  )}`}
-                >
-                  {statusLabel(st)}
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Source</p>
-                <p className="text-sm">{lead.source || "—"}</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Created</p>
-                <p className="text-sm text-muted-foreground">{formatDate(lead.created_at)}</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Last activity</p>
-                <p className="text-sm text-muted-foreground">{formatDate(lead.updated_at)}</p>
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <p className="text-xs text-muted-foreground">Lead ID</p>
-                <p className="text-sm font-mono text-muted-foreground break-all">{lead.id}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* KPIs */}
-          <div className="rounded-xl border bg-white p-4 space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Calls</p>
-              <p className="mt-1 text-2xl font-semibold">{totalCalls}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Related to this lead</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Avg duration</p>
-              <p className="mt-1 text-2xl font-semibold">{formatDuration(avgDuration)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Across related calls</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total cost</p>
-              <p className="mt-1 text-2xl font-semibold">{formatUSD(totalCost)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Estimated</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div className="rounded-xl border bg-white">
-          <div className="border-b p-4">
-            <p className="text-sm font-medium">Notes</p>
-            <p className="text-xs text-muted-foreground">Internal notes for your team.</p>
-          </div>
-          <div className="p-4">
-            {lead.notes ? (
-              <p className="text-sm">{lead.notes}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">No notes yet.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Related calls */}
-        <div className="rounded-xl border bg-white">
-          <div className="border-b p-4">
-            <p className="text-sm font-medium">Related calls</p>
-            <p className="text-xs text-muted-foreground">Calls associated with this lead.</p>
-          </div>
-
-          {calls.length === 0 ? (
-            <div className="p-10 text-center">
-              <p className="text-sm font-medium">No calls yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Once calls are linked to this lead (calls.lead_id), they will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-left text-xs text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="px-4 py-3 font-medium">Started</th>
-                    <th className="px-4 py-3 font-medium">Outcome</th>
-                    <th className="px-4 py-3 font-medium">Duration</th>
-                    <th className="px-4 py-3 font-medium">Cost</th>
-                    <th className="px-4 py-3 font-medium text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calls.map((c) => (
-                    <tr key={c.id} className="border-b last:border-b-0">
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(c.started_at)}</td>
-                      <td className="px-4 py-3">{c.outcome || "—"}</td>
-                      <td className="px-4 py-3">{formatDuration(Number(c.duration_seconds ?? 0))}</td>
-                      <td className="px-4 py-3">{formatUSD(Number(c.cost_usd ?? 0))}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/dashboard/calls/${c.id}`}
-                          className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-                        >
-                          View call
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  } catch (err: any) {
+  if (!leadId) {
     return (
       <div className="p-6 space-y-2">
-        <h1 className="text-2xl font-semibold">Application error</h1>
-        <p className="text-sm text-muted-foreground">{err?.message ?? "Unexpected error"}</p>
+        <h1 className="text-2xl font-semibold">Lead not found</h1>
+        <p className="text-sm text-muted-foreground">Missing lead id in route params.</p>
         <Link href="/dashboard/leads" className="text-sm underline">
           Back to Leads
         </Link>
       </div>
     );
   }
+
+  if (!isUuid(leadId)) {
+    return (
+      <div className="p-6 space-y-2">
+        <h1 className="text-2xl font-semibold">Lead not found</h1>
+        <p className="text-sm text-muted-foreground">Invalid lead id (not a UUID).</p>
+        <Link href="/dashboard/leads" className="text-sm underline">
+          Back to Leads
+        </Link>
+      </div>
+    );
+  }
+
+  const orgId = await resolveOrgId();
+  const lead = await getLead(orgId, leadId);
+
+  if (!lead) {
+    return (
+      <div className="p-6 space-y-2">
+        <h1 className="text-2xl font-semibold">Lead not found</h1>
+        <p className="text-sm text-muted-foreground">No lead found for this org.</p>
+        <Link href="/dashboard/leads" className="text-sm underline">
+          Back to Leads
+        </Link>
+      </div>
+    );
+  }
+
+  const calls = await getCallsByLeadId(orgId, leadId);
+
+  const totalCalls = calls.length;
+  const totalCost = calls.reduce((sum, c) => sum + Number(c.cost_usd ?? 0), 0);
+  const avgDuration =
+    totalCalls === 0
+      ? 0
+      : Math.round(calls.reduce((sum, c) => sum + Number(c.duration_seconds ?? 0), 0) / totalCalls);
+
+  const st = safeStatus(lead.status);
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard/leads" className="text-sm text-muted-foreground hover:underline">
+              Leads
+            </Link>
+            <span className="text-sm text-muted-foreground">/</span>
+            <h1 className="text-2xl font-semibold tracking-tight">{lead.name || lead.id}</h1>
+          </div>
+          <p className="text-sm text-muted-foreground">Lead profile and related call activity.</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled
+            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50 opacity-60"
+            title="Coming soon"
+          >
+            Add note
+          </button>
+          <button
+            type="button"
+            disabled
+            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60"
+            title="Coming soon"
+          >
+            Update status
+          </button>
+        </div>
+      </div>
+
+      {/* Lead summary */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+          <p className="text-sm font-medium">Lead</p>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Phone</p>
+              <p className="font-mono text-sm">{formatPhone(lead.phone)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Email</p>
+              <p className="text-sm">{lead.email || "—"}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <span
+                className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
+                  st
+                )}`}
+              >
+                {statusLabel(st)}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Source</p>
+              <p className="text-sm">{lead.source || "—"}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Created</p>
+              <p className="text-sm text-muted-foreground">{formatDate(lead.created_at)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Last activity</p>
+              <p className="text-sm text-muted-foreground">{formatDate(lead.updated_at)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Lead ID</p>
+              <p className="text-sm font-mono text-muted-foreground">{lead.id}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div className="rounded-xl border bg-white p-4 space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Calls</p>
+            <p className="mt-1 text-2xl font-semibold">{totalCalls}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Related to this lead</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Avg duration</p>
+            <p className="mt-1 text-2xl font-semibold">{formatDuration(avgDuration)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Across related calls</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Total cost</p>
+            <p className="mt-1 text-2xl font-semibold">{formatUSD(totalCost)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Estimated</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="rounded-xl border bg-white">
+        <div className="border-b p-4">
+          <p className="text-sm font-medium">Notes</p>
+          <p className="text-xs text-muted-foreground">Internal notes for your team.</p>
+        </div>
+        <div className="p-4">
+          {lead.notes ? (
+            <p className="text-sm">{lead.notes}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No notes yet.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Related calls */}
+      <div className="rounded-xl border bg-white">
+        <div className="border-b p-4">
+          <p className="text-sm font-medium">Related calls</p>
+          <p className="text-xs text-muted-foreground">Calls associated with this lead.</p>
+        </div>
+
+        {calls.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="text-sm font-medium">No calls yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Once calls are linked to this lead (calls.lead_id), they will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground">
+                <tr className="border-b">
+                  <th className="px-4 py-3 font-medium">Started</th>
+                  <th className="px-4 py-3 font-medium">Outcome</th>
+                  <th className="px-4 py-3 font-medium">Duration</th>
+                  <th className="px-4 py-3 font-medium">Cost</th>
+                  <th className="px-4 py-3 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calls.map((c) => (
+                  <tr key={c.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(c.started_at)}</td>
+                    <td className="px-4 py-3">{c.outcome || "—"}</td>
+                    <td className="px-4 py-3">{formatDuration(c.duration_seconds ?? 0)}</td>
+                    <td className="px-4 py-3">{formatUSD(c.cost_usd ?? 0)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/dashboard/calls/${c.id}`}
+                        className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
+                      >
+                        View call
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
