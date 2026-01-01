@@ -142,7 +142,6 @@ export default async function CallsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: toBasicAuthHeader(),
         },
         body: JSON.stringify({ ids: agentIdsToFetch }),
       });
