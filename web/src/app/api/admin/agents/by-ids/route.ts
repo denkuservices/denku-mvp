@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { requireBasicAuth } from "@/lib/auth/basic";
 
 const BodySchema = z.object({
   ids: z.array(z.string()).nonempty(),
 });
 
 export async function POST(request: NextRequest) {
-  if (!requireBasicAuth(request)) {
-    return new Response("Unauthorized", {
-      status: 401,
-      headers: { "WWW-Authenticate": 'Basic realm="Secure Area"' },
-    });
-  }
-
   try {
     const body = await request.json();
     const parsed = BodySchema.safeParse(body);
@@ -26,7 +18,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Limit to 50 IDs to prevent abuse
     const ids = parsed.data.ids.slice(0, 50);
 
     const { data: agents, error } = await supabaseAdmin
@@ -48,3 +39,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 }
+
