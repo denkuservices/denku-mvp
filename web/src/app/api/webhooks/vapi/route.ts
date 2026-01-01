@@ -70,6 +70,60 @@ function extractCost(msg: any, call: any): number | null {
   return null;
 }
 
+async function resolveAgentId({
+  assistantId,
+  phoneNumberId,
+}: {
+  assistantId?: string | null;
+  phoneNumberId?: string | null;
+}): Promise<string | null> {
+  try {
+    if (assistantId) {
+      const { data, error } = await supabaseAdmin
+        .from("agents")
+        .select("id")
+        .eq("vapi_assistant_id", assistantId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "[vapi-webhook] resolveAgentId by assistantId failed",
+          error
+        );
+      }
+      if (data?.id) {
+        return data.id;
+      }
+    }
+
+    if (phoneNumberId) {
+      const { data, error } = await supabaseAdmin
+        .from("agents")
+        .select("id")
+        .eq("vapi_phone_number_id", phoneNumberId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "[vapi-webhook] resolveAgentId by phoneNumberId failed",
+          error
+        );
+      }
+      if (data?.id) {
+        return data.id;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error(
+      "[vapi-webhook] resolveAgentId threw an unexpected error",
+      err
+    );
+    return null;
+  }
+}
+
 /* -----------------------------
    POST
 ----------------------------- */
@@ -94,6 +148,24 @@ export async function POST(req: NextRequest) {
 
     if (msg.type !== "end-of-call-report" || !call?.id) {
       return NextResponse.json({ ok: true, ignored: true });
+    }
+
+    try {
+      const agentId = await resolveAgentId({
+        assistantId: call.assistantId,
+        phoneNumberId: call.phoneNumberId,
+      });
+
+      if (agentId) {
+        console.log(
+          `[vapi-webhook] DRY_RUN resolved agent_id=${agentId} for call_id=${call.id}`
+        );
+      }
+    } catch (e) {
+      console.error(
+        "[vapi-webhook] DRY_RUN agent resolution block failed unexpectedly",
+        e
+      );
     }
 
     /* Agent mapping */
