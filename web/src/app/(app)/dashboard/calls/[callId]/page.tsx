@@ -1,73 +1,24 @@
-// src/app/(app)/dashboard/calls/[callId]/page.tsx
+// web/src/app/(app)/dashboard/calls/[callId]/page.tsx
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-type CallDetail = {
+type CallRow = {
   id: string;
-  vapi_call_id?: string | null;
-  agent_id?: string | null;
-  lead_id?: string | null;
-  org_id?: string | null;
-  started_at?: string | null;
-  ended_at?: string | null;
-  duration_seconds?: number | null;
-  cost_usd?: number | string | null;
-  status?: string | null;
-  outcome?: string | null;
-  transcript?: string | null;
-  raw_payload?: unknown; // can be object or string (sometimes double-stringified)
-  raw?: unknown; // backward compat
-  created_at?: string | null;
+  vapi_call_id: string | null;
+  org_id: string | null;
+  agent_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  cost_usd: number | string | null;
+  outcome: string | null;
+  transcript: string | null;
+  raw_payload: string | null; // DB’de text
+  created_at: string | null;
 };
-
-type CallDetailResponse = {
-  ok?: boolean;
-  data?: CallDetail | null;
-};
-
-function toBasicAuthHeader() {
-  const user = process.env.ADMIN_USER ?? "";
-  const pass = process.env.ADMIN_PASS ?? "";
-  const token = Buffer.from(`${user}:${pass}`).toString("base64");
-  return `Basic ${token}`;
-}
-
-function getBaseUrl() {
-  // DEV: always use localhost
-  if (process.env.NODE_ENV === "development") return "http://localhost:3000";
-
-  // PROD/STAGING
-  const vercel = process.env.VERCEL_URL;
-  if (vercel) return `https://${vercel}`;
-
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
-  if (site) return site;
-
-  return "http://localhost:3000";
-}
-
-async function adminGetJSON<T>(path: string): Promise<T> {
-  const base = getBaseUrl();
-  const res = await fetch(`${base}${path}`, {
-    method: "GET",
-    headers: {
-      Authorization: toBasicAuthHeader(),
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Admin API failed (${res.status}): ${text || res.statusText}`
-    );
-  }
-
-  return (await res.json()) as T;
-}
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -83,56 +34,57 @@ function formatMoney(v?: number | string | null) {
   return `$${n.toFixed(4)}`;
 }
 
-/** Safe JSON parse that tolerates:
- * - raw_payload = object
- * - raw_payload = JSON string
- * - raw_payload = double-stringified JSON string
- * Returns null if cannot parse.
- */
-function safeJsonParse(input: unknown): any | null {
-  if (input == null) return null;
-
-  if (typeof input === "object") return input;
-
-  if (typeof input === "string") {
-    // First parse
-    try {
-      const first = JSON.parse(input);
-      if (typeof first === "string") {
-        // Sometimes DB contains a JSON string inside a JSON string
-        try {
-          return JSON.parse(first);
-        } catch {
-          return first;
-        }
-      }
-      return first;
-    } catch {
-      return null;
-    }
+function outcomeBadgeClass(outcome?: string | null) {
+  const lower = (outcome ?? "").toLowerCase();
+  if (lower.includes("completed") || lower.includes("end-of-call-report")) {
+    return "bg-green-100 text-green-800";
   }
-
-  return null;
+  if (lower.includes("ended")) return "bg-gray-100 text-gray-800";
+  if (lower.includes("failed") || lower.includes("error") || lower.includes("no-answer")) {
+    return "bg-red-100 text-red-800";
+  }
+  return "bg-blue-100 text-blue-800";
 }
 
-/** Try to locate a recording url in common Vapi payload shapes */
-function extractRecordingUrl(rawObj: any): string | null {
-  if (!rawObj) return null;
+function safeParseRawPayload(raw: string | null): any | null {
+  if (!raw) return null;
 
-  // Your stored payload shape: { message: { artifact: { recordingUrl, recording, ... } } }
-  const msg = rawObj?.message ?? rawObj;
-  const artifact = msg?.artifact ?? msg?.data?.artifact ?? null;
+  // Bazı kayıtlar "\"{...}\"" (double-encoded) şeklinde geliyor.
+  // 1) JSON.parse dene -> string çıkarsa tekrar JSON.parse
+  try {
+    const first = JSON.parse(raw);
+    if (typeof first === "string") {
+      try {
+        return JSON.parse(first);
+      } catch {
+        return first;
+      }
+    }
+    return first;
+  } catch {
+    // raw zaten JSON değilse: string olarak döndür
+    return raw;
+  }
+}
+
+function findRecordingUrl(obj: any): string | null {
+  if (!obj || typeof obj !== "object") return null;
+
+  // En yaygın yerler:
+  // message.artifact.recordingUrl
+  // message.artifact.recording.mono.combinedUrl
+  // message.artifact.recording.stereoUrl
+  // message.artifact.stereoRecordingUrl
+  const msg = obj?.message ?? obj;
 
   const candidates = [
-    artifact?.recordingUrl,
-    artifact?.stereoRecordingUrl,
-    artifact?.recording?.mono?.combinedUrl,
-    artifact?.recording?.stereoUrl,
-    artifact?.recording?.mono?.assistantUrl,
-    artifact?.recording?.mono?.customerUrl,
-    // Sometimes surfaced under different nesting
-    msg?.recordingUrl,
-    msg?.stereoRecordingUrl,
+    msg?.artifact?.recordingUrl,
+    msg?.artifact?.stereoRecordingUrl,
+    msg?.artifact?.recording?.stereoUrl,
+    msg?.artifact?.recording?.mono?.combinedUrl,
+    msg?.artifact?.recording?.mono?.assistantUrl,
+    msg?.artifact?.recording?.mono?.customerUrl,
+    msg?.artifact?.recordingUrl?.url,
   ];
 
   for (const c of candidates) {
@@ -148,32 +100,38 @@ export default async function CallDetailPage({
 }) {
   const { callId } = await params;
 
-  const res = await adminGetJSON<CallDetailResponse>(`/api/admin/calls/${callId}`);
-  const call = res.data ?? null;
+  const { data: call, error: callErr } = await supabaseAdmin
+    .from("calls")
+    .select(
+      "id, vapi_call_id, org_id, agent_id, started_at, ended_at, duration_seconds, cost_usd, outcome, transcript, raw_payload, created_at"
+    )
+    .eq("id", callId)
+    .maybeSingle<CallRow>();
+
+  if (callErr) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <h1 className="text-xl font-semibold">Call Detail</h1>
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Failed to load call: {callErr.message}
+        </div>
+        <div className="mt-4">
+          <Link href="/dashboard/calls" className="hover:underline text-sm">
+            Back to Calls
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!call) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Link href="/dashboard" className="hover:underline">
-                Dashboard
-              </Link>
-              <span>/</span>
-              <Link href="/dashboard/calls" className="hover:underline">
-                Calls
-              </Link>
-              <span>/</span>
-              <span className="text-gray-900">Call</span>
-            </div>
-
-            <h1 className="mt-2 text-xl font-semibold">Call not found</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              No record for callId <span className="font-mono">{callId}</span>
-            </p>
-          </div>
-
+        <h1 className="text-xl font-semibold">Call not found</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          No record for callId <span className="font-mono">{callId}</span>
+        </p>
+        <div className="mt-4">
           <Link
             href="/dashboard/calls"
             className="rounded-md border bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
@@ -185,23 +143,25 @@ export default async function CallDetailPage({
     );
   }
 
-  const backHref = call.agent_id
-    ? `/dashboard/agents/${call.agent_id}`
-    : "/dashboard/calls";
+  // Agent name resolve (optional)
+  let agentName: string | null = null;
+  if (call.agent_id) {
+    const { data: agentRow } = await supabaseAdmin
+      .from("agents")
+      .select("name")
+      .eq("id", call.agent_id)
+      .maybeSingle<{ name: string | null }>();
+    agentName = agentRow?.name ?? null;
+  }
+
+  const parsedRaw = safeParseRawPayload(call.raw_payload);
+  const recordingUrl = findRecordingUrl(parsedRaw);
+
+  const outcome = call.outcome ?? "";
+  const badgeClass = outcomeBadgeClass(outcome);
+
+  const backHref = call.agent_id ? `/dashboard/agents/${call.agent_id}` : "/dashboard/calls";
   const backLabel = call.agent_id ? "Back to Agent" : "Back to Calls";
-
-  const outcome = (call.outcome ?? "").toString();
-  const lower = outcome.toLowerCase();
-  const badgeClass =
-    lower.includes("completed") || lower.includes("end-of-call-report")
-      ? "bg-green-100 text-green-800"
-      : lower.includes("ended")
-      ? "bg-gray-100 text-gray-800"
-      : "bg-blue-100 text-blue-800";
-
-  // Parse raw payload safely (this is what fixes Vercel crashes)
-  const rawObj = safeJsonParse(call.raw_payload) ?? safeJsonParse(call.raw) ?? null;
-  const recordingUrl = extractRecordingUrl(rawObj);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -220,9 +180,17 @@ export default async function CallDetailPage({
           </div>
 
           <h1 className="mt-2 text-xl font-semibold">Call Detail</h1>
+
           <p className="mt-1 text-sm text-gray-600">
-            Detailed record for call <span className="font-mono">{call.id}</span>
+            Call ID: <span className="font-mono">{call.id}</span>
           </p>
+
+          {agentName ? (
+            <p className="mt-1 text-sm text-gray-600">
+              Agent: <span className="font-medium text-gray-900">{agentName}</span>
+            </p>
+          ) : null}
+
           {call.vapi_call_id ? (
             <p className="mt-1 text-sm text-gray-600">
               Vapi call id: <span className="font-mono">{call.vapi_call_id}</span>
@@ -238,37 +206,15 @@ export default async function CallDetailPage({
         </Link>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badgeClass}`}
-        >
+      <div className="mt-2">
+        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badgeClass}`}>
           {outcome || "—"}
         </span>
-
-        {recordingUrl ? (
-          <a
-            href={recordingUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs font-medium text-blue-700 hover:underline"
-          >
-            Open recording
-          </a>
-        ) : null}
       </div>
-
-      {recordingUrl ? (
-        <div className="mt-4 rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Recording</h2>
-          <audio className="mt-3 w-full" controls preload="none">
-            <source src={recordingUrl} />
-          </audio>
-        </div>
-      ) : null}
 
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
         <div className="rounded-md border bg-white p-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold">Summary</h2>
+          <h2 className="text-sm font-semibold">KPIs</h2>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-gray-600">Started</dt>
@@ -288,37 +234,28 @@ export default async function CallDetailPage({
               <dt className="text-xs text-gray-600">Cost</dt>
               <dd className="text-sm text-gray-900">{formatMoney(call.cost_usd)}</dd>
             </div>
-            <div>
-              <dt className="text-xs text-gray-600">Status</dt>
-              <dd className="text-sm text-gray-900">{call.status ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-600">Outcome</dt>
-              <dd className="text-sm text-gray-900">{call.outcome ?? "—"}</dd>
-            </div>
           </dl>
         </div>
 
         <div className="rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Identifiers</h2>
-          <div className="mt-3 space-y-2 text-sm">
-            <div>
-              <div className="text-xs text-gray-600">Call ID</div>
-              <div className="font-mono text-gray-900">{call.id}</div>
+          <h2 className="text-sm font-semibold">Recording</h2>
+          {recordingUrl ? (
+            <div className="mt-3 space-y-3">
+              <audio controls className="w-full">
+                <source src={recordingUrl} />
+              </audio>
+              <a
+                href={recordingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-blue-700 hover:underline"
+              >
+                Open recording link
+              </a>
             </div>
-            <div>
-              <div className="text-xs text-gray-600">Vapi Call ID</div>
-              <div className="font-mono text-gray-900">{call.vapi_call_id ?? "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600">Agent ID</div>
-              <div className="font-mono text-gray-900">{call.agent_id ?? "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600">Lead ID</div>
-              <div className="font-mono text-gray-900">{call.lead_id ?? "—"}</div>
-            </div>
-          </div>
+          ) : (
+            <p className="mt-3 text-sm text-gray-600">No recording URL found in raw payload.</p>
+          )}
         </div>
       </div>
 
@@ -331,9 +268,9 @@ export default async function CallDetailPage({
         </div>
 
         <div className="rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Raw JSON</h2>
+          <h2 className="text-sm font-semibold">Raw Payload</h2>
           <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800">
-            {rawObj ? JSON.stringify(rawObj, null, 2) : "—"}
+            {parsedRaw ? JSON.stringify(parsedRaw, null, 2) : call.raw_payload ?? "—"}
           </pre>
         </div>
       </div>
