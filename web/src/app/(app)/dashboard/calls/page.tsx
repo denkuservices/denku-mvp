@@ -3,6 +3,50 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+// =================================================================================
+// Data Fetching & Auth Helpers
+// =================================================================================
+
+function toBasicAuthHeader() {
+  const user = process.env.ADMIN_USER ?? "";
+  const pass = process.env.ADMIN_PASS ?? "";
+  const token = Buffer.from(`${user}:${pass}`).toString("base64");
+  return `Basic ${token}`;
+}
+
+function getBaseUrl() {
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  if (site && site.includes("localhost")) return site;
+  const vercel = process.env.VERCEL_URL;
+  if (vercel) return `https://${vercel}`;
+  return "http://localhost:3000";
+}
+
+async function adminGetJSON<T>(path: string): Promise<T | null> {
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(`${base}${path}`, {
+      method: "GET",
+      headers: {
+        Authorization: toBasicAuthHeader(),
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (e) {
+    return null;
+  }
+}
+
+// =================================================================================
+// Formatting Helpers
+// =================================================================================
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const d = new Date(value);
@@ -50,11 +94,9 @@ function outcomeBadgeClass(outcome?: string | null) {
   return "bg-blue-100 text-blue-800";
 }
 
-type AgentJoin =
-  | { name: string | null }
-  | { name: string | null }[]
-  | null
-  | undefined;
+// =================================================================================
+// Types
+// =================================================================================
 
 type CallRow = {
   id: string;
@@ -62,25 +104,63 @@ type CallRow = {
   outcome: string | null;
   duration_seconds: number | null;
   cost_usd: number | string | null;
-  agents: AgentJoin;
+  agent_id: string | null;
 };
 
-function getAgentName(join: AgentJoin): string | null {
-  if (!join) return null;
-  if (Array.isArray(join)) return join[0]?.name ?? null;
-  return join.name ?? null;
-}
+type AgentResponse = {
+  agent?: { name: string | null };
+};
+
+// =================================================================================
+// Page Component
+// =================================================================================
 
 export default async function CallsPage() {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("calls")
-    .select("id, created_at, outcome, duration_seconds, cost_usd, agents ( name )")
+    .select("id, created_at, outcome, duration_seconds, cost_usd, agent_id")
     .order("created_at", { ascending: false })
     .limit(100);
 
   const callRows: CallRow[] = Array.isArray(data) ? (data as CallRow[]) : [];
+
+  // Batch resolve agent names using the new endpoint
+  const agentNameMap = new Map<string, string>();
+  const agentIdsToFetch = [
+    ...new Set(
+      callRows
+        .slice(0, 50) // only resolve for first 50
+        .map((c) => c.agent_id)
+        .filter((id): id is string => !!id)
+    ),
+  ];
+
+  if (agentIdsToFetch.length > 0) {
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/admin/agents/by-ids`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: toBasicAuthHeader(),
+        },
+        body: JSON.stringify({ ids: agentIdsToFetch }),
+      });
+
+      if (res.ok) {
+        const body = (await res.json()) as { agents: { id: string; name: string }[] };
+        for (const agent of body.agents) {
+          if (agent.id && agent.name) {
+            agentNameMap.set(agent.id, agent.name);
+          }
+        }
+      }
+    } catch (e) {
+      // Fail silently and render "—"
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -126,7 +206,7 @@ export default async function CallsPage() {
             <tbody>
               {callRows.map((call) => {
                 const href = `/dashboard/calls/${call.id}`;
-                const agentName = getAgentName(call.agents) ?? "—";
+                const agentName = call.agent_id ? agentNameMap.get(call.agent_id) ?? "—" : "—";
 
                 return (
                   <tr key={call.id} className="border-t hover:bg-gray-50">
