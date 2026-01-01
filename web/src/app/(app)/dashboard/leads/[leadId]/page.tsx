@@ -151,8 +151,9 @@ async function getCallsByLeadId(orgId: string, leadId: string) {
   return (data ?? []) as CallRow[];
 }
 
-export default async function Page({ params }: { params: { leadId: string } }) {
-  const leadId = params?.leadId;
+export default async function Page(props: { params: any }) {
+  const p = await Promise.resolve(props.params);
+  const leadId = p?.leadId ?? p?.id;
 
   if (!leadId) {
     return (
