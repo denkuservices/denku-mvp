@@ -133,22 +133,30 @@ function extractCost(msg: any, call: any) {
  * - to_phone: destination/agent number
  */
 function extractPhones(msg: any, call: any) {
+  // Vapi end-of-call-report payload commonly includes:
+  // msg.customer.number = caller
+  // msg.phoneNumber.number = our number
   const from =
-    normalizePhone(asString(call?.from)) ??
-    normalizePhone(asString(msg?.artifact?.from)) ??
+    normalizePhone(asString(msg?.customer?.number)) ??
+    normalizePhone(asString(call?.customer?.number)) ??
     normalizePhone(asString(msg?.variables?.customer?.number)) ??
     normalizePhone(asString(msg?.variableValues?.customer?.number)) ??
+    normalizePhone(asString(call?.from)) ??
+    normalizePhone(asString(msg?.artifact?.from)) ??
     null;
 
   const to =
-    normalizePhone(asString(call?.to)) ??
-    normalizePhone(asString(msg?.artifact?.to)) ??
+    normalizePhone(asString(msg?.phoneNumber?.number)) ??
+    normalizePhone(asString(call?.phoneNumber?.number)) ??
     normalizePhone(asString(msg?.variables?.phoneNumber?.number)) ??
     normalizePhone(asString(msg?.variableValues?.phoneNumber?.number)) ??
+    normalizePhone(asString(call?.to)) ??
+    normalizePhone(asString(msg?.artifact?.to)) ??
     null;
 
   return { from_phone: from, to_phone: to };
 }
+
 
 function safeRawPayload(body: unknown) {
   // calls.raw_payload is jsonb in your schema; any JSON value is acceptable
@@ -308,32 +316,35 @@ export async function POST(req: NextRequest) {
         asString(msg?.customer?.email) ??
         null,
     });
+const direction =
+  call?.type === "inboundPhoneCall" ? "inbound" :
+  call?.type === "outboundPhoneCall" ? "outbound" :
+  "unknown";
 
-    const payload = {
-      org_id: orgId,
-      agent_id: agentId,
-      vapi_call_id: call.id,
+const payload = {
+  org_id: orgId,
+  agent_id: agentId,
+  vapi_call_id: call.id,
 
-      vapi_assistant_id: call.assistantId ?? null,
-      vapi_phone_number_id: call.phoneNumberId ?? null,
+  vapi_assistant_id: call.assistantId ?? null,
+  vapi_phone_number_id: call.phoneNumberId ?? null,
 
-      // keep your current behavior
-      direction: "inbound",
-      from_phone,
-      to_phone,
+  direction,
+  from_phone,
+  to_phone,
 
-      // New: relational link
-      lead_id: leadId,
+  lead_id: leadId,
 
-      started_at: startedAt,
-      ended_at: endedAt,
-      duration_seconds: durationSec,
-      cost_usd: costUsd,
+  started_at: startedAt,
+  ended_at: endedAt,
+  duration_seconds: durationSec,
+  cost_usd: costUsd,
 
-      transcript,
-      outcome: call?.outcome ?? "completed",
-      raw_payload: safeRawPayload(body),
-    };
+  transcript,
+  outcome: call?.outcome ?? "completed",
+  raw_payload: safeRawPayload(body),
+};
+
 
     const { error: upErr } = await supabaseAdmin
       .from("calls")
