@@ -72,6 +72,21 @@ async function countTable(table: string, orgId: string, sinceISO?: string) {
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
+async function getAgentNameMap(orgId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.from("agents").select("id,name").eq("org_id", orgId);
+
+  // agents tablosu yoksa / policy yüzünden erişilemiyorsa analytics'i kırmayalım
+  if (error) return new Map<string, string>();
+
+  const map = new Map<string, string>();
+  for (const a of data ?? []) {
+    map.set(a.id, a.name ?? a.id);
+  }
+  return map;
+}
+
 
 async function getCalls(orgId: string, sinceISO: string) {
   const supabase = await createSupabaseServerClient();
@@ -101,6 +116,7 @@ export default async function Page({
   const sinceISO = since.toISOString();
 
   const calls = await getCalls(orgId, sinceISO);
+  const agentNameMap = await getAgentNameMap(orgId);
 
   // Optional: bu iki tablo yoksa yorum satırı yap.
   const [leadsCount, ticketsCount, apptsCount] = await Promise.all([
@@ -157,11 +173,13 @@ export default async function Page({
   const agentRows = Array.from(agentMap.entries())
     .map(([agent_id, v]) => ({
       agent_id,
+      agent_name: agent_id === "unknown" ? "Unknown" : agentNameMap.get(agent_id) ?? agent_id,
       calls: v.calls,
       cost: v.cost,
       avgDuration: v.calls === 0 ? 0 : Math.round(v.dur / v.calls),
     }))
     .sort((a, b) => b.calls - a.calls);
+
 
   return (
     <div className="p-6 space-y-6">
@@ -275,7 +293,7 @@ export default async function Page({
             <table className="min-w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-4 py-3 font-medium">Agent ID</th>
+                  <th className="px-4 py-3 font-medium">Agent</th>
                   <th className="px-4 py-3 font-medium">Calls</th>
                   <th className="px-4 py-3 font-medium">Avg duration</th>
                   <th className="px-4 py-3 font-medium">Cost</th>
@@ -284,7 +302,11 @@ export default async function Page({
               <tbody>
                 {agentRows.map((r) => (
                   <tr key={r.agent_id} className="border-b last:border-b-0">
-                    <td className="px-4 py-3 font-mono text-xs">{r.agent_id}</td>
+                    <td className="px-4 py-3">
+                    <div className="text-sm font-medium">{r.agent_name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{r.agent_id}</div>
+                  </td>
+
                     <td className="px-4 py-3">{r.calls}</td>
                     <td className="px-4 py-3">{formatDuration(r.avgDuration)}</td>
                     <td className="px-4 py-3">{formatUSD(r.cost)}</td>
