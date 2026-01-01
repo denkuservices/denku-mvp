@@ -17,7 +17,7 @@ type CallDetail = {
   status?: string | null;
   outcome?: string | null;
   transcript?: string | null;
-  raw_payload?: any;
+  raw_payload?: unknown; // can be object or string (sometimes double-stringified)
   raw?: unknown; // backward compat
   created_at?: string | null;
 };
@@ -61,7 +61,9 @@ async function adminGetJSON<T>(path: string): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Admin API failed (${res.status}): ${text || res.statusText}`);
+    throw new Error(
+      `Admin API failed (${res.status}): ${text || res.statusText}`
+    );
   }
 
   return (await res.json()) as T;
@@ -79,6 +81,64 @@ function formatMoney(v?: number | string | null) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
   return `$${n.toFixed(4)}`;
+}
+
+/** Safe JSON parse that tolerates:
+ * - raw_payload = object
+ * - raw_payload = JSON string
+ * - raw_payload = double-stringified JSON string
+ * Returns null if cannot parse.
+ */
+function safeJsonParse(input: unknown): any | null {
+  if (input == null) return null;
+
+  if (typeof input === "object") return input;
+
+  if (typeof input === "string") {
+    // First parse
+    try {
+      const first = JSON.parse(input);
+      if (typeof first === "string") {
+        // Sometimes DB contains a JSON string inside a JSON string
+        try {
+          return JSON.parse(first);
+        } catch {
+          return first;
+        }
+      }
+      return first;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/** Try to locate a recording url in common Vapi payload shapes */
+function extractRecordingUrl(rawObj: any): string | null {
+  if (!rawObj) return null;
+
+  // Your stored payload shape: { message: { artifact: { recordingUrl, recording, ... } } }
+  const msg = rawObj?.message ?? rawObj;
+  const artifact = msg?.artifact ?? msg?.data?.artifact ?? null;
+
+  const candidates = [
+    artifact?.recordingUrl,
+    artifact?.stereoRecordingUrl,
+    artifact?.recording?.mono?.combinedUrl,
+    artifact?.recording?.stereoUrl,
+    artifact?.recording?.mono?.assistantUrl,
+    artifact?.recording?.mono?.customerUrl,
+    // Sometimes surfaced under different nesting
+    msg?.recordingUrl,
+    msg?.stereoRecordingUrl,
+  ];
+
+  for (const c of candidates) {
+    if (typeof c === "string" && c.startsWith("http")) return c;
+  }
+  return null;
 }
 
 export default async function CallDetailPage({
@@ -101,8 +161,8 @@ export default async function CallDetailPage({
                 Dashboard
               </Link>
               <span>/</span>
-              <Link href="/dashboard/agents" className="hover:underline">
-                Agents
+              <Link href="/dashboard/calls" className="hover:underline">
+                Calls
               </Link>
               <span>/</span>
               <span className="text-gray-900">Call</span>
@@ -115,18 +175,20 @@ export default async function CallDetailPage({
           </div>
 
           <Link
-            href="/dashboard/agents"
+            href="/dashboard/calls"
             className="rounded-md border bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
           >
-            Back to Agents
+            Back to Calls
           </Link>
         </div>
       </div>
     );
   }
 
-  const backHref = call.agent_id ? `/dashboard/agents/${call.agent_id}` : "/dashboard/agents";
-  const backLabel = call.agent_id ? "Back to Agent" : "Back to Agents";
+  const backHref = call.agent_id
+    ? `/dashboard/agents/${call.agent_id}`
+    : "/dashboard/calls";
+  const backLabel = call.agent_id ? "Back to Agent" : "Back to Calls";
 
   const outcome = (call.outcome ?? "").toString();
   const lower = outcome.toLowerCase();
@@ -137,6 +199,10 @@ export default async function CallDetailPage({
       ? "bg-gray-100 text-gray-800"
       : "bg-blue-100 text-blue-800";
 
+  // Parse raw payload safely (this is what fixes Vercel crashes)
+  const rawObj = safeJsonParse(call.raw_payload) ?? safeJsonParse(call.raw) ?? null;
+  const recordingUrl = extractRecordingUrl(rawObj);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -146,8 +212,8 @@ export default async function CallDetailPage({
               Dashboard
             </Link>
             <span>/</span>
-            <Link href="/dashboard/agents" className="hover:underline">
-              Agents
+            <Link href="/dashboard/calls" className="hover:underline">
+              Calls
             </Link>
             <span>/</span>
             <span className="text-gray-900">Call</span>
@@ -172,13 +238,33 @@ export default async function CallDetailPage({
         </Link>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-3">
         <span
           className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badgeClass}`}
         >
           {outcome || "—"}
         </span>
+
+        {recordingUrl ? (
+          <a
+            href={recordingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-medium text-blue-700 hover:underline"
+          >
+            Open recording
+          </a>
+        ) : null}
       </div>
+
+      {recordingUrl ? (
+        <div className="mt-4 rounded-md border bg-white p-4">
+          <h2 className="text-sm font-semibold">Recording</h2>
+          <audio className="mt-3 w-full" controls preload="none">
+            <source src={recordingUrl} />
+          </audio>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
         <div className="rounded-md border bg-white p-4 lg:col-span-2">
@@ -247,11 +333,7 @@ export default async function CallDetailPage({
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-sm font-semibold">Raw JSON</h2>
           <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800">
-            {call.raw_payload
-              ? JSON.stringify(call.raw_payload, null, 2)
-              : call.raw
-              ? JSON.stringify(call.raw, null, 2)
-              : "—"}
+            {rawObj ? JSON.stringify(rawObj, null, 2) : "—"}
           </pre>
         </div>
       </div>
