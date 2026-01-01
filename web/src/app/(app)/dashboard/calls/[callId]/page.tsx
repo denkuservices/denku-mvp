@@ -239,23 +239,17 @@ export default async function CallDetailPage({
 
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-sm font-semibold">Recording</h2>
-          {recordingUrl ? (
-            <div className="mt-3 space-y-3">
-              <audio controls className="w-full">
-                <source src={recordingUrl} />
-              </audio>
-              <a
-                href={recordingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-blue-700 hover:underline"
-              >
-                Open recording link
-              </a>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-gray-600">No recording URL found in raw payload.</p>
-          )}
+{recordingUrl && (
+  <div className="mt-3">
+    <div className="rounded-xl border bg-gray-50 p-4">
+      <audio controls className="h-14 w-full">
+        <source src={recordingUrl} />
+      </audio>
+    </div>
+  </div>
+)}
+
+
         </div>
       </div>
 
