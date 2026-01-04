@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -54,26 +55,150 @@ function outcomeBadgeClass(outcome?: string | null) {
   return "bg-blue-100 text-blue-800";
 }
 
-function getOutcomeDisplayLabel(call: {
-  outcome: string | null;
-  transcript: string | null;
+/**
+ * Compute outcome labels for calls based on database records (appointments/tickets)
+ * Rule hierarchy:
+ * 1. Meeting Scheduled: appointment exists linked to call (by call_id, or by org_id+lead_id+time window)
+ * 2. Support Request: ticket exists linked to call (by call_id, or by org_id+lead_id+time window)
+ * 3. Dropped Call: duration < 20s AND ended_at exists AND no appointment/ticket
+ * 4. Completed: ended_at exists AND no appointment/ticket
+ * 5. In Progress: ended_at is null
+ */
+async function computeCallOutcomes(calls: Array<{
+  id: string;
+  org_id: string | null;
+  lead_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
   duration_seconds: number | null;
-}): string {
-  const transcript = (call.transcript ?? "").toLowerCase();
-  const outcome = (call.outcome ?? "").toLowerCase();
+}>): Promise<Map<string, 'Meeting Scheduled' | 'Support Request' | 'Dropped Call' | 'Completed' | 'In progress'>> {
+  const outcomeMap = new Map<string, 'Meeting Scheduled' | 'Support Request' | 'Dropped Call' | 'Completed' | 'In progress'>();
+  
+  if (calls.length === 0) return outcomeMap;
 
-  if (/\b(appointment|meeting|schedule)\b/.test(transcript)) {
-    return "Meeting Scheduled";
+  // Group calls by org_id for efficient batch queries
+  const callsByOrg = new Map<string, typeof calls>();
+  for (const call of calls) {
+    if (!call.org_id) continue;
+    if (!callsByOrg.has(call.org_id)) {
+      callsByOrg.set(call.org_id, []);
+    }
+    callsByOrg.get(call.org_id)!.push(call);
   }
-  if (/\b(support|issue|problem|help)\b/.test(transcript)) {
-    return "Support Request";
+
+  // Process each org's calls
+  for (const [orgId, orgCalls] of callsByOrg.entries()) {
+    const callIds = orgCalls.map(c => c.id).filter(Boolean);
+    const leadIds = orgCalls.map(c => c.lead_id).filter((id): id is string => !!id);
+    const timeRanges = orgCalls
+      .filter(c => c.started_at)
+      .map(c => ({
+        callId: c.id,
+        start: c.started_at!,
+        end: new Date(new Date(c.started_at!).getTime() + 2 * 60 * 60 * 1000).toISOString(),
+        leadId: c.lead_id,
+      }));
+
+    // Batch query appointments: by call_id and by org_id+lead_id+time window
+    const appointmentCallIds = new Set<string>();
+    const appointmentLeadIds = new Set<string>();
+    
+    if (callIds.length > 0) {
+      const { data: appointmentsByCallId } = await supabaseAdmin
+        .from('appointments')
+        .select('call_id')
+        .eq('org_id', orgId)
+        .in('call_id', callIds);
+      
+      if (appointmentsByCallId) {
+        for (const apt of appointmentsByCallId) {
+          if (apt.call_id) appointmentCallIds.add(apt.call_id);
+        }
+      }
+    }
+
+    // Batch query tickets: by call_id and by org_id+lead_id+time window
+    const ticketCallIds = new Set<string>();
+    const ticketLeadIds = new Set<string>();
+    
+    if (callIds.length > 0) {
+      const { data: ticketsByCallId } = await supabaseAdmin
+        .from('tickets')
+        .select('call_id')
+        .eq('org_id', orgId)
+        .in('call_id', callIds);
+      
+      if (ticketsByCallId) {
+        for (const tkt of ticketsByCallId) {
+          if (tkt.call_id) ticketCallIds.add(tkt.call_id);
+        }
+      }
+    }
+
+    // For time-window matching, query appointments/tickets in the relevant time ranges
+    // This is an approximation - we query all appointments/tickets for the org and match in memory
+    if (leadIds.length > 0 && timeRanges.length > 0) {
+      const earliestStart = timeRanges.reduce((min, tr) => tr.start < min ? tr.start : min, timeRanges[0].start);
+      const latestEnd = timeRanges.reduce((max, tr) => tr.end > max ? tr.end : max, timeRanges[0].end);
+
+      const { data: appointmentsByTime } = await supabaseAdmin
+        .from('appointments')
+        .select('id, org_id, lead_id, created_at')
+        .eq('org_id', orgId)
+        .in('lead_id', leadIds)
+        .gte('created_at', earliestStart)
+        .lte('created_at', latestEnd);
+
+      const { data: ticketsByTime } = await supabaseAdmin
+        .from('tickets')
+        .select('id, org_id, lead_id, created_at')
+        .eq('org_id', orgId)
+        .in('lead_id', leadIds)
+        .gte('created_at', earliestStart)
+        .lte('created_at', latestEnd);
+
+      // Match appointments/tickets to calls by time window
+      for (const tr of timeRanges) {
+        if (!tr.leadId) continue;
+        
+        const hasAppt = appointmentsByTime?.some(apt => 
+          apt.lead_id === tr.leadId && 
+          apt.created_at >= tr.start && 
+          apt.created_at <= tr.end
+        );
+        if (hasAppt) appointmentLeadIds.add(tr.callId);
+
+        const hasTkt = ticketsByTime?.some(tkt => 
+          tkt.lead_id === tr.leadId && 
+          tkt.created_at >= tr.start && 
+          tkt.created_at <= tr.end
+        );
+        if (hasTkt) ticketLeadIds.add(tr.callId);
+      }
+    }
+
+    // Compute outcomes for each call
+    for (const call of orgCalls) {
+      const hasAppointment = appointmentCallIds.has(call.id) || appointmentLeadIds.has(call.id);
+      const hasTicket = ticketCallIds.has(call.id) || ticketLeadIds.has(call.id);
+      const isInProgress = !call.ended_at;
+      const isDropped = call.ended_at && call.duration_seconds !== null && call.duration_seconds < 20;
+
+      if (hasAppointment) {
+        outcomeMap.set(call.id, 'Meeting Scheduled');
+      } else if (hasTicket) {
+        outcomeMap.set(call.id, 'Support Request');
+      } else if (isInProgress) {
+        outcomeMap.set(call.id, 'In progress');
+      } else if (isDropped) {
+        outcomeMap.set(call.id, 'Dropped Call');
+      } else {
+        outcomeMap.set(call.id, 'Completed');
+      }
+    }
   }
-  const isShortCall =
-    call.duration_seconds !== null && call.duration_seconds < 20;
-  if (outcome.includes("ended") && isShortCall) {
-    return "Dropped Call";
-  }
-  return "Completed";
+
+  return outcomeMap;
 }
 
 function getDurationClass(seconds: number | null): string {
@@ -182,7 +307,11 @@ export default async function CallsPage({
     .select(
       `
       id,
+      org_id,
+      lead_id,
       created_at,
+      started_at,
+      ended_at,
       outcome,
       transcript,
       duration_seconds,
@@ -206,11 +335,23 @@ export default async function CallsPage({
 
   const calls = Array.isArray(data) ? data : [];
   
+  // Compute outcome labels based on database records (appointments/tickets)
+  const outcomeLabels = await computeCallOutcomes(calls.map(c => ({
+    id: c.id,
+    org_id: c.org_id ?? null,
+    lead_id: c.lead_id ?? null,
+    started_at: c.started_at ?? null,
+    ended_at: c.ended_at ?? null,
+    duration_seconds: c.duration_seconds ?? null,
+  })));
+
   const q = typeof searchParams.q === "string" ? searchParams.q : undefined;
   const outcomeFilter = typeof searchParams.outcome === "string" ? searchParams.outcome : undefined;
   const sinceFilter = typeof searchParams.since === "string" ? searchParams.since : undefined;
 
   const filteredCalls = calls.filter(call => {
+    const outcomeLabel = outcomeLabels.get(call.id) ?? 'Completed';
+    
     if (q) {
       const lowerQuery = q.toLowerCase();
       const agent = Array.isArray(call.agent) ? call.agent[0] : call.agent;
@@ -220,7 +361,7 @@ export default async function CallsPage({
         agentName,
         call.outcome,
         call.transcript,
-        getOutcomeDisplayLabel(call),
+        outcomeLabel,
       ].join(' ').toLowerCase();
 
       if (!searchable.includes(lowerQuery)) {
@@ -298,7 +439,7 @@ export default async function CallsPage({
                   ? call.agent[0]
                   : call.agent;
                 const agentName = agentObj?.name ?? "—";
-                const outcomeLabel = getOutcomeDisplayLabel(call);
+                const outcomeLabel = outcomeLabels.get(call.id) ?? 'Completed';
 
                 return (
                   <tr key={call.id} className="border-t hover:bg-gray-50">

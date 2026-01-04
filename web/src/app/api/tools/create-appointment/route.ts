@@ -31,6 +31,9 @@ const BodySchema = z.object({
 
   purpose: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+
+  // Optional: link to call for outcome resolution
+  call_id: z.string().uuid().optional().nullable(),
 }).passthrough();
 
 export async function POST(req: NextRequest) {
@@ -115,7 +118,12 @@ export async function POST(req: NextRequest) {
     leadId = newLead.id;
   }
 
-  // 3) Create appointment
+  // 3) Resolve call_id if provided (for outcome resolution)
+  let callId: string | null = input.call_id ?? null;
+  // Optional: If call_id not provided but we have vapi_call_id in metadata, resolve it
+  // This would require additional context from Vapi tool calls
+
+  // 4) Create appointment
   const startAtIso = new Date(input.start_at).toISOString();
   const endAtIso = input.end_at ? new Date(input.end_at).toISOString() : null;
 
@@ -124,12 +132,13 @@ export async function POST(req: NextRequest) {
     .insert({
       org_id: org.id,
       lead_id: leadId,
+      call_id: callId,
       start_at: startAtIso,
       end_at: endAtIso,
       status: "scheduled",
       notes: input.notes ?? input.purpose ?? "Created via Vapi tool",
     })
-    .select("id, org_id, lead_id, start_at, end_at, status, created_at")
+    .select("id, org_id, lead_id, call_id, start_at, end_at, status, created_at")
     .single();
 
   if (apptErr || !appt) {

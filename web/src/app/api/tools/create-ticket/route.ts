@@ -27,6 +27,9 @@ const BodySchema = z.object({
   description: z.string().optional().nullable(),
   priority: z.enum(["low", "normal", "high"]).optional().nullable(),
   notes: z.string().optional().nullable(),
+
+  // Optional: link to call for outcome resolution
+  call_id: z.string().uuid().optional().nullable(),
 }).passthrough();
 
 export async function POST(req: NextRequest) {
@@ -121,18 +124,24 @@ export async function POST(req: NextRequest) {
     leadId = newLead.id;
   }
 
-  // 3) Create ticket
+  // 3) Resolve call_id if provided (for outcome resolution)
+  let callId: string | null = input.call_id ?? null;
+  // Optional: If call_id not provided but we have vapi_call_id in metadata, resolve it
+  // This would require additional context from Vapi tool calls
+
+  // 4) Create ticket
   const { data: ticket, error: tErr } = await supabaseAdmin
     .from("tickets")
     .insert({
       org_id: org.id,
       lead_id: leadId,
+      call_id: callId,
       subject: subject || "Support Request",
       description: description || input.notes || "Created via Vapi tool",
       status: "open",
       priority: input.priority ?? "normal",
     })
-    .select("id, org_id, lead_id, subject, status, priority, created_at")
+    .select("id, org_id, lead_id, call_id, subject, status, priority, created_at")
     .single();
 
   if (tErr || !ticket) {
