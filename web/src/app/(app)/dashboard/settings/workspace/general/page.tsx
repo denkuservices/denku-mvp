@@ -1,20 +1,13 @@
-"use client";
-
 import Link from "next/link";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
+import { getWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
+import { WorkspaceGeneralForm } from "./_components/WorkspaceGeneralForm";
 
-export default function WorkspaceGeneralPage() {
-  // UI-only mock state (backend sonra)
-  const workspace = {
-    companyName: "Denku Services",
-    workspaceName: "Denku Workspace",
-    defaultLanguage: "English",
-    timezone: "America/New_York",
-    environment: "Production",
-    region: "us-east-1",
-    access: "Admin",
-  };
+export default async function WorkspaceGeneralPage() {
+  // Fetch initial data
+  const { orgId, role, settings } = await getWorkspaceGeneral();
 
+  // Mock data for Runtime, Webhooks, and Danger zone sections (keeping existing UI)
   const webhook = {
     url: "https://YOUR_DOMAIN/api/webhooks/voice",
     events: ["end-of-call-report", "call-started", "call-ended"],
@@ -25,6 +18,9 @@ export default function WorkspaceGeneralPage() {
     sync: { status: "Enabled", note: "Agent sync is enabled (computed later)." },
     lastSync: "1/1/2026, 6:13:05 PM",
   };
+
+  // Determine access badge
+  const accessLabel = role === "owner" ? "Owner" : role === "admin" ? "Admin" : role || "Member";
 
   return (
     <SettingsShell
@@ -38,12 +34,10 @@ export default function WorkspaceGeneralPage() {
       ]}
     >
       {/* Quick links */}
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         <QuickLink href="/dashboard/settings/workspace/members" label="Members" />
         <QuickLink href="/dashboard/settings/workspace/audit" label="Audit log" />
-        </div>
-
-
+      </div>
 
       {/* Top: Identity + Runtime */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -54,55 +48,7 @@ export default function WorkspaceGeneralPage() {
             desc="Used across your agents and messaging. Company name can be injected into greetings automatically."
           />
 
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field
-              label="Company name"
-              value={workspace.companyName}
-              helper="Single source of truth. Used for first-message injection (recommended)."
-            />
-            <Field
-              label="Workspace name"
-              value={workspace.workspaceName}
-              helper="Displayed in the console UI."
-            />
-            <Field
-              label="Default language"
-              value={workspace.defaultLanguage}
-              helper="Default for new agents. Individual agents can override."
-            />
-            <Field
-              label="Timezone"
-              value={workspace.timezone}
-              helper="Used for reporting, logs, and scheduling behavior."
-            />
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-            <p className="text-sm font-semibold text-zinc-900">First-message injection</p>
-            <p className="mt-1 text-sm text-zinc-600">
-              We can automatically prepend your company name to agent greetings. Example:
-            </p>
-            <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-4">
-              <p className="text-sm text-zinc-800">
-                “Hello, thanks for calling <span className="font-semibold">{workspace.companyName}</span>. How can I
-                help you today?”
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between gap-3">
-            <p className="text-xs text-zinc-500">
-              UI-only for now. Persistence will be wired after UI is finalized.
-            </p>
-            <button
-              type="button"
-              disabled
-              title="Coming soon"
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm opacity-60"
-            >
-              Save changes
-            </button>
-          </div>
+          <WorkspaceGeneralForm initialSettings={settings} role={role} orgId={orgId} />
         </section>
 
         {/* Runtime */}
@@ -110,9 +56,9 @@ export default function WorkspaceGeneralPage() {
           <Header title="Runtime" desc="Operational context for this workspace." />
 
           <div className="mt-6 space-y-4">
-            <ReadOnlyRow label="Environment" value={workspace.environment} badge />
-            <ReadOnlyRow label="Region" value={workspace.region} />
-            <ReadOnlyRow label="Access" value={workspace.access} badge />
+            <ReadOnlyRow label="Environment" value="Production" badge />
+            <ReadOnlyRow label="Region" value="us-east-1" />
+            <ReadOnlyRow label="Access" value={accessLabel} badge />
           </div>
 
           <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
@@ -158,7 +104,7 @@ export default function WorkspaceGeneralPage() {
               className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-mono shadow-sm"
             />
             <p className="text-xs text-zinc-500">
-              Tip: A “Copy” button can be added once we decide client/server boundaries.
+              Tip: A "Copy" button can be added once we decide client/server boundaries.
             </p>
           </div>
 
@@ -222,28 +168,6 @@ function Header({ title, desc }: { title: string; desc: string }) {
     <div>
       <p className="text-base font-semibold text-zinc-900">{title}</p>
       <p className="mt-1 text-sm text-zinc-600">{desc}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
-      <input
-        readOnly
-        value={value}
-        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm"
-      />
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
     </div>
   );
 }
