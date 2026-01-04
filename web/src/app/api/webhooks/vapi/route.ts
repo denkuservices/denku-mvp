@@ -306,10 +306,11 @@ export async function POST(req: NextRequest) {
       const transcript = extractTranscript(body);
 
       // final duration: call.durationSeconds yoksa summary_table.minutes * 60
+      // Always round to integer for duration_seconds column
       const minutes = safeNumber(msg?.summary_table?.minutes);
-      const finalDuration =
-        durationSeconds ??
-        (minutes != null ? Math.round(minutes * 60) : null);
+      const finalDuration = safeInt(
+        durationSeconds ?? (minutes != null ? minutes * 60 : null)
+      );
 
       const finalEndedAt = endedAt ?? toIsoOrNull(msg?.summary_table?.endedAt) ?? new Date().toISOString();
 
@@ -319,7 +320,7 @@ export async function POST(req: NextRequest) {
       const finalUpdate = compact({
         ended_at: finalEndedAt,
         outcome: "completed",
-        duration_seconds: safeInt(call?.durationSeconds ?? msg?.durationSeconds),
+        duration_seconds: finalDuration ?? undefined,
         cost_usd: costUsd != null ? costUsd : undefined,
         transcript: transcript ?? undefined,
         vapi_assistant_id,

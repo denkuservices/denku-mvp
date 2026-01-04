@@ -31,7 +31,14 @@ function formatMoney(v?: number | string | null) {
   if (v === null || v === undefined || v === "") return "—";
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
-  return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function formatMoneyRaw(v?: number | string | null) {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return n.toFixed(4);
 }
 
 function maskPhoneNumber(phone?: string | null): string {
@@ -441,90 +448,62 @@ export default async function CallDetailPage({
       <div className="mt-6">
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-base font-semibold leading-6 text-gray-900">Call Timeline</h2>
-          <div className="mt-4 flow-root">
-            <ul className="-mb-8">
-              <li>
-                <div className="relative pb-8">
-                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Call Started</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        <time>{formatDate(call.started_at)}</time>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div className="relative pb-8">
-                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-8 ring-white">
-                        <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Conversation</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        <span>{call.duration_seconds != null ? `${call.duration_seconds}s` : ""}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div className="relative">
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span
-                        className={`h-8 w-8 rounded-full ${
-                          call.ended_at ? "bg-green-500" : "bg-gray-200"
-                        } flex items-center justify-center ring-8 ring-white`}
-                      >
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Call Ended</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            </ul>
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
+              <div className="flex items-center gap-2">
+                <span className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                  <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+                <span className="text-sm text-gray-800">Call Started</span>
+              </div>
+              <div className="text-right text-sm text-gray-500 tabular-nums">
+                <time>{formatDate(call.started_at)}</time>
+              </div>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
+              <div className="flex items-center gap-2">
+                <span className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <svg className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+                <span className="text-sm text-gray-800">Conversation</span>
+              </div>
+              <div className="text-right text-sm text-gray-500 tabular-nums">
+                {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+              </div>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    call.ended_at ? "bg-green-500" : "bg-gray-200"
+                  }`}
+                >
+                  <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+                <span className="text-sm text-gray-800">Call Ended</span>
+              </div>
+              <div className="text-right text-sm text-gray-500 tabular-nums">
+                {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -610,6 +589,10 @@ export default async function CallDetailPage({
             <div>
               <dt className="text-gray-600">Ended</dt>
               <dd className="text-gray-800">{formatDate(call.ended_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-600">Cost (Raw)</dt>
+              <dd className="font-mono text-gray-800">{formatMoneyRaw(call.cost_usd)}</dd>
             </div>
           </div>
         </details>
