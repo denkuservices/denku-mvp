@@ -8,7 +8,10 @@ import * as chrono from "chrono-node";
 
 function normalizePhone(input?: string | null) {
   if (!input) return null;
-  return input.replace(/[^\d+]/g, "") || null;
+  const normalized = input.replace(/[^\d+]/g, "");
+  const digitsOnly = normalized.replace(/\D/g, "");
+  if (!digitsOnly || digitsOnly.length < 7) return null;
+  return normalized;
 }
 
 function requireToolSecret(req: NextRequest) {
@@ -57,6 +60,7 @@ const BodySchema = z.object({
   notes: z.string().optional().nullable(),
 
   call_id: z.string().optional().nullable(),
+  vapi_call_id: z.string().min(8).optional().nullable(),
 }).passthrough();
 
 /* ------------------ handler ------------------ */
@@ -103,10 +107,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "org_not_found" }, { status: 404 });
   }
 
-  /* call lookup: if call_id provided, fetch call and prefer its from_phone */
+  /* call lookup: resolve by call_id (UUID) or vapi_call_id */
   let callFromPhone: string | null = null;
   let callLeadId: string | null = null;
+  let resolvedCallId: string | null = null;
+  
   const validatedCallId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
+  const validatedVapiCallId = input.vapi_call_id && input.vapi_call_id.length >= 8 ? input.vapi_call_id : null;
 
   if (validatedCallId) {
     const { data: call } = await supabaseAdmin
@@ -117,8 +124,24 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (call) {
+      resolvedCallId = call.id;
       callFromPhone = normalizePhone(call.from_phone);
       callLeadId = call.lead_id;
+      console.log("[create-appointment] resolved call by call_id", { call_id: validatedCallId, resolved_id: call.id });
+    }
+  } else if (validatedVapiCallId) {
+    const { data: call } = await supabaseAdmin
+      .from("calls")
+      .select("id, from_phone, lead_id")
+      .eq("vapi_call_id", validatedVapiCallId)
+      .eq("org_id", org.id)
+      .maybeSingle();
+
+    if (call) {
+      resolvedCallId = call.id;
+      callFromPhone = normalizePhone(call.from_phone);
+      callLeadId = call.lead_id;
+      console.log("[create-appointment] resolved call by vapi_call_id", { vapi_call_id: validatedVapiCallId, resolved_id: call.id });
     }
   }
 
@@ -126,6 +149,11 @@ export async function POST(req: NextRequest) {
   const leadPhone = callFromPhone || normalizePhone(input.lead_phone);
   if (!leadPhone) {
     return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
+  }
+  if (callFromPhone) {
+    console.log("[create-appointment] leadPhone from call.from_phone", { leadPhone });
+  } else if (input.lead_phone) {
+    console.log("[create-appointment] leadPhone from input.lead_phone", { leadPhone });
   }
 
   /* lead */
@@ -183,7 +211,7 @@ if (!leadId) {
     .insert({
       org_id: org.id,
       lead_id: leadId,
-      call_id: validatedCallId,
+      call_id: resolvedCallId,
       start_at: startAt.iso,
       status: "scheduled",
       notes:
@@ -202,16 +230,16 @@ if (!leadId) {
     return NextResponse.json({ error: "appointment_failed" }, { status: 500 });
   }
 
-  /* link call to lead: update calls.lead_id if call_id provided */
-  if (validatedCallId && leadId) {
+  /* link call to lead: update calls.lead_id if call found */
+  if (resolvedCallId && leadId) {
     const { error: updateErr } = await supabaseAdmin
       .from("calls")
       .update({ lead_id: leadId })
-      .eq("id", validatedCallId)
+      .eq("id", resolvedCallId)
       .eq("org_id", org.id);
 
     if (!updateErr) {
-      console.log("[create-appointment] linked call->lead", { call_id: validatedCallId, leadId });
+      console.log("[create-appointment] linked call->lead", { call_id: resolvedCallId, leadId });
     }
   }
 
