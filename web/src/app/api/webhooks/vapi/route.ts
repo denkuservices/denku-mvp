@@ -213,11 +213,14 @@ export async function POST(req: NextRequest) {
     const msg = body.message;
     const call = msg?.call;
     const eventType = msg?.type ?? null;
+    const status = asString(call?.status) ?? asString(msg?.status) ?? null;
 
-    const vapiCallId = extractCallId(body);
+    // Normalize vapi_call_id once at the top
+    const vapiCallId = asString(extractCallId(body));
 
     console.log("[WEBHOOK]", {
       eventType,
+      status,
       vapiCallId,
       hasCall: !!call,
     });
@@ -285,7 +288,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) Final event → UPDATE ile kesin final alanları yaz
-    if (eventType === "end-of-call-report") {
+    const isFinalEvent =
+      eventType === "end-of-call-report" ||
+      (eventType === "status-update" && status === "ended");
+
+    if (isFinalEvent) {
       const costUsd = extractCost(body);
       const transcript = extractTranscript(body);
 
@@ -297,12 +304,15 @@ export async function POST(req: NextRequest) {
 
       const finalEndedAt = endedAt ?? toIsoOrNull(msg?.summary_table?.endedAt) ?? new Date().toISOString();
 
+      // Always update: ended_at, outcome, duration_seconds
+      // Only update cost_usd if valid (do NOT overwrite with null or 0)
+      // Only update transcript if present (do not wipe existing transcript)
       const finalUpdate = compact({
-        cost_usd: costUsd ?? undefined,
         ended_at: finalEndedAt,
-        duration_seconds: finalDuration ?? undefined,
-        transcript: transcript ?? undefined,
         outcome: "completed",
+        duration_seconds: finalDuration ?? undefined,
+        cost_usd: costUsd != null ? costUsd : undefined,
+        transcript: transcript ?? undefined,
         vapi_assistant_id,
         vapi_phone_number_id,
         lead_id: leadId ?? undefined,
