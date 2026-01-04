@@ -16,23 +16,26 @@ type OrganizationSettings = {
 
 type WorkspaceGeneralFormProps = {
   initialSettings: OrganizationSettings | null;
-  role: string | null;
+  role: "owner" | "admin" | "viewer";
   orgId: string;
+  orgName: string;
 };
 
 type FormState = {
-  name: string;
+  workspace_name: string;
+  greeting_override: string;
   default_timezone: string;
   default_language: string;
   billing_email: string;
 };
 
-export function WorkspaceGeneralForm({ initialSettings, role, orgId }: WorkspaceGeneralFormProps) {
-  const isReadOnly = role !== null && role !== "owner" && role !== "admin";
+export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: WorkspaceGeneralFormProps) {
+  const isReadOnly = role === "viewer";
 
-  // Initialize form state from settings
+  // Initialize form state from settings (workspace_name from orgName, greeting_override from settings.name)
   const getInitialState = (): FormState => ({
-    name: initialSettings?.name || "",
+    workspace_name: orgName || "",
+    greeting_override: initialSettings?.name || "",
     default_timezone: initialSettings?.default_timezone || "",
     default_language: initialSettings?.default_language || "",
     billing_email: initialSettings?.billing_email || "",
@@ -45,7 +48,8 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
 
   // Check if form is dirty
   const isDirty =
-    formState.name !== initialState.name ||
+    formState.workspace_name !== initialState.workspace_name ||
+    formState.greeting_override !== initialState.greeting_override ||
     formState.default_timezone !== initialState.default_timezone ||
     formState.default_language !== initialState.default_language ||
     formState.billing_email !== initialState.billing_email;
@@ -67,9 +71,10 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
 
     startTransition(async () => {
       try {
-        // Normalize empty strings to null for nullable fields
+        // Prepare payload
         const payload = {
-          name: formState.name.trim() || null,
+          workspace_name: formState.workspace_name.trim(),
+          greeting_override: formState.greeting_override.trim() || null,
           default_timezone: formState.default_timezone.trim() || null,
           default_language: formState.default_language.trim() || null,
           billing_email: formState.billing_email.trim() || null,
@@ -79,7 +84,8 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
 
         // Update initial state to reflect saved changes
         const newInitialState: FormState = {
-          name: updated.name || "",
+          workspace_name: updated.workspace_name || "",
+          greeting_override: updated.greeting_override || "",
           default_timezone: updated.default_timezone || "",
           default_language: updated.default_language || "",
           billing_email: updated.billing_email || "",
@@ -98,6 +104,9 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
     });
   };
 
+  // Determine display name for greeting (greeting_override || workspace_name)
+  const displayName = formState.greeting_override.trim() || formState.workspace_name.trim() || orgName;
+
   return (
     <form onSubmit={handleSubmit}>
       {/* Status message */}
@@ -115,11 +124,12 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field
-          label="Company name"
-          value={formState.name}
-          onChange={(v) => handleChange("name", v)}
-          helper="Single source of truth. Used for first-message injection (recommended)."
+          label="Workspace name"
+          value={formState.workspace_name}
+          onChange={(v) => handleChange("workspace_name", v)}
+          helper="Your organization's name (required). Used across the platform."
           readOnly={isReadOnly}
+          required
         />
         <Field
           label="Default language"
@@ -145,6 +155,16 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
         />
       </div>
 
+      <div className="mt-4">
+        <Field
+          label="Greeting override (optional)"
+          value={formState.greeting_override}
+          onChange={(v) => handleChange("greeting_override", v)}
+          helper="Optional custom name for agent greetings. If empty, workspace name is used."
+          readOnly={isReadOnly}
+        />
+      </div>
+
       <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
         <p className="text-sm font-semibold text-zinc-900">First-message injection</p>
         <p className="mt-1 text-sm text-zinc-600">
@@ -152,7 +172,7 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId }: Workspace
         </p>
         <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm text-zinc-800">
-            "Hello, thanks for calling <span className="font-semibold">{formState.name || "Your Company"}</span>. How can I
+            "Hello, thanks for calling <span className="font-semibold">{displayName}</span>. How can I
             help you today?"
           </p>
         </div>
@@ -199,6 +219,7 @@ function Field({
   helper,
   readOnly,
   type = "text",
+  required = false,
 }: {
   label: string;
   value: string;
@@ -206,20 +227,24 @@ function Field({
   helper?: string;
   readOnly: boolean;
   type?: string;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
+      <p className="text-sm font-semibold text-zinc-900">
+        {label}
+        {required && <span className="ml-1 text-red-600">*</span>}
+      </p>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         readOnly={readOnly}
         disabled={readOnly}
+        required={required && !readOnly}
         className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:bg-zinc-50 disabled:cursor-not-allowed"
       />
       {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
     </div>
   );
 }
-

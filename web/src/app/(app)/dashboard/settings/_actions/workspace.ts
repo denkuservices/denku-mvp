@@ -6,10 +6,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Validation schema
 const UpdateWorkspaceGeneralSchema = z.object({
-  name: z.string().trim().min(1).max(255).nullable().or(z.literal("")),
+  workspace_name: z.string().trim().min(1).max(255),
+  greeting_override: z.union([z.string().trim().min(1).max(255), z.literal("")]).nullable(),
   default_timezone: z.string().trim().max(100).nullable(),
   default_language: z.string().trim().max(100).nullable(),
-  billing_email: z.string().email().trim().max(255).nullable().or(z.literal("")),
+  billing_email: z.union([z.string().email().trim().max(255), z.literal("")]).nullable(),
 });
 
 type UpdateWorkspaceGeneralInput = z.infer<typeof UpdateWorkspaceGeneralSchema>;
@@ -31,10 +32,14 @@ type Profile = {
   role: "owner" | "admin" | "viewer";
 };
 
+type Organization = {
+  id: string;
+  name: string;
+};
 
 /**
  * Get workspace general settings for the current user's org.
- * Returns orgId, role, and settings.
+ * Returns orgId, role, orgName, and settings.
  */
 export async function getWorkspaceGeneral() {
   const supabase = await createSupabaseServerClient();
@@ -62,12 +67,24 @@ export async function getWorkspaceGeneral() {
   if (!profile?.org_id) {
     throw new Error("No org found for this user.");
   }
+  
+  const orgId: string = profile.org_id; // ensure non-null type
+  const role = profile.role;
+  
+  // 3) Get organization name
+  const { data: org, error: orgErr } = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", orgId)
+    .single<Organization>();
+  
+  if (orgErr) {
+    throw new Error(`Failed to load organization: ${orgErr.message}`);
+  }
+  
+  const orgName = org?.name ?? "";
 
-  const orgId = profile.org_id;
-  const role = profile.role; // 'owner' | 'admin' | 'viewer'
-
-
-  // 3) Get organization_settings for this org
+  // 4) Get organization_settings for this org
   const { data: settings, error: settingsErr } = await supabase
     .from("organization_settings")
     .select("*")
@@ -81,6 +98,7 @@ export async function getWorkspaceGeneral() {
   return {
     orgId,
     role,
+    orgName,
     settings: settings || null,
   };
 }
@@ -125,26 +143,36 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     throw new Error("No org found for this user.");
   }
 
-  const orgId = profile.org_id;
+  const orgId: string = profile.org_id;
   const role = profile.role;
 
-// 4) Check role (owner/admin required for write) - explicit gate
-const canWrite = role === "owner" || role === "admin";
-if (!canWrite) {
-  throw new Error("Forbidden: Only owners and admins can update workspace settings.");
-}
+  // 4) Check role (owner/admin required for write) - explicit gate
+  const canWrite = role === "owner" || role === "admin";
+  if (!canWrite) {
+    throw new Error("Forbidden: Only owners and admins can update workspace settings.");
+  }
 
+  // 5) Update organizations.name (source of truth)
+  const { error: orgUpdateErr } = await supabase
+    .from("organizations")
+    .update({ name: validated.workspace_name.trim() })
+    .eq("id", orgId);
 
-  // 5) Normalize empty string to null for billing_email
+  if (orgUpdateErr) {
+    throw new Error(`Failed to update workspace name: ${orgUpdateErr.message}`);
+  }
+
+  // 6) Normalize empty strings to null for optional fields
+  const greetingOverride = validated.greeting_override === "" ? null : validated.greeting_override;
   const billingEmail = validated.billing_email === "" ? null : validated.billing_email;
 
-  // 6) Upsert settings (single transaction-safe statement, scoped by org_id)
+  // 7) Upsert organization_settings (single transaction-safe statement, scoped by org_id)
   const { data: updated, error: upsertErr } = await supabase
     .from("organization_settings")
     .upsert(
       {
         org_id: orgId,
-        name: validated.name,
+        name: greetingOverride,
         default_timezone: validated.default_timezone,
         default_language: validated.default_language,
         billing_email: billingEmail,
@@ -160,6 +188,11 @@ if (!canWrite) {
     throw new Error(`Failed to update settings: ${upsertErr.message}`);
   }
 
-  return updated;
+  return {
+    workspace_name: validated.workspace_name.trim(),
+    greeting_override: greetingOverride,
+    default_timezone: updated.default_timezone,
+    default_language: updated.default_language,
+    billing_email: updated.billing_email,
+  };
 }
-

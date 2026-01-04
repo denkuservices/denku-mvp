@@ -5,7 +5,7 @@ import { WorkspaceGeneralForm } from "./_components/WorkspaceGeneralForm";
 
 export default async function WorkspaceGeneralPage() {
   // Fetch initial data
-  const { orgId, role, settings } = await getWorkspaceGeneral();
+  const { orgId, role, orgName, settings } = await getWorkspaceGeneral();
 
   // Mock data for Runtime, Webhooks, and Danger zone sections (keeping existing UI)
   const webhook = {
@@ -48,7 +48,7 @@ export default async function WorkspaceGeneralPage() {
             desc="Used across your agents and messaging. Company name can be injected into greetings automatically."
           />
 
-          <WorkspaceGeneralForm initialSettings={settings} role={role} orgId={orgId} />
+          <WorkspaceGeneralForm initialSettings={settings} role={role} orgId={orgId} orgName={orgName} />
         </section>
 
         {/* Runtime */}
@@ -104,7 +104,7 @@ export default async function WorkspaceGeneralPage() {
               className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-mono shadow-sm"
             />
             <p className="text-xs text-zinc-500">
-              Tip: A "Copy" button can be added once we decide client/server boundaries.
+              Coming soon: Webhook configuration will be available here.
             </p>
           </div>
 
