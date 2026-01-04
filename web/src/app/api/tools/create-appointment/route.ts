@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import chrono from "chrono-node";
+import * as chrono from "chrono-node";
+
 
 /* ------------------ helpers ------------------ */
 
