@@ -60,7 +60,7 @@ const BodySchema = z.object({
   notes: z.string().optional().nullable(),
 
   call_id: z.string().optional().nullable(),
-  vapi_call_id: z.string().min(8).optional().nullable(),
+  vapi_call_id: z.string().optional().nullable(),
 }).passthrough();
 
 /* ------------------ handler ------------------ */
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   let resolvedCallId: string | null = null;
   
   const validatedCallId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
-  const validatedVapiCallId = input.vapi_call_id && input.vapi_call_id.length >= 8 ? input.vapi_call_id : null;
+  const validatedVapiCallId = input.vapi_call_id ? input.vapi_call_id : null;
 
   if (validatedCallId) {
     const { data: call } = await supabaseAdmin
@@ -127,7 +127,6 @@ export async function POST(req: NextRequest) {
       resolvedCallId = call.id;
       callFromPhone = normalizePhone(call.from_phone);
       callLeadId = call.lead_id;
-      console.log("[create-appointment] resolved call by call_id", { call_id: validatedCallId, resolved_id: call.id });
     }
   } else if (validatedVapiCallId) {
     const { data: call } = await supabaseAdmin
@@ -141,68 +140,54 @@ export async function POST(req: NextRequest) {
       resolvedCallId = call.id;
       callFromPhone = normalizePhone(call.from_phone);
       callLeadId = call.lead_id;
-      console.log("[create-appointment] resolved call by vapi_call_id", { vapi_call_id: validatedVapiCallId, resolved_id: call.id });
     }
   }
 
-  /* lead: prefer call.from_phone over input.lead_phone */
-  const leadPhone = callFromPhone || normalizePhone(input.lead_phone);
-  if (!leadPhone) {
-    return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
+  /* lead resolution: prefer callLeadId, else upsert/find by phone */
+  let leadId: string | null = null;
+
+  // 1) Prefer callLeadId if present
+  if (callLeadId) {
+    leadId = callLeadId;
+  } else {
+    // 2) Determine leadPhone: prefer callFromPhone, fallback to input.lead_phone
+    const leadPhone = callFromPhone || normalizePhone(input.lead_phone);
+    if (!leadPhone) {
+      return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
+    }
+
+    // 3) Find or create lead by (org_id, phone)
+    const { data: leadExisting } = await supabaseAdmin
+      .from("leads")
+      .select("id")
+      .eq("org_id", org.id)
+      .eq("phone", leadPhone)
+      .maybeSingle();
+
+    if (leadExisting?.id) {
+      leadId = leadExisting.id;
+    } else {
+      const { data: leadNew, error: leadErr } = await supabaseAdmin
+        .from("leads")
+        .insert({
+          org_id: org.id,
+          name: input.lead_name ?? null,
+          phone: leadPhone,
+          email: input.lead_email ?? null,
+          source: "vapi",
+          status: "new",
+          notes: input.notes ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (leadErr || !leadNew?.id) {
+        return NextResponse.json({ error: "lead_create_failed" }, { status: 500 });
+      }
+
+      leadId = leadNew.id;
+    }
   }
-  if (callFromPhone) {
-    console.log("[create-appointment] leadPhone from call.from_phone", { leadPhone });
-  } else if (input.lead_phone) {
-    console.log("[create-appointment] leadPhone from input.lead_phone", { leadPhone });
-  }
-
-  /* lead */
-  const { data: leadExisting } = await supabaseAdmin
-    .from("leads")
-    .select("id")
-    .eq("org_id", org.id)
-    .eq("phone", leadPhone)
-    .maybeSingle();
-
-// Lead resolution priority:
-// 1) Existing lead by (org_id + phone)
-// 2) Existing lead already linked to call
-// 3) Create new lead (only if both missing)
-
-let leadId: string | null = null;
-
-// 1) Same phone = same lead (PRIMARY RULE)
-if (leadExisting?.id) {
-  leadId = leadExisting.id;
-}
-
-// 2) Fallback: lead already linked to call
-if (!leadId && callLeadId) {
-  leadId = callLeadId;
-}
-
-// 3) Create lead only if truly missing
-if (!leadId) {
-  const { data: leadNew, error: leadErr } = await supabaseAdmin
-    .from("leads")
-    .insert({
-      org_id: org.id,
-      name: input.lead_name ?? "Unknown",
-      phone: leadPhone,
-      email: input.lead_email ?? null,
-      source: "vapi",
-      status: "new",
-      notes: input.notes ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (leadErr || !leadNew?.id) {
-    return NextResponse.json({ error: "lead_create_failed" }, { status: 500 });
-  }
-
-  leadId = leadNew.id;
-}
 
 
   /* appointment */
@@ -230,16 +215,17 @@ if (!leadId) {
     return NextResponse.json({ error: "appointment_failed" }, { status: 500 });
   }
 
-  /* link call to lead: update calls.lead_id if call found */
+  /* link call to lead: update calls.lead_id if call found and lead_id is null */
   if (resolvedCallId && leadId) {
     const { error: updateErr } = await supabaseAdmin
       .from("calls")
       .update({ lead_id: leadId })
       .eq("id", resolvedCallId)
-      .eq("org_id", org.id);
+      .eq("org_id", org.id)
+      .is("lead_id", null);
 
     if (!updateErr) {
-      console.log("[create-appointment] linked call->lead", { call_id: resolvedCallId, leadId });
+      console.log("[create-appointment]", { resolvedCallId, vapi_call_id: validatedVapiCallId, leadId });
     }
   }
 
