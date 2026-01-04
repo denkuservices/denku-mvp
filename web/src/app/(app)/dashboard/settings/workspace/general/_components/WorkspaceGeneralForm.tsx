@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useState, useTransition } from "react";
 import { updateWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
 
@@ -29,7 +30,20 @@ type FormState = {
   billing_email: string;
 };
 
-export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: WorkspaceGeneralFormProps) {
+type UpdateWorkspaceGeneralResult = {
+  workspace_name: string | null;
+  greeting_override: string | null;
+  default_timezone: string | null;
+  default_language: string | null;
+  billing_email: string | null;
+};
+
+export function WorkspaceGeneralForm({
+  initialSettings,
+  role,
+  orgId,
+  orgName,
+}: WorkspaceGeneralFormProps) {
   const isReadOnly = role === "viewer";
 
   // Initialize form state from settings (workspace_name from orgName, greeting_override from settings.name)
@@ -66,12 +80,11 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!isDirty) return;
 
     startTransition(async () => {
       try {
-        // Prepare payload
+        // Prepare payload (never send undefined keys)
         const payload = {
           workspace_name: formState.workspace_name.trim(),
           greeting_override: formState.greeting_override.trim() || null,
@@ -80,7 +93,7 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           billing_email: formState.billing_email.trim() || null,
         };
 
-        const updated = await updateWorkspaceGeneral(payload);
+        const updated = (await updateWorkspaceGeneral(payload)) as UpdateWorkspaceGeneralResult;
 
         // Update initial state to reflect saved changes
         const newInitialState: FormState = {
@@ -90,11 +103,12 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           default_language: updated.default_language || "",
           billing_email: updated.billing_email || "",
         };
+
         setInitialState(newInitialState);
         setFormState(newInitialState);
-        
+
         setStatus({ type: "success", message: "Settings saved successfully." });
-        
+
         // Reset status after 3 seconds
         setTimeout(() => setStatus(null), 3000);
       } catch (error) {
@@ -105,7 +119,8 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
   };
 
   // Determine display name for greeting (greeting_override || workspace_name)
-  const displayName = formState.greeting_override.trim() || formState.workspace_name.trim() || orgName;
+  const displayName =
+    formState.greeting_override.trim() || formState.workspace_name.trim() || orgName || "your company";
 
   return (
     <form onSubmit={handleSubmit}>
@@ -131,6 +146,7 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           readOnly={isReadOnly}
           required
         />
+
         <Field
           label="Default language"
           value={formState.default_language}
@@ -138,6 +154,7 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           helper="Default for new agents. Individual agents can override."
           readOnly={isReadOnly}
         />
+
         <Field
           label="Timezone"
           value={formState.default_timezone}
@@ -145,6 +162,7 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           helper="Used for reporting, logs, and scheduling behavior."
           readOnly={isReadOnly}
         />
+
         <Field
           label="Billing email"
           value={formState.billing_email}
@@ -185,22 +203,21 @@ export function WorkspaceGeneralForm({ initialSettings, role, orgId, orgName }: 
           </p>
         ) : (
           <>
-            <p className="text-xs text-zinc-500">
-              {isDirty ? "You have unsaved changes." : "All changes saved."}
-            </p>
+            <p className="text-xs text-zinc-500">{isDirty ? "You have unsaved changes." : "All changes saved."}</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleCancel}
                 disabled={!isDirty || isPending}
-                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={!isDirty || isPending}
-                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending ? "Saving..." : "Save changes"}
               </button>
@@ -242,7 +259,7 @@ function Field({
         readOnly={readOnly}
         disabled={readOnly}
         required={required && !readOnly}
-        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:bg-zinc-50 disabled:cursor-not-allowed"
+        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
       />
       {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
     </div>

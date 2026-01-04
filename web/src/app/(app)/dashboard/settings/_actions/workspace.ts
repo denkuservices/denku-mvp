@@ -190,9 +190,10 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
 
   return {
     workspace_name: validated.workspace_name.trim(),
-    greeting_override: greetingOverride,
-    default_timezone: updated.default_timezone,
-    default_language: updated.default_language,
-    billing_email: updated.billing_email,
+    greeting_override: greetingOverride, // string | null
+    default_timezone: validated.default_timezone ? validated.default_timezone.trim() : null,
+    default_language: validated.default_language ? validated.default_language.trim() : null,
+    billing_email: billingEmail, // string | null (normalize edilmiş)
   };
+  
 }
