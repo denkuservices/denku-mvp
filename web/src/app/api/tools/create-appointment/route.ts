@@ -136,27 +136,46 @@ export async function POST(req: NextRequest) {
     .eq("phone", leadPhone)
     .maybeSingle();
 
-  let leadId = leadExisting?.id || callLeadId;
+// Lead resolution priority:
+// 1) Existing lead by (org_id + phone)
+// 2) Existing lead already linked to call
+// 3) Create new lead (only if both missing)
 
-  if (!leadId) {
-    const { data: leadNew } = await supabaseAdmin
-      .from("leads")
-      .insert({
-        org_id: org.id,
-        name: input.lead_name ?? null,
-        phone: leadPhone,
-        email: input.lead_email ?? null,
-        source: "vapi",
-        status: "new",
-      })
-      .select("id")
-      .single();
+let leadId: string | null = null;
 
-    if (!leadNew) {
-      return NextResponse.json({ error: "lead_create_failed" }, { status: 500 });
-    }
-    leadId = leadNew.id;
+// 1) Same phone = same lead (PRIMARY RULE)
+if (leadExisting?.id) {
+  leadId = leadExisting.id;
+}
+
+// 2) Fallback: lead already linked to call
+if (!leadId && callLeadId) {
+  leadId = callLeadId;
+}
+
+// 3) Create lead only if truly missing
+if (!leadId) {
+  const { data: leadNew, error: leadErr } = await supabaseAdmin
+    .from("leads")
+    .insert({
+      org_id: org.id,
+      name: input.lead_name ?? "Unknown",
+      phone: leadPhone,
+      email: input.lead_email ?? null,
+      source: "vapi",
+      status: "new",
+      notes: input.notes ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (leadErr || !leadNew?.id) {
+    return NextResponse.json({ error: "lead_create_failed" }, { status: 500 });
   }
+
+  leadId = leadNew.id;
+}
+
 
   /* appointment */
   const { data: appt, error } = await supabaseAdmin
