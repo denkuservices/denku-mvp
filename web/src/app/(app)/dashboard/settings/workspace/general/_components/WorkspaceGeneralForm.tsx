@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useTransition } from "react";
-import { updateWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
+import { updateWorkspaceGeneral, type UpdateWorkspaceGeneralResult } from "@/app/(app)/dashboard/settings/_actions/workspace";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "@/app/(app)/dashboard/settings/_lib/options";
 
 type OrganizationSettings = {
@@ -29,14 +29,6 @@ type FormState = {
   default_timezone: string;
   default_language: string;
   billing_email: string;
-};
-
-type UpdateWorkspaceGeneralResult = {
-  workspace_name: string | null;
-  greeting_override: string | null;
-  default_timezone: string | null;
-  default_language: string | null;
-  billing_email: string | null;
 };
 
 export function WorkspaceGeneralForm({
@@ -97,7 +89,16 @@ export function WorkspaceGeneralForm({
           billing_email: formState.billing_email.trim() || null,
         };
 
-        const updated = (await updateWorkspaceGeneral(payload)) as UpdateWorkspaceGeneralResult;
+        const result = await updateWorkspaceGeneral(payload);
+
+        if (!result.ok) {
+          // Handle error case
+          setStatus({ type: "error", message: result.error });
+          return;
+        }
+
+        // Handle success case
+        const updated = result.data;
 
         // Update initial state to reflect saved changes
         const newInitialState: FormState = {
@@ -116,6 +117,7 @@ export function WorkspaceGeneralForm({
         // Reset status after 3 seconds
         setTimeout(() => setStatus(null), 3000);
       } catch (error) {
+        // Catch unexpected errors (e.g., unauthorized redirect)
         const message =
           error instanceof Error
             ? error.message
@@ -124,7 +126,6 @@ export function WorkspaceGeneralForm({
               : "Failed to save settings.";
         setStatus({ type: "error", message });
       }
-      
     });
   };
 

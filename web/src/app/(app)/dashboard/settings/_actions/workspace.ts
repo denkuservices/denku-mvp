@@ -64,6 +64,18 @@ type Organization = {
   name: string;
 };
 
+type UpdateWorkspaceGeneralSuccess = {
+  workspace_name: string;
+  greeting_override: string | null;
+  default_timezone: string | null;
+  default_language: string | null;
+  billing_email: string | null;
+};
+
+export type UpdateWorkspaceGeneralResult =
+  | { ok: true; data: UpdateWorkspaceGeneralSuccess }
+  | { ok: false; error: string };
+
 /**
  * Get workspace general settings for the current user's org.
  * Returns orgId, role, orgName, and settings.
@@ -134,8 +146,9 @@ export async function getWorkspaceGeneral() {
  * Update workspace general settings.
  * Enforces role-based access (owner/admin only).
  * Uses RLS-enforced client (NOT service role).
+ * Returns discriminated union: { ok: true, data } | { ok: false, error }
  */
-export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput) {
+export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput): Promise<UpdateWorkspaceGeneralResult> {
   const supabase = await createSupabaseServerClient();
 
   // 1) Get current user
@@ -144,6 +157,7 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   } = await supabase.auth.getUser();
 
   if (!user) {
+    // Unauthorized: keep as throw for redirect
     throw new Error("Unauthorized");
   }
 
@@ -151,10 +165,9 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   const validation = UpdateWorkspaceGeneralSchema.safeParse(input);
   if (!validation.success) {
     const firstMsg = validation.error.issues?.[0]?.message ?? "Validation error";
-    throw new Error(firstMsg);
+    return { ok: false, error: firstMsg };
   }
   const validated = validation.data;
-  
 
   // 3) Get profile with org_id and role
   const { data: profile, error: profErr } = await supabase
@@ -164,11 +177,11 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     .single<Profile>();
 
   if (profErr) {
-    throw new Error(`Failed to load profile: ${profErr.message}`);
+    return { ok: false, error: `Failed to load profile: ${profErr.message}` };
   }
 
   if (!profile?.org_id) {
-    throw new Error("No org found for this user.");
+    return { ok: false, error: "No org found for this user." };
   }
 
   const orgId: string = profile.org_id;
@@ -177,7 +190,7 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   // 4) Check role (owner/admin required for write) - explicit gate
   const canWrite = role === "owner" || role === "admin";
   if (!canWrite) {
-    throw new Error("Forbidden: Only owners and admins can update workspace settings.");
+    return { ok: false, error: "Forbidden: Only owners and admins can update workspace settings." };
   }
 
   // 5) Update organizations.name (source of truth)
@@ -187,7 +200,7 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     .eq("id", orgId);
 
   if (orgUpdateErr) {
-    throw new Error(`Failed to update workspace name: ${orgUpdateErr.message}`);
+    return { ok: false, error: `Failed to update workspace name: ${orgUpdateErr.message}` };
   }
 
   // 6) Normalize empty strings to null for optional fields
@@ -213,14 +226,17 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     .single<OrganizationSettings>();
 
   if (upsertErr) {
-    throw new Error(`Failed to update settings: ${upsertErr.message}`);
+    return { ok: false, error: `Failed to update settings: ${upsertErr.message}` };
   }
 
   return {
-    workspace_name: validated.workspace_name.trim(),
-    greeting_override: greetingOverride,
-    default_timezone: validated.default_timezone,
-    default_language: validated.default_language,
-    billing_email: billingEmail,
+    ok: true,
+    data: {
+      workspace_name: validated.workspace_name.trim(),
+      greeting_override: greetingOverride,
+      default_timezone: validated.default_timezone,
+      default_language: validated.default_language,
+      billing_email: billingEmail,
+    },
   };
 }
