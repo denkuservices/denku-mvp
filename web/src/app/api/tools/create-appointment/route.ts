@@ -49,14 +49,14 @@ const BodySchema = z.object({
   start_at: z.string().optional().nullable(),
   start_at_text: z.string().optional().nullable(),
 
-  lead_phone: z.string().min(7),
+  lead_phone: z.string().min(7).optional().nullable(),
   lead_name: z.string().optional().nullable(),
   lead_email: z.string().email().optional().nullable(),
 
   purpose: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 
-  call_id: z.string().optional().nullable(), // relaxed
+  call_id: z.string().optional().nullable(),
 }).passthrough();
 
 /* ------------------ handler ------------------ */
@@ -88,8 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   const toPhone = normalizePhone(input.to_phone);
-  const leadPhone = normalizePhone(input.lead_phone);
-  if (!toPhone || !leadPhone) {
+  if (!toPhone) {
     return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
   }
 
@@ -104,6 +103,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "org_not_found" }, { status: 404 });
   }
 
+  /* call lookup: if call_id provided, fetch call and prefer its from_phone */
+  let callFromPhone: string | null = null;
+  let callLeadId: string | null = null;
+  const validatedCallId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
+
+  if (validatedCallId) {
+    const { data: call } = await supabaseAdmin
+      .from("calls")
+      .select("id, from_phone, lead_id")
+      .eq("id", validatedCallId)
+      .eq("org_id", org.id)
+      .maybeSingle();
+
+    if (call) {
+      callFromPhone = normalizePhone(call.from_phone);
+      callLeadId = call.lead_id;
+    }
+  }
+
+  /* lead: prefer call.from_phone over input.lead_phone */
+  const leadPhone = callFromPhone || normalizePhone(input.lead_phone);
+  if (!leadPhone) {
+    return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
+  }
+
   /* lead */
   const { data: leadExisting } = await supabaseAdmin
     .from("leads")
@@ -112,7 +136,7 @@ export async function POST(req: NextRequest) {
     .eq("phone", leadPhone)
     .maybeSingle();
 
-  let leadId = leadExisting?.id;
+  let leadId = leadExisting?.id || callLeadId;
 
   if (!leadId) {
     const { data: leadNew } = await supabaseAdmin
@@ -140,10 +164,7 @@ export async function POST(req: NextRequest) {
     .insert({
       org_id: org.id,
       lead_id: leadId,
-      call_id:
-        input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id)
-          ? input.call_id
-          : null,
+      call_id: validatedCallId,
       start_at: startAt.iso,
       status: "scheduled",
       notes:
@@ -160,6 +181,19 @@ export async function POST(req: NextRequest) {
 
   if (error || !appt) {
     return NextResponse.json({ error: "appointment_failed" }, { status: 500 });
+  }
+
+  /* link call to lead: update calls.lead_id if call_id provided */
+  if (validatedCallId && leadId) {
+    const { error: updateErr } = await supabaseAdmin
+      .from("calls")
+      .update({ lead_id: leadId })
+      .eq("id", validatedCallId)
+      .eq("org_id", org.id);
+
+    if (!updateErr) {
+      console.log("[create-appointment] linked call->lead", { call_id: validatedCallId, leadId });
+    }
   }
 
   return NextResponse.json({ ok: true, appointment: appt });
