@@ -314,6 +314,12 @@ export async function POST(req: NextRequest) {
 
       const finalEndedAt = endedAt ?? toIsoOrNull(msg?.summary_table?.endedAt) ?? new Date().toISOString();
 
+      // Auto-link to lead if lead_id is null: resolve by org_id + from_phone
+      let finalLeadId = leadId;
+      if (!finalLeadId && from_phone) {
+        finalLeadId = await resolveLeadId(orgId, from_phone);
+      }
+
       // Always update: ended_at, outcome, duration_seconds
       // Only update cost_usd if valid (do NOT overwrite with null or 0)
       // Only update transcript if present (do not wipe existing transcript)
@@ -325,7 +331,7 @@ export async function POST(req: NextRequest) {
         transcript: transcript ?? undefined,
         vapi_assistant_id,
         vapi_phone_number_id,
-        lead_id: leadId ?? undefined,
+        lead_id: finalLeadId ?? undefined,
         raw_payload: body,
       });
 

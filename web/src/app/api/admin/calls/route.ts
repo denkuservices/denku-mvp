@@ -3,11 +3,19 @@ import { requireBasicAuth } from '@/lib/auth/basic';
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
- * Compute outcome label based on database records (appointments/tickets)
- * Rule hierarchy:
- * 1. Meeting Scheduled: appointment exists linked to call (by call_id, or by org_id+lead_id+time window)
- * 2. Support Request: ticket exists linked to call (by call_id, or by org_id+lead_id+time window)
- * 3. Dropped Call: duration < 20s AND ended_at exists AND no appointment/ticket
+ * Deterministic call outcome computation based ONLY on database state.
+ * 
+ * NO transcript keyword analysis - outcomes are derived from actual DB records.
+ * All queries are org-scoped for multi-tenant safety.
+ * 
+ * Rule hierarchy (evaluated in order):
+ * 1. Meeting Scheduled: appointment record exists linked to call
+ *    - Preferred: exact match by call_id
+ *    - Fallback: org_id + lead_id + time window (2 hours after call started)
+ * 2. Support Request: ticket record exists linked to call
+ *    - Preferred: exact match by call_id
+ *    - Fallback: org_id + lead_id + time window (2 hours after call started)
+ * 3. Dropped Call: ended_at exists AND duration < 20s AND no appointment/ticket
  * 4. Completed: ended_at exists AND no appointment/ticket
  * 5. In Progress: ended_at is null
  */
@@ -26,86 +34,102 @@ async function computeCallOutcome(call: {
 }> {
   const { id: callId, org_id, lead_id, started_at, ended_at, duration_seconds } = call;
 
+  if (!org_id) {
+    // No org_id means we can't query appointments/tickets safely
+    const isInProgress = !ended_at;
+    const isDropped = ended_at && duration_seconds !== null && duration_seconds < 20;
+    
+    return {
+      has_appointment: false,
+      has_ticket: false,
+      status_derived: isInProgress ? 'in_progress' : isDropped ? 'dropped' : 'completed',
+      outcome_label: isInProgress ? 'In progress' : isDropped ? 'Dropped Call' : 'Completed',
+    };
+  }
+
   // Time window for fallback linking: 2 hours after call started
   const timeWindowEnd = started_at
     ? new Date(new Date(started_at).getTime() + 2 * 60 * 60 * 1000).toISOString()
     : null;
 
-  // Check for appointments (preferred: call_id, fallback: org_id+lead_id+time window)
+  // Check for appointments: exact match by call_id (preferred) or time window fallback
   let hasAppointment = false;
-  if (org_id) {
-    // Try call_id first if available (exact match)
-    if (callId) {
-      const { data: byCallId } = await supabaseAdmin
-        .from('appointments')
-        .select('id')
-        .eq('org_id', org_id)
-        .eq('call_id', callId)
-        .limit(1)
-        .maybeSingle();
-      if (byCallId) {
-        hasAppointment = true;
-      }
-    }
-
-    // Fallback: org_id + lead_id + time window
-    if (!hasAppointment && lead_id && started_at && timeWindowEnd) {
-      const { data: byTimeWindow } = await supabaseAdmin
-        .from('appointments')
-        .select('id')
-        .eq('org_id', org_id)
-        .eq('lead_id', lead_id)
-        .gte('created_at', started_at)
-        .lte('created_at', timeWindowEnd)
-        .limit(1)
-        .maybeSingle();
-      if (byTimeWindow) {
-        hasAppointment = true;
-      }
+  
+  // Preferred: exact match by call_id (org-scoped)
+  if (callId) {
+    const { data: byCallId, error: err1 } = await supabaseAdmin
+      .from('appointments')
+      .select('id')
+      .eq('org_id', org_id)
+      .eq('call_id', callId)
+      .limit(1)
+      .maybeSingle();
+    
+    if (!err1 && byCallId) {
+      hasAppointment = true;
     }
   }
 
-  // Check for tickets (preferred: call_id, fallback: org_id+lead_id+time window)
+  // Fallback: org_id + lead_id + time window (org-scoped)
+  if (!hasAppointment && lead_id && started_at && timeWindowEnd) {
+    const { data: byTimeWindow, error: err2 } = await supabaseAdmin
+      .from('appointments')
+      .select('id')
+      .eq('org_id', org_id)
+      .eq('lead_id', lead_id)
+      .gte('created_at', started_at)
+      .lte('created_at', timeWindowEnd)
+      .limit(1)
+      .maybeSingle();
+    
+    if (!err2 && byTimeWindow) {
+      hasAppointment = true;
+    }
+  }
+
+  // Check for tickets: exact match by call_id (preferred) or time window fallback
   let hasTicket = false;
-  if (org_id) {
-    // Try call_id first if available (exact match)
-    if (callId) {
-      const { data: byCallId } = await supabaseAdmin
-        .from('tickets')
-        .select('id')
-        .eq('org_id', org_id)
-        .eq('call_id', callId)
-        .limit(1)
-        .maybeSingle();
-      if (byCallId) {
-        hasTicket = true;
-      }
-    }
-
-    // Fallback: org_id + lead_id + time window
-    if (!hasTicket && lead_id && started_at && timeWindowEnd) {
-      const { data: byTimeWindow } = await supabaseAdmin
-        .from('tickets')
-        .select('id')
-        .eq('org_id', org_id)
-        .eq('lead_id', lead_id)
-        .gte('created_at', started_at)
-        .lte('created_at', timeWindowEnd)
-        .limit(1)
-        .maybeSingle();
-      if (byTimeWindow) {
-        hasTicket = true;
-      }
+  
+  // Preferred: exact match by call_id (org-scoped)
+  if (callId) {
+    const { data: byCallId, error: err3 } = await supabaseAdmin
+      .from('tickets')
+      .select('id')
+      .eq('org_id', org_id)
+      .eq('call_id', callId)
+      .limit(1)
+      .maybeSingle();
+    
+    if (!err3 && byCallId) {
+      hasTicket = true;
     }
   }
 
-  // Determine status and outcome label
+  // Fallback: org_id + lead_id + time window (org-scoped)
+  if (!hasTicket && lead_id && started_at && timeWindowEnd) {
+    const { data: byTimeWindow, error: err4 } = await supabaseAdmin
+      .from('tickets')
+      .select('id')
+      .eq('org_id', org_id)
+      .eq('lead_id', lead_id)
+      .gte('created_at', started_at)
+      .lte('created_at', timeWindowEnd)
+      .limit(1)
+      .maybeSingle();
+    
+    if (!err4 && byTimeWindow) {
+      hasTicket = true;
+    }
+  }
+
+  // Determine status and outcome label based on DB state only
   const isInProgress = !ended_at;
   const isDropped = ended_at && duration_seconds !== null && duration_seconds < 20;
 
   let status_derived: 'in_progress' | 'completed' | 'dropped';
   let outcome_label: 'Meeting Scheduled' | 'Support Request' | 'Dropped Call' | 'Completed' | 'In progress';
 
+  // Rule hierarchy: appointment > ticket > in_progress > dropped > completed
   if (hasAppointment) {
     status_derived = 'completed';
     outcome_label = 'Meeting Scheduled';

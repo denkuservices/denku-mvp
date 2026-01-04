@@ -100,6 +100,20 @@ function statusBadgeClass(s: LeadStatus) {
   }
 }
 
+function outcomeBadgeClass(outcome?: string | null) {
+  const lower = (outcome ?? "").toLowerCase();
+  if (lower.includes("completed") || lower.includes("end-of-call-report")) {
+    return "bg-green-100 text-green-800";
+  }
+  if (lower.includes("ended")) {
+    return "bg-gray-100 text-gray-800";
+  }
+  if (lower.includes("failed") || lower.includes("error") || lower.includes("no-answer")) {
+    return "bg-red-100 text-red-800";
+  }
+  return "bg-blue-100 text-blue-800";
+}
+
 async function resolveOrgId() {
   const supabase = await createSupabaseServerClient();
   const { data: auth, error: authErr } = await supabase.auth.getUser();
@@ -202,6 +216,10 @@ export default async function Page(props: { params: any }) {
     totalCalls === 0
       ? 0
       : Math.round(calls.reduce((sum, c) => sum + Number(c.duration_seconds ?? 0), 0) / totalCalls);
+  
+  // Last call (most recent) for outcome badge
+  const lastCall = calls.length > 0 ? calls[0] : null;
+  const lastCallOutcome = lastCall?.outcome ?? null;
 
   const st = safeStatus(lead.status);
 
@@ -297,15 +315,30 @@ export default async function Page(props: { params: any }) {
             <p className="mt-1 text-xs text-muted-foreground">Related to this lead</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Avg duration</p>
-            <p className="mt-1 text-2xl font-semibold">{formatDuration(avgDuration)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Across related calls</p>
-          </div>
-          <div>
             <p className="text-sm text-muted-foreground">Total cost</p>
             <p className="mt-1 text-2xl font-semibold">{formatUSD(totalCost)}</p>
             <p className="mt-1 text-xs text-muted-foreground">Estimated</p>
           </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Avg duration</p>
+            <p className="mt-1 text-2xl font-semibold">{formatDuration(avgDuration)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Across related calls</p>
+          </div>
+          {lastCallOutcome && (
+            <div>
+              <p className="text-sm text-muted-foreground">Last call outcome</p>
+              <div className="mt-1">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${outcomeBadgeClass(
+                    lastCallOutcome
+                  )}`}
+                >
+                  {lastCallOutcome}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Most recent call</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -354,7 +387,19 @@ export default async function Page(props: { params: any }) {
                 {calls.map((c) => (
                   <tr key={c.id} className="border-b last:border-b-0">
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(c.started_at)}</td>
-                    <td className="px-4 py-3">{c.outcome || "—"}</td>
+                    <td className="px-4 py-3">
+                      {c.outcome ? (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${outcomeBadgeClass(
+                            c.outcome
+                          )}`}
+                        >
+                          {c.outcome}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3">{formatDuration(c.duration_seconds ?? 0)}</td>
                     <td className="px-4 py-3">{formatUSD(c.cost_usd ?? 0)}</td>
                     <td className="px-4 py-3 text-right">
