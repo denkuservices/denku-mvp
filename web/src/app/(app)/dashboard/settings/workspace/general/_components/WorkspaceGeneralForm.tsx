@@ -3,6 +3,7 @@
 import type React from "react";
 import { useState, useTransition } from "react";
 import { updateWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
+import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "@/app/(app)/dashboard/settings/_lib/options";
 
 type OrganizationSettings = {
   id: string;
@@ -45,6 +46,9 @@ export function WorkspaceGeneralForm({
   orgName,
 }: WorkspaceGeneralFormProps) {
   const isReadOnly = role === "viewer";
+
+  // Get timezone options for datalist
+  const timezoneOptions = getTimeZoneOptions();
 
   // Initialize form state from settings (workspace_name from orgName, greeting_override from settings.name)
   const getInitialState = (): FormState => ({
@@ -147,7 +151,7 @@ export function WorkspaceGeneralForm({
           required
         />
 
-        <Field
+        <LanguageField
           label="Default language"
           value={formState.default_language}
           onChange={(v) => handleChange("default_language", v)}
@@ -155,12 +159,13 @@ export function WorkspaceGeneralForm({
           readOnly={isReadOnly}
         />
 
-        <Field
+        <TimezoneField
           label="Timezone"
           value={formState.default_timezone}
           onChange={(v) => handleChange("default_timezone", v)}
           helper="Used for reporting, logs, and scheduling behavior."
           readOnly={isReadOnly}
+          timezoneOptions={timezoneOptions}
         />
 
         <Field
@@ -261,6 +266,79 @@ function Field({
         required={required && !readOnly}
         className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
       />
+      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+    </div>
+  );
+}
+
+function LanguageField({
+  label,
+  value,
+  onChange,
+  helper,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  helper?: string;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold text-zinc-900">{label}</p>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={readOnly}
+        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
+      >
+        <option value="">Select a language</option>
+        {LANGUAGE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+    </div>
+  );
+}
+
+function TimezoneField({
+  label,
+  value,
+  onChange,
+  helper,
+  readOnly,
+  timezoneOptions,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  helper?: string;
+  readOnly: boolean;
+  timezoneOptions: string[];
+}) {
+  const datalistId = "timezone-list";
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold text-zinc-900">{label}</p>
+      <input
+        type="text"
+        list={datalistId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        disabled={readOnly}
+        placeholder="Type or select a timezone"
+        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
+      />
+      <datalist id={datalistId}>
+        {timezoneOptions.map((tz) => (
+          <option key={tz} value={tz} />
+        ))}
+      </datalist>
       {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
     </div>
   );

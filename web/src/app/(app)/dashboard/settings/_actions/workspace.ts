@@ -3,13 +3,40 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
+
+// Get valid language and timezone values for validation
+const VALID_LANGUAGE_VALUES = LANGUAGE_OPTIONS.map((opt) => opt.value);
+const VALID_TIMEZONE_VALUES = getTimeZoneOptions();
+
+// Custom validation for language: normalize empty/undefined to null, then validate if non-null
+const languageSchema = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((val) => {
+    if (!val || val === "" || (typeof val === "string" && val.trim() === "")) return null;
+    return typeof val === "string" ? val.trim() : val;
+  })
+  .refine((val) => val === null || VALID_LANGUAGE_VALUES.includes(val), {
+    message: "Invalid default language",
+  });
+
+// Custom validation for timezone: normalize empty/undefined to null, then validate if non-null
+const timezoneSchema = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((val) => {
+    if (!val || val === "" || (typeof val === "string" && val.trim() === "")) return null;
+    return typeof val === "string" ? val.trim() : val;
+  })
+  .refine((val) => val === null || VALID_TIMEZONE_VALUES.includes(val) || val === "UTC", {
+    message: "Invalid timezone",
+  });
 
 // Validation schema
 const UpdateWorkspaceGeneralSchema = z.object({
   workspace_name: z.string().trim().min(1).max(255),
   greeting_override: z.union([z.string().trim().min(1).max(255), z.literal("")]).nullable(),
-  default_timezone: z.string().trim().max(100).nullable(),
-  default_language: z.string().trim().max(100).nullable(),
+  default_timezone: timezoneSchema,
+  default_language: languageSchema,
   billing_email: z.union([z.string().email().trim().max(255), z.literal("")]).nullable(),
 });
 
@@ -190,10 +217,9 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
 
   return {
     workspace_name: validated.workspace_name.trim(),
-    greeting_override: greetingOverride, // string | null
-    default_timezone: validated.default_timezone ? validated.default_timezone.trim() : null,
-    default_language: validated.default_language ? validated.default_language.trim() : null,
-    billing_email: billingEmail, // string | null (normalize edilmiş)
+    greeting_override: greetingOverride,
+    default_timezone: validated.default_timezone,
+    default_language: validated.default_language,
+    billing_email: billingEmail,
   };
-  
 }
