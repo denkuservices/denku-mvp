@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
+import { logAuditEvent } from "@/lib/audit/log";
 
 // Get valid language and timezone values for validation
 const VALID_LANGUAGE_VALUES = LANGUAGE_OPTIONS.map((opt) => opt.value);
@@ -193,7 +194,29 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     return { ok: false, error: "Forbidden: Only owners and admins can update workspace settings." };
   }
 
-  // 5) Update organizations.name (source of truth)
+  // 5) Fetch existing data for audit diff (before update)
+  const { data: existingOrg, error: orgFetchErr } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", orgId)
+    .single<{ name: string }>();
+
+  if (orgFetchErr) {
+    return { ok: false, error: `Failed to fetch organization: ${orgFetchErr.message}` };
+  }
+
+  const { data: existingSettings } = await supabase
+    .from("organization_settings")
+    .select("default_timezone, default_language, billing_email, name")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      default_timezone: string | null;
+      default_language: string | null;
+      billing_email: string | null;
+      name: string | null;
+    }>();
+
+  // 6) Update organizations.name (source of truth)
   const { error: orgUpdateErr } = await supabase
     .from("organizations")
     .update({ name: validated.workspace_name.trim() })
@@ -203,11 +226,11 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     return { ok: false, error: `Failed to update workspace name: ${orgUpdateErr.message}` };
   }
 
-  // 6) Normalize empty strings to null for optional fields
+  // 7) Normalize empty strings to null for optional fields
   const greetingOverride = validated.greeting_override === "" ? null : validated.greeting_override;
   const billingEmail = validated.billing_email === "" ? null : validated.billing_email;
 
-  // 7) Upsert organization_settings (single transaction-safe statement, scoped by org_id)
+  // 8) Upsert organization_settings (single transaction-safe statement, scoped by org_id)
   const { data: updated, error: upsertErr } = await supabase
     .from("organization_settings")
     .upsert(
@@ -229,14 +252,63 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     return { ok: false, error: `Failed to update settings: ${upsertErr.message}` };
   }
 
+  // 9) Compute field-level diff for audit log
+  const diff: Record<string, { from: unknown; to: unknown }> = {};
+
+  // Check workspace_name change (organizations.name)
+  const oldWorkspaceName = existingOrg?.name ?? null;
+  const newWorkspaceName = validated.workspace_name.trim();
+  if (oldWorkspaceName !== newWorkspaceName) {
+    diff.workspace_name = { from: oldWorkspaceName, to: newWorkspaceName };
+  }
+
+  // Check greeting_override change (organization_settings.name)
+  const oldGreetingOverride = existingSettings?.name ?? null;
+  const newGreetingOverride = greetingOverride;
+  if (oldGreetingOverride !== newGreetingOverride) {
+    diff.name = { from: oldGreetingOverride, to: newGreetingOverride };
+  }
+
+  // Check default_timezone change
+  const oldTimezone = existingSettings?.default_timezone ?? null;
+  const newTimezone = validated.default_timezone;
+  if (oldTimezone !== newTimezone) {
+    diff.default_timezone = { from: oldTimezone, to: newTimezone };
+  }
+
+  // Check default_language change
+  const oldLanguage = existingSettings?.default_language ?? null;
+  const newLanguage = validated.default_language;
+  if (oldLanguage !== newLanguage) {
+    diff.default_language = { from: oldLanguage, to: newLanguage };
+  }
+
+  // Check billing_email change
+  const oldBillingEmail = existingSettings?.billing_email ?? null;
+  const newBillingEmail = billingEmail;
+  if (oldBillingEmail !== newBillingEmail) {
+    diff.billing_email = { from: oldBillingEmail, to: newBillingEmail };
+  }
+
+  // 10) Log audit event if there are changes
+  if (Object.keys(diff).length > 0) {
+    await logAuditEvent({
+      org_id: orgId,
+      actor_id: user.id,
+      action: "settings.update",
+      resource: "workspace.general",
+      diff,
+    });
+  }
+
   return {
     ok: true,
     data: {
-      workspace_name: validated.workspace_name.trim(),
-      greeting_override: greetingOverride,
-      default_timezone: validated.default_timezone,
-      default_language: validated.default_language,
-      billing_email: billingEmail,
+      workspace_name: newWorkspaceName,
+      greeting_override: newGreetingOverride,
+      default_timezone: newTimezone,
+      default_language: newLanguage,
+      billing_email: newBillingEmail,
     },
   };
 }
