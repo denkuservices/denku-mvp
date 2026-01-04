@@ -32,9 +32,8 @@ function parseStartAt(
   }
 
   if (startAtText) {
-    const parsed = chrono.parseDate(startAtText, new Date(), {
-      timezone: "America/New_York",
-    });
+    const parsed = chrono.parseDate(startAtText, new Date());
+
     if (!parsed) throw new Error("Could not parse natural date");
     return { iso: parsed.toISOString(), rawText: startAtText };
   }
