@@ -150,10 +150,11 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   // 2) Validate input
   const validation = UpdateWorkspaceGeneralSchema.safeParse(input);
   if (!validation.success) {
-    throw new Error(`Validation error: ${validation.error.message}`);
+    const firstMsg = validation.error.issues?.[0]?.message ?? "Validation error";
+    throw new Error(firstMsg);
   }
-
   const validated = validation.data;
+  
 
   // 3) Get profile with org_id and role
   const { data: profile, error: profErr } = await supabase

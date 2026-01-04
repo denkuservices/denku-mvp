@@ -116,9 +116,15 @@ export function WorkspaceGeneralForm({
         // Reset status after 3 seconds
         setTimeout(() => setStatus(null), 3000);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to save settings.";
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to save settings.";
         setStatus({ type: "error", message });
       }
+      
     });
   };
 
