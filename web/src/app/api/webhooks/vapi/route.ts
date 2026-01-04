@@ -29,6 +29,15 @@ function safeNumber(v: unknown): number | null {
   }
   return null;
 }
+function safeInt(v: unknown): number | null {
+  const n =
+    typeof v === "number" ? v :
+    typeof v === "string" ? Number(v) :
+    NaN;
+
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.round(n)); // istersen Math.floor da olur
+}
 
 function toIsoOrNull(v?: string | null) {
   if (!v) return null;
@@ -269,7 +278,7 @@ export async function POST(req: NextRequest) {
       to_phone,
       started_at: startedAt,
       ended_at: endedAt ?? undefined, // finalde update edeceğiz
-      duration_seconds: durationSeconds ?? undefined,
+      duration_seconds: safeInt(call?.durationSeconds ?? msg?.durationSeconds),
       vapi_assistant_id,
       vapi_phone_number_id,
       lead_id: leadId ?? undefined,
@@ -310,7 +319,7 @@ export async function POST(req: NextRequest) {
       const finalUpdate = compact({
         ended_at: finalEndedAt,
         outcome: "completed",
-        duration_seconds: finalDuration ?? undefined,
+        duration_seconds: safeInt(call?.durationSeconds ?? msg?.durationSeconds),
         cost_usd: costUsd != null ? costUsd : undefined,
         transcript: transcript ?? undefined,
         vapi_assistant_id,
