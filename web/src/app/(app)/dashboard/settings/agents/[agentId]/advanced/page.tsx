@@ -1,92 +1,99 @@
-"use client";
-
-import * as React from "react";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AgentAdvancedContent } from "./_components/AgentAdvancedPage";
 
-const DEFAULT_PROMPT = `
-You are a voice-based AI agent representing the company.
-Speak naturally, clearly, and professionally.
-If unsure, ask a clarifying question instead of guessing.
-Never mention internal systems, AI models, or technical details.
-`.trim();
+type Agent = {
+  id: string;
+  org_id: string;
+  name: string;
+};
 
-export default function AgentAdvancedPage({
+/**
+ * Validate UUID format
+ */
+function isValidUUID(value: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+/**
+ * Fetch agent by id and org_id (enforce org ownership)
+ */
+async function getAgent(agentId: string, orgId: string): Promise<Agent | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: agent, error } = await supabase
+    .from("agents")
+    .select("id, org_id, name")
+    .eq("id", agentId)
+    .eq("org_id", orgId)
+    .single<Agent>();
+
+  if (error || !agent) {
+    return null;
+  }
+
+  return agent;
+}
+
+export default async function AgentAdvancedPage({
   params,
 }: {
-  params: { agentId: string };
+  params: Promise<{ agentId: string }>;
 }) {
-  const agentName = params.agentId;
+  const { agentId } = await params;
 
-  const [customPrompt, setCustomPrompt] = React.useState<string>("");
+  // 1) Validate agentId
+  if (!agentId || agentId === "undefined" || !isValidUUID(agentId)) {
+    redirect("/dashboard/settings/agents");
+  }
 
-  const effective = (customPrompt || DEFAULT_PROMPT).trim();
+  const supabase = await createSupabaseServerClient();
 
+  // 2) Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  // 3) Get profile with org_id
+  const { data: profile, error: profErr } = await supabase
+    .from("profiles")
+    .select("id, org_id")
+    .eq("id", user.id)
+    .single<{ id: string; org_id: string | null }>();
+
+  if (profErr || !profile || !profile.org_id) {
+    redirect("/dashboard/settings/agents");
+  }
+
+  const orgId = profile.org_id;
+
+  // 4) Fetch agent (enforce org ownership)
+  const agent = await getAgent(agentId, orgId);
+
+  if (!agent) {
+    redirect("/dashboard/settings/agents");
+  }
+
+  // 5) Render page with agent context
   return (
     <SettingsShell
-      title={`Advanced: ${agentName}`}
+      title={`Advanced settings for ${agent.name}`}
       subtitle="Power-user overrides for this agent."
       crumbs={[
         { label: "Dashboard", href: "/dashboard" },
         { label: "Settings", href: "/dashboard/settings" },
         { label: "Agents", href: "/dashboard/settings/agents" },
-        { label: agentName, href: `/dashboard/settings/agents/${agentName}` },
+        { label: agent.name, href: `/dashboard/settings/agents/${agent.id}` },
         { label: "Advanced" },
       ]}
     >
-      {/* Tabs */}
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/dashboard/settings/agents/${agentName}`}
-          className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50"
-        >
-          Agent defaults
-        </Link>
-
-        <span className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">
-          Advanced
-        </span>
-      </div>
-
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs font-semibold text-amber-900">Warning</p>
-          <p className="mt-1 text-xs text-amber-900/80">
-            Advanced overrides can reduce predictability. Clear the override to revert to defaults.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-zinc-900">System prompt override</p>
-          <textarea
-            value={customPrompt}
-            onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder={DEFAULT_PROMPT}
-            rows={12}
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-mono leading-6 shadow-sm outline-none transition focus:ring-4 focus:ring-zinc-100"
-          />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-zinc-500">Leave empty to use defaults.</p>
-            <button
-              type="button"
-              onClick={() => setCustomPrompt("")}
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50"
-            >
-              Clear override
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-zinc-900">Effective prompt (read-only)</p>
-          <textarea
-            readOnly
-            value={effective}
-            rows={8}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-mono leading-6 text-zinc-700"
-          />
-        </div>
-      </div>
+      <AgentAdvancedContent agent={agent} />
     </SettingsShell>
   );
 }
