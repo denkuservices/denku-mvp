@@ -253,51 +253,52 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   }
 
   // 9) Compute field-level diff for audit log
-  const diff: Record<string, { from: unknown; to: unknown }> = {};
+  const settingsDiff: Record<string, { before: unknown; after: unknown }> = {};
 
   // Check workspace_name change (organizations.name)
   const oldWorkspaceName = existingOrg?.name ?? null;
   const newWorkspaceName = validated.workspace_name.trim();
   if (oldWorkspaceName !== newWorkspaceName) {
-    diff.workspace_name = { from: oldWorkspaceName, to: newWorkspaceName };
+    settingsDiff.workspace_name = { before: oldWorkspaceName, after: newWorkspaceName };
   }
 
   // Check greeting_override change (organization_settings.name)
   const oldGreetingOverride = existingSettings?.name ?? null;
   const newGreetingOverride = greetingOverride;
   if (oldGreetingOverride !== newGreetingOverride) {
-    diff.name = { from: oldGreetingOverride, to: newGreetingOverride };
+    settingsDiff.name = { before: oldGreetingOverride, after: newGreetingOverride };
   }
 
   // Check default_timezone change
   const oldTimezone = existingSettings?.default_timezone ?? null;
   const newTimezone = validated.default_timezone;
   if (oldTimezone !== newTimezone) {
-    diff.default_timezone = { from: oldTimezone, to: newTimezone };
+    settingsDiff.default_timezone = { before: oldTimezone, after: newTimezone };
   }
 
   // Check default_language change
   const oldLanguage = existingSettings?.default_language ?? null;
   const newLanguage = validated.default_language;
   if (oldLanguage !== newLanguage) {
-    diff.default_language = { from: oldLanguage, to: newLanguage };
+    settingsDiff.default_language = { before: oldLanguage, after: newLanguage };
   }
 
   // Check billing_email change
   const oldBillingEmail = existingSettings?.billing_email ?? null;
   const newBillingEmail = billingEmail;
   if (oldBillingEmail !== newBillingEmail) {
-    diff.billing_email = { from: oldBillingEmail, to: newBillingEmail };
+    settingsDiff.billing_email = { before: oldBillingEmail, after: newBillingEmail };
   }
 
   // 10) Log audit event if there are changes
-  if (Object.keys(diff).length > 0) {
+  if (Object.keys(settingsDiff).length > 0) {
     await logAuditEvent({
       org_id: orgId,
-      actor_id: user.id,
+      actor_user_id: user.id,
       action: "settings.update",
-      resource: "workspace.general",
-      diff,
+      entity_type: "workspace.general",
+      entity_id: orgId,
+      diff: settingsDiff,
     });
   }
 
