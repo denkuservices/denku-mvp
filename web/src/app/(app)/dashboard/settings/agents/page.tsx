@@ -8,7 +8,6 @@ type AgentRow = {
   id: string;
   name: string | null;
   created_at: string;
-  updated_at: string | null;
 };
 
 export default async function AgentsListPage() {
@@ -57,7 +56,7 @@ export default async function AgentsListPage() {
   // 3) Fetch agents for this org
   const { data: agents, error: agentsErr } = await supabase
     .from("agents")
-    .select("id, name, created_at, updated_at")
+    .select("id, name, created_at")
     .eq("org_id", orgId)
     .order("created_at", { ascending: false });
 

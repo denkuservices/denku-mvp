@@ -11,6 +11,15 @@ type Agent = {
   language: string | null;
   voice: string | null;
   timezone: string | null;
+  behavior_preset: string | null;
+  agent_type: string | null;
+  first_message: string | null;
+  emphasis_points: string[] | null;
+  system_prompt_override: string | null;
+  effective_system_prompt: string | null;
+  vapi_assistant_id: string | null;
+  vapi_sync_status: string | null;
+  vapi_synced_at: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -31,12 +40,29 @@ async function getAgent(agentId: string, orgId: string): Promise<Agent | null> {
 
   const { data: agent, error } = await supabase
     .from("agents")
-    .select("id, org_id, name, language, voice, timezone, created_at, updated_at")
+    .select("*")
     .eq("id", agentId)
     .eq("org_id", orgId)
     .single<Agent>();
 
-  if (error || !agent) {
+  if (error) {
+    // Debug logging (safe for server-side)
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] Agent query error:", {
+        agentId,
+        orgId,
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorDetails: error.details,
+      });
+    }
+    return null;
+  }
+
+  if (!agent) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] Agent not found:", { agentId, orgId });
+    }
     return null;
   }
 
@@ -46,8 +72,16 @@ async function getAgent(agentId: string, orgId: string): Promise<Agent | null> {
 export default async function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = await params;
 
+  // Debug logging (safe for server-side)
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[AgentDetailPage] Starting guard checks:", { agentId });
+  }
+
   // 1) Validate agentId
   if (!agentId || agentId === "undefined" || !isValidUUID(agentId)) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] Invalid UUID, redirecting:", { agentId });
+    }
     redirect("/dashboard/settings/agents");
   }
 
@@ -56,10 +90,18 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ ag
   // 2) Get current user
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
   if (!user) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] No user, redirecting to login:", { authError: authError?.message });
+    }
     redirect("/login");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[AgentDetailPage] User authenticated:", { userId: user.id });
   }
 
   // 3) Get profile with org_id
@@ -69,17 +111,46 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ ag
     .eq("id", user.id)
     .single<{ id: string; org_id: string | null }>();
 
-  if (profErr || !profile || !profile.org_id) {
+  if (profErr) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] Profile query error:", {
+        userId: user.id,
+        errorMessage: profErr.message,
+        errorCode: profErr.code,
+        errorDetails: profErr.details,
+      });
+    }
+    redirect("/dashboard/settings/agents");
+  }
+
+  if (!profile || !profile.org_id) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] No profile or org_id, redirecting:", {
+        hasProfile: !!profile,
+        orgId: profile?.org_id,
+      });
+    }
     redirect("/dashboard/settings/agents");
   }
 
   const orgId = profile.org_id;
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[AgentDetailPage] Profile resolved:", { userId: user.id, orgId });
+  }
+
   // 4) Fetch agent (enforce org ownership)
   const agent = await getAgent(agentId, orgId);
 
   if (!agent) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AgentDetailPage] Agent not found or unauthorized, redirecting:", { agentId, orgId });
+    }
     redirect("/dashboard/settings/agents");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[AgentDetailPage] Agent found, rendering page:", { agentId, agentName: agent.name });
   }
 
   // 5) Render page with agent context

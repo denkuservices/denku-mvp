@@ -7,7 +7,6 @@ type AgentRow = {
   id: string;
   name: string | null;
   created_at: string;
-  updated_at: string | null;
 };
 
 type AgentsListClientProps = {

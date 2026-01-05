@@ -7,6 +7,11 @@ type Agent = {
   id: string;
   org_id: string;
   name: string;
+  system_prompt_override: string | null;
+  effective_system_prompt: string | null;
+  vapi_assistant_id: string | null;
+  vapi_sync_status: string | null;
+  vapi_synced_at: string | null;
 };
 
 /**
@@ -25,7 +30,7 @@ async function getAgent(agentId: string, orgId: string): Promise<Agent | null> {
 
   const { data: agent, error } = await supabase
     .from("agents")
-    .select("id, org_id, name")
+    .select("id, org_id, name, system_prompt_override, effective_system_prompt, vapi_assistant_id, vapi_sync_status, vapi_synced_at")
     .eq("id", agentId)
     .eq("org_id", orgId)
     .single<Agent>();
