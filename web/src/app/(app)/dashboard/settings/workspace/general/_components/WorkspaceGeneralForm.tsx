@@ -2,8 +2,11 @@
 
 import type React from "react";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateWorkspaceGeneral, type UpdateWorkspaceGeneralResult } from "@/app/(app)/dashboard/settings/_actions/workspace";
-import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "@/app/(app)/dashboard/settings/_lib/options";
+import { getTimeZoneOptions } from "@/app/(app)/dashboard/settings/_lib/options";
+import { LanguageSelect } from "./LanguageSelect";
+import { TimezoneCombobox } from "./TimezoneCombobox";
 
 type OrganizationSettings = {
   id: string;
@@ -21,11 +24,11 @@ type WorkspaceGeneralFormProps = {
   role: "owner" | "admin" | "viewer";
   orgId: string;
   orgName: string;
+  onTimezoneUpdate?: (timezone: string | null) => void;
 };
 
 type FormState = {
   workspace_name: string;
-  greeting_override: string;
   default_timezone: string;
   default_language: string;
   billing_email: string;
@@ -36,16 +39,17 @@ export function WorkspaceGeneralForm({
   role,
   orgId,
   orgName,
+  onTimezoneUpdate,
 }: WorkspaceGeneralFormProps) {
   const isReadOnly = role === "viewer";
+  const router = useRouter();
 
   // Get timezone options for datalist
   const timezoneOptions = getTimeZoneOptions();
 
-  // Initialize form state from settings (workspace_name from orgName, greeting_override from settings.name)
+  // Initialize form state from settings
   const getInitialState = (): FormState => ({
     workspace_name: orgName || "",
-    greeting_override: initialSettings?.name || "",
     default_timezone: initialSettings?.default_timezone || "",
     default_language: initialSettings?.default_language || "",
     billing_email: initialSettings?.billing_email || "",
@@ -59,7 +63,6 @@ export function WorkspaceGeneralForm({
   // Check if form is dirty
   const isDirty =
     formState.workspace_name !== initialState.workspace_name ||
-    formState.greeting_override !== initialState.greeting_override ||
     formState.default_timezone !== initialState.default_timezone ||
     formState.default_language !== initialState.default_language ||
     formState.billing_email !== initialState.billing_email;
@@ -83,7 +86,6 @@ export function WorkspaceGeneralForm({
         // Prepare payload (never send undefined keys)
         const payload = {
           workspace_name: formState.workspace_name.trim(),
-          greeting_override: formState.greeting_override.trim() || null,
           default_timezone: formState.default_timezone.trim() || null,
           default_language: formState.default_language.trim() || null,
           billing_email: formState.billing_email.trim() || null,
@@ -103,7 +105,6 @@ export function WorkspaceGeneralForm({
         // Update initial state to reflect saved changes
         const newInitialState: FormState = {
           workspace_name: updated.workspace_name || "",
-          greeting_override: updated.greeting_override || "",
           default_timezone: updated.default_timezone || "",
           default_language: updated.default_language || "",
           billing_email: updated.billing_email || "",
@@ -113,6 +114,12 @@ export function WorkspaceGeneralForm({
         setFormState(newInitialState);
 
         setStatus({ type: "success", message: "Settings saved successfully." });
+
+        // Update Runtime card immediately via callback
+        onTimezoneUpdate?.(updated.default_timezone);
+
+        // Refresh server components to keep data in sync
+        router.refresh();
 
         // Reset status after 3 seconds
         setTimeout(() => setStatus(null), 3000);
@@ -129,16 +136,13 @@ export function WorkspaceGeneralForm({
     });
   };
 
-  // Determine display name for greeting (greeting_override || workspace_name)
-  const displayName =
-    formState.greeting_override.trim() || formState.workspace_name.trim() || orgName || "your company";
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Status message */}
       {status && (
         <div
-          className={`mb-6 rounded-xl border p-4 ${
+          className={`rounded-xl border p-4 ${
             status.type === "success"
               ? "border-green-200 bg-green-50 text-green-900"
               : "border-red-200 bg-red-50 text-red-900"
@@ -148,7 +152,7 @@ export function WorkspaceGeneralForm({
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field
           label="Workspace name"
           value={formState.workspace_name}
@@ -158,7 +162,7 @@ export function WorkspaceGeneralForm({
           required
         />
 
-        <LanguageField
+        <LanguageSelect
           label="Default language"
           value={formState.default_language}
           onChange={(v) => handleChange("default_language", v)}
@@ -166,7 +170,7 @@ export function WorkspaceGeneralForm({
           readOnly={isReadOnly}
         />
 
-        <TimezoneField
+        <TimezoneCombobox
           label="Timezone"
           value={formState.default_timezone}
           onChange={(v) => handleChange("default_timezone", v)}
@@ -185,30 +189,7 @@ export function WorkspaceGeneralForm({
         />
       </div>
 
-      <div className="mt-4">
-        <Field
-          label="Greeting override (optional)"
-          value={formState.greeting_override}
-          onChange={(v) => handleChange("greeting_override", v)}
-          helper="Optional custom name for agent greetings. If empty, workspace name is used."
-          readOnly={isReadOnly}
-        />
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-        <p className="text-sm font-semibold text-zinc-900">First-message injection</p>
-        <p className="mt-1 text-sm text-zinc-600">
-          We can automatically prepend your company name to agent greetings. Example:
-        </p>
-        <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-4">
-          <p className="text-sm text-zinc-800">
-            "Hello, thanks for calling <span className="font-semibold">{displayName}</span>. How can I
-            help you today?"
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         {isReadOnly ? (
           <p className="text-xs text-zinc-500">
             You have read-only access. Only owners and admins can modify workspace settings.
@@ -278,75 +259,4 @@ function Field({
   );
 }
 
-function LanguageField({
-  label,
-  value,
-  onChange,
-  helper,
-  readOnly,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  helper?: string;
-  readOnly: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={readOnly}
-        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
-      >
-        <option value="">Select a language</option>
-        {LANGUAGE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
-    </div>
-  );
-}
 
-function TimezoneField({
-  label,
-  value,
-  onChange,
-  helper,
-  readOnly,
-  timezoneOptions,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  helper?: string;
-  readOnly: boolean;
-  timezoneOptions: string[];
-}) {
-  const datalistId = "timezone-list";
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
-      <input
-        type="text"
-        list={datalistId}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        disabled={readOnly}
-        placeholder="Type or select a timezone"
-        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-zinc-50"
-      />
-      <datalist id={datalistId}>
-        {timezoneOptions.map((tz) => (
-          <option key={tz} value={tz} />
-        ))}
-      </datalist>
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
-    </div>
-  );
-}

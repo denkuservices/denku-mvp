@@ -35,7 +35,6 @@ const timezoneSchema = z
 // Validation schema
 const UpdateWorkspaceGeneralSchema = z.object({
   workspace_name: z.string().trim().min(1).max(255),
-  greeting_override: z.union([z.string().trim().min(1).max(255), z.literal("")]).nullable(),
   default_timezone: timezoneSchema,
   default_language: languageSchema,
   billing_email: z.union([z.string().email().trim().max(255), z.literal("")]).nullable(),
@@ -67,7 +66,6 @@ type Organization = {
 
 type UpdateWorkspaceGeneralSuccess = {
   workspace_name: string;
-  greeting_override: string | null;
   default_timezone: string | null;
   default_language: string | null;
   billing_email: string | null;
@@ -207,13 +205,12 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
 
   const { data: existingSettings } = await supabase
     .from("organization_settings")
-    .select("default_timezone, default_language, billing_email, name")
+    .select("default_timezone, default_language, billing_email")
     .eq("org_id", orgId)
     .maybeSingle<{
       default_timezone: string | null;
       default_language: string | null;
       billing_email: string | null;
-      name: string | null;
     }>();
 
   // 6) Update organizations.name (source of truth)
@@ -227,7 +224,6 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   }
 
   // 7) Normalize empty strings to null for optional fields
-  const greetingOverride = validated.greeting_override === "" ? null : validated.greeting_override;
   const billingEmail = validated.billing_email === "" ? null : validated.billing_email;
 
   // 8) Upsert organization_settings (single transaction-safe statement, scoped by org_id)
@@ -236,7 +232,6 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     .upsert(
       {
         org_id: orgId,
-        name: greetingOverride,
         default_timezone: validated.default_timezone,
         default_language: validated.default_language,
         billing_email: billingEmail,
@@ -260,13 +255,6 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   const newWorkspaceName = validated.workspace_name.trim();
   if (oldWorkspaceName !== newWorkspaceName) {
     settingsDiff.workspace_name = { before: oldWorkspaceName, after: newWorkspaceName };
-  }
-
-  // Check greeting_override change (organization_settings.name)
-  const oldGreetingOverride = existingSettings?.name ?? null;
-  const newGreetingOverride = greetingOverride;
-  if (oldGreetingOverride !== newGreetingOverride) {
-    settingsDiff.name = { before: oldGreetingOverride, after: newGreetingOverride };
   }
 
   // Check default_timezone change
@@ -306,7 +294,6 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
     ok: true,
     data: {
       workspace_name: newWorkspaceName,
-      greeting_override: newGreetingOverride,
       default_timezone: newTimezone,
       default_language: newLanguage,
       billing_email: newBillingEmail,
