@@ -65,12 +65,13 @@ export async function createTicketComment(
     // Validate input
     const parsed = CreateCommentSchema.safeParse({ body: input.body });
     if (!parsed.success) {
-      // Safe error message extraction - never crashes on undefined errors array
-      const errorMessage = parsed.error.errors && parsed.error.errors.length > 0
-        ? parsed.error.errors[0]?.message ?? "Invalid input"
-        : parsed.error.message ?? "Invalid input";
+      const issues = parsed.error.issues ?? [];
+      const errorMessage =
+        issues.length > 0 ? issues[0]?.message ?? "Invalid input" : "Invalid input";
+    
       return { ok: false, error: `Validation error: ${errorMessage}` };
     }
+    
 
     // Verify ticket exists and belongs to org
     const supabase = await createSupabaseServerClient();
