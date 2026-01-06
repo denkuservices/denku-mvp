@@ -81,7 +81,7 @@ export async function listTickets(params: ListTicketsParams): Promise<ListTicket
   if (leadIds.size > 0) {
     const { data: leads } = await supabase
       .from("leads")
-      .select("id,name,phone,email")
+      .select("id,name,phone,email,source,status")
       .eq("org_id", orgId)
       .in("id", Array.from(leadIds));
 
@@ -92,6 +92,8 @@ export async function listTickets(params: ListTicketsParams): Promise<ListTicket
           name: lead.name,
           phone: lead.phone,
           email: lead.email,
+          source: lead.source,
+          status: lead.status,
         });
       }
     }
