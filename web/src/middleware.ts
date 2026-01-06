@@ -21,6 +21,13 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1) Admin koruması (Basic Auth) — aynen devam
+  // Exception: /api/admin/analytics/export uses Supabase session auth, not Basic Auth
+  const isAnalyticsExport = pathname === "/api/admin/analytics/export";
+  if (isAnalyticsExport) {
+    // Skip Basic Auth for analytics export - it uses Supabase session auth
+    return NextResponse.next();
+  }
+
   const isAdminArea = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
   if (isAdminArea) {
     if (isAuthorizedBasic(request)) return NextResponse.next();

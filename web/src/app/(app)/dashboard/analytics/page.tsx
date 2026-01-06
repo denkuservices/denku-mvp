@@ -1,185 +1,119 @@
 ﻿import Link from "next/link";
+import { parseAnalyticsParams, getDateRange, resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
+import {
+  fetchCalls,
+  fetchLeadsCount,
+  fetchTicketsCount,
+  fetchAppointmentsCount,
+  fetchAgents,
+  computeSummary,
+  computeDailyTrend,
+  computeByAgent,
+  computeOutcomeBreakdown,
+} from "@/lib/analytics/queries";
+import { computeInsights } from "@/lib/analytics/insights";
+import { KpiGrid } from "@/components/analytics/KpiGrid";
+import { DailyTrendTable } from "@/components/analytics/DailyTrendTable";
+import { ByAgentTable } from "@/components/analytics/ByAgentTable";
+import { OutcomeBreakdown } from "@/components/analytics/OutcomeBreakdown";
+import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type CallRow = {
-  id: string;
-  agent_id: string | null;
-  started_at: string | null;
-  duration_seconds: number | null;
-  cost_usd: number | null;
-};
-
-function formatUSD(value: number) {
-  return `$${value.toFixed(4)}`;
+function getRangeLabel(range: string): string {
+  if (range === "30d") return "Last 30 days";
+  if (range === "90d") return "Last 90 days";
+  return "Last 7 days";
 }
 
-function formatDuration(sec: number) {
-  const s = Math.max(0, Math.floor(sec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  if (m <= 0) return `${r}s`;
-  return `${m}m ${r}s`;
-}
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Next.js 16: searchParams is a Promise, must await before use
+  const resolvedSearchParams = await searchParams;
+  const params = parseAnalyticsParams(resolvedSearchParams);
+  const orgId = await resolveOrgId();
+  const { from, to, compareFrom, compareTo } = getDateRange(params.range);
 
-function toISODate(d: Date) {
-  // YYYY-MM-DD
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function parseRange(input?: string): { days: number; label: string } {
-  const v = (input || "7d").toLowerCase();
-  if (v === "30d") return { days: 30, label: "Last 30 days" };
-  if (v === "90d") return { days: 90, label: "Last 90 days" };
-  return { days: 7, label: "Last 7 days" };
-}
-
-async function resolveOrgId() {
+  // Check if user is admin/owner for export button visibility
   const supabase = await createSupabaseServerClient();
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
-  if (authErr) throw new Error(authErr.message);
-  if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth?.user?.id;
+  const canExport = userId ? await isAdminOrOwner(orgId, userId) : false;
 
-  const profileId = auth.user.id;
-  const candidates = ["org_id", "organization_id", "current_org_id", "orgs_id"] as const;
+  // CENTRALIZED DATA FETCHING: Fetch all data in exactly 5 queries
+  // 1. Calls (entire range covering both current and compare periods - filtered in memory)
+  // 2. Leads count (current period only)
+  // 3. Tickets count (current period only)
+  // 4. Appointments count (current period only)
+  // 5. Agents (id, name) - lightweight lookup for agent names
+  // Total: 5 queries
+  
+  // Fetch calls for the entire range (from compareFrom to to) to cover both periods
+  const allCalls = await fetchCalls({
+    orgId,
+    from: compareFrom, // Start from compare period start
+    to, // End at current period end
+    agentId: params.agentId,
+    outcome: params.outcome,
+    direction: params.direction,
+  });
 
-  for (const col of candidates) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(`${col}`)
-      .eq("id", profileId)
-      .maybeSingle();
+  // Filter calls in memory for current vs compare periods
+  const currentCalls = allCalls.filter((c) => {
+    if (!c.started_at) return false;
+    const callDate = new Date(c.started_at);
+    return callDate >= from && callDate <= to;
+  });
 
-    if (!error && data && (data as any)[col]) {
-      return (data as any)[col] as string;
+  const compareCalls = allCalls.filter((c) => {
+    if (!c.started_at) return false;
+    const callDate = new Date(c.started_at);
+    return callDate >= compareFrom && callDate <= compareTo;
+  });
+
+  // Fetch counts and agents in parallel
+  const [leadsCount, ticketsCount, appointmentsCount, agents] = await Promise.all([
+    fetchLeadsCount({ orgId, from, to }),
+    fetchTicketsCount({ orgId, from, to }),
+    fetchAppointmentsCount({ orgId, from, to }),
+    fetchAgents(orgId), // Fetch agents once for lookup map
+  ]);
+
+  // Build agent name lookup map (agent_id -> agent_name)
+  const agentNameById: Record<string, string> = {};
+  for (const agent of agents) {
+    if (agent.id && agent.name) {
+      agentNameById[agent.id] = agent.name;
     }
   }
 
-  throw new Error(
-    "Could not resolve org_id for this user. Expected one of: profiles.org_id / organization_id / current_org_id / orgs_id."
-  );
-}
+  // Compute all aggregations from the fetched data (no additional queries)
+  // Agent names resolved from agents table lookup with fallback to raw_payload
+  const summary = computeSummary(currentCalls, leadsCount, ticketsCount, appointmentsCount);
+  
+  // Adaptive bucketing: day for 7d/30d, week for 90d
+  const bucket: "day" | "week" = params.range === "90d" ? "week" : "day";
+  const dailyTrend = computeDailyTrend(currentCalls, from, to, bucket);
+  
+  const byAgent = computeByAgent(currentCalls, agentNameById);
+  const outcomeBreakdown = computeOutcomeBreakdown(currentCalls);
 
-async function countTable(table: string, orgId: string, sinceISO?: string) {
-  const supabase = await createSupabaseServerClient();
-  let q = supabase.from(table).select("id", { count: "exact", head: true }).eq("org_id", orgId);
-  if (sinceISO) q = q.gte("created_at", sinceISO);
-  const { count, error } = await q;
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-async function getAgentNameMap(orgId: string) {
-  const supabase = await createSupabaseServerClient();
+  // Compute insights from pre-fetched data (no additional queries)
+  const compareSummary = computeSummary(compareCalls, 0, 0, 0); // Counts not needed for compare period
+  const insights = computeInsights({
+    currentSummary: summary,
+    compareSummary,
+    outcomeBreakdown,
+    byAgent,
+  });
 
-  const { data, error } = await supabase.from("agents").select("id,name").eq("org_id", orgId);
-
-  // agents tablosu yoksa / policy yüzünden erişilemiyorsa analytics'i kırmayalım
-  if (error) return new Map<string, string>();
-
-  const map = new Map<string, string>();
-  for (const a of data ?? []) {
-    map.set(a.id, a.name ?? a.id);
-  }
-  return map;
-}
-
-
-async function getCalls(orgId: string, sinceISO: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("calls")
-    .select("id,agent_id,started_at,duration_seconds,cost_usd")
-    .eq("org_id", orgId)
-    .gte("started_at", sinceISO)
-    .order("started_at", { ascending: false })
-    .limit(5000); // MVP: yeterli. Çok büyürse SQL aggregate’a geçeriz.
-
-  if (error) throw new Error(error.message);
-  return (data ?? []) as CallRow[];
-}
-
-export default async function Page({
-  searchParams,
-}: {
-  searchParams?: { range?: string };
-}) {
-  const range = parseRange(searchParams?.range);
-  const orgId = await resolveOrgId();
-
-  // since (UTC)
-  const now = new Date();
-  const since = new Date(now.getTime() - range.days * 24 * 60 * 60 * 1000);
-  const sinceISO = since.toISOString();
-
-  const calls = await getCalls(orgId, sinceISO);
-  const agentNameMap = await getAgentNameMap(orgId);
-
-  // Optional: bu iki tablo yoksa yorum satırı yap.
-  const [leadsCount, ticketsCount, apptsCount] = await Promise.all([
-    countTable("leads", orgId, sinceISO),
-    countTable("tickets", orgId, sinceISO),
-    countTable("appointments", orgId, sinceISO),
-  ]);
-
-  const totalCalls = calls.length;
-  const totalCost = calls.reduce((sum, c) => sum + Number(c.cost_usd ?? 0), 0);
-  const totalDuration = calls.reduce((sum, c) => sum + Number(c.duration_seconds ?? 0), 0);
-  const avgDuration = totalCalls === 0 ? 0 : Math.round(totalDuration / totalCalls);
-
-  // Daily trend
-  const dayMap = new Map<string, { calls: number; cost: number; dur: number }>();
-  for (let i = 0; i < range.days; i++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    d.setUTCDate(d.getUTCDate() - i);
-    const key = toISODate(d);
-    dayMap.set(key, { calls: 0, cost: 0, dur: 0 });
-  }
-
-  for (const c of calls) {
-    if (!c.started_at) continue;
-    const d = new Date(c.started_at);
-    const key = toISODate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())));
-    if (!dayMap.has(key)) continue;
-    const row = dayMap.get(key)!;
-    row.calls += 1;
-    row.cost += Number(c.cost_usd ?? 0);
-    row.dur += Number(c.duration_seconds ?? 0);
-  }
-
-  const dailyRows = Array.from(dayMap.entries())
-    .map(([date, v]) => ({
-      date,
-      calls: v.calls,
-      cost: v.cost,
-      avgDuration: v.calls === 0 ? 0 : Math.round(v.dur / v.calls),
-    }))
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
-
-  // Agent breakdown
-  const agentMap = new Map<string, { calls: number; cost: number; dur: number }>();
-  for (const c of calls) {
-    const k = c.agent_id ?? "unknown";
-    const v = agentMap.get(k) ?? { calls: 0, cost: 0, dur: 0 };
-    v.calls += 1;
-    v.cost += Number(c.cost_usd ?? 0);
-    v.dur += Number(c.duration_seconds ?? 0);
-    agentMap.set(k, v);
-  }
-
-  const agentRows = Array.from(agentMap.entries())
-    .map(([agent_id, v]) => ({
-      agent_id,
-      agent_name: agent_id === "unknown" ? "Unknown" : agentNameMap.get(agent_id) ?? agent_id,
-      calls: v.calls,
-      cost: v.cost,
-      avgDuration: v.calls === 0 ? 0 : Math.round(v.dur / v.calls),
-    }))
-    .sort((a, b) => b.calls - a.calls);
-
+  // Ensure range is normalized (should already be from parseAnalyticsParams, but be explicit)
+  const currentRange: "7d" | "30d" | "90d" = params.range || "7d";
+  const rangeLabel = getRangeLabel(currentRange);
 
   return (
     <div className="p-6 space-y-6">
@@ -187,136 +121,88 @@ export default async function Page({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-          <p className="text-sm text-muted-foreground">{range.label}</p>
+          <p className="text-sm text-muted-foreground">{rangeLabel}</p>
         </div>
 
-        {/* Range switch */}
         <div className="flex items-center gap-2">
-          {["7d", "30d", "90d"].map((r) => (
+          {/* Range switch */}
+          <div className="flex items-center gap-2">
+            {(["7d", "30d", "90d"] as const).map((r) => {
+              const isActive = currentRange === r;
+              return (
+                <Link
+                  key={r}
+                  href={`/dashboard/analytics?range=${r}`}
+                  className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
+                    isActive
+                      ? "border-zinc-900 bg-zinc-50 font-semibold"
+                      : "border-zinc-200 hover:bg-zinc-50"
+                  }`}
+                >
+                  {r.toUpperCase()}
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Export button (admin/owner only) */}
+          {canExport && (
             <Link
-              key={r}
-              href={`/dashboard/analytics?range=${r}`}
-              className={`rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50 ${
-                (searchParams?.range || "7d") === r ? "border-zinc-900" : ""
-              }`}
+              href={`/api/admin/analytics/export?range=${params.range}${params.agentId ? `&agentId=${params.agentId}` : ""}${params.outcome ? `&outcome=${params.outcome}` : ""}${params.direction ? `&direction=${params.direction}` : ""}`}
+              className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
             >
-              {r.toUpperCase()}
+              Export CSV
             </Link>
-          ))}
+          )}
         </div>
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Total calls</p>
-          <p className="mt-1 text-2xl font-semibold">{totalCalls}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Total cost</p>
-          <p className="mt-1 text-2xl font-semibold">{formatUSD(totalCost)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Estimated (calls.cost_usd)</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Avg duration</p>
-          <p className="mt-1 text-2xl font-semibold">{formatDuration(avgDuration)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Across calls</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Leads created</p>
-          <p className="mt-1 text-2xl font-semibold">{leadsCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Tickets created</p>
-          <p className="mt-1 text-2xl font-semibold">{ticketsCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <p className="text-sm text-muted-foreground">Appointments created</p>
-          <p className="mt-1 text-2xl font-semibold">{apptsCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
-        </div>
-      </div>
+      <KpiGrid summary={summary} />
 
       {/* Daily trend */}
-      <div className="rounded-xl border bg-white">
-        <div className="border-b p-4">
-          <p className="text-sm font-medium">Daily trend</p>
-          <p className="text-xs text-muted-foreground">Calls / cost / avg duration by day</p>
-        </div>
+      <DailyTrendTable rows={dailyTrend} bucket={bucket} />
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-xs text-muted-foreground">
-              <tr className="border-b">
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Calls</th>
-                <th className="px-4 py-3 font-medium">Avg duration</th>
-                <th className="px-4 py-3 font-medium">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dailyRows.map((r) => (
-                <tr key={r.date} className="border-b last:border-b-0">
-                  <td className="px-4 py-3 font-mono text-xs">{r.date}</td>
-                  <td className="px-4 py-3">{r.calls}</td>
-                  <td className="px-4 py-3">{formatDuration(r.avgDuration)}</td>
-                  <td className="px-4 py-3">{formatUSD(r.cost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* By agent */}
+      <ByAgentTable rows={byAgent} />
 
-      {/* Agent breakdown */}
-      <div className="rounded-xl border bg-white">
-        <div className="border-b p-4">
-          <p className="text-sm font-medium">By agent</p>
-          <p className="text-xs text-muted-foreground">Top agents by call volume</p>
-        </div>
+      {/* Outcome breakdown */}
+      <OutcomeBreakdown rows={outcomeBreakdown} />
 
-        {agentRows.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-medium">No calls</p>
-            <p className="mt-1 text-sm text-muted-foreground">Make a test call to populate analytics.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="px-4 py-3 font-medium">Agent</th>
-                  <th className="px-4 py-3 font-medium">Calls</th>
-                  <th className="px-4 py-3 font-medium">Avg duration</th>
-                  <th className="px-4 py-3 font-medium">Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agentRows.map((r) => (
-                  <tr key={r.agent_id} className="border-b last:border-b-0">
-                    <td className="px-4 py-3">
-                    <div className="text-sm font-medium">{r.agent_name}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{r.agent_id}</div>
-                  </td>
-
-                    <td className="px-4 py-3">{r.calls}</td>
-                    <td className="px-4 py-3">{formatDuration(r.avgDuration)}</td>
-                    <td className="px-4 py-3">{formatUSD(r.cost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Insights */}
+      <InsightsPanel
+        insights={insights}
+        totalCalls={summary.totalCalls}
+        uniqueAgentCount={byAgent.length}
+        hasPreviousPeriodData={compareSummary.totalCalls > 0}
+      />
     </div>
   );
 }
+
+/*
+ * TEST PLAN
+ * =========
+ *
+ * Manual Test Steps:
+ * 1. Navigate to /dashboard/analytics
+ * 2. Verify default range is 7d
+ * 3. Click 30d and 90d range buttons - verify data updates
+ * 4. Check KPI cards show correct totals (calls, cost, duration, leads, tickets, appointments)
+ * 5. Verify daily trend table shows all days in range (even with 0 calls)
+ * 6. Check by-agent table includes "Unassigned" if any calls have null agent_id
+ * 7. Verify outcome breakdown shows "Unclassified" for null/empty outcomes
+ * 8. Check insights panel appears if conditions are met (cost spike, unclassified rate, etc.)
+ * 9. As admin/owner, click Export CSV - verify CSV downloads with correct data
+ * 10. As viewer, verify Export CSV button is not visible
+ *
+ * Expected Results:
+ * - All metrics calculate correctly from calls table
+ * - No N+1 queries (max 4 queries total)
+ * - All dates in range appear in daily trend (no gaps)
+ * - Null agent_id shows as "Unassigned"
+ * - Null/empty outcome shows as "Unclassified"
+ * - Insights trigger based on deterministic rules
+ * - Export CSV works for admin/owner only
+ * - Page loads without errors even with no data
+ */

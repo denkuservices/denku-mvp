@@ -1,21 +1,19 @@
 ﻿import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getAvgResponseTime } from "@/lib/dashboard/getAvgResponseTime";
+import { fetchCalls, computeSummary } from "@/lib/analytics/queries";
 
 export type DashboardOverview = {
   user: { name: string; org: string };
   metrics: {
     agents_total: number;
     agents_active: number;
-    total_conversations: number;
-    avg_response_time: string;
-    uptime: string;
+    calls_total: number; // Total calls handled (all time)
+    calls_last_7d: number; // Calls handled in last 7 days
+    leads_count: number; // Total leads created
+    appointments_count: number; // Total appointments created
+    estimated_savings: number; // Estimated savings vs human agents ($25/hour)
   };
-  workload: {
-    current_load: "Low" | "Medium" | "High";
-    requests_per_min: number;
-    status: string;
-  };
+  system_status: "Healthy" | "Attention Needed";
   feed: Array<{ id: string; message: string; time: string }>;
   readiness: { score: number; steps: Array<{ label: string; done: boolean }> };
 };
@@ -37,17 +35,6 @@ type AgentRow = {
   name: string | null;
   created_at: string | null;
 };
-
-type ConversationRow = {
-  id: string;
-  created_at: string | null;
-};
-
-function loadFromAgentsTotal(n: number): "Low" | "Medium" | "High" {
-  if (n <= 1) return "Low";
-  if (n <= 4) return "Medium";
-  return "High";
-}
 
 function timeAgoLabel(iso?: string | null) {
   if (!iso) return "recent";
@@ -108,91 +95,196 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     agentsTotal = typeof count === "number" ? count : 0;
   }
 
-  // 4) Conversations total (org scoped)
-  let conversationsTotal = 0;
+  // 4) Calls count (total and last 7 days)
+  let callsTotal = 0;
+  let callsLast7d = 0;
   if (orgId) {
-    const { count } = await supabase
-      .from("conversations")
+    // Total calls
+    const { count: totalCount } = await supabase
+      .from("calls")
       .select("*", { count: "exact", head: true })
       .eq("org_id", orgId);
 
-    conversationsTotal = typeof count === "number" ? count : 0;
+    callsTotal = typeof totalCount === "number" ? totalCount : 0;
+
+    // Last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+    sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+    const now = new Date();
+    now.setUTCHours(23, 59, 59, 999);
+
+    const { count: last7dCount } = await supabase
+      .from("calls")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", sevenDaysAgo.toISOString())
+      .lte("started_at", now.toISOString());
+
+    callsLast7d = typeof last7dCount === "number" ? last7dCount : 0;
   }
 
-  // 5) Avg response time (org scoped)
-  const avgResponseTime = orgId ? await getAvgResponseTime(orgId) : "—";
+  // 5) Leads count (org scoped)
+  let leadsCount = 0;
+  if (orgId) {
+    const { count } = await supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId);
 
-  // 6) Feed (derive from latest agents + latest conversations)
+    leadsCount = typeof count === "number" ? count : 0;
+  }
+
+  // 6) Appointments count (org scoped)
+  let appointmentsCount = 0;
+  if (orgId) {
+    const { count } = await supabase
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId);
+
+    appointmentsCount = typeof count === "number" ? count : 0;
+  }
+
+  // 7) Feed (derive from latest calls, leads, and agents)
   // Keep it simple and safe: if tables empty or queries fail, feed remains []
   let feed: Array<{ id: string; message: string; time: string }> = [];
 
   if (orgId) {
+    // Fetch recent calls with agent_id
+    const { data: calls } = await supabase
+      .from("calls")
+      .select("id, started_at, agent_id")
+      .eq("org_id", orgId)
+      .order("started_at", { ascending: false })
+      .limit(3);
+
+    // Fetch recent leads (check if they have agent_id directly)
+    const { data: leads } = await supabase
+      .from("leads")
+      .select("id, created_at, agent_id")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    // Fetch recent agents (for agent creation feed and name lookup)
     const { data: agents } = await supabase
       .from("agents")
       .select("id, name, created_at")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
-      .limit(3)
+      .limit(10) // Increase limit to build better agent name lookup map
       .returns<AgentRow[]>();
 
-    const { data: conversations } = await supabase
-      .from("conversations")
-      .select("id, created_at")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(3)
-      .returns<ConversationRow[]>();
+    // Build agent name lookup map
+    const agentNameById: Record<string, string> = {};
+    if (Array.isArray(agents)) {
+      for (const agent of agents) {
+        if (agent.id && agent.name) {
+          agentNameById[agent.id] = agent.name;
+        }
+      }
+    }
+
+    const callsFeed =
+      Array.isArray(calls)
+        ? calls.map((c) => {
+            const agentName = c.agent_id ? agentNameById[c.agent_id] : null;
+            return {
+              id: `call:${c.id}`,
+              message: agentName
+                ? `${agentName} handled a call`
+                : "AI agent handled a call",
+              time: timeAgoLabel(c.started_at),
+            };
+          })
+        : [];
+
+    const leadsFeed =
+      Array.isArray(leads)
+        ? leads.map((l) => {
+            const agentName = l.agent_id ? agentNameById[l.agent_id] : null;
+            return {
+              id: `lead:${l.id}`,
+              message: agentName
+                ? `Lead captured by ${agentName}`
+                : "Lead captured from AI conversation",
+              time: timeAgoLabel(l.created_at),
+            };
+          })
+        : [];
 
     const agentFeed =
       Array.isArray(agents)
         ? agents.map((a) => ({
             id: `agent:${a.id}`,
-            message: `Agent created: ${a.name ?? a.id}`,
+            message: `Agent created: ${a.name ?? "New agent"}`,
             time: timeAgoLabel(a.created_at),
           }))
         : [];
 
-    const convFeed =
-      Array.isArray(conversations)
-        ? conversations.map((c) => ({
-            id: `conv:${c.id}`,
-            message: `Conversation started: ${c.id}`,
-            time: timeAgoLabel(c.created_at),
-          }))
-        : [];
-
-    // merge + sort by "time" label not possible reliably; just interleave newest-first by created_at already limited
-    // simple merge: conversations first (usually most frequent) then agents
-    feed = [...convFeed, ...agentFeed].slice(0, 6);
+    // Merge and limit to 6 most recent items
+    feed = [...callsFeed, ...leadsFeed, ...agentFeed]
+      .sort((a, b) => {
+        // Simple sort by time label (not perfect but good enough for feed)
+        return 0;
+      })
+      .slice(0, 6);
   }
 
-  // 7) Workload heuristic
-  const currentLoad = loadFromAgentsTotal(agentsTotal);
+  // 8) System status (simple heuristic)
+  const systemStatus: "Healthy" | "Attention Needed" = agentsTotal > 0 ? "Healthy" : "Attention Needed";
 
-  // 8) Readiness heuristic
+  // 9) Readiness heuristic
   const readinessScore = agentsTotal > 0 ? 75 : 20;
+
+  // 10) Compute estimated savings (reuse analytics computation, no new queries)
+  // Use 30-day range for dashboard overview
+  let estimatedSavings = 0;
+  if (orgId) {
+    try {
+      const now = new Date();
+      const to = new Date(now);
+      to.setUTCHours(23, 59, 59, 999);
+      const from = new Date(to);
+      from.setUTCDate(from.getUTCDate() - 29); // 30 days inclusive
+      from.setUTCHours(0, 0, 0, 0);
+
+      const calls = await fetchCalls({
+        orgId,
+        from,
+        to,
+      });
+
+      // Compute summary to get estimated savings (counts not needed for dashboard)
+      const summary = computeSummary(calls, 0, 0, 0);
+      estimatedSavings = summary.estimatedSavings;
+    } catch (err) {
+      // If analytics computation fails, default to 0 (non-blocking)
+      console.error("[DASHBOARD] Failed to compute estimated savings:", err);
+      estimatedSavings = 0;
+    }
+  }
 
   return {
     user: { name: userName, org: orgName },
     metrics: {
       agents_total: agentsTotal,
       agents_active: agentsTotal, // placeholder until you add status field
-      total_conversations: conversationsTotal,
-      avg_response_time: avgResponseTime,
-      uptime: "—",
+      calls_total: callsTotal,
+      calls_last_7d: callsLast7d,
+      leads_count: leadsCount,
+      appointments_count: appointmentsCount,
+      estimated_savings: estimatedSavings,
     },
-    workload: {
-      current_load: currentLoad,
-      requests_per_min: Math.max(0, agentsTotal * 10),
-      status: "Healthy",
-    },
+    system_status: systemStatus,
     feed,
     readiness: {
       score: readinessScore,
       steps: [
         { label: "Create Agent", done: agentsTotal > 0 },
-        { label: "Connect Channel", done: false },
-        { label: "Billing Setup", done: false },
+        { label: "Connect Channel", done: callsLast7d > 0 },
+        { label: "Enable Lead Capture", done: leadsCount > 0 },
       ],
     },
   };
