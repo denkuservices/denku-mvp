@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { updateTicket } from "@/lib/tickets/actions";
 import { useRouter } from "next/navigation";
+import { getStatusLabel, getPriorityLabel } from "@/lib/tickets/utils.client";
+
+// Single source of truth for default options
+const DEFAULT_STATUSES = ["open", "in_progress", "closed"] as const;
+const DEFAULT_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 type TicketQuickActionsProps = {
   ticketId: string;
@@ -10,8 +15,8 @@ type TicketQuickActionsProps = {
   userId: string;
   currentStatus: string;
   currentPriority: string;
-  statusOptions: string[];
-  priorityOptions: string[];
+  statusOptions: string[]; // Not used, kept for backward compatibility
+  priorityOptions: string[]; // Not used, kept for backward compatibility
   canMutate: boolean;
 };
 
@@ -21,8 +26,6 @@ export function TicketQuickActions({
   userId,
   currentStatus,
   currentPriority,
-  statusOptions,
-  priorityOptions,
   canMutate,
 }: TicketQuickActionsProps) {
   const router = useRouter();
@@ -44,8 +47,26 @@ export function TicketQuickActions({
     return "Unknown error";
   }
 
+  // Normalize status: map resolved -> closed defensively
+  const normalizeStatus = (status: string): string => {
+    const normalized = status.trim().toLowerCase();
+    return normalized === "resolved" ? "closed" : normalized;
+  };
+
+  // Validate and normalize priority
+  const normalizePriority = (priority: string): string | null => {
+    const normalized = priority.trim().toLowerCase();
+    if (DEFAULT_PRIORITIES.includes(normalized as any)) {
+      return normalized;
+    }
+    return null; // Invalid priority, reject update
+  };
+
   const handleStatusChange = (newStatus: string) => {
-    if (newStatus === currentStatus) {
+    const normalizedStatus = normalizeStatus(newStatus);
+    const currentStatusNorm = normalizeStatus(currentStatus);
+
+    if (normalizedStatus === currentStatusNorm) {
       setIsOpen(false);
       return;
     }
@@ -55,7 +76,7 @@ export function TicketQuickActions({
         const result = await updateTicket(orgId, userId, {
           orgId,
           ticketId,
-          patch: { status: newStatus },
+          patch: { status: normalizedStatus },
           source: "dropdown",
         });
 
@@ -72,7 +93,14 @@ export function TicketQuickActions({
   };
 
   const handlePriorityChange = (newPriority: string) => {
-    if (newPriority === currentPriority) {
+    const normalizedPriority = normalizePriority(newPriority);
+    if (!normalizedPriority) {
+      alert(`Invalid priority: ${newPriority}`);
+      return;
+    }
+
+    const currentPriorityNorm = (currentPriority ?? "").trim().toLowerCase();
+    if (normalizedPriority === currentPriorityNorm) {
       setIsOpen(false);
       return;
     }
@@ -82,7 +110,7 @@ export function TicketQuickActions({
         const result = await updateTicket(orgId, userId, {
           orgId,
           ticketId,
-          patch: { priority: newPriority },
+          patch: { priority: normalizedPriority },
         });
 
         if (result?.ok === true) {
@@ -96,6 +124,12 @@ export function TicketQuickActions({
       }
     });
   };
+
+  // Check if current status/priority is in defaults for highlighting
+  const currentStatusNorm = normalizeStatus(currentStatus);
+  const currentPriorityNorm = (currentPriority ?? "").trim().toLowerCase();
+  const isCurrentStatus = (status: string) => normalizeStatus(status) === currentStatusNorm;
+  const isCurrentPriority = (priority: string) => priority.toLowerCase() === currentPriorityNorm;
 
   return (
     <div className="relative">
@@ -119,43 +153,69 @@ export function TicketQuickActions({
           />
 
           {/* Dropdown */}
-          <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border bg-white shadow-lg">
-            <div className="p-1">
-              <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Update Status</div>
-              {statusOptions.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => handleStatusChange(status)}
-                  disabled={isPending || status === currentStatus}
-                  className={`w-full px-3 py-1.5 text-left text-xs ${
-                    status === currentStatus
-                      ? "bg-zinc-50 font-medium"
-                      : "hover:bg-zinc-50"
-                  } disabled:opacity-50`}
-                >
-                  {status}
-                </button>
-              ))}
+          <div className="absolute right-0 z-20 mt-1 min-w-[220px] rounded-lg border border-zinc-200 bg-white shadow-lg">
+            {/* Header */}
+            <div className="border-b border-zinc-100 px-4 py-2.5">
+              <p className="text-sm font-semibold text-zinc-900">Quick actions</p>
+            </div>
 
-              <div className="my-1 border-t" />
+            <div className="p-2">
+              {/* Update Status Section */}
+              <div className="mb-1">
+                <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Update status
+                </p>
+                <div className="space-y-0.5">
+                  {DEFAULT_STATUSES.map((status) => {
+                    const isCurrent = isCurrentStatus(status);
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => handleStatusChange(status)}
+                        disabled={isPending || isCurrent}
+                        className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                          isCurrent
+                            ? "bg-zinc-100 font-medium text-zinc-900"
+                            : "text-zinc-700 hover:bg-zinc-50"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {getStatusLabel(status)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Update Priority</div>
-              {priorityOptions.map((priority) => (
-                <button
-                  key={priority}
-                  type="button"
-                  onClick={() => handlePriorityChange(priority)}
-                  disabled={isPending || priority === currentPriority}
-                  className={`w-full px-3 py-1.5 text-left text-xs ${
-                    priority === currentPriority
-                      ? "bg-zinc-50 font-medium"
-                      : "hover:bg-zinc-50"
-                  } disabled:opacity-50`}
-                >
-                  {priority}
-                </button>
-              ))}
+              {/* Divider */}
+              <div className="my-2 border-t border-zinc-100" />
+
+              {/* Update Priority Section */}
+              <div>
+                <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Update priority
+                </p>
+                <div className="space-y-0.5">
+                  {DEFAULT_PRIORITIES.map((priority) => {
+                    const isCurrent = isCurrentPriority(priority);
+                    return (
+                      <button
+                        key={priority}
+                        type="button"
+                        onClick={() => handlePriorityChange(priority)}
+                        disabled={isPending || isCurrent}
+                        className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                          isCurrent
+                            ? "bg-zinc-100 font-medium text-zinc-900"
+                            : "text-zinc-700 hover:bg-zinc-50"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {getPriorityLabel(priority)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </>
@@ -163,4 +223,3 @@ export function TicketQuickActions({
     </div>
   );
 }
-

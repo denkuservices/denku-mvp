@@ -22,6 +22,10 @@ export type TicketRow = {
   status: string;
   priority: string;
   description: string | null;
+  requester_name: string | null;
+  requester_phone: string | null;
+  requester_email: string | null;
+  requester_address: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -127,6 +131,10 @@ export type UpdateTicketInput = {
     description?: string | null;
     status?: string;
     priority?: string;
+    requester_name?: string | null;
+    requester_phone?: string | null;
+    requester_email?: string | null;
+    requester_address?: string | null;
   };
   /**
    * Source of the update to determine activity logging behavior

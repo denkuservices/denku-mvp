@@ -3,21 +3,24 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { getStatusLabel, getPriorityLabel } from "@/lib/tickets/utils.client";
+
+// Single source of truth for filter options
+const DEFAULT_STATUSES = ["open", "in_progress", "closed"] as const;
+const DEFAULT_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 type TicketFiltersProps = {
   initialQ?: string;
   initialStatus?: string;
   initialPriority?: string;
-  statusOptions: string[];
-  priorityOptions: string[];
+  statusOptions: string[]; // Not used, kept for backward compatibility
+  priorityOptions: string[]; // Not used, kept for backward compatibility
 };
 
 export function TicketFilters({
   initialQ = "",
   initialStatus = "",
   initialPriority = "",
-  statusOptions,
-  priorityOptions,
 }: TicketFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,12 +101,12 @@ export function TicketFilters({
         <select
           value={initialStatus}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
         >
           <option value="">All</option>
-          {statusOptions.map((status) => (
-            <option key={status} value={status}>
-              {status}
+          {DEFAULT_STATUSES.map((status) => (
+            <option key={status} value={status} className="text-base py-2">
+              {getStatusLabel(status)}
             </option>
           ))}
         </select>
@@ -114,12 +117,12 @@ export function TicketFilters({
         <select
           value={initialPriority}
           onChange={(e) => handlePriorityChange(e.target.value)}
-          className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
         >
           <option value="">All</option>
-          {priorityOptions.map((priority) => (
-            <option key={priority} value={priority}>
-              {priority}
+          {DEFAULT_PRIORITIES.map((priority) => (
+            <option key={priority} value={priority} className="text-base py-2">
+              {getPriorityLabel(priority)}
             </option>
           ))}
         </select>

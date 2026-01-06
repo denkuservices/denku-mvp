@@ -44,5 +44,7 @@ export type AnalyticsParams = {
   agentId?: string;
   outcome?: string;
   direction?: string;
+  section?: "calls" | "tickets";
+  priority?: "low" | "medium" | "high" | "urgent" | "";
 };
 

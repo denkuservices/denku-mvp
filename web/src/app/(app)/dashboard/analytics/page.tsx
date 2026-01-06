@@ -18,6 +18,8 @@ import { ByAgentTable } from "@/components/analytics/ByAgentTable";
 import { OutcomeBreakdown } from "@/components/analytics/OutcomeBreakdown";
 import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
+import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +116,30 @@ export default async function AnalyticsPage({
   // Ensure range is normalized (should already be from parseAnalyticsParams, but be explicit)
   const currentRange: "7d" | "30d" | "90d" = params.range || "7d";
   const rangeLabel = getRangeLabel(currentRange);
+  const section = params.section || "calls";
+
+  // Fetch tickets analytics if section is tickets
+  let ticketsData = null;
+  if (section === "tickets") {
+    try {
+      // Map calls range to tickets range (tickets supports 24h, but we'll use 7d/30d/90d for now)
+      const ticketsRange: "7d" | "30d" | "90d" = currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d";
+      
+      // orgId is already resolved via resolveOrgId() which:
+      // 1. Gets authenticated user from supabase.auth.getUser()
+      // 2. Queries profiles table for org_id
+      // 3. Returns the org_id from the profile
+      ticketsData = await getTicketsAnalytics(orgId, {
+        range: ticketsRange,
+        priority: params.priority,
+      });
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[analytics] Failed to fetch tickets analytics:", error);
+      }
+      ticketsData = null;
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -125,6 +151,30 @@ export default async function AnalyticsPage({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Section switch */}
+          <div className="flex items-center gap-2 border-r pr-2">
+            <Link
+              href={`/dashboard/analytics?range=${currentRange}&section=calls`}
+              className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
+                section === "calls"
+                  ? "border-zinc-900 bg-zinc-50 font-semibold"
+                  : "border-zinc-200 hover:bg-zinc-50"
+              }`}
+            >
+              Calls
+            </Link>
+            <Link
+              href={`/dashboard/analytics?range=${currentRange}&section=tickets`}
+              className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
+                section === "tickets"
+                  ? "border-zinc-900 bg-zinc-50 font-semibold"
+                  : "border-zinc-200 hover:bg-zinc-50"
+              }`}
+            >
+              Tickets
+            </Link>
+          </div>
+
           {/* Range switch */}
           <div className="flex items-center gap-2">
             {(["7d", "30d", "90d"] as const).map((r) => {
@@ -132,7 +182,7 @@ export default async function AnalyticsPage({
               return (
                 <Link
                   key={r}
-                  href={`/dashboard/analytics?range=${r}`}
+                  href={`/dashboard/analytics?range=${r}&section=${section}`}
                   className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
                     isActive
                       ? "border-zinc-900 bg-zinc-50 font-semibold"
@@ -146,7 +196,7 @@ export default async function AnalyticsPage({
           </div>
 
           {/* Export button (admin/owner only) */}
-          {canExport && (
+          {canExport && section === "calls" && (
             <Link
               href={`/api/admin/analytics/export?range=${params.range}${params.agentId ? `&agentId=${params.agentId}` : ""}${params.outcome ? `&outcome=${params.outcome}` : ""}${params.direction ? `&direction=${params.direction}` : ""}`}
               className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
@@ -157,25 +207,43 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      {/* KPI cards */}
-      <KpiGrid summary={summary} />
+      {/* Render section content */}
+      {section === "calls" ? (
+        <>
+          {/* KPI cards */}
+          <KpiGrid summary={summary} />
 
-      {/* Daily trend */}
-      <DailyTrendTable rows={dailyTrend} bucket={bucket} />
+          {/* Daily trend */}
+          <DailyTrendTable rows={dailyTrend} bucket={bucket} />
 
-      {/* By agent */}
-      <ByAgentTable rows={byAgent} />
+          {/* By agent */}
+          <ByAgentTable rows={byAgent} />
 
-      {/* Outcome breakdown */}
-      <OutcomeBreakdown rows={outcomeBreakdown} />
+          {/* Outcome breakdown */}
+          <OutcomeBreakdown rows={outcomeBreakdown} />
 
-      {/* Insights */}
-      <InsightsPanel
-        insights={insights}
-        totalCalls={summary.totalCalls}
-        uniqueAgentCount={byAgent.length}
-        hasPreviousPeriodData={compareSummary.totalCalls > 0}
-      />
+          {/* Insights */}
+          <InsightsPanel
+            insights={insights}
+            totalCalls={summary.totalCalls}
+            uniqueAgentCount={byAgent.length}
+            hasPreviousPeriodData={compareSummary.totalCalls > 0}
+          />
+        </>
+      ) : (
+        <>
+          {ticketsData ? (
+            <TicketsAnalytics
+              data={ticketsData}
+              range={currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d"}
+            />
+          ) : (
+            <div className="rounded-xl border bg-white p-8 text-center">
+              <p className="text-sm text-muted-foreground">Failed to load tickets analytics.</p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

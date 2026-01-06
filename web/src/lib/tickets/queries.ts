@@ -31,7 +31,7 @@ export async function listTickets(params: ListTicketsParams): Promise<ListTicket
   // 1) Build base query for tickets
   let query = supabase
     .from("tickets")
-    .select("id,org_id,lead_id,call_id,subject,status,priority,description,created_at,updated_at", {
+    .select("id,org_id,lead_id,call_id,subject,status,priority,description,requester_name,requester_phone,requester_email,requester_address,created_at,updated_at", {
       count: "exact",
     })
     .eq("org_id", orgId);
@@ -201,7 +201,7 @@ export async function getTicketDetail(orgId: string, ticketId: string): Promise<
   // 1) Fetch ticket
   const { data: ticket, error: ticketError } = await supabase
     .from("tickets")
-    .select("id,org_id,lead_id,call_id,subject,status,priority,description,created_at,updated_at")
+    .select("id,org_id,lead_id,call_id,subject,status,priority,description,requester_name,requester_phone,requester_email,requester_address,created_at,updated_at")
     .eq("org_id", orgId)
     .eq("id", ticketId)
     .single();

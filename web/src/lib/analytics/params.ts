@@ -7,6 +7,8 @@ const AnalyticsParamsSchema = z.object({
   agentId: z.string().uuid().optional(),
   outcome: z.string().optional(),
   direction: z.string().optional(),
+  section: z.enum(["calls", "tickets"]).default("calls"),
+  priority: z.enum(["low", "medium", "high", "urgent", ""]).optional(),
 });
 
 export function parseAnalyticsParams(searchParams: Record<string, string | string[] | undefined>): AnalyticsParams {
@@ -21,6 +23,8 @@ export function parseAnalyticsParams(searchParams: Record<string, string | strin
     agentId: normalize(searchParams.agentId),
     outcome: normalize(searchParams.outcome),
     direction: normalize(searchParams.direction),
+    section: normalize(searchParams.section),
+    priority: normalize(searchParams.priority),
   });
 
   if (!parsed.success) {

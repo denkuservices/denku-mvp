@@ -13,6 +13,7 @@ import { TicketPrimaryAction } from "@/components/tickets/TicketPrimaryAction";
 import { TicketComments } from "@/components/tickets/TicketComments";
 import { TicketActivity } from "@/components/tickets/TicketActivity";
 import { CopyButton } from "@/components/tickets/CopyButton";
+import { TicketRequester } from "@/components/tickets/TicketRequester";
 import { listTicketComments } from "@/lib/tickets/comments.queries";
 import { listTicketActivity } from "@/lib/tickets/activity.queries";
 import { Phone, DollarSign, Clock } from "lucide-react";
@@ -193,6 +194,19 @@ export default async function TicketDetailPage({
 
         {/* Right Column: Related Data */}
         <div className="space-y-6">
+          {/* Requester Card */}
+          <TicketRequester
+            ticketId={ticket.id}
+            orgId={orgId}
+            userId={userId}
+            requesterName={ticket.requester_name}
+            requesterPhone={ticket.requester_phone}
+            requesterEmail={ticket.requester_email}
+            requesterAddress={ticket.requester_address}
+            canMutate={canMutate}
+            isPaused={isPaused}
+          />
+
           {/* Linked Lead Card */}
           {lead && (
             <div className="rounded-xl border bg-white p-4 space-y-3">

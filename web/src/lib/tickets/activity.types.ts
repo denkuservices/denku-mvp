@@ -9,7 +9,8 @@ export type TicketActivityEventType =
   | "ticket.priority_changed"
   | "ticket.resolved"
   | "ticket.reopened"
-  | "ticket.comment_posted";
+  | "ticket.comment_posted"
+  | "ticket.requester_updated";
 
 /**
  * Ticket activity row from database

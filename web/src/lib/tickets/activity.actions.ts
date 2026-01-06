@@ -15,6 +15,7 @@ const LogActivitySchema = z.object({
     "ticket.resolved",
     "ticket.reopened",
     "ticket.comment_posted",
+    "ticket.requester_updated",
   ]),
   summary: z.string().trim().max(500).nullable().optional(),
   // diff must be a record where each value is { before: any, after: any }

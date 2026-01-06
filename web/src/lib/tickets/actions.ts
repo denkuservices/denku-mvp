@@ -156,6 +156,22 @@ const UpdateTicketSchema = z.object({
   description: z.string().trim().nullable().optional(),
   status: z.string().optional(),
   priority: z.string().optional(),
+  requester_name: z.string().trim().max(200).nullable().optional(),
+  requester_phone: z.string().trim().max(200).nullable().optional(),
+  requester_email: z
+    .string()
+    .trim()
+    .max(200)
+    .refine(
+      (val) => {
+        if (!val || val === "") return true; // Empty is valid (will be normalized to null)
+        return z.string().email().safeParse(val).success;
+      },
+      { message: "Invalid email format" }
+    )
+    .nullable()
+    .optional(),
+  requester_address: z.string().trim().max(500).nullable().optional(),
 });
 
 /**
@@ -208,7 +224,7 @@ export async function updateTicket(
     // Fetch existing ticket BEFORE update to get "before" values
     const { data: before, error: fetchError } = await supabase
       .from("tickets")
-      .select("id, subject, description, status, priority")
+      .select("id, subject, description, status, priority, requester_name, requester_phone, requester_email, requester_address")
       .eq("org_id", orgId)
       .eq("id", input.ticketId)
       .single();
@@ -217,9 +233,17 @@ export async function updateTicket(
       return { ok: false, error: `Ticket not found: ${fetchError?.message ?? "Unknown error"}` };
     }
 
+    // Normalize empty strings to null for requester fields
+    const normalizeRequesterField = (value: string | null | undefined): string | null => {
+      if (value === undefined) return undefined as any; // Keep undefined to skip update
+      const trimmed = typeof value === "string" ? value.trim() : value;
+      return trimmed === "" ? null : trimmed;
+    };
+
     // Build update payload (only include fields that changed)
     const updatePayload: Record<string, any> = {};
     const diff: Record<string, { before: unknown; after: unknown }> = {};
+    const requesterDiff: Record<string, { before: unknown; after: unknown }> = {};
 
     if (parsed.data.subject !== undefined && parsed.data.subject !== before.subject) {
       updatePayload.subject = parsed.data.subject;
@@ -239,6 +263,39 @@ export async function updateTicket(
     if (parsed.data.priority !== undefined && parsed.data.priority !== before.priority) {
       updatePayload.priority = parsed.data.priority;
       diff.priority = { before: before.priority, after: parsed.data.priority };
+    }
+
+    // Handle requester fields
+    if (parsed.data.requester_name !== undefined) {
+      const normalized = normalizeRequesterField(parsed.data.requester_name);
+      if (normalized !== undefined && normalized !== (before.requester_name ?? null)) {
+        updatePayload.requester_name = normalized;
+        requesterDiff.requester_name = { before: before.requester_name ?? null, after: normalized };
+      }
+    }
+
+    if (parsed.data.requester_phone !== undefined) {
+      const normalized = normalizeRequesterField(parsed.data.requester_phone);
+      if (normalized !== undefined && normalized !== (before.requester_phone ?? null)) {
+        updatePayload.requester_phone = normalized;
+        requesterDiff.requester_phone = { before: before.requester_phone ?? null, after: normalized };
+      }
+    }
+
+    if (parsed.data.requester_email !== undefined) {
+      const normalized = normalizeRequesterField(parsed.data.requester_email);
+      if (normalized !== undefined && normalized !== (before.requester_email ?? null)) {
+        updatePayload.requester_email = normalized;
+        requesterDiff.requester_email = { before: before.requester_email ?? null, after: normalized };
+      }
+    }
+
+    if (parsed.data.requester_address !== undefined) {
+      const normalized = normalizeRequesterField(parsed.data.requester_address);
+      if (normalized !== undefined && normalized !== (before.requester_address ?? null)) {
+        updatePayload.requester_address = normalized;
+        requesterDiff.requester_address = { before: before.requester_address ?? null, after: normalized };
+      }
     }
 
     // If no changes, return early
@@ -275,7 +332,7 @@ export async function updateTicket(
     // Fetch AFTER values from DB (do NOT rely on updatePayload - fetch actual DB state)
     const { data: after, error: afterFetchError } = await supabase
       .from("tickets")
-      .select("status, priority")
+      .select("status, priority, requester_name, requester_phone, requester_email, requester_address")
       .eq("org_id", orgId)
       .eq("id", input.ticketId)
       .single();
@@ -385,6 +442,22 @@ export async function updateTicket(
           eventType: "ticket.priority_changed",
           summary: `Priority changed to ${priorityLabel}`,
           diff: priorityDiff,
+        });
+      } catch (activityErr) {
+        // Activity logging failed but don't fail the update
+      }
+    }
+
+    // Log requester updates if any requester fields changed
+    if (Object.keys(requesterDiff).length > 0) {
+      try {
+        await logTicketActivity({
+          orgId,
+          ticketId: input.ticketId,
+          actorProfileId,
+          eventType: "ticket.requester_updated",
+          summary: "Requester details updated",
+          diff: requesterDiff,
         });
       } catch (activityErr) {
         // Activity logging failed but don't fail the update
