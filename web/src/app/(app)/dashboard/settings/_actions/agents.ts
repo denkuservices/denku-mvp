@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log";
 import { vapiFetch } from "@/lib/vapi/server";
 import { deriveEffectivePrompt } from "../_lib/prompt-derivation";
+import { isWorkspacePaused } from "@/lib/workspace-status";
 
 // Validation schema for agent configuration update
 const UpdateAgentConfigSchema = z.object({
@@ -73,7 +74,13 @@ export async function updateAgentConfiguration(
 
   const orgId = profile.org_id;
 
-  // 4) Validate input
+  // 4) Check if workspace is paused (block mutations)
+  const paused = await isWorkspacePaused(orgId);
+  if (paused) {
+    return { ok: false, error: "Workspace is paused. Resume to make changes." };
+  }
+
+  // 5) Validate input
   const validation = UpdateAgentConfigSchema.safeParse(input);
   if (!validation.success) {
     return { ok: false, error: `Validation error: ${validation.error.message}` };
@@ -350,7 +357,13 @@ export async function updateAgentPromptOverride(
 
   const orgId = profile.org_id;
 
-  // 4) Validate input
+  // 4) Check if workspace is paused (block mutations)
+  const paused = await isWorkspacePaused(orgId);
+  if (paused) {
+    return { ok: false, error: "Workspace is paused. Resume to make changes." };
+  }
+
+  // 5) Validate input
   const validation = UpdateAgentPromptOverrideSchema.safeParse(input);
   if (!validation.success) {
     return { ok: false, error: `Validation error: ${validation.error.message}` };

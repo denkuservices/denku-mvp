@@ -1,13 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 type RuntimeCardProps = {
   timezone: string | null;
   accessLabel: string;
+  workspaceStatus: "active" | "paused";
 };
 
-export function RuntimeCard({ timezone, accessLabel }: RuntimeCardProps) {
+export function RuntimeCard({
+  timezone,
+  accessLabel,
+  workspaceStatus: initialWorkspaceStatus,
+}: RuntimeCardProps) {
+  const [workspaceStatus, setWorkspaceStatus] = useState<"active" | "paused">(initialWorkspaceStatus);
+
+  // Update when initialWorkspaceStatus changes (from router.refresh())
+  useEffect(() => {
+    setWorkspaceStatus(initialWorkspaceStatus);
+  }, [initialWorkspaceStatus]);
+
+  // Listen for updates from WorkspaceControlsCard
+  useEffect(() => {
+    (window as any).__updateRuntimeWorkspaceStatus = (newStatus: "active" | "paused") => {
+      setWorkspaceStatus(newStatus);
+    };
+    return () => {
+      delete (window as any).__updateRuntimeWorkspaceStatus;
+    };
+  }, []);
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
       <div>
@@ -17,6 +39,7 @@ export function RuntimeCard({ timezone, accessLabel }: RuntimeCardProps) {
 
       <div className="mt-4 space-y-3">
         <ReadOnlyRow label="Environment" value="Production" badge />
+        <ReadOnlyRow label="Status" value={workspaceStatus === "active" ? "Active" : "Paused"} badge />
         <ReadOnlyRow label="Timezone" value={timezone || "—"} />
         <ReadOnlyRow label="Access" value={accessLabel} badge />
       </div>

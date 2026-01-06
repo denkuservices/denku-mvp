@@ -22,6 +22,7 @@ type Agent = {
 
 type AgentAdvancedPageProps = {
   agent: Agent;
+  workspaceStatus: "active" | "paused";
 };
 
 const DEFAULT_PROMPT = `
@@ -50,7 +51,7 @@ function formatDate(dateIso: string | null): string {
   }
 }
 
-export function AgentAdvancedContent({ agent: initialAgent }: AgentAdvancedPageProps) {
+export function AgentAdvancedContent({ agent: initialAgent, workspaceStatus }: AgentAdvancedPageProps) {
   const router = useRouter();
   const [customPrompt, setCustomPrompt] = React.useState<string>(initialAgent.system_prompt_override || "");
   const [effectivePrompt, setEffectivePrompt] = React.useState(
@@ -213,7 +214,8 @@ export function AgentAdvancedContent({ agent: initialAgent }: AgentAdvancedPageP
           </button>
           <button
             onClick={handleSave}
-            disabled={!isDirty || isPending}
+            disabled={!isDirty || isPending || workspaceStatus === "paused"}
+            title={workspaceStatus === "paused" ? "Workspace is paused" : undefined}
             className="rounded-xl border border-zinc-900 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? "Saving..." : "Save changes"}

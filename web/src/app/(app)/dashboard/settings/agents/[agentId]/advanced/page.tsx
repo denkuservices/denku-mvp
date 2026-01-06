@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getWorkspaceStatus } from "@/lib/workspace-status";
 import { AgentAdvancedContent } from "./_components/AgentAdvancedPage";
 
 type Agent = {
@@ -85,7 +86,10 @@ export default async function AgentAdvancedPage({
     redirect("/dashboard/settings/agents");
   }
 
-  // 5) Render page with agent context
+  // 5) Get workspace status
+  const workspaceStatus = await getWorkspaceStatus(orgId);
+
+  // 6) Render page with agent context
   return (
     <SettingsShell
       title={`Advanced settings for ${agent.name}`}
@@ -97,8 +101,9 @@ export default async function AgentAdvancedPage({
         { label: agent.name, href: `/dashboard/settings/agents/${agent.id}` },
         { label: "Advanced" },
       ]}
+      workspaceStatus={workspaceStatus}
     >
-      <AgentAdvancedContent agent={agent} />
+      <AgentAdvancedContent agent={agent} workspaceStatus={workspaceStatus} />
     </SettingsShell>
   );
 }

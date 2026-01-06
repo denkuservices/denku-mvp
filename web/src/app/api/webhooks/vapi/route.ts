@@ -1,6 +1,8 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isWorkspacePaused } from "@/lib/workspace-status";
+import { logAuditEvent } from "@/lib/audit/log";
 
 const VapiWebhookSchema = z
   .object({
@@ -241,6 +243,33 @@ export async function POST(req: NextRequest) {
     const { agentId, orgId } = await resolveAgentByVapi(body);
     if (!agentId || !orgId) {
       return NextResponse.json({ ok: true, ignored: "agent_not_found" });
+    }
+
+    // CRITICAL: Check if workspace is paused - return 200 but do NOT process
+    const isPaused = await isWorkspacePaused(orgId);
+    if (isPaused) {
+      // Log audit entry for ignored webhook
+      try {
+        await logAuditEvent({
+          org_id: orgId,
+          actor_user_id: null, // System action
+          action: "workspace.paused.webhook_ignored",
+          entity_type: "webhook",
+          entity_id: vapiCallId || null,
+          diff: {
+            reason: {
+              before: null,
+              after: "workspace_paused",
+            },
+          },
+        });
+      } catch (auditErr) {
+        // Don't fail webhook if audit logging fails
+        console.error("[WEBHOOK] Audit log failed:", auditErr);
+      }
+
+      console.log("[WEBHOOK] Workspace paused - ignoring webhook", { orgId, vapiCallId });
+      return NextResponse.json({ ok: true, ignored: "workspace_paused" });
     }
 
     const { startedAt, endedAt } = extractStartedEnded(body);

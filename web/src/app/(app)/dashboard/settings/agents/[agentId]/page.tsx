@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getWorkspaceStatus } from "@/lib/workspace-status";
 import { AgentConfigurePage } from "./_components/AgentConfigurePage";
 
 type Agent = {
@@ -153,7 +154,10 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ ag
     console.log("[AgentDetailPage] Agent found, rendering page:", { agentId, agentName: agent.name });
   }
 
-  // 5) Render page with agent context
+  // 5) Get workspace status
+  const workspaceStatus = await getWorkspaceStatus(orgId);
+
+  // 6) Render page with agent context
   return (
     <SettingsShell
       title={agent.name}
@@ -164,8 +168,9 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ ag
         { label: "Agents", href: "/dashboard/settings/agents" },
         { label: agent.name },
       ]}
+      workspaceStatus={workspaceStatus}
     >
-      <AgentConfigurePage agent={agent} />
+      <AgentConfigurePage agent={agent} workspaceStatus={workspaceStatus} />
     </SettingsShell>
   );
 }

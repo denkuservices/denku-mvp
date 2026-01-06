@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { PausedWorkspaceBanner } from "@/app/(app)/dashboard/_components/PausedWorkspaceBanner";
 
 type Crumb = { label: string; href?: string };
 
@@ -10,11 +11,13 @@ export function SettingsShell({
   subtitle,
   crumbs,
   children,
+  workspaceStatus,
 }: {
   title: string;
   subtitle?: string;
   crumbs?: Crumb[];
   children: React.ReactNode;
+  workspaceStatus?: "active" | "paused";
 }) {
   return (
     <div className="p-6 space-y-8">
@@ -40,6 +43,11 @@ export function SettingsShell({
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-zinc-600">{subtitle}</p> : null}
       </div>
+
+      {/* Paused workspace banner */}
+      {workspaceStatus && (
+        <PausedWorkspaceBanner workspaceStatus={workspaceStatus} />
+      )}
 
       {children}
     </div>

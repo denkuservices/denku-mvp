@@ -29,6 +29,7 @@ type Agent = {
 
 type AgentConfigurePageProps = {
   agent: Agent;
+  workspaceStatus: "active" | "paused";
 };
 
 type AgentStatus = "active" | "paused" | "draft" | "error";
@@ -391,7 +392,8 @@ export function AgentConfigurePage({ agent: initialAgent }: AgentConfigurePagePr
 
             <button
               onClick={handleSave}
-              disabled={!isDirty || isPending}
+              disabled={!isDirty || isPending || workspaceStatus === "paused"}
+              title={workspaceStatus === "paused" ? "Workspace is paused" : undefined}
               className="rounded-xl border border-zinc-900 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Saving..." : "Save changes"}

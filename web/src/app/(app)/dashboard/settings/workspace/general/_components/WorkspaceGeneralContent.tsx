@@ -21,6 +21,7 @@ type WorkspaceGeneralContentProps = {
   orgId: string;
   orgName: string;
   accessLabel: string;
+  workspaceStatus: "active" | "paused";
 };
 
 export function WorkspaceGeneralContent({
@@ -29,16 +30,34 @@ export function WorkspaceGeneralContent({
   orgId,
   orgName,
   accessLabel,
+  workspaceStatus: initialWorkspaceStatus,
 }: WorkspaceGeneralContentProps) {
   // Shared timezone state that both form and Runtime card use
   const [timezone, setTimezone] = useState<string | null>(
     initialSettings?.default_timezone || null
   );
 
+  // Shared workspace status state
+  const [workspaceStatus, setWorkspaceStatus] = useState<"active" | "paused">(initialWorkspaceStatus);
+
   // Sync with server props when they change (from router.refresh())
   useEffect(() => {
     setTimezone(initialSettings?.default_timezone || null);
   }, [initialSettings?.default_timezone]);
+
+  useEffect(() => {
+    setWorkspaceStatus(initialWorkspaceStatus);
+  }, [initialWorkspaceStatus]);
+
+  // Listen for updates from WorkspaceControlsCard
+  useEffect(() => {
+    (window as any).__updateRuntimeWorkspaceStatus = (newStatus: "active" | "paused") => {
+      setWorkspaceStatus(newStatus);
+    };
+    return () => {
+      delete (window as any).__updateRuntimeWorkspaceStatus;
+    };
+  }, []);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
@@ -66,6 +85,7 @@ export function WorkspaceGeneralContent({
       <RuntimeCard
         timezone={timezone}
         accessLabel={accessLabel}
+        workspaceStatus={workspaceStatus}
       />
     </div>
   );

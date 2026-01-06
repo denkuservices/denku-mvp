@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
+import { vapiFetch } from "@/lib/vapi/server";
 
 // Get valid language and timezone values for validation
 const VALID_LANGUAGE_VALUES = LANGUAGE_OPTIONS.map((opt) => opt.value);
@@ -49,6 +51,8 @@ type OrganizationSettings = {
   default_timezone: string | null;
   default_language: string | null;
   billing_email: string | null;
+  workspace_status: "active" | "paused";
+  paused_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -297,6 +301,225 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
       default_timezone: newTimezone,
       default_language: newLanguage,
       billing_email: newBillingEmail,
+    },
+  };
+}
+
+/**
+ * Pause or resume workspace.
+ * Enforces role-based access (owner/admin only).
+ * Returns discriminated union: { ok: true, data } | { ok: false, error }
+ */
+export async function toggleWorkspaceStatus(
+  action: "pause" | "resume"
+): Promise<{ ok: true; data: { workspace_status: "active" | "paused"; paused_at: string | null } } | { ok: false; error: string }> {
+  const supabase = await createSupabaseServerClient();
+
+  // 1) Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // 2) Get profile with org_id and role
+  const { data: profile, error: profErr } = await supabase
+    .from("profiles")
+    .select("id, org_id, role")
+    .eq("id", user.id)
+    .single<Profile>();
+
+  if (profErr) {
+    return { ok: false, error: `Failed to load profile: ${profErr.message}` };
+  }
+
+  if (!profile?.org_id) {
+    return { ok: false, error: "No org found for this user." };
+  }
+
+  const orgId: string = profile.org_id;
+  const role = profile.role;
+
+  // 3) Check role (owner/admin required)
+  const canWrite = role === "owner" || role === "admin";
+  if (!canWrite) {
+    return { ok: false, error: "Forbidden: Only owners and admins can pause/resume workspace." };
+  }
+
+  // 4) Fetch existing settings for audit diff
+  const { data: existingSettings } = await supabase
+    .from("organization_settings")
+    .select("workspace_status, paused_at")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      workspace_status: "active" | "paused";
+      paused_at: string | null;
+    }>();
+
+  const oldStatus = existingSettings?.workspace_status ?? "active";
+  const newStatus = action === "pause" ? "paused" : "active";
+  const newPausedAt = action === "pause" ? new Date().toISOString() : null;
+
+  // 5) Upsert organization_settings with new status
+  const { data: updated, error: upsertErr } = await supabase
+    .from("organization_settings")
+    .upsert(
+      {
+        org_id: orgId,
+        workspace_status: newStatus,
+        paused_at: newPausedAt,
+      },
+      {
+        onConflict: "org_id",
+      }
+    )
+    .select()
+    .single<OrganizationSettings>();
+
+  if (upsertErr) {
+    return { ok: false, error: `Failed to update workspace status: ${upsertErr.message}` };
+  }
+
+  // 6) Handle Vapi assistants (CRITICAL: Stop all calls)
+  if (oldStatus !== newStatus) {
+    try {
+      // Fetch all agents with vapi_assistant_id and vapi_phone_number_id for this org
+      const { data: agents, error: agentsErr } = await supabaseAdmin
+        .from("agents")
+        .select("id, name, vapi_assistant_id, vapi_phone_number_id")
+        .eq("org_id", orgId)
+        .not("vapi_assistant_id", "is", null)
+        .not("vapi_phone_number_id", "is", null);
+
+      if (!agentsErr && agents && agents.length > 0) {
+        const now = new Date().toISOString();
+
+        if (action === "pause") {
+          // Pause: Unbind phone numbers from assistants (prevents calls)
+          for (const agent of agents) {
+            if (!agent.vapi_assistant_id || !agent.vapi_phone_number_id) continue;
+
+            try {
+              // Unbind phone number from assistant (set assistantId to null)
+              // This prevents calls from being routed to the assistant
+              await vapiFetch(`/phone-number/${agent.vapi_phone_number_id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ assistantId: null }),
+              });
+
+              // Update agent sync status
+              await supabaseAdmin
+                .from("agents")
+                .update({
+                  vapi_sync_status: "paused",
+                  vapi_synced_at: now,
+                })
+                .eq("id", agent.id);
+
+              // Log audit
+              await logAuditEvent({
+                org_id: orgId,
+                actor_user_id: user.id,
+                action: "vapi.assistants.disabled",
+                entity_type: "agent",
+                entity_id: agent.id,
+                diff: {
+                  vapi_sync_status: {
+                    before: null,
+                    after: "paused",
+                  },
+                },
+              });
+            } catch (vapiErr) {
+              console.error(
+                `[PAUSE] Failed to unbind phone number ${agent.vapi_phone_number_id} from assistant ${agent.vapi_assistant_id}:`,
+                vapiErr
+              );
+              // Continue with other agents even if one fails
+            }
+          }
+        } else {
+          // Resume: Re-bind phone numbers to assistants
+          for (const agent of agents) {
+            if (!agent.vapi_assistant_id || !agent.vapi_phone_number_id) continue;
+
+            try {
+              // Re-bind phone number to assistant
+              await vapiFetch(`/phone-number/${agent.vapi_phone_number_id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ assistantId: agent.vapi_assistant_id }),
+              });
+
+              // Update agent sync status
+              await supabaseAdmin
+                .from("agents")
+                .update({
+                  vapi_sync_status: "success",
+                  vapi_synced_at: now,
+                })
+                .eq("id", agent.id);
+
+              // Log audit
+              await logAuditEvent({
+                org_id: orgId,
+                actor_user_id: user.id,
+                action: "vapi.assistants.enabled",
+                entity_type: "agent",
+                entity_id: agent.id,
+                diff: {
+                  vapi_sync_status: {
+                    before: "paused",
+                    after: "success",
+                  },
+                },
+              });
+            } catch (vapiErr) {
+              console.error(
+                `[RESUME] Failed to rebind phone number ${agent.vapi_phone_number_id} to assistant ${agent.vapi_assistant_id}:`,
+                vapiErr
+              );
+              // Continue with other agents even if one fails
+            }
+          }
+        }
+      }
+    } catch (vapiErr) {
+      console.error("[WORKSPACE STATUS] Vapi assistant update failed:", vapiErr);
+      // Don't fail the entire operation if Vapi update fails
+      // The workspace status is already updated in DB
+    }
+  }
+
+  // 7) Log audit event for workspace status change
+  if (oldStatus !== newStatus) {
+    await logAuditEvent({
+      org_id: orgId,
+      actor_user_id: user.id,
+      action: action === "pause" ? "workspace.paused" : "workspace.resumed",
+      entity_type: "workspace.controls",
+      entity_id: orgId,
+      diff: {
+        workspace_status: {
+          before: oldStatus,
+          after: newStatus,
+        },
+        ...(action === "pause" && {
+          paused_at: {
+            before: existingSettings?.paused_at ?? null,
+            after: newPausedAt,
+          },
+        }),
+      },
+    });
+  }
+
+  return {
+    ok: true,
+    data: {
+      workspace_status: newStatus,
+      paused_at: newPausedAt,
     },
   };
 }

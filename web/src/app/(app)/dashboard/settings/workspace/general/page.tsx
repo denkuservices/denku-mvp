@@ -3,7 +3,7 @@ import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/Settin
 import { getWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
 import { WorkspaceGeneralContent } from "./_components/WorkspaceGeneralContent";
 import { WebhooksCard } from "./_components/WebhooksCard";
-import { DangerZoneCard } from "./_components/DangerZoneCard";
+import { WorkspaceControlsCard } from "./_components/WorkspaceControlsCard";
 
 /**
  * Get webhook URL from environment variable.
@@ -30,6 +30,9 @@ export default async function WorkspaceGeneralPage() {
   // Determine access badge
   const accessLabel = role === "owner" ? "Owner" : role === "admin" ? "Admin" : role || "Member";
 
+  // Get workspace status (default to 'active' if not set)
+  const workspaceStatus = (settings?.workspace_status as "active" | "paused") || "active";
+
   return (
     <SettingsShell
       title="Workspace"
@@ -54,13 +57,14 @@ export default async function WorkspaceGeneralPage() {
         orgId={orgId}
         orgName={orgName}
         accessLabel={accessLabel}
+        workspaceStatus={workspaceStatus}
       />
 
       {/* Webhooks */}
       <WebhooksCard webhookUrl={webhookUrl} events={webhookEvents} />
 
-      {/* Danger zone */}
-      <DangerZoneCard role={role} />
+      {/* Workspace controls */}
+      <WorkspaceControlsCard role={role} workspaceStatus={workspaceStatus} />
     </SettingsShell>
   );
 }
