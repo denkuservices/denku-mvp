@@ -11,7 +11,7 @@ type AuditLogChange = {
 type AuditLogWithChanges = {
   id: string;
   org_id: string;
-  actor_user_id: string;
+  actor_user_id: string | null;
   action: string;
   entity_type: string;
   entity_id: string;
@@ -58,7 +58,7 @@ function formatEntityType(entityType: string): string {
 function getActorDisplayName(actorName: string | null, actorEmail: string | null): string {
   if (actorName) return actorName;
   if (actorEmail) return actorEmail;
-  return "Unknown user";
+  return "System";
 }
 
 export function AuditLogList({ logs }: AuditLogListProps) {

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AuditEventInput = {
   org_id: string;
-  actor_user_id: string;
+  actor_user_id: string | null;
   action: string;
   entity_type: string;
   entity_id: string;

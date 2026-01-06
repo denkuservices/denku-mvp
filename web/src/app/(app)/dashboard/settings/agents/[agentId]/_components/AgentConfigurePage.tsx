@@ -188,7 +188,7 @@ function normalizeEmphasisPoints(input: unknown): string[] {
   return [];
 }
 
-export function AgentConfigurePage({ agent: initialAgent }: AgentConfigurePageProps) {
+export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: AgentConfigurePageProps) {
   const router = useRouter();
   const agentStatus: AgentStatus = "active";
   const pill = statusPill(agentStatus);

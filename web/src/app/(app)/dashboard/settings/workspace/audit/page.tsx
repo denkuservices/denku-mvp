@@ -6,7 +6,7 @@ import { AuditLogList } from "./_components/AuditLogList";
 type AuditLogRow = {
   id: string;
   org_id: string;
-  actor_user_id: string;
+  actor_user_id: string | null;
   action: string;
   entity_type: string;
   entity_id: string;
@@ -128,13 +128,15 @@ export default async function WorkspaceAuditPage() {
 
   const logs = auditLogs || [];
 
-  // 4) Get unique actor_user_ids and fetch profiles
-  const actorIds = Array.from(new Set(logs.map((log) => log.actor_user_id)));
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, email, full_name")
-    .in("id", actorIds)
-    .returns<ProfileRow[]>();
+  // 4) Get unique actor_user_ids and fetch profiles (filter out nulls)
+  const actorIds = Array.from(new Set(logs.map((log) => log.actor_user_id).filter((id): id is string => id !== null)));
+  const { data: profiles } = actorIds.length > 0
+    ? await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", actorIds)
+        .returns<ProfileRow[]>()
+    : { data: [] };
 
   const profileMap = new Map<string, ProfileRow>();
   if (profiles) {
@@ -163,7 +165,7 @@ export default async function WorkspaceAuditPage() {
 
   // 6) Combine audit logs with actor info and changes
   const auditLogsWithChanges: AuditLogWithChanges[] = logs.map((log) => {
-    const actorProfile = profileMap.get(log.actor_user_id);
+    const actorProfile = log.actor_user_id ? profileMap.get(log.actor_user_id) : null;
     const logChanges = changesMap.get(log.id) || [];
 
     return {

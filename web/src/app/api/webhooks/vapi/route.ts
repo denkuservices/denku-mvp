@@ -255,14 +255,13 @@ export async function POST(req: NextRequest) {
           actor_user_id: null, // System action
           action: "workspace.paused.webhook_ignored",
           entity_type: "webhook",
-          entity_id: vapiCallId || null,
+          entity_id: orgId, // ALWAYS a UUID-safe identifier
           diff: {
-            reason: {
-              before: null,
-              after: "workspace_paused",
-            },
+            reason: { before: null, after: "workspace paused" },
+            vapi_call_id: { before: null, after: vapiCallId ?? null },
           },
         });
+        
       } catch (auditErr) {
         // Don't fail webhook if audit logging fails
         console.error("[WEBHOOK] Audit log failed:", auditErr);
