@@ -1,133 +1,87 @@
 ﻿import Link from "next/link";
-
-type TicketStatus = "open" | "in_progress" | "closed";
-type TicketPriority = "low" | "medium" | "high";
-
-type TicketRow = {
-  id: string;
-  summary: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  updated_at: string; // ISO
-  linked_lead_id?: string | null;
-  linked_call_id?: string | null;
-};
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listTickets, getDistinctStatuses, getDistinctPriorities } from "@/lib/tickets/queries";
+import { resolveOrgId } from "@/lib/analytics/params";
+import { isAdminOrOwner } from "@/lib/analytics/params";
+import { getWorkspaceStatus } from "@/lib/workspace-status";
+import { formatDateInTZ } from "@/lib/tickets/utils.client";
+import { getOrgTimezone } from "@/lib/tickets/utils.server";
+import { TicketFilters } from "@/components/tickets/TicketFilters";
+import { StatusBadge, PriorityBadge } from "@/components/tickets/TicketBadges";
+import { TicketQuickActions } from "@/components/tickets/TicketQuickActions";
+import { Phone } from "lucide-react";
 
 function asString(v: string | string[] | undefined) {
   if (!v) return "";
   return Array.isArray(v) ? v[0] : v;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-}
+export const dynamic = "force-dynamic";
 
-function statusLabel(s: TicketStatus) {
-  switch (s) {
-    case "open":
-      return "Open";
-    case "in_progress":
-      return "In progress";
-    case "closed":
-      return "Closed";
-  }
-}
-
-function statusBadgeClass(s: TicketStatus) {
-  switch (s) {
-    case "open":
-      return "bg-zinc-900 text-white";
-    case "in_progress":
-      return "bg-zinc-100 text-zinc-900 border border-zinc-200";
-    case "closed":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
-  }
-}
-
-function priorityLabel(p: TicketPriority) {
-  switch (p) {
-    case "low":
-      return "Low";
-    case "medium":
-      return "Medium";
-    case "high":
-      return "High";
-  }
-}
-
-function priorityBadgeClass(p: TicketPriority) {
-  switch (p) {
-    case "high":
-      return "bg-zinc-900 text-white";
-    case "medium":
-      return "bg-zinc-100 text-zinc-900 border border-zinc-200";
-    case "low":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
-  }
-}
-
-function getMockTickets(): TicketRow[] {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
-
-  return [
-    {
-      id: "tkt_001",
-      summary: "Customer asked to reschedule appointment; confirm availability.",
-      status: "open",
-      priority: "high",
-      updated_at: hours(2),
-      linked_lead_id: "lead_002",
-      linked_call_id: "call_9f2a",
-    },
-    {
-      id: "tkt_002",
-      summary: "Follow up with lead regarding pricing details.",
-      status: "in_progress",
-      priority: "medium",
-      updated_at: hours(10),
-      linked_lead_id: "lead_003",
-      linked_call_id: null,
-    },
-    {
-      id: "tkt_003",
-      summary: "Incorrect contact number; request updated phone.",
-      status: "closed",
-      priority: "low",
-      updated_at: hours(36),
-      linked_lead_id: "lead_005",
-      linked_call_id: null,
-    },
-  ];
-}
-
-export default function Page({
+export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const q = asString(searchParams?.q).trim();
-  const status = asString(searchParams?.status).trim() as TicketStatus | "";
-  const priority = asString(searchParams?.priority).trim() as TicketPriority | "";
+  // Next.js 16.1.1: searchParams must be awaited before accessing properties
+  const sp = searchParams ? await searchParams : undefined;
+  const q = asString(sp?.q).trim();
+  const status = asString(sp?.status).trim();
+  const priority = asString(sp?.priority).trim();
+  const page = Math.max(1, parseInt(asString(sp?.page) || "1", 10));
+  const pageSize = Math.min(50, Math.max(10, parseInt(asString(sp?.pageSize) || "50", 10)));
 
-  const all = getMockTickets();
+  // Resolve org and user
+  const orgId = await resolveOrgId();
+  const supabase = await createSupabaseServerClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth?.user?.id ?? "";
 
-  const filtered = all.filter((row) => {
-    const qOk = !q || row.summary.toLowerCase().includes(q.toLowerCase()) || row.id.toLowerCase().includes(q.toLowerCase());
-    const statusOk = !status || row.status === status;
-    const priorityOk = !priority || row.priority === priority;
-    return qOk && statusOk && priorityOk;
-  });
+  // Get user role and workspace status
+  const canMutate = userId ? await isAdminOrOwner(orgId, userId) : false;
+  const workspaceStatus = await getWorkspaceStatus(orgId);
+  const isPaused = workspaceStatus === "paused";
 
-  const openCount = all.filter((t) => t.status === "open").length;
-  const highCount = all.filter((t) => t.priority === "high" && t.status !== "closed").length;
-  const closedCount = all.filter((t) => t.status === "closed").length;
+  // Get timezone for date formatting
+  const timezone = await getOrgTimezone(orgId);
+
+  // Fetch data
+  const [ticketsResult, statusOptions, priorityOptions] = await Promise.all([
+    listTickets({
+      orgId,
+      page,
+      pageSize,
+      q: q || undefined,
+      status: status || undefined,
+      priority: priority || undefined,
+    }),
+    getDistinctStatuses(orgId),
+    getDistinctPriorities(orgId),
+  ]);
+
+  const { rows, total, totalPages } = ticketsResult;
+
+  // Calculate KPIs
+  const openCount = rows.filter((item) => {
+    const s = item.ticket.status.toLowerCase();
+    return s === "open" || s === "in_progress";
+  }).length;
+
+  const needsAttentionCount = rows.filter((item) => {
+    const s = item.ticket.status.toLowerCase();
+    const p = item.ticket.priority.toLowerCase();
+    return (s === "open" || s === "in_progress") && (p === "high" || p === "urgent");
+  }).length;
 
   return (
     <div className="p-6 space-y-6">
+      {/* Workspace Paused Banner */}
+      {isPaused && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">Workspace is paused. Changes are disabled.</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
@@ -137,171 +91,213 @@ export default function Page({
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60"
-          title="Coming soon"
-        >
-          Create ticket
-        </button>
+        {canMutate && (
+          isPaused ? (
+            <span
+              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
+              title="Workspace is paused"
+            >
+              New ticket
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/tickets/new"
+              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              title="Create new ticket"
+            >
+              New ticket
+            </Link>
+          )
+        )}
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-4">
           <p className="text-sm text-muted-foreground">Open</p>
           <p className="mt-1 text-2xl font-semibold">{openCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Requires attention</p>
         </div>
         <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-muted-foreground">High priority</p>
-          <p className="mt-1 text-2xl font-semibold">{highCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Open or in progress</p>
-        </div>
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Closed</p>
-          <p className="mt-1 text-2xl font-semibold">{closedCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Resolved</p>
+          <p className="text-sm text-muted-foreground">Needs attention</p>
+          <p className="mt-1 text-2xl font-semibold">{needsAttentionCount}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Open + High/Urgent priority</p>
         </div>
       </div>
 
-      {/* Controls */}
-      <form className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex-1 space-y-2">
-          <label className="text-sm font-medium">Search</label>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Ticket ID or summary…"
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-          />
-        </div>
-
-        <div className="w-full md:w-56 space-y-2">
-          <label className="text-sm font-medium">Status</label>
-          <select
-            name="status"
-            defaultValue={status}
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-          >
-            <option value="">All</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In progress</option>
-            <option value="closed">Closed</option>
-          </select>
-        </div>
-
-        <div className="w-full md:w-56 space-y-2">
-          <label className="text-sm font-medium">Priority</label>
-          <select
-            name="priority"
-            defaultValue={priority}
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-          >
-            <option value="">All</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
-          >
-            Apply
-          </button>
-          <Link
-            href="/dashboard/tickets"
-            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
-            title="Clear filters"
-          >
-            Reset
-          </Link>
-        </div>
-      </form>
+      {/* Filters */}
+      <TicketFilters
+        initialQ={q}
+        initialStatus={status}
+        initialPriority={priority}
+        statusOptions={statusOptions}
+        priorityOptions={priorityOptions}
+      />
 
       {/* Table */}
       <div className="rounded-xl border bg-white">
         <div className="border-b p-4">
           <p className="text-sm font-medium">Results</p>
           <p className="text-xs text-muted-foreground">
-            {filtered.length} of {all.length} tickets
+            {total} ticket{total !== 1 ? "s" : ""}
+            {totalPages > 1 && ` · Page ${page} of ${totalPages}`}
           </p>
         </div>
 
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-sm font-medium">No tickets found</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try adjusting your filters.
+              {q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
             </p>
+            {canMutate && !isPaused && (
+              <Link
+                href="/dashboard/tickets/new"
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                New ticket
+              </Link>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-4 py-3 font-medium">Summary</th>
-                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Subject</th>
+                  <th className="px-4 py-3 font-medium">Lead</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3 font-medium">Updated</th>
-                  <th className="px-4 py-3 font-medium">Linked</th>
-                  <th className="px-4 py-3 font-medium text-right">Action</th>
+                  <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((row) => (
-                  <tr key={row.id} className="border-b last:border-b-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{row.summary}</div>
-                      <div className="text-xs text-muted-foreground">ID: {row.id}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${priorityBadgeClass(
-                          row.priority
-                        )}`}
-                      >
-                        {priorityLabel(row.priority)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                          row.status
-                        )}`}
-                      >
-                        {statusLabel(row.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(row.updated_at)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      <div>{row.linked_lead_id ? `Lead: ${row.linked_lead_id}` : "Lead: —"}</div>
-                      <div>{row.linked_call_id ? `Call: ${row.linked_call_id}` : "Call: —"}</div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/dashboard/tickets/${row.id}`}
-                        className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((item) => {
+                  const { ticket, lead, call } = item;
+                  return (
+                    <tr
+                      key={ticket.id}
+                      className="border-b last:border-b-0 hover:bg-zinc-50"
+                    >
+                      <td className="px-4 py-3">
+                        {/* RSC: Cannot pass onClick handlers from Server to Client. Use Link for navigation instead. */}
+                        <Link href={`/dashboard/tickets/${ticket.id}`} className="block">
+                          <div className="font-medium">{ticket.subject}</div>
+                          <div className="text-xs text-muted-foreground">Ticket ID: {ticket.id.slice(0, 8)}...</div>
+                        </Link>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {lead ? (
+                          <div>
+                            <div className="font-medium">{lead.name || "—"}</div>
+                            {lead.phone && (
+                              <div className="text-xs text-muted-foreground">{lead.phone}</div>
+                            )}
+                            {lead.email && (
+                              <div className="text-xs text-muted-foreground">{lead.email}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <StatusBadge status={ticket.status} />
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <PriorityBadge priority={ticket.priority} />
+                      </td>
+
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDateInTZ(ticket.created_at, timezone)}
+                      </td>
+
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDateInTZ(ticket.updated_at, timezone)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {/* RSC: No onClick handlers needed - Links handle navigation natively */}
+                        <div className="flex items-center justify-end gap-2">
+                          {call && (
+                            <Link
+                              href={`/dashboard/calls/${call.id}`}
+                              className="rounded-md border bg-white p-1.5 hover:bg-zinc-50"
+                              title="View call"
+                            >
+                              <Phone className="h-4 w-4" />
+                            </Link>
+                          )}
+                          {canMutate && (
+                            <TicketQuickActions
+                              ticketId={ticket.id}
+                              orgId={orgId}
+                              userId={userId}
+                              currentStatus={ticket.status}
+                              currentPriority={ticket.priority}
+                              statusOptions={statusOptions}
+                              priorityOptions={priorityOptions}
+                              canMutate={!isPaused}
+                            />
+                          )}
+                          <Link
+                            href={`/dashboard/tickets/${ticket.id}`}
+                            className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
+                          >
+                            View
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
-      </div>
 
-      <p className="text-xs text-muted-foreground">
-        Note: This page is currently using mock data. Replace <span className="font-mono">getMockTickets()</span> with a
-        Supabase query once the schema is finalized.
-      </p>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="border-t p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}
+            </div>
+            <div className="flex gap-2">
+              {page > 1 && (
+                <Link
+                  href={`/dashboard/tickets?${new URLSearchParams({
+                    ...(q && { q }),
+                    ...(status && { status }),
+                    ...(priority && { priority }),
+                    page: String(page - 1),
+                  }).toString()}`}
+                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+                >
+                  Previous
+                </Link>
+              )}
+              {page < totalPages && (
+                <Link
+                  href={`/dashboard/tickets?${new URLSearchParams({
+                    ...(q && { q }),
+                    ...(status && { status }),
+                    ...(priority && { priority }),
+                    page: String(page + 1),
+                  }).toString()}`}
+                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+                >
+                  Next
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

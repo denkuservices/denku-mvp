@@ -157,10 +157,12 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const q = asString(searchParams?.q).trim();
-  const status = asString(searchParams?.status).trim();
+  // Next.js 16.1.1: searchParams must be awaited before accessing properties
+  const sp = searchParams ? await searchParams : undefined;
+  const q = asString(sp?.q).trim();
+  const status = asString(sp?.status).trim();
 
   const orgId = await resolveOrgId();
   const rows = await getLeadsFromDb({ orgId, q: q || undefined, status: status || undefined });
