@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/utils/url";
 
 export type VerifyOtpResult =
   | { ok: true; needsPassword: boolean }
@@ -30,12 +31,6 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
 
 export async function resendCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createSupabaseServerClient();
-
-  function getBaseUrl(): string {
-    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-    return "http://localhost:3000";
-  }
 
   const baseUrl = getBaseUrl();
   const emailRedirectTo = `${baseUrl}/auth/callback`;

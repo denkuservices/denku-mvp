@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/utils/url";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -12,13 +13,6 @@ export async function sendCodeAction(formData: FormData) {
   const email = mustString(formData.get("email"), "email");
 
   const supabase = await createSupabaseServerClient();
-
-  // Get base URL for email redirect
-  function getBaseUrl(): string {
-    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-    return "http://localhost:3000";
-  }
 
   const baseUrl = getBaseUrl();
   const emailRedirectTo = `${baseUrl}/auth/callback`;

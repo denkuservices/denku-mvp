@@ -20,7 +20,11 @@ export default function VerifyEmailPage({
     async function loadParams() {
       const sp = await searchParams;
       const emailParam = sp.email ?? "";
-      setEmail(emailParam);
+      
+      // Always set email if provided in URL
+      if (emailParam) {
+        setEmail(emailParam);
+      }
 
       // Load signup data from sessionStorage
       if (typeof window !== "undefined" && emailParam) {
@@ -34,6 +38,23 @@ export default function VerifyEmailPage({
           } catch {
             // Ignore parse errors
           }
+        }
+      } else if (typeof window !== "undefined" && !emailParam) {
+        // If no email in URL, try to get from sessionStorage (fallback)
+        // Check all signup_ keys to find the most recent one
+        let foundEmail = "";
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && key.startsWith("signup_") && !key.includes(":phone:")) {
+            const extractedEmail = key.replace("signup_", "");
+            if (extractedEmail) {
+              foundEmail = extractedEmail;
+              break;
+            }
+          }
+        }
+        if (foundEmail) {
+          setEmail(foundEmail);
         }
       }
     }
