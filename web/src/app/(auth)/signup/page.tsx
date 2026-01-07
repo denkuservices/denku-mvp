@@ -1,7 +1,41 @@
+"use client";
+
 import Link from "next/link";
-import { signupAction } from "./signupAction";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { sendCodeAction } from "./sendCodeAction";
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const org_name = formData.get("org_name")?.toString() || "";
+    const full_name = formData.get("full_name")?.toString() || "";
+    const email = formData.get("email")?.toString() || "";
+
+    // Store workspace name and full name in sessionStorage for later use
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        `signup_${email}`,
+        JSON.stringify({ org_name, full_name })
+      );
+    }
+
+    startTransition(async () => {
+      try {
+        await sendCodeAction(formData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to send code");
+      }
+    });
+  };
+
   return (
     <div className="rounded-2xl border p-6 shadow-sm bg-white">
       <h1 className="text-2xl font-semibold">Create account</h1>
@@ -9,13 +43,14 @@ export default function SignupPage() {
         Create your workspace and start configuring agents.
       </p>
 
-      <form action={signupAction} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
           <label className="text-sm font-medium">Workspace name</label>
           <input
             name="org_name"
             required
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            disabled={isPending}
+            className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
             placeholder="Kevin LLC"
           />
         </div>
@@ -25,7 +60,8 @@ export default function SignupPage() {
           <input
             name="full_name"
             required
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            disabled={isPending}
+            className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
             placeholder="Ali Dinç"
           />
         </div>
@@ -36,28 +72,24 @@ export default function SignupPage() {
             name="email"
             type="email"
             required
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            disabled={isPending}
+            className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
             placeholder="you@company.com"
           />
         </div>
 
-        <div>
-          <label className="text-sm font-medium">Password</label>
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            placeholder="Minimum 8 characters"
-          />
-        </div>
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
 
         <button
           type="submit"
-          className="w-full rounded-md bg-black text-white py-2 font-medium"
+          disabled={isPending}
+          className="w-full rounded-md bg-black text-white py-2 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Create account
+          {isPending ? "Sending code..." : "Send verification code"}
         </button>
       </form>
 
