@@ -1,11 +1,15 @@
 import Link from "next/link";
 import DashboardHeader from "@/app/(app)/DashboardHeader";
+import { requireVerifiedEmail } from "@/lib/auth/requireVerifiedEmail";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Enforce email verification for all dashboard routes
+  await requireVerifiedEmail();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}

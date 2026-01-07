@@ -24,21 +24,20 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // After successful code exchange, check if user needs to set password
-      // If email is provided, redirect to verify-email to complete setup
-      if (email) {
-        return NextResponse.redirect(
-          new URL(`/verify-email?email=${encodeURIComponent(email)}`, baseUrl)
-        );
-      }
+      // After successful code exchange, check if email is confirmed
+      const user = data.user;
+      const emailConfirmed = user ? ((user as any).email_confirmed_at || (user as any).confirmed_at) : false;
 
-      // If user is already fully set up, go to dashboard
-      if (data.session) {
+      // If email is confirmed, redirect to dashboard
+      if (emailConfirmed && data.session) {
         return NextResponse.redirect(new URL("/dashboard", baseUrl));
       }
 
-      // Fallback: redirect to verify-email (user may need to complete setup)
-      return NextResponse.redirect(new URL("/verify-email", baseUrl));
+      // If email not confirmed or no session, redirect to verify-email
+      const userEmail = user?.email || email || "";
+      return NextResponse.redirect(
+        new URL(`/verify-email${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ""}`, baseUrl)
+      );
     } else if (token_hash && type) {
       // Verify OTP token (legacy flow)
       if (!email) {

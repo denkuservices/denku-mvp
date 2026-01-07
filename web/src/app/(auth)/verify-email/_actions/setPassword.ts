@@ -106,6 +106,15 @@ export async function setPasswordAction(
     }
   }
 
-  redirect("/dashboard");
+  // After password is set, check if email is confirmed before redirecting
+  const { data: { user: updatedUser } } = await supabase.auth.getUser();
+  const emailConfirmed = updatedUser ? ((updatedUser as any).email_confirmed_at || (updatedUser as any).confirmed_at) : false;
+
+  if (emailConfirmed) {
+    redirect("/dashboard");
+  } else {
+    // Email not confirmed yet, redirect back to verify-email
+    redirect(`/verify-email?email=${encodeURIComponent(updatedUser?.email || "")}`);
+  }
 }
 

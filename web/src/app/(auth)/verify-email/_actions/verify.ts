@@ -24,9 +24,15 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
     return { ok: false, error: "Verification failed. Please try again." };
   }
 
+  // Check if email is confirmed after OTP verification
+  const emailConfirmed = (data.user as any).email_confirmed_at || (data.user as any).confirmed_at;
+  
   // When using OTP sign-in with shouldCreateUser: true, user always needs to set password
   // (user is created without password)
-  return { ok: true, needsPassword: true };
+  // For email+password signup flow, if email is confirmed, password should already be set
+  const needsPassword = !emailConfirmed;
+
+  return { ok: true, needsPassword };
 }
 
 export async function resendCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {

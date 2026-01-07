@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setPasswordAction } from "../_actions/setPassword";
 import { saveSignupPhoneAction } from "../_actions/saveSignupPhone";
 
@@ -11,6 +12,7 @@ interface SetPasswordFormProps {
 }
 
 export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormProps) {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,10 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
         // Clear sessionStorage after successful save
         sessionStorage.removeItem(`signup:phone:${lowerEmail}`);
       }
+
+      // Redirect to dashboard (setPasswordAction handles email confirmation check)
+      router.push("/dashboard");
+      router.refresh();
     });
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { verifyOtpAction, resendCodeAction } from "../_actions/verify";
 
 interface VerifyEmailFormProps {
@@ -9,6 +10,7 @@ interface VerifyEmailFormProps {
 }
 
 export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,7 +28,15 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
     startTransition(async () => {
       const result = await verifyOtpAction(email, code);
       if (result.ok) {
-        onVerified(result.needsPassword);
+        // After OTP verification, proceed to password step if needed
+        // Otherwise, redirect to dashboard (email is confirmed)
+        if (result.needsPassword) {
+          onVerified(result.needsPassword);
+        } else {
+          // Email confirmed and password exists, redirect to dashboard
+          router.push("/dashboard");
+          router.refresh();
+        }
       } else {
         setError(result.error);
       }
