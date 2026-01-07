@@ -16,6 +16,10 @@ export default function SettingsHomePage() {
           description="Profile and security for your personal login."
           href="/dashboard/settings/account/profile"
           items={["Profile", "Security"]}
+          itemHrefs={{
+            Profile: "/dashboard/settings/account/profile",
+            Security: "/dashboard/settings/account/security",
+          }}
         />
 
         <SettingsCard

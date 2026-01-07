@@ -1,8 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { resolveOrgId } from "@/lib/analytics/params";
+import { getOrgTimezone } from "@/lib/tickets/utils.server";
 import Link from "next/link";
 
+// Disable Next.js Server Component caching to ensure fresh data on every request
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 // ================================
 // Helpers
@@ -220,75 +225,7 @@ function getCostClass(cost: number | string | null): string {
 // Components
 // ================================
 
-function FilterToolbar({
-  q,
-  outcome,
-  since,
-}: {
-  q?: string;
-  outcome?: string;
-  since?: string;
-}) {
-  return (
-    <div className="rounded-md border bg-white p-4">
-      <form method="GET" className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="flex-grow">
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700">
-            Search
-          </label>
-          <input
-            type="text"
-            name="q"
-            id="search"
-            defaultValue={q}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            placeholder="Search agent, outcome, etc."
-          />
-        </div>
-        <div className="min-w-[150px]">
-          <label htmlFor="outcome" className="block text-sm font-medium text-gray-700">
-            Outcome
-          </label>
-          <select
-            name="outcome"
-            id="outcome"
-            defaultValue={outcome}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="">All</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div className="min-w-[150px]">
-          <label htmlFor="since" className="block text-sm font-medium text-gray-700">
-            Time range
-          </label>
-          <select
-            name="since"
-            id="since"
-            defaultValue={since}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="">Any time</option>
-            <option value="1d">Last 24h</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-          </select>
-        </div>
-        <div className="flex-shrink-0">
-          <button
-            type="submit"
-            className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-          >
-            Filter
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+import { FilterToolbar } from "./_components/FilterToolbar";
 
 
 // ================================
@@ -298,11 +235,91 @@ function FilterToolbar({
 export default async function CallsPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Next.js 16: searchParams is a Promise, must await before use
+  const resolvedSearchParams = await searchParams;
+  
   const supabase = await createSupabaseServerClient();
+  
+  // Resolve org_id for tenant scoping (REQUIRED)
+  const orgId = await resolveOrgId();
 
-  const { data, error } = await supabase
+  // Normalize search params: handle string | string[] | undefined
+  // If array, use the last value (most recent)
+  const normalizeParam = (value: string | string[] | undefined): string | undefined => {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value[value.length - 1];
+    return undefined;
+  };
+
+  // Extract and parse search params
+  const sinceFilter = normalizeParam(resolvedSearchParams.since);
+  
+  // Calculate cutoff for time filtering (timezone-aware for 7d/30d, timezone-independent for 1d)
+  let cutoffUtcISO: string | undefined;
+  if (sinceFilter) {
+    const days = parseInt(sinceFilter.replace('d', ''), 10);
+    if (!isNaN(days) && days > 0) {
+      const now = new Date();
+      
+      if (days === 1) {
+        // Last 24h: timezone-independent, just subtract 24 hours from now
+        const cutoffUtc = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        cutoffUtcISO = cutoffUtc.toISOString();
+      } else {
+        // Last 7d/30d: timezone-aware "start of day" calculation
+        // Resolve effective timezone: workspace timezone > browser timezone > UTC
+        const workspaceTimezone = await getOrgTimezone(orgId);
+        const effectiveTimezone = workspaceTimezone !== "UTC" 
+          ? workspaceTimezone 
+          : Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        
+        // Get today's date in effective timezone
+        const todayInTZ = new Intl.DateTimeFormat("en-CA", {
+          timeZone: effectiveTimezone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(now);
+        
+        // Parse and subtract N days
+        const [year, month, day] = todayInTZ.split('-').map(Number);
+        const targetDate = new Date(year, month - 1, day);
+        targetDate.setDate(targetDate.getDate() - days);
+        
+        // Find UTC time that corresponds to "00:00:00" on target date in effective timezone
+        const midnightUTC = new Date(Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0));
+        
+        // Format midnight UTC in effective timezone to see what time it is there
+        const tzFormatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: effectiveTimezone,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        
+        const timeInTZ = tzFormatter.format(midnightUTC);
+        const [hour, minute] = timeInTZ.split(':').map(Number);
+        
+        // Adjust backwards to get to 00:00:00 in effective timezone
+        const offsetMs = (hour * 60 + minute) * 60 * 1000;
+        const cutoffUtc = new Date(midnightUTC.getTime() - offsetMs);
+        cutoffUtcISO = cutoffUtc.toISOString();
+      }
+      
+      // Debug logs (temporary)
+      console.log("DEBUG time filter:", {
+        sinceFilter,
+        days,
+        nowISO: now.toISOString(),
+        cutoffISO: cutoffUtcISO,
+        hoursAgo: (now.getTime() - new Date(cutoffUtcISO).getTime()) / (60 * 60 * 1000),
+      });
+    }
+  }
+  // Build Supabase query with org_id scoping and time range filter (server-side)
+  let query = supabase
     .from("calls")
     .select(
       `
@@ -322,7 +339,17 @@ export default async function CallsPage({
       )
     `
     )
-    .order("created_at", { ascending: false })
+    .eq("org_id", orgId); // CRITICAL: Filter by org_id first
+  
+  // Apply time range filter if cutoff was calculated
+  if (cutoffUtcISO) {
+    query = query.gte("started_at", cutoffUtcISO);
+  }
+
+  // Order by started_at if filtering by time (prefer started_at), else created_at
+  // When filtering by time, order by started_at DESC, nulls last, then created_at DESC
+  const { data, error } = await query
+    .order(sinceFilter ? "started_at" : "created_at", { ascending: false, nullsFirst: false })
     .limit(200);
 
   if (error) {
@@ -345,9 +372,9 @@ export default async function CallsPage({
     duration_seconds: c.duration_seconds ?? null,
   })));
 
-  const q = typeof searchParams.q === "string" ? searchParams.q : undefined;
-  const outcomeFilter = typeof searchParams.outcome === "string" ? searchParams.outcome : undefined;
-  const sinceFilter = typeof searchParams.since === "string" ? searchParams.since : undefined;
+  const q = normalizeParam(resolvedSearchParams.q);
+  const outcomeFilter = normalizeParam(resolvedSearchParams.outcome);
+  // sinceFilter already declared above for query building
 
   const filteredCalls = calls.filter(call => {
     const outcomeLabel = outcomeLabels.get(call.id) ?? 'Completed';
@@ -370,25 +397,20 @@ export default async function CallsPage({
     }
 
     if (outcomeFilter) {
-      const callOutcome = (call.outcome ?? "").toLowerCase();
-      const isCompleted = callOutcome.includes("completed") || callOutcome.includes("end-of-call-report");
-      const isFailed = callOutcome.includes("failed") || callOutcome.includes("error") || callOutcome.includes("no-answer");
+      // Use computed outcomeLabel instead of raw call.outcome
+      const lowerLabel = outcomeLabel.toLowerCase();
+      // Map outcome labels to filter categories
+      const isCompleted = lowerLabel === 'meeting scheduled' || lowerLabel === 'completed';
+      const isFailed = lowerLabel === 'dropped call';
+      const isOther = lowerLabel === 'support request' || lowerLabel === 'in progress';
       
       if (outcomeFilter === 'completed' && !isCompleted) return false;
       if (outcomeFilter === 'failed' && !isFailed) return false;
-      if (outcomeFilter === 'other' && (isCompleted || isFailed)) return false;
+      if (outcomeFilter === 'other' && !isOther) return false;
     }
     
-    if (sinceFilter) {
-      const days = parseInt(sinceFilter.replace('d', ''), 10);
-      if (!isNaN(days)) {
-        const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
-        if (!call.created_at || new Date(call.created_at) < sinceDate) {
-          return false;
-        }
-      }
-    }
+    // Time range filtering is now done in Supabase query (server-side)
+    // No need to filter again client-side for time range
 
     return true;
   });
@@ -405,7 +427,7 @@ export default async function CallsPage({
       </div>
 
       <div className="mb-6">
-        <FilterToolbar q={q} outcome={outcomeFilter} since={sinceFilter} />
+        <FilterToolbar />
       </div>
 
       {filteredCalls.length === 0 ? (
@@ -440,6 +462,8 @@ export default async function CallsPage({
                   : call.agent;
                 const agentName = agentObj?.name ?? "—";
                 const outcomeLabel = outcomeLabels.get(call.id) ?? 'Completed';
+                // Use started_at with fallback to created_at for display consistency
+                const startedValue = call.started_at ?? call.created_at;
 
                 return (
                   <tr key={call.id} className="border-t hover:bg-gray-50">
@@ -449,7 +473,7 @@ export default async function CallsPage({
                           {agentName}
                         </div>
                         <div className="mt-1 text-xs text-gray-500 md:hidden">
-                          {formatDate(call.created_at)}
+                          {formatDate(startedValue)}
                         </div>
                       </Link>
                     </td>
@@ -469,7 +493,7 @@ export default async function CallsPage({
 
                     <td className="hidden px-4 py-3 align-top md:table-cell">
                       <Link href={href} className="block" tabIndex={-1}>
-                        {formatDate(call.created_at)}
+                        {formatDate(startedValue)}
                       </Link>
                     </td>
 

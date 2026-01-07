@@ -1,6 +1,8 @@
 ﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { isAdminOrOwner } from "@/lib/analytics/params";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
@@ -99,6 +101,14 @@ export default async function TicketDetailPage({
 
   return (
     <div className="p-6 space-y-6">
+      {/* Back Button */}
+      <Link href="/dashboard/tickets">
+        <Button variant="ghost" size="sm">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </Link>
+
       {/* Workspace Paused Banner */}
       {isPaused && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">

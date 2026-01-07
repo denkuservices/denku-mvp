@@ -11,6 +11,7 @@ export type DashboardOverview = {
     calls_last_7d: number; // Calls handled in last 7 days
     leads_count: number; // Total leads created
     appointments_count: number; // Total appointments created
+    tickets_count: number; // Total tickets created
     estimated_savings: number; // Estimated savings vs human agents ($25/hour)
   };
   system_status: "Healthy" | "Attention Needed";
@@ -146,7 +147,18 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     appointmentsCount = typeof count === "number" ? count : 0;
   }
 
-  // 7) Feed (derive from latest calls, leads, and agents)
+  // 7) Tickets count (org scoped)
+  let ticketsCount = 0;
+  if (orgId) {
+    const { count } = await supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId);
+
+    ticketsCount = typeof count === "number" ? count : 0;
+  }
+
+  // 8) Feed (derive from latest calls, leads, and agents)
   // Keep it simple and safe: if tables empty or queries fail, feed remains []
   let feed: Array<{ id: string; message: string; time: string }> = [];
 
@@ -232,13 +244,43 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       .slice(0, 6);
   }
 
-  // 8) System status (simple heuristic)
+  // 9) System status (simple heuristic)
   const systemStatus: "Healthy" | "Attention Needed" = agentsTotal > 0 ? "Healthy" : "Attention Needed";
 
-  // 9) Readiness heuristic
-  const readinessScore = agentsTotal > 0 ? 75 : 20;
+  // 10) Readiness computation (real data queries)
+  let profileComplete = false;
+  let phoneProvisioned = false;
+  let firstCallCompleted = false;
 
-  // 10) Compute estimated savings (reuse analytics computation, no new queries)
+  if (orgId && profile) {
+    // Profile completed: full_name and email are non-null
+    profileComplete = !!(profile.full_name && profile.email);
+
+    // Phone number provisioned: at least one agent has vapi_phone_number_id
+    const { data: agentsWithPhone } = await supabase
+      .from("agents")
+      .select("id")
+      .eq("org_id", orgId)
+      .not("vapi_phone_number_id", "is", null)
+      .limit(1);
+
+    phoneProvisioned = (agentsWithPhone?.length ?? 0) > 0;
+
+    // First call completed: at least one call exists
+    firstCallCompleted = callsTotal > 0;
+  }
+
+  const readinessSteps = [
+    { label: "Create at least 1 agent", done: agentsTotal > 0 },
+    { label: "Complete profile information", done: profileComplete },
+    { label: "Phone number provisioned", done: phoneProvisioned },
+    { label: "First call completed", done: firstCallCompleted },
+  ];
+
+  const checkedCount = readinessSteps.filter((s) => s.done).length;
+  const readinessScore = Math.round((checkedCount / readinessSteps.length) * 100);
+
+  // 11) Compute estimated savings (reuse analytics computation, no new queries)
   // Use 30-day range for dashboard overview
   let estimatedSavings = 0;
   if (orgId) {
@@ -275,17 +317,14 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       calls_last_7d: callsLast7d,
       leads_count: leadsCount,
       appointments_count: appointmentsCount,
+      tickets_count: ticketsCount,
       estimated_savings: estimatedSavings,
     },
     system_status: systemStatus,
     feed,
     readiness: {
       score: readinessScore,
-      steps: [
-        { label: "Create Agent", done: agentsTotal > 0 },
-        { label: "Connect Channel", done: callsLast7d > 0 },
-        { label: "Enable Lead Capture", done: leadsCount > 0 },
-      ],
+      steps: readinessSteps,
     },
   };
 }

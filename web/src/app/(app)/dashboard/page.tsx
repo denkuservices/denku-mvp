@@ -29,6 +29,8 @@ export default async function DashboardPage() {
         agentsActive={data.metrics.agents_active}
         callsLast7d={data.metrics.calls_last_7d}
         systemStatus={data.system_status}
+        ticketsCount={data.metrics.tickets_count}
+        appointmentsCount={data.metrics.appointments_count}
       />
 
       {/* SECTION 3: Recent Activity */}
@@ -119,13 +121,18 @@ function SystemHealthSnapshot({
   agentsActive,
   callsLast7d,
   systemStatus,
+  ticketsCount,
+  appointmentsCount,
 }: {
   agentsActive: number;
   callsLast7d: number;
   systemStatus: "Healthy" | "Attention Needed";
+  ticketsCount?: number;
+  appointmentsCount?: number;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {/* 1. Active Agents */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Users className="h-4 w-4" />
@@ -134,6 +141,7 @@ function SystemHealthSnapshot({
         <div className="text-3xl font-bold">{agentsActive}</div>
       </div>
 
+      {/* 2. Calls Handled */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Phone className="h-4 w-4" />
@@ -143,6 +151,29 @@ function SystemHealthSnapshot({
         <div className="text-xs text-muted-foreground mt-1">Last 7 days · Active</div>
       </div>
 
+      {/* 3. Appointments Created */}
+      {appointmentsCount !== undefined && (
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <Calendar className="h-4 w-4" />
+            Appointments Created
+          </div>
+          <div className="text-3xl font-bold">{appointmentsCount.toLocaleString()}</div>
+        </div>
+      )}
+
+      {/* 4. Tickets Created */}
+      {ticketsCount !== undefined && (
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <Circle className="h-4 w-4" />
+            Tickets Created
+          </div>
+          <div className="text-3xl font-bold">{ticketsCount.toLocaleString()}</div>
+        </div>
+      )}
+
+      {/* 5. System Status */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           System Status
@@ -255,6 +286,7 @@ interface Step {
 function GoLiveReadinessCard({ score, steps }: { score: number; steps: Step[] }) {
   // Show only incomplete steps (max 2-3)
   const incompleteSteps = steps.filter((s) => !s.done).slice(0, 3);
+  const allSteps = steps;
 
   return (
     <div className="rounded-xl border bg-white p-5 shadow-sm">
@@ -271,15 +303,29 @@ function GoLiveReadinessCard({ score, steps }: { score: number; steps: Step[] })
       {incompleteSteps.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground mb-2">Almost there. Complete the remaining steps to go live.</p>
-          {incompleteSteps.map((step, i) => (
+          {allSteps.map((step, i) => (
             <div key={i} className="flex items-center gap-3 text-sm">
-              <Circle className="h-4 w-4 text-gray-300" />
-              <span className="text-muted-foreground">{step.label}</span>
+              {step.done ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-gray-300" />
+              )}
+              <span className={step.done ? "text-gray-900" : "text-muted-foreground"}>
+                {step.label}
+              </span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-green-600 font-medium">You're ready to go live.</p>
+        <div className="space-y-2">
+          <p className="text-sm text-green-600 font-medium mb-2">You're ready to go live.</p>
+          {allSteps.map((step, i) => (
+            <div key={i} className="flex items-center gap-3 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-gray-900">{step.label}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

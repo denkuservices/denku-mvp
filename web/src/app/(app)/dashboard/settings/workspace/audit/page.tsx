@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AuditLogList } from "./_components/AuditLogList";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 type AuditLogRow = {
   id: string;
@@ -191,6 +194,12 @@ export default async function WorkspaceAuditPage() {
         { label: "Audit" },
       ]}
     >
+      <Link href="/dashboard/settings/workspace/general">
+        <Button variant="ghost" size="sm" className="mb-4">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </Link>
       <AuditLogList logs={auditLogsWithChanges} />
     </SettingsShell>
   );

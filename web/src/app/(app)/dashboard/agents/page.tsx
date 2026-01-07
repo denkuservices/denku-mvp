@@ -62,6 +62,7 @@ export default async function AgentsPage() {
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3">Name</th>
+                <th className="hidden px-4 py-3 sm:table-cell">Phone Number</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Status</th>
                 <th className="hidden px-4 py-3 md:table-cell">Created</th>
                 <th className="px-4 py-3 text-right">Open</th>
@@ -95,6 +96,9 @@ export default async function AgentsPage() {
                         {/* mobile details */}
                         <div className="mt-2 space-y-1 text-xs text-gray-600 sm:hidden">
                           <div>
+                            <span className="text-gray-500">Phone:</span> —
+                          </div>
+                          <div>
                             <span className="text-gray-500">Status:</span>{" "}
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${statusClass}`}
@@ -107,6 +111,12 @@ export default async function AgentsPage() {
                             {formatDate(a.created_at)}
                           </div>
                         </div>
+                      </Link>
+                    </td>
+
+                    <td className="hidden px-4 py-3 align-top sm:table-cell text-gray-700">
+                      <Link href={`/dashboard/agents/${a.id}`} className="block" tabIndex={-1}>
+                        —
                       </Link>
                     </td>
 

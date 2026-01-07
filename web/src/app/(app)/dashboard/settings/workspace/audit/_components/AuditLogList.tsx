@@ -63,6 +63,7 @@ function getActorDisplayName(actorName: string | null, actorEmail: string | null
 
 export function AuditLogList({ logs }: AuditLogListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -75,6 +76,10 @@ export function AuditLogList({ logs }: AuditLogListProps) {
       return next;
     });
   };
+
+  // Show only latest 5 by default
+  const visibleLogs = showAll ? logs : logs.slice(0, 5);
+  const hasMore = logs.length > 5;
 
   if (logs.length === 0) {
     return (
@@ -92,7 +97,7 @@ export function AuditLogList({ logs }: AuditLogListProps) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
       <div className="divide-y divide-zinc-200">
-        {logs.map((log) => {
+        {visibleLogs.map((log) => {
           const isExpanded = expandedIds.has(log.id);
           const hasChanges = log.changes.length > 0;
 
@@ -169,6 +174,17 @@ export function AuditLogList({ logs }: AuditLogListProps) {
           );
         })}
       </div>
+      {hasMore && (
+        <div className="p-4 border-t border-zinc-200">
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className="text-sm text-zinc-600 hover:text-zinc-900 font-medium"
+          >
+            {showAll ? "Show less" : `Show more (${logs.length - 5} more)`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
