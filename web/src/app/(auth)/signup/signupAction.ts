@@ -162,9 +162,9 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
   }
 
   // 4) Always require email verification before dashboard access
-  // Even if session exists, check if email is confirmed
-  const emailConfirmed = (user as any).email_confirmed_at || (user as any).confirmed_at;
-  const next: "dashboard" | "verify-email" = data.session && emailConfirmed ? "dashboard" : "verify-email";
+  // In production, email confirmation is required, so always redirect to verify-email
+  // Even if session exists, do NOT trust it as confirmed (Supabase may return session before email is confirmed)
+  const next: "dashboard" | "verify-email" = "verify-email";
 
   return {
     ok: true,

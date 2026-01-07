@@ -24,17 +24,25 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // After successful code exchange, check if email is confirmed
-      const user = data.user;
-      const emailConfirmed = user ? ((user as any).email_confirmed_at || (user as any).confirmed_at) : false;
+      // After successful code exchange, fetch user again to get latest confirmation status
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (!currentUser) {
+        return NextResponse.redirect(new URL("/login", baseUrl));
+      }
+
+      // Check if email is confirmed
+      const emailConfirmed = (currentUser as any).email_confirmed_at || (currentUser as any).confirmed_at;
 
       // If email is confirmed, redirect to dashboard
-      if (emailConfirmed && data.session) {
+      if (emailConfirmed) {
         return NextResponse.redirect(new URL("/dashboard", baseUrl));
       }
 
-      // If email not confirmed or no session, redirect to verify-email
-      const userEmail = user?.email || email || "";
+      // If email not confirmed, redirect to verify-email
+      const userEmail = currentUser.email || email || "";
       return NextResponse.redirect(
         new URL(`/verify-email${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ""}`, baseUrl)
       );
