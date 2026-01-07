@@ -15,12 +15,22 @@ export default async function AccountProfilePage() {
   if (auth?.user?.id) {
     console.log("[AccountProfilePage] user.id:", auth.user.id, "user.email:", auth.user.email);
     
-    // Step 1: Try load profile by auth_user_id
-    let { data: profile } = await supabase
+    // Step 1: Try load profile by auth_user_id (safe from duplicates)
+    const { data: profiles } = await supabase
       .from("profiles")
-      .select("full_name, phone")
+      .select("full_name, phone, updated_at, created_at")
       .eq("auth_user_id", auth.user.id)
-      .maybeSingle<{ full_name: string | null; phone: string | null }>();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1);
+    
+    let profile: { full_name: string | null; phone: string | null } | null = null;
+    if (profiles && profiles.length > 0) {
+      profile = {
+        full_name: profiles[0].full_name,
+        phone: profiles[0].phone,
+      };
+    }
 
     console.log("[AccountProfilePage] Found by auth_user_id:", !!profile);
 

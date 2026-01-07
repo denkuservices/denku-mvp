@@ -16,7 +16,11 @@ function optionalString(v: FormDataEntryValue | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export async function signupAction(formData: FormData) {
+export type SignupResult =
+  | { ok: true; next: "dashboard" | "verify-email"; email: string }
+  | { ok: false; code: "USER_EXISTS" | "VALIDATION" | "UNKNOWN"; error: string };
+
+export async function signupAction(formData: FormData): Promise<SignupResult> {
   const org_name = mustString(formData.get("org_name"), "org_name");
   const full_name = mustString(formData.get("full_name"), "full_name");
   const email = mustString(formData.get("email"), "email");
@@ -37,12 +41,48 @@ export async function signupAction(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    console.error("[signupAction] Supabase auth error:", error.message, error.status);
+    
+    // Detect "user already exists" errors
+    const errorMsg = error.message.toLowerCase();
+    if (
+      errorMsg.includes("already registered") ||
+      errorMsg.includes("user already registered") ||
+      errorMsg.includes("email address is already registered") ||
+      error.status === 422 // Supabase often returns 422 for existing users
+    ) {
+      return {
+        ok: false,
+        code: "USER_EXISTS",
+        error: "Account already exists",
+      };
+    }
+
+    // Other validation errors
+    if (error.status === 400 || errorMsg.includes("validation")) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        error: error.message || "Invalid input. Please check your information.",
+      };
+    }
+
+    // Unknown errors
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "Failed to create account. Please try again.",
+    };
   }
 
   const user = data.user;
   if (!user) {
-    throw new Error("Signup failed: no user returned");
+    console.error("[signupAction] Signup succeeded but no user returned");
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "Signup failed: no user returned. Please try again.",
+    };
   }
 
   // 2) Create org/workspace (use "orgs" table as per existing codebase)
@@ -55,19 +95,31 @@ export async function signupAction(formData: FormData) {
       .single();
 
     if (orgErr) {
-      console.error("[signupAction] Failed to create org:", orgErr);
-      throw new Error(`Failed to create workspace: ${orgErr.message}`);
+      console.error("[signupAction] Failed to create org:", orgErr.message, orgErr.code);
+      return {
+        ok: false,
+        code: "UNKNOWN",
+        error: `Failed to create workspace: ${orgErr.message}`,
+      };
     }
 
     if (!org?.id) {
       console.error("[signupAction] Org created but no id returned");
-      throw new Error("Failed to create workspace: No organization ID returned");
+      return {
+        ok: false,
+        code: "UNKNOWN",
+        error: "Failed to create workspace: No organization ID returned",
+      };
     }
 
     orgId = org.id;
   } catch (err) {
-    console.error("[signupAction] Org creation error:", err);
-    throw err instanceof Error ? err : new Error("Failed to create workspace");
+    console.error("[signupAction] Org creation exception:", err);
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "Failed to create workspace. Please try again.",
+    };
   }
 
   // 3) Upsert profile with id and auth_user_id mapping (idempotent)
@@ -93,19 +145,28 @@ export async function signupAction(formData: FormData) {
       );
 
     if (profErr) {
-      console.error("[signupAction] Failed to upsert profile:", profErr);
-      throw new Error(`Failed to create profile: ${profErr.message}`);
+      console.error("[signupAction] Failed to upsert profile:", profErr.message, profErr.code);
+      return {
+        ok: false,
+        code: "UNKNOWN",
+        error: `Failed to create profile: ${profErr.message}`,
+      };
     }
   } catch (err) {
-    console.error("[signupAction] Profile upsert error:", err);
-    throw err instanceof Error ? err : new Error("Failed to create profile");
+    console.error("[signupAction] Profile upsert exception:", err);
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "Failed to create profile. Please try again.",
+    };
   }
 
-  // 4) If session exists (email confirmation disabled in dev), redirect to dashboard
-  if (data.session) {
-    redirect("/dashboard");
-  }
+  // 4) Determine next step
+  const next: "dashboard" | "verify-email" = data.session ? "dashboard" : "verify-email";
 
-  // 5) Otherwise, redirect to verify-email page
-  redirect(`/verify-email?email=${encodeURIComponent(email)}`);
+  return {
+    ok: true,
+    next,
+    email,
+  };
 }
