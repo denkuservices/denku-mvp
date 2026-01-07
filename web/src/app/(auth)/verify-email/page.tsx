@@ -24,7 +24,8 @@ export default function VerifyEmailPage({
 
       // Load signup data from sessionStorage
       if (typeof window !== "undefined" && emailParam) {
-        const stored = sessionStorage.getItem(`signup_${emailParam}`);
+        const lowerEmail = emailParam.toLowerCase();
+        const stored = sessionStorage.getItem(`signup_${lowerEmail}`);
         if (stored) {
           try {
             const data = JSON.parse(stored);

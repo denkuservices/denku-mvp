@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { setPasswordAction } from "../_actions/setPassword";
+import { saveSignupPhoneAction } from "../_actions/saveSignupPhone";
 
 interface SetPasswordFormProps {
   email: string;
@@ -33,6 +34,22 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       const result = await setPasswordAction(password, confirmPassword, orgName, fullName);
       if (!result.ok) {
         setError(result.error);
+        return;
+      }
+
+      // After password is set successfully, save phone from sessionStorage
+      if (typeof window !== "undefined") {
+        const lowerEmail = email.toLowerCase();
+        const storedPhone = sessionStorage.getItem(`signup:phone:${lowerEmail}`);
+        const phone = storedPhone ? storedPhone.trim() : null;
+
+        // Save phone (non-blocking, don't fail if this errors)
+        await saveSignupPhoneAction(phone || null).catch(() => {
+          // Silently fail - phone is optional
+        });
+
+        // Clear sessionStorage after successful save
+        sessionStorage.removeItem(`signup:phone:${lowerEmail}`);
       }
     });
   };

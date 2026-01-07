@@ -18,12 +18,19 @@ export default function SignupPage() {
     const org_name = formData.get("org_name")?.toString() || "";
     const full_name = formData.get("full_name")?.toString() || "";
     const email = formData.get("email")?.toString() || "";
+    const phone = formData.get("phone")?.toString() || "";
 
-    // Store workspace name and full name in sessionStorage for later use
+    // Store workspace name, full name, and phone in sessionStorage for later use
     if (typeof window !== "undefined") {
+      const lowerEmail = email.toLowerCase();
       sessionStorage.setItem(
-        `signup_${email}`,
+        `signup_${lowerEmail}`,
         JSON.stringify({ org_name, full_name })
+      );
+      // Store phone separately keyed by email
+      sessionStorage.setItem(
+        `signup:phone:${lowerEmail}`,
+        phone.trim() || ""
       );
     }
 
@@ -76,6 +83,20 @@ export default function SignupPage() {
             className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
             placeholder="you@company.com"
           />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Phone number</label>
+          <input
+            name="phone"
+            type="tel"
+            disabled={isPending}
+            className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
+            placeholder="+1 (555) 123-4567"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Used for account recovery and notifications.
+          </p>
         </div>
 
         {error && (
