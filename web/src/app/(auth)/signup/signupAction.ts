@@ -46,31 +46,59 @@ export async function signupAction(formData: FormData) {
   }
 
   // 2) Create org/workspace (use "orgs" table as per existing codebase)
-  const { data: org, error: orgErr } = await supabaseAdmin
-    .from("orgs")
-    .insert({ name: org_name, created_by: user.id })
-    .select("id")
-    .single();
+  let orgId: string;
+  try {
+    const { data: org, error: orgErr } = await supabaseAdmin
+      .from("orgs")
+      .insert({ name: org_name, created_by: user.id })
+      .select("id")
+      .single();
 
-  if (orgErr) {
-    throw new Error(`Failed to create workspace: ${orgErr.message}`);
+    if (orgErr) {
+      console.error("[signupAction] Failed to create org:", orgErr);
+      throw new Error(`Failed to create workspace: ${orgErr.message}`);
+    }
+
+    if (!org?.id) {
+      console.error("[signupAction] Org created but no id returned");
+      throw new Error("Failed to create workspace: No organization ID returned");
+    }
+
+    orgId = org.id;
+  } catch (err) {
+    console.error("[signupAction] Org creation error:", err);
+    throw err instanceof Error ? err : new Error("Failed to create workspace");
   }
 
-  // 3) Create profile with auth_user_id mapping
+  // 3) Upsert profile with id and auth_user_id mapping (idempotent)
   const normalizedPhone = phone ? phone.trim().slice(0, 32) : null;
   const finalPhone = normalizedPhone && normalizedPhone.length > 0 ? normalizedPhone : null;
 
-  const { error: profErr } = await supabaseAdmin.from("profiles").insert({
-    auth_user_id: user.id,
-    email,
-    org_id: org.id,
-    full_name,
-    phone: finalPhone,
-    role: "owner", // First user is owner
-  });
+  try {
+    const { error: profErr } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id, // Required: profiles.id is NOT NULL
+          auth_user_id: user.id,
+          email,
+          org_id: orgId,
+          full_name,
+          phone: finalPhone,
+          role: "owner", // First user is owner
+        },
+        {
+          onConflict: "id", // Use id as conflict target
+        }
+      );
 
-  if (profErr) {
-    throw new Error(`Failed to create profile: ${profErr.message}`);
+    if (profErr) {
+      console.error("[signupAction] Failed to upsert profile:", profErr);
+      throw new Error(`Failed to create profile: ${profErr.message}`);
+    }
+  } catch (err) {
+    console.error("[signupAction] Profile upsert error:", err);
+    throw err instanceof Error ? err : new Error("Failed to create profile");
   }
 
   // 4) If session exists (email confirmation disabled in dev), redirect to dashboard
