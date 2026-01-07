@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { sendCodeAction } from "./sendCodeAction";
+import { signupAction } from "./signupAction";
 
 export default function SignupPage() {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -15,30 +13,12 @@ export default function SignupPage() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const org_name = formData.get("org_name")?.toString() || "";
-    const full_name = formData.get("full_name")?.toString() || "";
-    const email = formData.get("email")?.toString() || "";
-    const phone = formData.get("phone")?.toString() || "";
-
-    // Store workspace name, full name, and phone in sessionStorage for later use
-    if (typeof window !== "undefined") {
-      const lowerEmail = email.toLowerCase();
-      sessionStorage.setItem(
-        `signup_${lowerEmail}`,
-        JSON.stringify({ org_name, full_name })
-      );
-      // Store phone separately keyed by email
-      sessionStorage.setItem(
-        `signup:phone:${lowerEmail}`,
-        phone.trim() || ""
-      );
-    }
 
     startTransition(async () => {
       try {
-        await sendCodeAction(formData);
+        await signupAction(formData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send code");
+        setError(err instanceof Error ? err.message : "Failed to create account");
       }
     });
   };
@@ -86,6 +66,19 @@ export default function SignupPage() {
         </div>
 
         <div>
+          <label className="text-sm font-medium">Password</label>
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            disabled={isPending}
+            className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
+            placeholder="Minimum 8 characters"
+          />
+        </div>
+
+        <div>
           <label className="text-sm font-medium">Phone number</label>
           <input
             name="phone"
@@ -110,7 +103,7 @@ export default function SignupPage() {
           disabled={isPending}
           className="w-full rounded-md bg-black text-white py-2 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {isPending ? "Sending code..." : "Send verification code"}
+          {isPending ? "Creating account..." : "Create account"}
         </button>
       </form>
 

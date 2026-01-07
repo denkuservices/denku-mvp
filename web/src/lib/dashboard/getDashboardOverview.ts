@@ -61,12 +61,16 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
 
   if (!user) redirect("/login");
 
-  // 1) Profile
-  const { data: profile } = await supabase
+  // 1) Profile - use auth_user_id and handle duplicates
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, org_id, email, full_name")
-    .eq("id", user.id)
-    .single<Profile>();
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+  
+  const profile = profiles && profiles.length > 0 ? profiles[0] : null;
 
   const orgId = profile?.org_id ?? null;
 

@@ -42,12 +42,16 @@ export async function getDashboardOverview(): Promise<DashboardOverviewData> {
     redirect("/login");
   }
 
-  // Fetch profile
-  const { data: profile } = await supabase
+  // Fetch profile - use auth_user_id and handle duplicates
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, org_id, email, full_name")
-    .eq("id", user.id)
-    .single();
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+  
+  const profile = profiles && profiles.length > 0 ? profiles[0] : null;
 
   let orgName = "—";
   let agentsTotal = 0;

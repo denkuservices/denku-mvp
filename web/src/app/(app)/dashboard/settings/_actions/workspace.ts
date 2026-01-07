@@ -95,15 +95,34 @@ export async function getWorkspaceGeneral() {
     redirect("/login");
   }
 
-  // 2) Get profile with org_id (and role if exists)
-  const { data: profile, error: profErr } = await supabase
+  // 2) Get profile with org_id (and role if exists) - use auth_user_id and handle duplicates
+  const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("id, org_id, role")
-    .eq("id", user.id)
-    .single<Profile>();
+    .select("id, org_id, role, updated_at, created_at")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   if (profErr) {
     throw new Error(`Failed to load profile: ${profErr.message}`);
+  }
+
+  // Handle duplicates: pick the most recently updated profile
+  let profile: Profile | null = null;
+  if (profiles && profiles.length > 0) {
+    profile = {
+      id: profiles[0].id,
+      org_id: profiles[0].org_id,
+      role: profiles[0].role,
+    };
+    // Log warning if duplicates exist
+    if (profiles.length > 1) {
+      console.warn(`[getWorkspaceGeneral] Found ${profiles.length} profiles for auth_user_id ${user.id}, using most recent`);
+    }
+  } else {
+    // No profile found - this should not happen in normal flow, but handle gracefully
+    throw new Error("No profile found for this user. Please contact support.");
   }
 
   if (!profile?.org_id) {
@@ -172,15 +191,33 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
   }
   const validated = validation.data;
 
-  // 3) Get profile with org_id and role
-  const { data: profile, error: profErr } = await supabase
+  // 3) Get profile with org_id and role - use auth_user_id and handle duplicates
+  const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("id, org_id, role")
-    .eq("id", user.id)
-    .single<Profile>();
+    .select("id, org_id, role, updated_at, created_at")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   if (profErr) {
     return { ok: false, error: `Failed to load profile: ${profErr.message}` };
+  }
+
+  let profile: Profile | null = null;
+  if (profiles && profiles.length > 0) {
+    profile = {
+      id: profiles[0].id,
+      org_id: profiles[0].org_id,
+      role: profiles[0].role,
+    };
+    if (profiles.length > 1) {
+      console.warn(`[updateWorkspaceGeneral] Found ${profiles.length} profiles for auth_user_id ${user.id}, using most recent`);
+    }
+  }
+
+  if (!profile) {
+    return { ok: false, error: "No profile found for this user." };
   }
 
   if (!profile?.org_id) {
@@ -324,15 +361,33 @@ export async function toggleWorkspaceStatus(
     return { ok: false, error: "Unauthorized" };
   }
 
-  // 2) Get profile with org_id and role
-  const { data: profile, error: profErr } = await supabase
+  // 2) Get profile with org_id and role - use auth_user_id and handle duplicates
+  const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("id, org_id, role")
-    .eq("id", user.id)
-    .single<Profile>();
+    .select("id, org_id, role, updated_at, created_at")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   if (profErr) {
     return { ok: false, error: `Failed to load profile: ${profErr.message}` };
+  }
+
+  let profile: Profile | null = null;
+  if (profiles && profiles.length > 0) {
+    profile = {
+      id: profiles[0].id,
+      org_id: profiles[0].org_id,
+      role: profiles[0].role,
+    };
+    if (profiles.length > 1) {
+      console.warn(`[toggleWorkspaceStatus] Found ${profiles.length} profiles for auth_user_id ${user.id}, using most recent`);
+    }
+  }
+
+  if (!profile) {
+    return { ok: false, error: "No profile found for this user." };
   }
 
   if (!profile?.org_id) {
