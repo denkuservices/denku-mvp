@@ -4,14 +4,14 @@
 
 import { HiX } from 'react-icons/hi';
 import SidebarLinks from './Links';
-import { IRoute } from '@/horizon/types/navigation';
+import { NavRoute } from './types';
 
 /**
  * Sidebar adapter for Horizon shell.
  * Mirrors Horizon's Sidebar structure but uses our custom Links component
  * that supports '/dashboard' layout routes.
  */
-function SidebarAdapter(props: { routes: IRoute[]; [x: string]: any }) {
+function SidebarAdapter(props: { routes: NavRoute[]; [x: string]: any }) {
   const { routes, open, setOpen } = props;
   return (
     <div

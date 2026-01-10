@@ -1,4 +1,4 @@
-import { IRoute } from '@/horizon/types/navigation';
+import { NavRoute } from './types';
 
 /**
  * Adapter navigation utilities for Horizon shell.
@@ -8,9 +8,9 @@ import { IRoute } from '@/horizon/types/navigation';
  * Pathname matching doesn't require browser APIs, so no window/document checks needed.
  */
 export const findCurrentRoute = (
-  routes: IRoute[],
+  routes: NavRoute[],
   pathname: string,
-): IRoute | null => {
+): NavRoute | null => {
   if (!pathname) return null;
 
   for (let route of routes) {
@@ -40,13 +40,13 @@ export const findCurrentRoute = (
   return null;
 };
 
-export const getActiveRoute = (routes: IRoute[], pathname: string): string => {
+export const getActiveRoute = (routes: NavRoute[], pathname: string): string => {
   const route = findCurrentRoute(routes, pathname);
   return route?.name || 'Dashboard';
 };
 
 export const getActiveNavbar = (
-  routes: IRoute[],
+  routes: NavRoute[],
   pathname: string,
 ): boolean => {
   const route = findCurrentRoute(routes, pathname);

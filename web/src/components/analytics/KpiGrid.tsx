@@ -1,6 +1,6 @@
 'use client';
 
-import Widget from '@/horizon/components/widget/Widget';
+import Widget from '@/components/dashboard/Widget';
 import { formatUSD, formatDuration } from "@/lib/analytics/format";
 import type { AnalyticsSummary } from "@/lib/analytics/types";
 import { Phone, DollarSign, Clock, Calendar, UserPlus, Ticket, TrendingUp } from 'lucide-react';

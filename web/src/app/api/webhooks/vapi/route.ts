@@ -535,11 +535,14 @@ export async function POST(req: NextRequest) {
       
       // Update debug row with error
       if (debugRowId) {
-        await supabaseAdmin
-          .from("webhook_debug")
-          .update({ error_message: `upsert_failed: ${upsertErr.message}` })
-          .eq("id", debugRowId)
-          .catch(() => {}); // Ignore debug update failures
+        try {
+          await supabaseAdmin
+            .from("webhook_debug")
+            .update({ error_message: `upsert_failed: ${upsertErr.message}` })
+            .eq("id", debugRowId);
+        } catch {
+          // Ignore debug update failures
+        }
       }
       
       return NextResponse.json({ ok: false, error: "upsert_failed" }, { status: 500 });
@@ -601,14 +604,17 @@ export async function POST(req: NextRequest) {
 
           // Update debug row
           if (debugRowId) {
-            await supabaseAdmin
-              .from("webhook_debug")
-              .update({
-                lease_acquired: false,
-                error_message: leaseError,
-              })
-              .eq("id", debugRowId)
-              .catch(() => {});
+            try {
+              await supabaseAdmin
+                .from("webhook_debug")
+                .update({
+                  lease_acquired: false,
+                  error_message: leaseError,
+                })
+                .eq("id", debugRowId);
+            } catch {
+              // Ignore debug update failures
+            }
           }
 
           // Reject call if limit reached or org inactive
@@ -629,11 +635,14 @@ export async function POST(req: NextRequest) {
 
           // Update debug row
           if (debugRowId) {
-            await supabaseAdmin
-              .from("webhook_debug")
-              .update({ lease_acquired: true })
-              .eq("id", debugRowId)
-              .catch(() => {});
+            try {
+              await supabaseAdmin
+                .from("webhook_debug")
+                .update({ lease_acquired: true })
+                .eq("id", debugRowId);
+            } catch {
+              // Ignore debug update failures
+            }
           }
         }
       } catch (leaseException) {
@@ -665,14 +674,17 @@ export async function POST(req: NextRequest) {
 
         // Update debug row
         if (debugRowId) {
-          await supabaseAdmin
-            .from("webhook_debug")
-            .update({
-              lease_acquired: false,
-              error_message: leaseError,
-            })
-            .eq("id", debugRowId)
-            .catch(() => {});
+          try {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({
+                lease_acquired: false,
+                error_message: leaseError,
+              })
+              .eq("id", debugRowId);
+          } catch {
+            // Ignore debug update failures
+          }
         }
 
         // Reject call on exception
@@ -717,11 +729,14 @@ export async function POST(req: NextRequest) {
 
         // Update debug row
         if (debugRowId) {
-          await supabaseAdmin
-            .from("webhook_debug")
-            .update({ lease_released: true })
-            .eq("id", debugRowId)
-            .catch(() => {});
+          try {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({ lease_released: true })
+              .eq("id", debugRowId);
+          } catch {
+            // Ignore debug update failures
+          }
         }
       } catch (releaseErr) {
         releaseError = releaseErr instanceof Error ? releaseErr.message : String(releaseErr);
@@ -753,14 +768,17 @@ export async function POST(req: NextRequest) {
 
         // Update debug row
         if (debugRowId) {
-          await supabaseAdmin
-            .from("webhook_debug")
-            .update({
-              lease_released: false,
-              error_message: releaseError,
-            })
-            .eq("id", debugRowId)
-            .catch(() => {});
+          try {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({
+                lease_released: false,
+                error_message: releaseError,
+              })
+              .eq("id", debugRowId);
+          } catch {
+            // Ignore debug update failures
+          }
         }
 
         // Don't fail webhook - release is cleanup, but log for visibility
@@ -870,11 +888,14 @@ export async function POST(req: NextRequest) {
 
           // Update debug row
           if (debugRowId) {
-            await supabaseAdmin
-              .from("webhook_debug")
-              .update({ lease_released: true })
-              .eq("id", debugRowId)
-              .catch(() => {});
+            try {
+              await supabaseAdmin
+                .from("webhook_debug")
+                .update({ lease_released: true })
+                .eq("id", debugRowId);
+            } catch {
+              // Ignore debug update failures
+            }
           }
         } catch (finalReleaseErr) {
           console.error("[WEBHOOK] Failed to release lease on final event:", {

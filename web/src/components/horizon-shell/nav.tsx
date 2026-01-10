@@ -8,13 +8,13 @@ import {
   BarChart3,
   Settings,
 } from 'lucide-react';
-import { IRoute } from '@/horizon/types/navigation';
+import { NavRoute } from './types';
 
 /**
  * Horizon navigation routes for our app routes.
  * Uses 'dashboard' layout (no leading slash) - Links.tsx will normalize to absolute paths.
  */
-export const horizonNavRoutes: IRoute[] = [
+export const horizonNavRoutes: NavRoute[] = [
   {
     name: 'Dashboard',
     layout: 'dashboard',

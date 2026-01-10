@@ -1,10 +1,10 @@
 'use client';
 
-import Widget from '@/horizon/components/widget/Widget';
-import WeeklyRevenue from '@/horizon/components/admin/default/WeeklyRevenue';
-import TotalSpent from '@/horizon/components/admin/default/TotalSpent';
-import CheckTable from '@/horizon/components/admin/default/CheckTable';
-import DailyTraffic from '@/horizon/components/admin/default/DailyTraffic';
+import Widget from '@/components/dashboard/Widget';
+import WeeklyRevenue from '@/components/dashboard/WeeklyRevenue';
+import TotalSpent from '@/components/dashboard/TotalSpent';
+import CheckTable from '@/components/dashboard/CheckTable';
+import DailyTraffic from '@/components/dashboard/DailyTraffic';
 import { MdBarChart, MdDashboard } from 'react-icons/md';
 import { Phone, Info, Ticket, Percent, Headset } from 'lucide-react';
 import { formatUSD } from '@/lib/analytics/format';

@@ -4,9 +4,9 @@
 import React from 'react';
 import { useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import NavLink from '@/horizon/components/link/NavLink';
-import DashIcon from '@/horizon/components/icons/DashIcon';
-import { IRoute } from '@/horizon/types/navigation';
+import Link from 'next/link';
+import { LayoutDashboard } from 'lucide-react';
+import { NavRoute } from './types';
 
 /**
  * Helper function to ensure a path is absolute (starts with /).
@@ -28,13 +28,13 @@ function toAbsPath(path: string): string {
  * Custom Links component adapter for Horizon shell.
  * Extends Horizon's Links pattern to support '/dashboard' layout routes.
  */
-export const SidebarLinks = (props: { routes: IRoute[] }): JSX.Element => {
+export const SidebarLinks = (props: { routes: NavRoute[] }): React.ReactElement => {
   const pathname = usePathname();
   const { routes } = props;
 
   // Verifies if routeName is the one active (in browser input)
   const activeRoute = useCallback(
-    (route: IRoute) => {
+    (route: NavRoute) => {
       // For dashboard routes, check if pathname matches the route path
       if (route.layout === '/dashboard' || route.layout === 'dashboard') {
         if (!route.path) {
@@ -51,7 +51,7 @@ export const SidebarLinks = (props: { routes: IRoute[] }): JSX.Element => {
     [pathname],
   );
 
-  const createLinks = (routes: IRoute[]) => {
+  const createLinks = (routes: NavRoute[]) => {
     return routes.map((route, index) => {
       // Support both '/admin' and '/dashboard' layouts
       if (
@@ -78,25 +78,28 @@ export const SidebarLinks = (props: { routes: IRoute[] }): JSX.Element => {
           href = toAbsPath(`${layoutNormalized}/${pathNormalized}`);
         }
 
+        const isActive = activeRoute(route);
+        const IconElement = route.icon;
+
         return (
-          <NavLink key={index} href={href}>
+          <Link key={index} href={href}>
             <div className="relative mb-3 flex hover:cursor-pointer">
               <li
                 className="my-[3px] flex cursor-pointer items-center px-8"
-                key={index}
               >
                 <span
                   className={`${
-                    activeRoute(route) === true
+                    isActive === true
                       ? 'font-bold text-brand-500 dark:text-white'
                       : 'font-medium text-gray-600'
                   }`}
                 >
-                  {route.icon ? route.icon : <DashIcon />}{' '}
+                  {IconElement ? IconElement : <LayoutDashboard className="h-6 w-6" />}
+                  {' '}
                 </span>
                 <p
                   className={`leading-1 ml-4 flex ${
-                    activeRoute(route) === true
+                    isActive === true
                       ? 'font-bold text-navy-700 dark:text-white'
                       : 'font-medium text-gray-600'
                   }`}
@@ -104,11 +107,11 @@ export const SidebarLinks = (props: { routes: IRoute[] }): JSX.Element => {
                   {route.name}
                 </p>
               </li>
-              {activeRoute(route) ? (
+              {isActive ? (
                 <div className="absolute right-0 top-px h-9 w-1 rounded-lg bg-brand-500 dark:bg-brand-400" />
               ) : null}
             </div>
-          </NavLink>
+          </Link>
         );
       }
       return null;
