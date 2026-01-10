@@ -1,0 +1,22 @@
+<svg width="500" height="300" viewBox="0 0 500 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Operational status visualization -->
+  <rect x="50" y="100" width="400" height="150" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2"/>
+  
+  <!-- Status bars -->
+  <rect x="80" y="130" width="340" height="30" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1"/>
+  <rect x="90" y="135" width="320" height="20" rx="4" fill="#10B981"/>
+  <text x="250" y="150" text-anchor="middle" fill="white" font-family="system-ui" font-size="12" font-weight="600">All Systems Operational</text>
+  
+  <rect x="80" y="180" width="340" height="30" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1"/>
+  <rect x="90" y="185" width="300" height="20" rx="4" fill="#10B981"/>
+  <text x="250" y="200" text-anchor="middle" fill="white" font-family="system-ui" font-size="12" font-weight="600">API: 99.9% Uptime</text>
+  
+  <rect x="80" y="230" width="340" height="30" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1"/>
+  <rect x="90" y="235" width="310" height="20" rx="4" fill="#10B981"/>
+  <text x="250" y="250" text-anchor="middle" fill="white" font-family="system-ui" font-size="12" font-weight="600">Infrastructure: Healthy</text>
+  
+  <!-- Status dots -->
+  <circle cx="450" cy="145" r="6" fill="#10B981"/>
+  <circle cx="450" cy="195" r="6" fill="#10B981"/>
+  <circle cx="450" cy="245" r="6" fill="#10B981"/>
+</svg>

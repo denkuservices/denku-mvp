@@ -25,7 +25,13 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ]
+      ],
+      "routes": ["./src/horizon/routes"],
+      "components/*": ["./src/horizon/components/*"],
+      "contexts/*": ["./src/horizon/contexts/*"],
+      "variables/*": ["./src/horizon/variables/*"],
+      "utils/*": ["./src/horizon/utils/*"],
+      "styles/*": ["./src/horizon/styles/*"]
     }
   },
   "include": [

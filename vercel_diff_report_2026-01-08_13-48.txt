@@ -1,0 +1,3435 @@
+﻿### VERCEL vs LOCAL DIFF REPORT (2026-01-08_13-48)
+Repo: C:/Users/alien/sovereign-ai
+Vercel deploy (base): 851bd4c
+Local HEAD: 851bd4c
+
+## 1) Git status
+## main...origin/main
+ M web/next.config.ts
+ M web/package-lock.json
+ M web/package.json
+ M web/src/app/(app)/DashboardHeader.tsx
+ M web/src/app/(app)/dashboard/analytics/page.tsx
+ M web/src/app/(app)/dashboard/calls/page.tsx
+ M web/src/app/(app)/dashboard/leads/page.tsx
+ M web/src/app/(app)/dashboard/page.tsx
+ M web/src/app/(app)/dashboard/tickets/page.tsx
+ M web/src/app/(app)/layout.tsx
+ M web/src/app/admin/page.tsx
+ M web/src/app/globals.css
+ M web/src/app/layout.tsx
+ M web/src/components/analytics/KpiGrid.tsx
+ M web/src/components/analytics/OutcomeBreakdown.tsx
+ M web/src/components/analytics/TicketsAnalytics.tsx
+ M web/src/components/analytics/TicketsFunnel.tsx
+ M web/src/components/analytics/TicketsKPICards.tsx
+ M web/src/components/analytics/TicketsResponseTimes.tsx
+ M web/src/components/analytics/TicketsSeries.tsx
+ M web/src/components/tickets/TicketFilters.tsx
+ M web/tailwind.config.ts
+ M web/tsconfig.json
+?? supabase/migrations/20250124000000_deduplicate_profiles_and_add_unique_indexes.sql
+?? vercel_diff_report_2026-01-08_13-48.txt
+?? web-folder-schema.txt
+?? web/DELTA_PLAN_TAILWIND.md
+?? web/HORIZON_PREVIEW_STATUS.md
+?? web/HORIZON_SETUP.md
+?? web/project-schema.txt
+?? web/public/horizon/
+?? web/src/app/(app)/_components/
+?? web/src/app/(app)/dashboard/DashboardClient.tsx
+?? web/src/app/admin/data-tables/
+?? web/src/app/admin/default/
+?? web/src/app/admin/layout.tsx
+?? web/src/app/admin/nft-marketplace/
+?? web/src/app/admin/profile/
+?? web/src/app/horizon-preview/
+?? web/src/components/horizon-shell/
+?? web/src/components/ui-horizon/
+?? web/src/horizon/
+
+## 2) Base (Vercel) commit subject
+851bd4c 2026-01-07 16:23:13 -0500 phone added to signup list8
+
+## 3) Changed files: Vercel(base) -> Local HEAD (name-status)
+
+## 4) Full diff: Vercel(base) -> Local HEAD
+
+## 5) Working tree changes (uncommitted): HEAD -> working tree (name-status)
+M	web/next.config.ts
+M	web/package-lock.json
+M	web/package.json
+M	web/src/app/(app)/DashboardHeader.tsx
+M	web/src/app/(app)/dashboard/analytics/page.tsx
+M	web/src/app/(app)/dashboard/calls/page.tsx
+M	web/src/app/(app)/dashboard/leads/page.tsx
+M	web/src/app/(app)/dashboard/page.tsx
+M	web/src/app/(app)/dashboard/tickets/page.tsx
+M	web/src/app/(app)/layout.tsx
+M	web/src/app/admin/page.tsx
+M	web/src/app/globals.css
+M	web/src/app/layout.tsx
+M	web/src/components/analytics/KpiGrid.tsx
+M	web/src/components/analytics/OutcomeBreakdown.tsx
+M	web/src/components/analytics/TicketsAnalytics.tsx
+M	web/src/components/analytics/TicketsFunnel.tsx
+M	web/src/components/analytics/TicketsKPICards.tsx
+M	web/src/components/analytics/TicketsResponseTimes.tsx
+M	web/src/components/analytics/TicketsSeries.tsx
+M	web/src/components/tickets/TicketFilters.tsx
+M	web/tailwind.config.ts
+M	web/tsconfig.json
+
+## 6) Full diff: HEAD -> working tree (uncommitted)
+diff --git a/web/next.config.ts b/web/next.config.ts
+index 2dc09e7..2649f12 100644
+--- a/web/next.config.ts
++++ b/web/next.config.ts
+@@ -1,7 +1,38 @@
+ import type { NextConfig } from "next";
++import path from "path";
+ 
+ const nextConfig: NextConfig = {
+   turbopack: { root: __dirname },
++  async rewrites() {
++    return [
++      // Map Horizon asset paths
++      {
++        source: "/img/:path*",
++        destination: "/horizon/img/:path*",
++      },
++      {
++        source: "/fonts/:path*",
++        destination: "/horizon/fonts/:path*",
++      },
++      {
++        source: "/svg/:path*",
++        destination: "/horizon/svg/:path*",
++      },
++    ];
++  },
++  webpack: (config) => {
++    // Resolve Horizon absolute imports to src/horizon/*
++    config.resolve.alias = {
++      ...config.resolve.alias,
++      'components': path.resolve(__dirname, 'src/horizon/components'),
++      'contexts': path.resolve(__dirname, 'src/horizon/contexts'),
++      'variables': path.resolve(__dirname, 'src/horizon/variables'),
++      'utils': path.resolve(__dirname, 'src/horizon/utils'),
++      'routes': path.resolve(__dirname, 'src/horizon/routes'),
++      'styles': path.resolve(__dirname, 'src/horizon/styles'),
++    };
++    return config;
++  },
+ };
+ 
+ export default nextConfig;
+diff --git a/web/package-lock.json b/web/package-lock.json
+index 0dceec0..bccd768 100644
+--- a/web/package-lock.json
++++ b/web/package-lock.json
+@@ -14,6 +14,8 @@
+         "@radix-ui/react-slot": "^1.2.4",
+         "@supabase/ssr": "^0.8.0",
+         "@supabase/supabase-js": "^2.89.0",
++        "@tanstack/react-table": "^8.21.3",
++        "apexcharts": "^5.3.6",
+         "chrono-node": "^2.9.0",
+         "class-variance-authority": "^0.7.1",
+         "clsx": "^2.1.1",
+@@ -23,7 +25,10 @@
+         "next": "16.1.1",
+         "next-themes": "^0.4.6",
+         "react": "19.2.3",
++        "react-apexcharts": "^1.9.0",
++        "react-calendar": "^6.0.0",
+         "react-dom": "19.2.3",
++        "react-icons": "^5.5.0",
+         "tailwind-merge": "^3.4.0",
+         "zod": "^4.2.1"
+       },
+@@ -2064,6 +2069,64 @@
+         "node": ">=20.0.0"
+       }
+     },
++    "node_modules/@svgdotjs/svg.draggable.js": {
++      "version": "3.0.6",
++      "resolved": "https://registry.npmjs.org/@svgdotjs/svg.draggable.js/-/svg.draggable.js-3.0.6.tgz",
++      "integrity": "sha512-7iJFm9lL3C40HQcqzEfezK2l+dW2CpoVY3b77KQGqc8GXWa6LhhmX5Ckv7alQfUXBuZbjpICZ+Dvq1czlGx7gA==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@svgdotjs/svg.js": "^3.2.4"
++      }
++    },
++    "node_modules/@svgdotjs/svg.filter.js": {
++      "version": "3.0.9",
++      "resolved": "https://registry.npmjs.org/@svgdotjs/svg.filter.js/-/svg.filter.js-3.0.9.tgz",
++      "integrity": "sha512-/69XMRCDoam2HgC4ldHIaDgeQf1ViHIsa0Ld4uWgiXtZ+E24DWHe/9Ib6kbNiZ7WRIdlVokUDR1Fg0kjIpkfbw==",
++      "license": "MIT",
++      "dependencies": {
++        "@svgdotjs/svg.js": "^3.2.4"
++      },
++      "engines": {
++        "node": ">= 0.8.0"
++      }
++    },
++    "node_modules/@svgdotjs/svg.js": {
++      "version": "3.2.5",
++      "resolved": "https://registry.npmjs.org/@svgdotjs/svg.js/-/svg.js-3.2.5.tgz",
++      "integrity": "sha512-/VNHWYhNu+BS7ktbYoVGrCmsXDh+chFMaONMwGNdIBcFHrWqk2jY8fNyr3DLdtQUIalvkPfM554ZSFa3dm3nxQ==",
++      "license": "MIT",
++      "peer": true,
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Fuzzyma"
++      }
++    },
++    "node_modules/@svgdotjs/svg.resize.js": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/@svgdotjs/svg.resize.js/-/svg.resize.js-2.0.5.tgz",
++      "integrity": "sha512-4heRW4B1QrJeENfi7326lUPYBCevj78FJs8kfeDxn5st0IYPIRXoTtOSYvTzFWgaWWXd3YCDE6ao4fmv91RthA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 14.18"
++      },
++      "peerDependencies": {
++        "@svgdotjs/svg.js": "^3.2.4",
++        "@svgdotjs/svg.select.js": "^4.0.1"
++      }
++    },
++    "node_modules/@svgdotjs/svg.select.js": {
++      "version": "4.0.3",
++      "resolved": "https://registry.npmjs.org/@svgdotjs/svg.select.js/-/svg.select.js-4.0.3.tgz",
++      "integrity": "sha512-qkMgso1sd2hXKd1FZ1weO7ANq12sNmQJeGDjs46QwDVsxSRcHmvWKL2NDF7Yimpwf3sl5esOLkPqtV2bQ3v/Jg==",
++      "license": "MIT",
++      "peer": true,
++      "engines": {
++        "node": ">= 14.18"
++      },
++      "peerDependencies": {
++        "@svgdotjs/svg.js": "^3.2.4"
++      }
++    },
+     "node_modules/@swc/helpers": {
+       "version": "0.5.15",
+       "resolved": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.5.15.tgz",
+@@ -2344,6 +2407,39 @@
+         "tailwindcss": "4.1.18"
+       }
+     },
++    "node_modules/@tanstack/react-table": {
++      "version": "8.21.3",
++      "resolved": "https://registry.npmjs.org/@tanstack/react-table/-/react-table-8.21.3.tgz",
++      "integrity": "sha512-5nNMTSETP4ykGegmVkhjcS8tTLW6Vl4axfEGQN3v0zdHYbK4UfoqfPChclTrJ4EoK9QynqAu9oUf8VEmrpZ5Ww==",
++      "license": "MIT",
++      "dependencies": {
++        "@tanstack/table-core": "8.21.3"
++      },
++      "engines": {
++        "node": ">=12"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/tannerlinsley"
++      },
++      "peerDependencies": {
++        "react": ">=16.8",
++        "react-dom": ">=16.8"
++      }
++    },
++    "node_modules/@tanstack/table-core": {
++      "version": "8.21.3",
++      "resolved": "https://registry.npmjs.org/@tanstack/table-core/-/table-core-8.21.3.tgz",
++      "integrity": "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=12"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/tannerlinsley"
++      }
++    },
+     "node_modules/@tybys/wasm-util": {
+       "version": "0.10.1",
+       "resolved": "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.1.tgz",
+@@ -2961,6 +3057,21 @@
+         "win32"
+       ]
+     },
++    "node_modules/@wojtekmaj/date-utils": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/@wojtekmaj/date-utils/-/date-utils-2.0.2.tgz",
++      "integrity": "sha512-Do66mSlSNifFFuo3l9gNKfRMSFi26CRuQMsDJuuKO/ekrDWuTTtE4ZQxoFCUOG+NgxnpSeBq/k5TY8ZseEzLpA==",
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/wojtekmaj/date-utils?sponsor=1"
++      }
++    },
++    "node_modules/@yr/monotone-cubic-spline": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/@yr/monotone-cubic-spline/-/monotone-cubic-spline-1.0.3.tgz",
++      "integrity": "sha512-FQXkOta0XBSUPHndIKON2Y9JeQz5ZeMqLYZVVK93FliNBFm7LNMIZmY6FrMEB9XPcDbE2bekMbZD6kzDkxwYjA==",
++      "license": "MIT"
++    },
+     "node_modules/acorn": {
+       "version": "8.15.0",
+       "resolved": "https://registry.npmjs.org/acorn/-/acorn-8.15.0.tgz",
+@@ -3018,6 +3129,21 @@
+         "url": "https://github.com/chalk/ansi-styles?sponsor=1"
+       }
+     },
++    "node_modules/apexcharts": {
++      "version": "5.3.6",
++      "resolved": "https://registry.npmjs.org/apexcharts/-/apexcharts-5.3.6.tgz",
++      "integrity": "sha512-sVEPw+J0Gp0IHQabKu8cfdsxlfME0e36Wid7RIaPclGM2OUt+O7O4+6mfAmTUYhy5bDk8cNHzEhPfVtLCIXEJA==",
++      "license": "SEE LICENSE IN LICENSE",
++      "peer": true,
++      "dependencies": {
++        "@svgdotjs/svg.draggable.js": "^3.0.4",
++        "@svgdotjs/svg.filter.js": "^3.0.8",
++        "@svgdotjs/svg.js": "^3.2.4",
++        "@svgdotjs/svg.resize.js": "^2.0.2",
++        "@svgdotjs/svg.select.js": "^4.0.1",
++        "@yr/monotone-cubic-spline": "^1.0.3"
++      }
++    },
+     "node_modules/argparse": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
+@@ -4681,6 +4807,18 @@
+         "url": "https://github.com/privatenumber/get-tsconfig?sponsor=1"
+       }
+     },
++    "node_modules/get-user-locale": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/get-user-locale/-/get-user-locale-3.0.0.tgz",
++      "integrity": "sha512-iJfHSmdYV39UUBw7Jq6GJzeJxUr4U+S03qdhVuDsR9gCEnfbqLy9gYDJFBJQL1riqolFUKQvx36mEkp2iGgJ3g==",
++      "license": "MIT",
++      "dependencies": {
++        "memoize": "^10.0.0"
++      },
++      "funding": {
++        "url": "https://github.com/wojtekmaj/get-user-locale?sponsor=1"
++      }
++    },
+     "node_modules/glob-parent": {
+       "version": "6.0.2",
+       "resolved": "https://registry.npmjs.org/glob-parent/-/glob-parent-6.0.2.tgz",
+@@ -5377,7 +5515,6 @@
+       "version": "4.0.0",
+       "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
+       "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==",
+-      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/js-yaml": {
+@@ -5788,7 +5925,6 @@
+       "version": "1.4.0",
+       "resolved": "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
+       "integrity": "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "js-tokens": "^3.0.0 || ^4.0.0"
+@@ -5836,6 +5972,21 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/memoize": {
++      "version": "10.2.0",
++      "resolved": "https://registry.npmjs.org/memoize/-/memoize-10.2.0.tgz",
++      "integrity": "sha512-DeC6b7QBrZsRs3Y02A6A7lQyzFbsQbqgjI6UW0GigGWV+u1s25TycMr0XHZE4cJce7rY/vyw2ctMQqfDkIhUEA==",
++      "license": "MIT",
++      "dependencies": {
++        "mimic-function": "^5.0.1"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sindresorhus/memoize?sponsor=1"
++      }
++    },
+     "node_modules/merge2": {
+       "version": "1.4.1",
+       "resolved": "https://registry.npmjs.org/merge2/-/merge2-1.4.1.tgz",
+@@ -5860,6 +6011,18 @@
+         "node": ">=8.6"
+       }
+     },
++    "node_modules/mimic-function": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/mimic-function/-/mimic-function-5.0.1.tgz",
++      "integrity": "sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/minimatch": {
+       "version": "3.1.2",
+       "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.2.tgz",
+@@ -6048,7 +6211,6 @@
+       "version": "4.1.1",
+       "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
+       "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==",
+-      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=0.10.0"
+@@ -6347,7 +6509,6 @@
+       "version": "15.8.1",
+       "resolved": "https://registry.npmjs.org/prop-types/-/prop-types-15.8.1.tgz",
+       "integrity": "sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "loose-envify": "^1.4.0",
+@@ -6396,6 +6557,44 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/react-apexcharts": {
++      "version": "1.9.0",
++      "resolved": "https://registry.npmjs.org/react-apexcharts/-/react-apexcharts-1.9.0.tgz",
++      "integrity": "sha512-DDBzQFuKdwyCEZnji1yIcjlnV8hRr4VDabS5Y3iuem/WcTq6n4VbjWPzbPm3aOwW4I+rf/gA3zWqhws4z9CwLw==",
++      "license": "SEE LICENSE IN LICENSE",
++      "dependencies": {
++        "prop-types": "^15.8.1"
++      },
++      "peerDependencies": {
++        "apexcharts": ">=4.0.0",
++        "react": ">=16.8.0"
++      }
++    },
++    "node_modules/react-calendar": {
++      "version": "6.0.0",
++      "resolved": "https://registry.npmjs.org/react-calendar/-/react-calendar-6.0.0.tgz",
++      "integrity": "sha512-6wqaki3Us0DNDjZDr0DYIzhSFprNoy4FdPT9Pjy5aD2hJJVjtJwmdMT9VmrTUo949nlk35BOxehThxX62RkuRQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@wojtekmaj/date-utils": "^2.0.2",
++        "clsx": "^2.0.0",
++        "get-user-locale": "^3.0.0",
++        "warning": "^4.0.0"
++      },
++      "funding": {
++        "url": "https://github.com/wojtekmaj/react-calendar?sponsor=1"
++      },
++      "peerDependencies": {
++        "@types/react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
++        "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
++        "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@types/react": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/react-dom": {
+       "version": "19.2.3",
+       "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.3.tgz",
+@@ -6409,11 +6608,19 @@
+         "react": "^19.2.3"
+       }
+     },
++    "node_modules/react-icons": {
++      "version": "5.5.0",
++      "resolved": "https://registry.npmjs.org/react-icons/-/react-icons-5.5.0.tgz",
++      "integrity": "sha512-MEFcXdkP3dLo8uumGI5xN3lDFNsRtrjbOEKDLD7yv76v4wpnEq2Lt2qeHaQOr34I/wPN3s3+N08WkQ+CW37Xiw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "react": "*"
++      }
++    },
+     "node_modules/react-is": {
+       "version": "16.13.1",
+       "resolved": "https://registry.npmjs.org/react-is/-/react-is-16.13.1.tgz",
+       "integrity": "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==",
+-      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/react-remove-scroll": {
+@@ -7519,6 +7726,15 @@
+         }
+       }
+     },
++    "node_modules/warning": {
++      "version": "4.0.3",
++      "resolved": "https://registry.npmjs.org/warning/-/warning-4.0.3.tgz",
++      "integrity": "sha512-rpJyN222KWIvHJ/F53XSZv0Zl/accqHR8et1kpaMTD/fLCRxtV8iX8czMzY7sVZupTI3zcUTg8eycS2kNF9l6w==",
++      "license": "MIT",
++      "dependencies": {
++        "loose-envify": "^1.0.0"
++      }
++    },
+     "node_modules/which": {
+       "version": "2.0.2",
+       "resolved": "https://registry.npmjs.org/which/-/which-2.0.2.tgz",
+diff --git a/web/package.json b/web/package.json
+index b930de6..73bf199 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -15,6 +15,8 @@
+     "@radix-ui/react-slot": "^1.2.4",
+     "@supabase/ssr": "^0.8.0",
+     "@supabase/supabase-js": "^2.89.0",
++    "@tanstack/react-table": "^8.21.3",
++    "apexcharts": "^5.3.6",
+     "chrono-node": "^2.9.0",
+     "class-variance-authority": "^0.7.1",
+     "clsx": "^2.1.1",
+@@ -24,7 +26,10 @@
+     "next": "16.1.1",
+     "next-themes": "^0.4.6",
+     "react": "19.2.3",
++    "react-apexcharts": "^1.9.0",
++    "react-calendar": "^6.0.0",
+     "react-dom": "19.2.3",
++    "react-icons": "^5.5.0",
+     "tailwind-merge": "^3.4.0",
+     "zod": "^4.2.1"
+   },
+diff --git a/web/src/app/(app)/DashboardHeader.tsx b/web/src/app/(app)/DashboardHeader.tsx
+index 9b48528..a08ee7b 100644
+--- a/web/src/app/(app)/DashboardHeader.tsx
++++ b/web/src/app/(app)/DashboardHeader.tsx
+@@ -1,22 +1,8 @@
+ import Link from "next/link";
+ import { AccountMenu } from "./AccountMenu";
++import { DashboardNav } from "./_components/DashboardNav";
+ import { createSupabaseServerClient } from "@/lib/supabase/server";
+ 
+-type NavItem = {
+-  href: string;
+-  label: string;
+-};
+-
+-const NAV: NavItem[] = [
+-  { href: "/dashboard", label: "Dashboard" },
+-  { href: "/dashboard/agents", label: "Agents" },
+-  { href: "/dashboard/calls", label: "Calls" },
+-  { href: "/dashboard/leads", label: "Leads" },
+-  { href: "/dashboard/tickets", label: "Tickets" },
+-  { href: "/dashboard/analytics", label: "Analytics" },
+-  { href: "/dashboard/settings", label: "Settings" },
+-];
+-
+ export default async function DashboardHeader() {
+   // Fetch user data for AccountMenu (minimal query)
+   const supabase = await createSupabaseServerClient();
+@@ -47,36 +33,27 @@ export default async function DashboardHeader() {
+       orgName = org?.name ?? null;
+     }
+   }
+-  
++
+   return (
+-    <header className="border-b bg-white">
++    <header className="border-b border-border bg-card">
+       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+         {/* Left: Brand */}
+         <div className="flex items-center gap-3">
+           <Link
+             href="/dashboard"
+-            className="text-sm font-semibold tracking-tight"
++            className="text-sm font-semibold tracking-tight text-foreground hover:text-foreground/80 transition-colors"
+           >
+             Denku MVP
+           </Link>
+-          <span className="hidden text-xs text-gray-500 sm:inline">
++          <span className="hidden text-xs text-muted-foreground sm:inline">
+             Sovereign AI Console
+           </span>
+         </div>
+ 
+         {/* Right: Nav + Account */}
+-        <div className="flex items-center gap-4">
+-          <nav className="flex items-center gap-4">
+-            {NAV.map((item) => (
+-              <Link
+-                key={item.href}
+-                href={item.href}
+-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+-              >
+-                {item.label}
+-              </Link>
+-            ))}
+-          </nav>
++        <div className="flex items-center gap-6">
++          <DashboardNav />
++          <div className="h-5 w-px bg-border" />
+           <AccountMenu 
+             userEmail={userEmail}
+             userName={userName}
+diff --git a/web/src/app/(app)/dashboard/analytics/page.tsx b/web/src/app/(app)/dashboard/analytics/page.tsx
+index efbd5c9..6089021 100644
+--- a/web/src/app/(app)/dashboard/analytics/page.tsx
++++ b/web/src/app/(app)/dashboard/analytics/page.tsx
+@@ -142,7 +142,7 @@ export default async function AnalyticsPage({
+   }
+ 
+   return (
+-    <div className="p-6 space-y-6">
++    <div className="space-y-6">
+       {/* Header */}
+       <div className="flex items-start justify-between gap-4">
+         <div className="space-y-1">
+@@ -238,7 +238,7 @@ export default async function AnalyticsPage({
+               range={currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d"}
+             />
+           ) : (
+-            <div className="rounded-xl border bg-white p-8 text-center">
++            <div className="rounded-xl border border-border bg-card p-8 text-center">
+               <p className="text-sm text-muted-foreground">Failed to load tickets analytics.</p>
+             </div>
+           )}
+diff --git a/web/src/app/(app)/dashboard/calls/page.tsx b/web/src/app/(app)/dashboard/calls/page.tsx
+index 0f33082..409feb3 100644
+--- a/web/src/app/(app)/dashboard/calls/page.tsx
++++ b/web/src/app/(app)/dashboard/calls/page.tsx
+@@ -3,6 +3,17 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
+ import { resolveOrgId } from "@/lib/analytics/params";
+ import { getOrgTimezone } from "@/lib/tickets/utils.server";
+ import Link from "next/link";
++import {
++  TableCard,
++  TableRoot,
++  TableHeader,
++  TableBody,
++  TableRow,
++  TableHead,
++  TableCell,
++} from "@/components/ui-horizon/table";
++import { Toolbar } from "@/components/ui-horizon/toolbar";
++import { EmptyState } from "@/components/ui-horizon/empty";
+ 
+ // Disable Next.js Server Component caching to ensure fresh data on every request
+ export const dynamic = "force-dynamic";
+@@ -416,14 +427,22 @@ export default async function CallsPage({
+   });
+ 
+   return (
+-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
++    <div className="space-y-6">
+       <div className="mb-6">
+-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+-          Calls
+-        </h1>
+-        <p className="mt-1 text-sm text-gray-600">
+-          Browse recent calls from all agents.
+-        </p>
++        <Toolbar
++          left={
++            <>
++              <div>
++                <h1 className="text-2xl font-bold tracking-tight text-foreground">
++                  Calls
++                </h1>
++                <p className="mt-1 text-sm text-muted-foreground">
++                  Browse recent calls from all agents.
++                </p>
++              </div>
++            </>
++          }
++        />
+       </div>
+ 
+       <div className="mb-6">
+@@ -431,30 +450,30 @@ export default async function CallsPage({
+       </div>
+ 
+       {filteredCalls.length === 0 ? (
+-        <div className="rounded-md border bg-white p-6 text-center text-sm text-gray-700">
+-          {calls.length === 0 ? 'No calls found yet.' : 'No calls match your filters.'}
+-        </div>
++        <EmptyState
++          title={calls.length === 0 ? 'No calls found yet.' : 'No calls match your filters.'}
++        />
+       ) : (
+-        <div className="overflow-x-auto rounded-md border bg-white">
+-          <table className="min-w-full text-sm">
+-            <thead className="bg-gray-50 text-left text-gray-600">
+-              <tr>
+-                <th className="px-4 py-3 font-medium">Agent</th>
+-                <th className="px-4 py-3 font-medium">Outcome</th>
+-                <th className="hidden px-4 py-3 font-medium md:table-cell">
++        <TableCard className="overflow-x-auto p-0">
++          <TableRoot>
++            <TableHeader>
++              <TableRow>
++                <TableHead>Agent</TableHead>
++                <TableHead>Outcome</TableHead>
++                <TableHead className="hidden md:table-cell">
+                   Started
+-                </th>
+-                <th className="hidden px-4 py-3 font-medium sm:table-cell">
++                </TableHead>
++                <TableHead className="hidden sm:table-cell">
+                   Duration
+-                </th>
+-                <th className="hidden px-4 py-3 font-medium lg:table-cell">
++                </TableHead>
++                <TableHead className="hidden lg:table-cell">
+                   Cost
+-                </th>
+-                <th className="px-4 py-3 font-medium text-right">Action</th>
+-              </tr>
+-            </thead>
++                </TableHead>
++                <TableHead className="text-right">Action</TableHead>
++              </TableRow>
++            </TableHeader>
+ 
+-            <tbody>
++            <TableBody>
+               {filteredCalls.map((call) => {
+                 const href = `/dashboard/calls/${call.id}`;
+                 const agentObj = Array.isArray(call.agent)
+@@ -466,19 +485,19 @@ export default async function CallsPage({
+                 const startedValue = call.started_at ?? call.created_at;
+ 
+                 return (
+-                  <tr key={call.id} className="border-t hover:bg-gray-50">
+-                    <td className="px-4 py-3 align-top">
++                  <TableRow key={call.id} className="hover:bg-muted/50">
++                    <TableCell className="align-top">
+                       <Link href={href} className="block group">
+-                        <div className="font-medium text-gray-900 group-hover:underline">
++                        <div className="font-medium text-foreground group-hover:underline">
+                           {agentName}
+                         </div>
+-                        <div className="mt-1 text-xs text-gray-500 md:hidden">
++                        <div className="mt-1 text-xs text-muted-foreground md:hidden">
+                           {formatDate(startedValue)}
+                         </div>
+                       </Link>
+-                    </td>
++                    </TableCell>
+ 
+-                    <td className="px-4 py-3 align-top">
++                    <TableCell className="align-top">
+                       <Link href={href} className="block" tabIndex={-1}>
+                         <span
+                           className={`inline-block max-w-[140px] truncate rounded-full px-2 py-0.5 text-xs font-medium sm:max-w-[200px] ${outcomeBadgeClass(
+@@ -489,44 +508,44 @@ export default async function CallsPage({
+                           {outcomeLabel}
+                         </span>
+                       </Link>
+-                    </td>
++                    </TableCell>
+ 
+-                    <td className="hidden px-4 py-3 align-top md:table-cell">
++                    <TableCell className="hidden align-top md:table-cell">
+                       <Link href={href} className="block" tabIndex={-1}>
+                         {formatDate(startedValue)}
+                       </Link>
+-                    </td>
++                    </TableCell>
+ 
+-                    <td className="hidden px-4 py-3 align-top sm:table-cell">
++                    <TableCell className="hidden align-top sm:table-cell">
+                       <Link href={href} className="block" tabIndex={-1}>
+                         <span className={getDurationClass(call.duration_seconds)}>
+                           {formatDuration(call.duration_seconds)}
+                         </span>
+                       </Link>
+-                    </td>
++                    </TableCell>
+ 
+-                    <td className="hidden px-4 py-3 align-top lg:table-cell">
++                    <TableCell className="hidden align-top lg:table-cell">
+                       <Link href={href} className="block" tabIndex={-1}>
+                         <span className={getCostClass(call.cost_usd)}>
+                           {money(call.cost_usd)}
+                         </span>
+                       </Link>
+-                    </td>
++                    </TableCell>
+ 
+-                    <td className="px-4 py-3 text-right align-top">
++                    <TableCell className="text-right align-top">
+                       <Link
+                         href={href}
+-                        className="rounded-md border bg-white px-2.5 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
++                        className="rounded-md border border-border bg-card px-2.5 py-1 text-sm font-medium text-foreground shadow-sm hover:bg-muted"
+                       >
+                         View
+                       </Link>
+-                    </td>
+-                  </tr>
++                    </TableCell>
++                  </TableRow>
+                 );
+               })}
+-            </tbody>
+-          </table>
+-        </div>
++            </TableBody>
++          </TableRoot>
++        </TableCard>
+       )}
+     </div>
+   );
+diff --git a/web/src/app/(app)/dashboard/leads/page.tsx b/web/src/app/(app)/dashboard/leads/page.tsx
+index 63fd1a5..14e6924 100644
+--- a/web/src/app/(app)/dashboard/leads/page.tsx
++++ b/web/src/app/(app)/dashboard/leads/page.tsx
+@@ -219,30 +219,32 @@ export default async function Page({
+       </div>
+ 
+       {/* Controls */}
+-      <form className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+-        <div className="flex-1 space-y-2">
+-          <label className="text-sm font-medium">Search</label>
+-          <input
+-            name="q"
+-            defaultValue={q}
+-            placeholder="Name, phone, or emailΓÇª"
+-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+-          />
+-        </div>
++      <form className="space-y-3">
++        <div className="grid gap-3 md:grid-cols-2">
++          <div className="space-y-2">
++            <label className="text-sm font-medium">Search</label>
++            <input
++              name="q"
++              defaultValue={q}
++              placeholder="Name, phone, or emailΓÇª"
++              className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
++            />
++          </div>
+ 
+-        <div className="w-full md:w-56 space-y-2">
+-          <label className="text-sm font-medium">Status</label>
+-          <select
+-            name="status"
+-            defaultValue={status}
+-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+-          >
+-            <option value="">All</option>
+-            <option value="new">New</option>
+-            <option value="contacted">Contacted</option>
+-            <option value="qualified">Qualified</option>
+-            <option value="unqualified">Unqualified</option>
+-          </select>
++          <div className="space-y-2">
++            <label className="text-sm font-medium">Status</label>
++            <select
++              name="status"
++              defaultValue={status}
++              className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
++            >
++              <option value="">All</option>
++              <option value="new">New</option>
++              <option value="contacted">Contacted</option>
++              <option value="qualified">Qualified</option>
++              <option value="unqualified">Unqualified</option>
++            </select>
++          </div>
+         </div>
+ 
+         <div className="flex gap-2">
+diff --git a/web/src/app/(app)/dashboard/page.tsx b/web/src/app/(app)/dashboard/page.tsx
+index 28cfdd9..94bf3b1 100644
+--- a/web/src/app/(app)/dashboard/page.tsx
++++ b/web/src/app/(app)/dashboard/page.tsx
+@@ -1,332 +1,13 @@
+-import Link from "next/link";
+-import { getDashboardOverview } from "@/lib/dashboard/getDashboardOverview";
+-import {
+-  Users,
+-  Phone,
+-  CheckCircle2,
+-  Circle,
+-  Bot,
+-  DollarSign,
+-  TrendingUp,
+-  UserPlus,
+-  Calendar,
+-} from "lucide-react";
+-import { formatUSD } from "@/lib/analytics/format";
+-
++import { getDashboardOverview } from '@/lib/dashboard/getDashboardOverview';
++import DashboardClient from './DashboardClient';
++
++/**
++ * Server component for dashboard page.
++ * Fetches data server-side and passes it to the client component wrapper.
++ * This ensures proper App Router architecture: Server Component ΓåÆ Client Component.
++ */
+ export default async function DashboardPage() {
+   const data = await getDashboardOverview();
+ 
+-  return (
+-    <div className="space-y-6 pb-10">
+-      {/* Header */}
+-      <DashboardHeader userName={data.user.name} orgName={data.user.org} />
+-
+-      {/* SECTION 1: Hero Value - Estimated Savings */}
+-      <HeroSavingsCard estimatedSavings={data.metrics.estimated_savings} />
+-
+-      {/* SECTION 2: System Health Snapshot */}
+-      <SystemHealthSnapshot
+-        agentsActive={data.metrics.agents_active}
+-        callsLast7d={data.metrics.calls_last_7d}
+-        systemStatus={data.system_status}
+-        ticketsCount={data.metrics.tickets_count}
+-        appointmentsCount={data.metrics.appointments_count}
+-      />
+-
+-      {/* SECTION 3: Recent Activity */}
+-      <div className="grid gap-6 lg:grid-cols-3">
+-        <div className="lg:col-span-2">
+-          <RecentActivityCard feed={data.feed} />
+-        </div>
+-
+-        {/* SECTION 4: AI Impact Summary */}
+-        <div className="lg:col-span-1">
+-          <AIImpactSummaryCard
+-            callsTotal={data.metrics.calls_total}
+-            leadsCount={data.metrics.leads_count}
+-            appointmentsCount={data.metrics.appointments_count}
+-            estimatedSavings={data.metrics.estimated_savings}
+-          />
+-        </div>
+-      </div>
+-
+-      {/* SECTION 5: Go-Live Readiness (Simplified) */}
+-      <GoLiveReadinessCard
+-        score={data.readiness.score}
+-        steps={data.readiness.steps}
+-      />
+-    </div>
+-  );
+-}
+-
+-// --- Components ---
+-
+-function DashboardHeader({ userName, orgName }: { userName: string; orgName: string }) {
+-  return (
+-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+-      <div>
+-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+-        <p className="text-sm text-muted-foreground mt-1">
+-          Your AI operations at a glance
+-        </p>
+-      </div>
+-      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-gray-50 px-3 py-1.5 rounded-full border">
+-        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+-        <span>{orgName}</span>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function HeroSavingsCard({ estimatedSavings }: { estimatedSavings: number }) {
+-  return (
+-    <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white p-10 shadow-sm">
+-      <div className="flex items-start justify-between">
+-        <div className="flex-1">
+-          <div className="flex items-center gap-2 mb-3">
+-            <DollarSign className="h-5 w-5 text-green-600" />
+-            <p className="text-sm font-semibold text-muted-foreground">Estimated Savings</p>
+-            <div
+-              className="cursor-help"
+-              title="Estimated based on $25/hour average human agent cost."
+-            >
+-              <svg
+-                className="h-4 w-4 text-muted-foreground"
+-                fill="none"
+-                viewBox="0 0 24 24"
+-                stroke="currentColor"
+-                strokeWidth={2}
+-              >
+-                <path
+-                  strokeLinecap="round"
+-                  strokeLinejoin="round"
+-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+-                />
+-              </svg>
+-            </div>
+-          </div>
+-          <p className="text-5xl font-extrabold text-green-600 mt-2">
+-            +{formatUSD(estimatedSavings)}
+-          </p>
+-          <p className="text-sm text-muted-foreground mt-3">
+-            Estimated savings from AI agents
+-          </p>
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function SystemHealthSnapshot({
+-  agentsActive,
+-  callsLast7d,
+-  systemStatus,
+-  ticketsCount,
+-  appointmentsCount,
+-}: {
+-  agentsActive: number;
+-  callsLast7d: number;
+-  systemStatus: "Healthy" | "Attention Needed";
+-  ticketsCount?: number;
+-  appointmentsCount?: number;
+-}) {
+-  return (
+-    <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+-      {/* 1. Active Agents */}
+-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+-          <Users className="h-4 w-4" />
+-          Active Agents
+-        </div>
+-        <div className="text-3xl font-bold">{agentsActive}</div>
+-      </div>
+-
+-      {/* 2. Calls Handled */}
+-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+-          <Phone className="h-4 w-4" />
+-          Calls Handled
+-        </div>
+-        <div className="text-3xl font-bold">{callsLast7d.toLocaleString()}</div>
+-        <div className="text-xs text-muted-foreground mt-1">Last 7 days ┬╖ Active</div>
+-      </div>
+-
+-      {/* 3. Appointments Created */}
+-      {appointmentsCount !== undefined && (
+-        <div className="rounded-xl border bg-white p-5 shadow-sm">
+-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+-            <Calendar className="h-4 w-4" />
+-            Appointments Created
+-          </div>
+-          <div className="text-3xl font-bold">{appointmentsCount.toLocaleString()}</div>
+-        </div>
+-      )}
+-
+-      {/* 4. Tickets Created */}
+-      {ticketsCount !== undefined && (
+-        <div className="rounded-xl border bg-white p-5 shadow-sm">
+-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+-            <Circle className="h-4 w-4" />
+-            Tickets Created
+-          </div>
+-          <div className="text-3xl font-bold">{ticketsCount.toLocaleString()}</div>
+-        </div>
+-      )}
+-
+-      {/* 5. System Status */}
+-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+-          System Status
+-        </div>
+-        <div className="flex flex-col gap-2">
+-          <span
+-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium w-fit ${
+-              systemStatus === "Healthy"
+-                ? "bg-green-100 text-green-700"
+-                : "bg-yellow-100 text-yellow-700"
+-            }`}
+-          >
+-            {systemStatus === "Healthy" ? (
+-              <CheckCircle2 className="h-3 w-3" />
+-            ) : (
+-              <Circle className="h-3 w-3" />
+-            )}
+-            {systemStatus}
+-          </span>
+-          {systemStatus === "Healthy" && (
+-            <p className="text-xs text-muted-foreground">No issues detected</p>
+-          )}
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-interface FeedItem {
+-  id: string;
+-  message: string;
+-  time: string;
+-}
+-
+-function RecentActivityCard({ feed }: { feed: FeedItem[] }) {
+-  return (
+-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+-      <h3 className="font-semibold mb-4">Recent Activity</h3>
+-      <div className="space-y-4">
+-        {feed.length > 0 ? (
+-          feed.map((item) => (
+-            <div key={item.id} className="flex gap-3 items-start text-sm">
+-              <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+-              <div className="flex-1">
+-                <p className="text-gray-900">{item.message}</p>
+-                <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
+-              </div>
+-            </div>
+-          ))
+-        ) : (
+-          <div className="text-sm text-muted-foreground">No recent activity.</div>
+-        )}
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function AIImpactSummaryCard({
+-  callsTotal,
+-  leadsCount,
+-  appointmentsCount,
+-  estimatedSavings,
+-}: {
+-  callsTotal: number;
+-  leadsCount: number;
+-  appointmentsCount: number;
+-  estimatedSavings: number;
+-}) {
+-  return (
+-    <div className="rounded-xl border bg-white p-5 shadow-sm h-full flex flex-col">
+-      <h3 className="font-semibold mb-4">AI Impact Summary</h3>
+-      <div className="flex-1 space-y-3">
+-        <div className="flex items-start gap-3">
+-          <Phone className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+-          <p className="text-sm text-gray-900">
+-            AI agents handled <span className="font-semibold">{callsTotal.toLocaleString()}</span> calls
+-          </p>
+-        </div>
+-        <div className="flex items-start gap-3">
+-          <UserPlus className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+-          <p className="text-sm text-gray-900">
+-            Generated <span className="font-semibold">{leadsCount.toLocaleString()}</span> leads
+-          </p>
+-        </div>
+-        <div className="flex items-start gap-3">
+-          <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+-          <p className="text-sm text-gray-900">
+-            Created <span className="font-semibold">{appointmentsCount.toLocaleString()}</span> appointments
+-          </p>
+-        </div>
+-        <div className="flex items-start gap-3">
+-          <DollarSign className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+-          <p className="text-sm text-gray-900">
+-            Saved you <span className="font-semibold text-green-600">{formatUSD(estimatedSavings)}</span> vs human agents
+-          </p>
+-        </div>
+-      </div>
+-      <p className="text-xs text-muted-foreground mt-4 pt-4 border-t">
+-        All activity is within expected performance ranges.
+-      </p>
+-    </div>
+-  );
+-}
+-
+-interface Step {
+-  label: string;
+-  done: boolean;
+-}
+-
+-function GoLiveReadinessCard({ score, steps }: { score: number; steps: Step[] }) {
+-  // Show only incomplete steps (max 2-3)
+-  const incompleteSteps = steps.filter((s) => !s.done).slice(0, 3);
+-  const allSteps = steps;
+-
+-  return (
+-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+-      <div className="flex items-center justify-between mb-4">
+-        <h3 className="font-semibold">Go-Live Readiness</h3>
+-        <span className="text-sm font-bold">{score}%</span>
+-      </div>
+-      <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+-        <div
+-          className="bg-black h-2 rounded-full transition-all"
+-          style={{ width: `${score}%` }}
+-        />
+-      </div>
+-      {incompleteSteps.length > 0 ? (
+-        <div className="space-y-2">
+-          <p className="text-xs font-medium text-muted-foreground mb-2">Almost there. Complete the remaining steps to go live.</p>
+-          {allSteps.map((step, i) => (
+-            <div key={i} className="flex items-center gap-3 text-sm">
+-              {step.done ? (
+-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+-              ) : (
+-                <Circle className="h-4 w-4 text-gray-300" />
+-              )}
+-              <span className={step.done ? "text-gray-900" : "text-muted-foreground"}>
+-                {step.label}
+-              </span>
+-            </div>
+-          ))}
+-        </div>
+-      ) : (
+-        <div className="space-y-2">
+-          <p className="text-sm text-green-600 font-medium mb-2">You're ready to go live.</p>
+-          {allSteps.map((step, i) => (
+-            <div key={i} className="flex items-center gap-3 text-sm">
+-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+-              <span className="text-gray-900">{step.label}</span>
+-            </div>
+-          ))}
+-        </div>
+-      )}
+-    </div>
+-  );
++  return <DashboardClient data={data} />;
+ }
+diff --git a/web/src/app/(app)/dashboard/tickets/page.tsx b/web/src/app/(app)/dashboard/tickets/page.tsx
+index 76d6db3..1c4622c 100644
+--- a/web/src/app/(app)/dashboard/tickets/page.tsx
++++ b/web/src/app/(app)/dashboard/tickets/page.tsx
+@@ -10,6 +10,17 @@ import { TicketFilters } from "@/components/tickets/TicketFilters";
+ import { StatusBadge, PriorityBadge } from "@/components/tickets/TicketBadges";
+ import { TicketQuickActions } from "@/components/tickets/TicketQuickActions";
+ import { Phone } from "lucide-react";
++import {
++  TableCard,
++  TableRoot,
++  TableHeader,
++  TableBody,
++  TableRow,
++  TableHead,
++  TableCell,
++} from "@/components/ui-horizon/table";
++import { Toolbar } from "@/components/ui-horizon/toolbar";
++import { EmptyState } from "@/components/ui-horizon/empty";
+ 
+ function asString(v: string | string[] | undefined) {
+   if (!v) return "";
+@@ -74,7 +85,7 @@ export default async function TicketsPage({
+   }).length;
+ 
+   return (
+-    <div className="p-6 space-y-6">
++    <div className="space-y-6">
+       {/* Workspace Paused Banner */}
+       {isPaused && (
+         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+@@ -83,44 +94,47 @@ export default async function TicketsPage({
+       )}
+ 
+       {/* Header */}
+-      <div className="flex items-start justify-between gap-4">
+-        <div className="space-y-1">
+-          <h1 className="text-2xl font-semibold tracking-tight">Tickets</h1>
+-          <p className="text-sm text-muted-foreground">
+-            Operational follow-ups and escalations created from calls and lead activity.
+-          </p>
+-        </div>
+-
+-        {canMutate && (
+-          isPaused ? (
+-            <span
+-              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
+-              title="Workspace is paused"
+-            >
+-              New ticket
+-            </span>
+-          ) : (
+-            <Link
+-              href="/dashboard/tickets/new"
+-              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+-              title="Create new ticket"
+-            >
+-              New ticket
+-            </Link>
++      <Toolbar
++        left={
++          <div className="space-y-1">
++            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Tickets</h1>
++            <p className="text-sm text-muted-foreground">
++              Operational follow-ups and escalations created from calls and lead activity.
++            </p>
++          </div>
++        }
++        right={
++          canMutate && (
++            isPaused ? (
++              <span
++                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
++                title="Workspace is paused"
++              >
++                New ticket
++              </span>
++            ) : (
++              <Link
++                href="/dashboard/tickets/new"
++                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
++                title="Create new ticket"
++              >
++                New ticket
++              </Link>
++            )
+           )
+-        )}
+-      </div>
++        }
++      />
+ 
+       {/* KPI Cards */}
+       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+-        <div className="rounded-xl border bg-white p-4">
++        <div className="rounded-xl border border-border bg-card p-4">
+           <p className="text-sm text-muted-foreground">Open</p>
+-          <p className="mt-1 text-2xl font-semibold">{openCount}</p>
++          <p className="mt-1 text-2xl font-semibold text-foreground">{openCount}</p>
+           <p className="mt-1 text-xs text-muted-foreground">Requires attention</p>
+         </div>
+-        <div className="rounded-xl border bg-white p-4">
++        <div className="rounded-xl border border-border bg-card p-4">
+           <p className="text-sm text-muted-foreground">Needs attention</p>
+-          <p className="mt-1 text-2xl font-semibold">{needsAttentionCount}</p>
++          <p className="mt-1 text-2xl font-semibold text-foreground">{needsAttentionCount}</p>
+           <p className="mt-1 text-xs text-muted-foreground">Open + High/Urgent priority</p>
+         </div>
+       </div>
+@@ -135,9 +149,9 @@ export default async function TicketsPage({
+       />
+ 
+       {/* Table */}
+-      <div className="rounded-xl border bg-white">
+-        <div className="border-b p-4">
+-          <p className="text-sm font-medium">Results</p>
++      <TableCard>
++        <div className="border-b border-border p-4">
++          <p className="text-sm font-medium text-foreground">Results</p>
+           <p className="text-xs text-muted-foreground">
+             {total} ticket{total !== 1 ? "s" : ""}
+             {totalPages > 1 && ` ┬╖ Page ${page} of ${totalPages}`}
+@@ -145,54 +159,54 @@ export default async function TicketsPage({
+         </div>
+ 
+         {rows.length === 0 ? (
+-          <div className="p-10 text-center">
+-            <p className="text-sm font-medium">No tickets found</p>
+-            <p className="mt-1 text-sm text-muted-foreground">
+-              {q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
+-            </p>
+-            {canMutate && !isPaused && (
+-              <Link
+-                href="/dashboard/tickets/new"
+-                className="mt-4 inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+-              >
+-                New ticket
+-              </Link>
+-            )}
+-          </div>
++          <EmptyState
++            title="No tickets found"
++            description={q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
++            action={
++              canMutate && !isPaused ? (
++                <Link
++                  href="/dashboard/tickets/new"
++                  className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
++                >
++                  New ticket
++                </Link>
++              ) : undefined
++            }
++          />
+         ) : (
+           <div className="overflow-x-auto">
+-            <table className="min-w-full text-sm">
+-              <thead className="text-left text-xs text-muted-foreground">
+-                <tr className="border-b">
+-                  <th className="px-4 py-3 font-medium">Subject</th>
+-                  <th className="px-4 py-3 font-medium">Lead</th>
+-                  <th className="px-4 py-3 font-medium">Status</th>
+-                  <th className="px-4 py-3 font-medium">Priority</th>
+-                  <th className="px-4 py-3 font-medium">Created</th>
+-                  <th className="px-4 py-3 font-medium">Updated</th>
+-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
+-                </tr>
+-              </thead>
+-              <tbody>
++            <TableRoot>
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Subject</TableHead>
++                  <TableHead>Lead</TableHead>
++                  <TableHead>Status</TableHead>
++                  <TableHead>Priority</TableHead>
++                  <TableHead>Created</TableHead>
++                  <TableHead>Updated</TableHead>
++                  <TableHead className="text-right">Actions</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
+                 {rows.map((item) => {
+                   const { ticket, lead, call } = item;
+                   return (
+-                    <tr
++                    <TableRow
+                       key={ticket.id}
+-                      className="border-b last:border-b-0 hover:bg-zinc-50"
++                      className="hover:bg-muted/50"
+                     >
+-                      <td className="px-4 py-3">
++                      <TableCell>
+                         {/* RSC: Cannot pass onClick handlers from Server to Client. Use Link for navigation instead. */}
+                         <Link href={`/dashboard/tickets/${ticket.id}`} className="block">
+-                          <div className="font-medium">{ticket.subject}</div>
++                          <div className="font-medium text-foreground">{ticket.subject}</div>
+                           <div className="text-xs text-muted-foreground">Ticket ID: {ticket.id.slice(0, 8)}...</div>
+                         </Link>
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3">
++                      <TableCell>
+                         {lead ? (
+                           <div>
+-                            <div className="font-medium">{lead.name || "ΓÇö"}</div>
++                            <div className="font-medium text-foreground">{lead.name || "ΓÇö"}</div>
+                             {lead.phone && (
+                               <div className="text-xs text-muted-foreground">{lead.phone}</div>
+                             )}
+@@ -203,31 +217,31 @@ export default async function TicketsPage({
+                         ) : (
+                           <span className="text-muted-foreground">ΓÇö</span>
+                         )}
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3">
++                      <TableCell>
+                         <StatusBadge status={ticket.status} />
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3">
++                      <TableCell>
+                         <PriorityBadge priority={ticket.priority} />
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3 text-muted-foreground">
++                      <TableCell className="text-muted-foreground">
+                         {formatDateInTZ(ticket.created_at, timezone)}
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3 text-muted-foreground">
++                      <TableCell className="text-muted-foreground">
+                         {formatDateInTZ(ticket.updated_at, timezone)}
+-                      </td>
++                      </TableCell>
+ 
+-                      <td className="px-4 py-3 text-right">
++                      <TableCell className="text-right">
+                         {/* RSC: No onClick handlers needed - Links handle navigation natively */}
+                         <div className="flex items-center justify-end gap-2">
+                           {call && (
+                             <Link
+                               href={`/dashboard/calls/${call.id}`}
+-                              className="rounded-md border bg-white p-1.5 hover:bg-zinc-50"
++                              className="rounded-md border border-border bg-card p-1.5 hover:bg-muted"
+                               title="View call"
+                             >
+                               <Phone className="h-4 w-4" />
+@@ -247,23 +261,23 @@ export default async function TicketsPage({
+                           )}
+                           <Link
+                             href={`/dashboard/tickets/${ticket.id}`}
+-                            className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
++                            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                           >
+                             View
+                           </Link>
+                         </div>
+-                      </td>
+-                    </tr>
++                      </TableCell>
++                    </TableRow>
+                   );
+                 })}
+-              </tbody>
+-            </table>
++              </TableBody>
++            </TableRoot>
+           </div>
+         )}
+ 
+         {/* Pagination */}
+         {totalPages > 1 && (
+-          <div className="border-t p-4 flex items-center justify-between">
++          <div className="border-t border-border p-4 flex items-center justify-between">
+             <div className="text-sm text-muted-foreground">
+               Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}
+             </div>
+@@ -276,7 +290,7 @@ export default async function TicketsPage({
+                     ...(priority && { priority }),
+                     page: String(page - 1),
+                   }).toString()}`}
+-                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
++                  className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                 >
+                   Previous
+                 </Link>
+@@ -289,7 +303,7 @@ export default async function TicketsPage({
+                     ...(priority && { priority }),
+                     page: String(page + 1),
+                   }).toString()}`}
+-                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
++                  className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                 >
+                   Next
+                 </Link>
+@@ -297,7 +311,7 @@ export default async function TicketsPage({
+             </div>
+           </div>
+         )}
+-      </div>
++      </TableCard>
+     </div>
+   );
+ }
+diff --git a/web/src/app/(app)/layout.tsx b/web/src/app/(app)/layout.tsx
+index e011d8e..a47fea7 100644
+--- a/web/src/app/(app)/layout.tsx
++++ b/web/src/app/(app)/layout.tsx
+@@ -1,6 +1,13 @@
+-import Link from "next/link";
+-import DashboardHeader from "@/app/(app)/DashboardHeader";
++import { DM_Sans } from "next/font/google";
+ import { requireVerifiedEmail } from "@/lib/auth/requireVerifiedEmail";
++import HorizonShell from "@/components/horizon-shell/HorizonShell";
++import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
++
++const dmSans = DM_Sans({
++  subsets: ["latin"],
++  variable: "--font-dm-sans",
++  display: "swap",
++});
+ 
+ export default async function AppLayout({
+   children,
+@@ -11,18 +18,11 @@ export default async function AppLayout({
+   await requireVerifiedEmail();
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50">
+-      {/* Header */}
+-      <div className="border-b bg-white">
+-        <div className="mx-auto max-w-5xl px-4 py-3">
+-          <DashboardHeader />
+-        </div>
++    <>
++      <HorizonStylesheet />
++      <div className={`${dmSans.className} w-full`}>
++        <HorizonShell>{children}</HorizonShell>
+       </div>
+-
+-      {/* Content */}
+-      <main className="mx-auto max-w-5xl px-4 py-8">
+-        {children}
+-      </main>
+-    </div>
++    </>
+   );
+ }
+diff --git a/web/src/app/admin/page.tsx b/web/src/app/admin/page.tsx
+index 282e74f..526796d 100644
+--- a/web/src/app/admin/page.tsx
++++ b/web/src/app/admin/page.tsx
+@@ -1,193 +1,2 @@
+-import { supabaseAdmin } from "@/lib/supabase/admin";
+-
+-type SearchParams = {
+-  org?: string;
+-};
+-
+-export default async function AdminPage({
+-  searchParams,
+-}: {
+-  searchParams: Promise<SearchParams>;
+-}) {
+-  const sp = await searchParams;
+-  const orgId = sp.org ?? '';
+-
+-  if (!orgId) {
+-    return (
+-      <main className="p-6 space-y-4">
+-        <h1 className="text-2xl font-semibold">Admin</h1>
+-        <p className="text-sm text-gray-400">
+-          Missing <code>org</code> query param.
+-        </p>
+-        <p className="text-sm">
+-          Example:{' '}
+-          <code>
+-            /admin?org=15a79057-7cca-4b17-9076-59d05b4dd375
+-          </code>
+-        </p>
+-      </main>
+-    );
+-  }
+-
+-  const [leadsRes, callsRes, ticketsRes, apptsRes] = await Promise.all([
+-    supabaseAdmin
+-      .from('leads')
+-      .select('id, name, phone, status, source, created_at')
+-      .eq('org_id', orgId)
+-      .order('created_at', { ascending: false })
+-      .limit(20),
+-    supabaseAdmin
+-      .from('calls')
+-      .select('id, vapi_call_id, from_phone, to_phone, outcome, created_at')
+-      .eq('org_id', orgId)
+-      .order('created_at', { ascending: false })
+-      .limit(20),
+-    supabaseAdmin
+-      .from('tickets')
+-      .select('id, subject, status, priority, created_at')
+-      .eq('org_id', orgId)
+-      .order('created_at', { ascending: false })
+-      .limit(20),
+-    supabaseAdmin
+-      .from('appointments')
+-      .select('id, start_at, end_at, status, created_at')
+-      .eq('org_id', orgId)
+-      .order('start_at', { ascending: true })
+-      .limit(20),
+-  ]);
+-
+-  const leads = leadsRes.data ?? [];
+-  const calls = callsRes.data ?? [];
+-  const tickets = ticketsRes.data ?? [];
+-  const appointments = apptsRes.data ?? [];
+-
+-  return (
+-    <main className="p-6 space-y-6">
+-      <header className="space-y-1">
+-        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+-        <p className="text-sm text-gray-400">
+-          Org: <code>{orgId}</code>
+-        </p>
+-      </header>
+-
+-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+-        <Card title="Leads (latest)">
+-          <SimpleTable
+-            headers={['Name', 'Phone', 'Status', 'Source', 'Created']}
+-            rows={leads.map((l) => [
+-              l.name ?? '-',
+-              l.phone ?? '-',
+-              l.status ?? '-',
+-              l.source ?? '-',
+-              formatDate(l.created_at),
+-            ])}
+-            empty="No leads yet."
+-          />
+-        </Card>
+-
+-        <Card title="Calls (latest)">
+-          <SimpleTable
+-            headers={['From', 'To', 'Outcome', 'Created', 'Vapi Call ID']}
+-            rows={calls.map((c) => [
+-              c.from_phone ?? '-',
+-              c.to_phone ?? '-',
+-              c.outcome ?? '-',
+-              formatDate(c.created_at),
+-              c.vapi_call_id ?? '-',
+-            ])}
+-            empty="No calls yet."
+-          />
+-        </Card>
+-
+-        <Card title="Tickets (latest)">
+-          <SimpleTable
+-            headers={['Subject', 'Status', 'Priority', 'Created']}
+-            rows={tickets.map((t) => [
+-              t.subject ?? '-',
+-              t.status ?? '-',
+-              t.priority ?? '-',
+-              formatDate(t.created_at),
+-            ])}
+-            empty="No tickets yet."
+-          />
+-        </Card>
+-
+-        <Card title="Appointments (upcoming)">
+-          <SimpleTable
+-            headers={['Start', 'End', 'Status', 'Created']}
+-            rows={appointments.map((a) => [
+-              formatDate(a.start_at),
+-              a.end_at ? formatDate(a.end_at) : '-',
+-              a.status ?? '-',
+-              formatDate(a.created_at),
+-            ])}
+-            empty="No appointments yet."
+-          />
+-        </Card>
+-      </section>
+-    </main>
+-  );
+-}
+-
+-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+-  return (
+-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+-      <div className="flex items-center justify-between mb-3">
+-        <h2 className="text-lg font-medium">{title}</h2>
+-      </div>
+-      {children}
+-    </div>
+-  );
+-}
+-
+-function SimpleTable({
+-  headers,
+-  rows,
+-  empty,
+-}: {
+-  headers: string[];
+-  rows: (string | number)[][];
+-  empty: string;
+-}) {
+-  if (!rows.length) {
+-    return <p className="text-sm text-gray-400">{empty}</p>;
+-  }
+-
+-  return (
+-    <div className="overflow-auto">
+-      <table className="w-full text-sm">
+-        <thead className="text-gray-400">
+-          <tr>
+-            {headers.map((h) => (
+-              <th key={h} className="text-left font-medium py-2 pr-4">
+-                {h}
+-              </th>
+-            ))}
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {rows.map((r, idx) => (
+-            <tr key={idx} className="border-t border-white/10">
+-              {r.map((cell, cidx) => (
+-                <td key={cidx} className="py-2 pr-4 align-top">
+-                  {cell as any}
+-                </td>
+-              ))}
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
+-    </div>
+-  );
+-}
+-
+-function formatDate(input: any) {
+-  if (!input) return '-';
+-  try {
+-    const d = new Date(input);
+-    return d.toLocaleString();
+-  } catch {
+-    return String(input);
+-  }
+-}
+-
++// Re-export Horizon Admin page
++export { default } from "@/horizon/app/admin/page";
+diff --git a/web/src/app/globals.css b/web/src/app/globals.css
+index 3e741bd..6944023 100644
+--- a/web/src/app/globals.css
++++ b/web/src/app/globals.css
+@@ -1,3 +1,5 @@
++@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800&display=swap');
++
+ @import "tailwindcss";
+ 
+ @custom-variant dark (&:is(.dark *));
+@@ -43,6 +45,20 @@
+   --radius-2xl: calc(var(--radius) + 8px);
+   --radius-3xl: calc(var(--radius) + 12px);
+   --radius-4xl: calc(var(--radius) + 16px);
++  
++  /* Horizon UI color tokens */
++  --color-background-100: #f4f7fe;
++  --color-background-900: #0b1437;
++  --color-navy-700: #0b1437;
++  --color-navy-800: #1a1f3a;
++  --color-navy-900: #1e293b;
++  --color-brand-500: #3b82f6;
++  --color-lightPrimary: #e0f2fe;
++  
++  /* Horizon UI shadow tokens */
++  --shadow-3xl: 0px 18px 40px rgba(112, 144, 176, 0.12);
++  --shadow-shadow-500: 0px 18px 40px rgba(112, 144, 176, 0.12);
++  --shadow-shadow-100: 0px 18px 40px rgba(112, 144, 176, 0.12);
+ }
+ 
+ :root {
+@@ -115,9 +131,6 @@
+ }
+ 
+ @layer base {
+-  * {
+-    @apply border-border outline-ring/50;
+-  }
+   body {
+     @apply bg-background text-foreground;
+   }
+diff --git a/web/src/app/layout.tsx b/web/src/app/layout.tsx
+index 0e080b1..6aa4849 100644
+--- a/web/src/app/layout.tsx
++++ b/web/src/app/layout.tsx
+@@ -2,8 +2,8 @@ import './globals.css';
+ 
+ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+-    <html lang="en">
+-      <body>{children}</body>
++    <html lang="en" className="h-full">
++      <body className="h-full">{children}</body>
+     </html>
+   );
+ }
+diff --git a/web/src/components/analytics/KpiGrid.tsx b/web/src/components/analytics/KpiGrid.tsx
+index f39f9b0..efde540 100644
+--- a/web/src/components/analytics/KpiGrid.tsx
++++ b/web/src/components/analytics/KpiGrid.tsx
+@@ -1,5 +1,9 @@
++'use client';
++
++import Widget from '@/horizon/components/widget/Widget';
+ import { formatUSD, formatDuration } from "@/lib/analytics/format";
+ import type { AnalyticsSummary } from "@/lib/analytics/types";
++import { Phone, DollarSign, Clock, Calendar, UserPlus, Ticket, TrendingUp } from 'lucide-react';
+ 
+ type KpiGridProps = {
+   summary: AnalyticsSummary;
+@@ -7,72 +11,42 @@ type KpiGridProps = {
+ 
+ export function KpiGrid({ summary }: KpiGridProps) {
+   return (
+-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Total calls</p>
+-        <p className="mt-1 text-2xl font-semibold">{summary.totalCalls}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Total cost</p>
+-        <p className="mt-1 text-2xl font-semibold">{formatUSD(summary.totalCost)}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">Estimated (calls.cost_usd)</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Avg duration</p>
+-        <p className="mt-1 text-2xl font-semibold">{formatDuration(summary.avgDuration)}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">Across calls</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Appointments created</p>
+-        <p className="mt-1 text-2xl font-semibold">{summary.appointmentsCount}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Leads created</p>
+-        <p className="mt-1 text-2xl font-semibold">{summary.leadsCount}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <p className="text-sm text-muted-foreground">Tickets created</p>
+-        <p className="mt-1 text-2xl font-semibold">{summary.ticketsCount}</p>
+-        <p className="mt-1 text-xs text-muted-foreground">In selected range</p>
+-      </div>
+-
+-      <div className="rounded-xl border bg-white p-4 lg:col-span-2">
+-        <div className="flex items-start justify-between">
+-          <div>
+-            <p className="text-sm text-muted-foreground">Estimated Savings</p>
+-            <p className="mt-1 text-2xl font-semibold text-green-600">
+-              +{formatUSD(summary.estimatedSavings)}
+-            </p>
+-            <p className="mt-1 text-xs text-muted-foreground">vs human agents</p>
+-          </div>
+-          <div
+-            className="group relative ml-2 cursor-help"
+-            title="Estimated based on $25/hour average human agent cost."
+-          >
+-            <svg
+-              className="h-4 w-4 text-muted-foreground"
+-              fill="none"
+-              viewBox="0 0 24 24"
+-              stroke="currentColor"
+-              strokeWidth={2}
+-            >
+-              <path
+-                strokeLinecap="round"
+-                strokeLinejoin="round"
+-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+-              />
+-            </svg>
+-          </div>
+-        </div>
+-      </div>
++    <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 3xl:grid-cols-6">
++      <Widget
++        icon={<Phone className="h-7 w-7" />}
++        title={'Total Calls'}
++        subtitle={summary.totalCalls.toLocaleString()}
++      />
++      <Widget
++        icon={<DollarSign className="h-7 w-7" />}
++        title={'Total Cost'}
++        subtitle={formatUSD(summary.totalCost)}
++      />
++      <Widget
++        icon={<Clock className="h-6 w-6" />}
++        title={'Avg Duration'}
++        subtitle={formatDuration(summary.avgDuration)}
++      />
++      <Widget
++        icon={<Calendar className="h-6 w-6" />}
++        title={'Appointments Created'}
++        subtitle={summary.appointmentsCount.toLocaleString()}
++      />
++      <Widget
++        icon={<UserPlus className="h-6 w-6" />}
++        title={'Leads Created'}
++        subtitle={summary.leadsCount.toLocaleString()}
++      />
++      <Widget
++        icon={<Ticket className="h-6 w-6" />}
++        title={'Tickets Created'}
++        subtitle={summary.ticketsCount.toLocaleString()}
++      />
++      <Widget
++        icon={<TrendingUp className="h-7 w-7" />}
++        title={'Estimated Savings'}
++        subtitle={`+${formatUSD(summary.estimatedSavings)}`}
++      />
+     </div>
+   );
+ }
+diff --git a/web/src/components/analytics/OutcomeBreakdown.tsx b/web/src/components/analytics/OutcomeBreakdown.tsx
+index ab101b6..900d9e6 100644
+--- a/web/src/components/analytics/OutcomeBreakdown.tsx
++++ b/web/src/components/analytics/OutcomeBreakdown.tsx
+@@ -1,4 +1,5 @@
+ import type { OutcomeBreakdownRow } from "@/lib/analytics/types";
++import { Card } from "@/components/ui-horizon/card";
+ 
+ type OutcomeBreakdownProps = {
+   rows: OutcomeBreakdownRow[];
+@@ -7,30 +8,30 @@ type OutcomeBreakdownProps = {
+ export function OutcomeBreakdown({ rows }: OutcomeBreakdownProps) {
+   if (rows.length === 0) {
+     return (
+-      <div className="rounded-xl border bg-white">
+-        <div className="border-b p-4">
+-          <p className="text-sm font-medium">Outcome breakdown</p>
++      <Card>
++        <div className="border-b border-border p-4">
++          <p className="text-sm font-medium text-foreground">Outcome breakdown</p>
+           <p className="text-xs text-muted-foreground">Call outcomes distribution</p>
+         </div>
+         <div className="p-10 text-center">
+-          <p className="text-sm font-medium">No data</p>
++          <p className="text-sm font-medium text-foreground">No data</p>
+           <p className="mt-1 text-sm text-muted-foreground">No calls with outcomes in this range.</p>
+         </div>
+-      </div>
++      </Card>
+     );
+   }
+ 
+   return (
+-    <div className="rounded-xl border bg-white">
+-      <div className="border-b p-4">
+-        <p className="text-sm font-medium">Outcome breakdown</p>
++    <Card>
++      <div className="border-b border-border p-4">
++        <p className="text-sm font-medium text-foreground">Outcome breakdown</p>
+         <p className="text-xs text-muted-foreground">Call outcomes distribution</p>
+       </div>
+ 
+       <div className="overflow-x-auto">
+         <table className="min-w-full text-sm">
+           <thead className="text-left text-xs text-muted-foreground">
+-            <tr className="border-b">
++            <tr className="border-b border-border">
+               <th className="px-4 py-3 font-medium">Outcome</th>
+               <th className="px-4 py-3 font-medium">Calls</th>
+               <th className="px-4 py-3 font-medium">%</th>
+@@ -38,16 +39,16 @@ export function OutcomeBreakdown({ rows }: OutcomeBreakdownProps) {
+           </thead>
+           <tbody>
+             {rows.map((r) => (
+-              <tr key={r.outcome} className="border-b last:border-b-0">
+-                <td className="px-4 py-3 font-medium">{r.outcome}</td>
+-                <td className="px-4 py-3">{r.calls}</td>
+-                <td className="px-4 py-3">{r.percentage.toFixed(1)}%</td>
++              <tr key={r.outcome} className="border-b border-border last:border-b-0">
++                <td className="px-4 py-3 font-medium text-foreground">{r.outcome}</td>
++                <td className="px-4 py-3 text-foreground">{r.calls}</td>
++                <td className="px-4 py-3 text-foreground">{r.percentage.toFixed(1)}%</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+-    </div>
++    </Card>
+   );
+ }
+ 
+diff --git a/web/src/components/analytics/TicketsAnalytics.tsx b/web/src/components/analytics/TicketsAnalytics.tsx
+index da91b95..3eadd56 100644
+--- a/web/src/components/analytics/TicketsAnalytics.tsx
++++ b/web/src/components/analytics/TicketsAnalytics.tsx
+@@ -36,7 +36,7 @@ export function TicketsAnalytics({ data, range }: TicketsAnalyticsProps) {
+           <TicketsSeries series={data.series} range={range} />
+         </>
+       ) : (
+-        <div className="rounded-xl border bg-white p-8 text-center">
++        <div className="rounded-xl border border-border bg-card p-8 text-center">
+           <p className="text-sm text-muted-foreground">No tickets for this range.</p>
+         </div>
+       )}
+diff --git a/web/src/components/analytics/TicketsFunnel.tsx b/web/src/components/analytics/TicketsFunnel.tsx
+index 7b39152..6de8323 100644
+--- a/web/src/components/analytics/TicketsFunnel.tsx
++++ b/web/src/components/analytics/TicketsFunnel.tsx
+@@ -1,4 +1,5 @@
+ import type { TicketsAnalyticsFunnel } from "@/lib/analytics/tickets.types";
++import { Card } from "@/components/ui-horizon/card";
+ 
+ interface TicketsFunnelProps {
+   funnel: TicketsAnalyticsFunnel;
+@@ -9,24 +10,24 @@ export function TicketsFunnel({ funnel }: TicketsFunnelProps) {
+   const formatPercent = (rate: number) => `${(rate * 100).toFixed(1)}%`;
+ 
+   return (
+-    <div className="rounded-xl border bg-white p-6">
+-      <p className="text-sm font-medium mb-4">Ticket Funnel</p>
++    <Card>
++      <p className="text-sm font-medium text-foreground mb-4">Ticket Funnel</p>
+       <div className="space-y-4">
+         {/* Created */}
+         <div>
+           <div className="flex items-center justify-between mb-1">
+-            <p className="text-sm font-medium">Created</p>
++            <p className="text-sm font-medium text-foreground">Created</p>
+             <p className="text-sm text-muted-foreground">{formatNumber(funnel.created)}</p>
+           </div>
+-          <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+-            <div className="h-full bg-zinc-900 rounded-full" style={{ width: "100%" }} />
++          <div className="h-2 bg-muted rounded-full overflow-hidden">
++            <div className="h-full bg-foreground rounded-full" style={{ width: "100%" }} />
+           </div>
+         </div>
+ 
+         {/* In Progress */}
+         <div>
+           <div className="flex items-center justify-between mb-1">
+-            <p className="text-sm font-medium">Reached In Progress</p>
++            <p className="text-sm font-medium text-foreground">Reached In Progress</p>
+             <div className="flex items-center gap-2">
+               <p className="text-sm text-muted-foreground">{formatNumber(funnel.inProgress)}</p>
+               <p className="text-xs text-muted-foreground">
+@@ -34,9 +35,9 @@ export function TicketsFunnel({ funnel }: TicketsFunnelProps) {
+               </p>
+             </div>
+           </div>
+-          <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
++          <div className="h-2 bg-muted rounded-full overflow-hidden">
+             <div
+-              className="h-full bg-zinc-600 rounded-full"
++              className="h-full bg-foreground/80 rounded-full"
+               style={{ width: `${(funnel.inProgress / funnel.created) * 100}%` }}
+             />
+           </div>
+@@ -45,7 +46,7 @@ export function TicketsFunnel({ funnel }: TicketsFunnelProps) {
+         {/* Closed */}
+         <div>
+           <div className="flex items-center justify-between mb-1">
+-            <p className="text-sm font-medium">Closed</p>
++            <p className="text-sm font-medium text-foreground">Closed</p>
+             <div className="flex items-center gap-2">
+               <p className="text-sm text-muted-foreground">{formatNumber(funnel.closed)}</p>
+               <p className="text-xs text-muted-foreground">
+@@ -53,15 +54,15 @@ export function TicketsFunnel({ funnel }: TicketsFunnelProps) {
+               </p>
+             </div>
+           </div>
+-          <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
++          <div className="h-2 bg-muted rounded-full overflow-hidden">
+             <div
+-              className="h-full bg-zinc-400 rounded-full"
++              className="h-full bg-foreground/60 rounded-full"
+               style={{ width: `${(funnel.closed / funnel.created) * 100}%` }}
+             />
+           </div>
+         </div>
+       </div>
+-    </div>
++    </Card>
+   );
+ }
+ 
+diff --git a/web/src/components/analytics/TicketsKPICards.tsx b/web/src/components/analytics/TicketsKPICards.tsx
+index 5de7efc..e0f609c 100644
+--- a/web/src/components/analytics/TicketsKPICards.tsx
++++ b/web/src/components/analytics/TicketsKPICards.tsx
+@@ -1,4 +1,5 @@
+ import type { TicketsAnalyticsKPIs } from "@/lib/analytics/tickets.types";
++import { Card } from "@/components/ui-horizon/card";
+ 
+ interface TicketsKPICardsProps {
+   kpis: TicketsAnalyticsKPIs;
+@@ -11,31 +12,31 @@ export function TicketsKPICards({ kpis }: TicketsKPICardsProps) {
+   return (
+     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+       {/* Tickets Created */}
+-      <div className="rounded-xl border bg-white p-4">
++      <Card>
+         <p className="text-xs text-muted-foreground mb-1">Tickets Created</p>
+-        <p className="text-2xl font-semibold">{formatNumber(kpis.createdCount)}</p>
+-      </div>
++        <p className="text-2xl font-semibold text-foreground">{formatNumber(kpis.createdCount)}</p>
++      </Card>
+ 
+       {/* Tickets Closed */}
+-      <div className="rounded-xl border bg-white p-4">
++      <Card>
+         <p className="text-xs text-muted-foreground mb-1">Tickets Closed</p>
+-        <p className="text-2xl font-semibold">{formatNumber(kpis.closedCount)}</p>
+-      </div>
++        <p className="text-2xl font-semibold text-foreground">{formatNumber(kpis.closedCount)}</p>
++      </Card>
+ 
+       {/* Open Tickets Now */}
+-      <div className="rounded-xl border bg-white p-4">
++      <Card>
+         <p className="text-xs text-muted-foreground mb-1">Open Tickets Now</p>
+-        <p className="text-2xl font-semibold">{formatNumber(kpis.openNowCount)}</p>
+-      </div>
++        <p className="text-2xl font-semibold text-foreground">{formatNumber(kpis.openNowCount)}</p>
++      </Card>
+ 
+       {/* SLA Breaches */}
+-      <div className="rounded-xl border bg-white p-4">
++      <Card>
+         <p className="text-xs text-muted-foreground mb-1">SLA Breaches</p>
+         <div className="flex items-baseline gap-2">
+-          <p className="text-2xl font-semibold">{formatNumber(kpis.slaBreachedCount)}</p>
++          <p className="text-2xl font-semibold text-foreground">{formatNumber(kpis.slaBreachedCount)}</p>
+           <p className="text-sm text-muted-foreground">({formatPercent(kpis.slaBreachedRate)})</p>
+         </div>
+-      </div>
++      </Card>
+     </div>
+   );
+ }
+diff --git a/web/src/components/analytics/TicketsResponseTimes.tsx b/web/src/components/analytics/TicketsResponseTimes.tsx
+index 337da01..0f6f410 100644
+--- a/web/src/components/analytics/TicketsResponseTimes.tsx
++++ b/web/src/components/analytics/TicketsResponseTimes.tsx
+@@ -1,5 +1,6 @@
+ import type { TicketsAnalyticsResponseTimes } from "@/lib/analytics/tickets.types";
+ import { formatDuration } from "@/lib/analytics/tickets.utils";
++import { Card } from "@/components/ui-horizon/card";
+ 
+ interface TicketsResponseTimesProps {
+   responseTimes: TicketsAnalyticsResponseTimes;
+@@ -7,22 +8,22 @@ interface TicketsResponseTimesProps {
+ 
+ export function TicketsResponseTimes({ responseTimes }: TicketsResponseTimesProps) {
+   return (
+-    <div className="rounded-xl border bg-white p-6">
+-      <p className="text-sm font-medium mb-4">Response Times</p>
++    <Card>
++      <p className="text-sm font-medium text-foreground mb-4">Response Times</p>
+       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+         {/* First Response */}
+         <div>
+           <p className="text-xs text-muted-foreground mb-2">First Response</p>
+           <div className="space-y-2">
+             <div className="flex items-center justify-between">
+-              <p className="text-sm">Median</p>
+-              <p className="text-sm font-medium">
++              <p className="text-sm text-muted-foreground">Median</p>
++              <p className="text-sm font-medium text-foreground">
+                 {formatDuration(responseTimes.firstResponseMedianSec)}
+               </p>
+             </div>
+             <div className="flex items-center justify-between">
+-              <p className="text-sm">P90</p>
+-              <p className="text-sm font-medium">
++              <p className="text-sm text-muted-foreground">P90</p>
++              <p className="text-sm font-medium text-foreground">
+                 {formatDuration(responseTimes.firstResponseP90Sec)}
+               </p>
+             </div>
+@@ -34,21 +35,21 @@ export function TicketsResponseTimes({ responseTimes }: TicketsResponseTimesProp
+           <p className="text-xs text-muted-foreground mb-2">Time to Close</p>
+           <div className="space-y-2">
+             <div className="flex items-center justify-between">
+-              <p className="text-sm">Median</p>
+-              <p className="text-sm font-medium">
++              <p className="text-sm text-muted-foreground">Median</p>
++              <p className="text-sm font-medium text-foreground">
+                 {formatDuration(responseTimes.timeToCloseMedianSec)}
+               </p>
+             </div>
+             <div className="flex items-center justify-between">
+-              <p className="text-sm">P90</p>
+-              <p className="text-sm font-medium">
++              <p className="text-sm text-muted-foreground">P90</p>
++              <p className="text-sm font-medium text-foreground">
+                 {formatDuration(responseTimes.timeToCloseP90Sec)}
+               </p>
+             </div>
+           </div>
+         </div>
+       </div>
+-    </div>
++    </Card>
+   );
+ }
+ 
+diff --git a/web/src/components/analytics/TicketsSeries.tsx b/web/src/components/analytics/TicketsSeries.tsx
+index 5a70ec4..6878531 100644
+--- a/web/src/components/analytics/TicketsSeries.tsx
++++ b/web/src/components/analytics/TicketsSeries.tsx
+@@ -1,4 +1,5 @@
+ import type { TicketsAnalyticsSeries } from "@/lib/analytics/tickets.types";
++import { Card } from "@/components/ui-horizon/card";
+ 
+ interface TicketsSeriesProps {
+   series: TicketsAnalyticsSeries;
+@@ -24,8 +25,8 @@ export function TicketsSeries({ series, range }: TicketsSeriesProps) {
+   return (
+     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+       {/* Created Over Time */}
+-      <div className="rounded-xl border bg-white p-6">
+-        <p className="text-sm font-medium mb-4">Tickets Created Over Time</p>
++      <Card>
++        <p className="text-sm font-medium text-foreground mb-4">Tickets Created Over Time</p>
+         <div className="space-y-2">
+           {series.createdOverTime.length === 0 ? (
+             <p className="text-sm text-muted-foreground">No data</p>
+@@ -35,22 +36,22 @@ export function TicketsSeries({ series, range }: TicketsSeriesProps) {
+                 <p className="text-xs text-muted-foreground w-24 flex-shrink-0">
+                   {formatDate(item.ts)}
+                 </p>
+-                <div className="flex-1 h-6 bg-zinc-100 rounded-full overflow-hidden">
++                <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                   <div
+-                    className="h-full bg-zinc-900 rounded-full"
++                    className="h-full bg-foreground rounded-full"
+                     style={{ width: `${(item.count / maxCount) * 100}%` }}
+                   />
+                 </div>
+-                <p className="text-xs font-medium w-12 text-right">{formatNumber(item.count)}</p>
++                <p className="text-xs font-medium text-foreground w-12 text-right">{formatNumber(item.count)}</p>
+               </div>
+             ))
+           )}
+         </div>
+-      </div>
++      </Card>
+ 
+       {/* Priority Breakdown */}
+-      <div className="rounded-xl border bg-white p-6">
+-        <p className="text-sm font-medium mb-4">Priority Breakdown</p>
++      <Card>
++        <p className="text-sm font-medium text-foreground mb-4">Priority Breakdown</p>
+         <div className="space-y-3">
+           {series.priorityBreakdown.length === 0 ? (
+             <p className="text-sm text-muted-foreground">No data</p>
+@@ -64,12 +65,12 @@ export function TicketsSeries({ series, range }: TicketsSeriesProps) {
+               return (
+                 <div key={item.priority}>
+                   <div className="flex items-center justify-between mb-1">
+-                    <p className="text-sm font-medium">{priorityLabel}</p>
++                    <p className="text-sm font-medium text-foreground">{priorityLabel}</p>
+                     <p className="text-sm text-muted-foreground">{formatNumber(item.count)}</p>
+                   </div>
+-                  <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
++                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                     <div
+-                      className="h-full bg-zinc-900 rounded-full"
++                      className="h-full bg-foreground rounded-full"
+                       style={{ width: `${(item.count / maxPriorityCount) * 100}%` }}
+                     />
+                   </div>
+@@ -78,7 +79,7 @@ export function TicketsSeries({ series, range }: TicketsSeriesProps) {
+             })
+           )}
+         </div>
+-      </div>
++      </Card>
+     </div>
+   );
+ }
+diff --git a/web/src/components/tickets/TicketFilters.tsx b/web/src/components/tickets/TicketFilters.tsx
+index 3ea80c4..056ea83 100644
+--- a/web/src/components/tickets/TicketFilters.tsx
++++ b/web/src/components/tickets/TicketFilters.tsx
+@@ -84,52 +84,54 @@ export function TicketFilters({
+   const hasActiveFilters = Boolean(q || initialStatus || initialPriority);
+ 
+   return (
+-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+-      <div className="flex-1 space-y-2">
+-        <label className="text-sm font-medium">Search</label>
+-        <input
+-          type="text"
+-          value={q}
+-          onChange={(e) => handleSearchChange(e.target.value)}
+-          placeholder="Subject, lead name, phone, or emailΓÇª"
+-          className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+-        />
+-      </div>
++    <div className="space-y-3">
++      <div className="grid gap-3 md:grid-cols-3">
++        <div className="space-y-2">
++          <label className="text-sm font-medium">Search</label>
++          <input
++            type="text"
++            value={q}
++            onChange={(e) => handleSearchChange(e.target.value)}
++            placeholder="Subject, lead name, phone, or emailΓÇª"
++            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
++          />
++        </div>
+ 
+-      <div className="w-full md:w-56 space-y-2">
+-        <label className="text-sm font-medium">Status</label>
+-        <select
+-          value={initialStatus}
+-          onChange={(e) => handleStatusChange(e.target.value)}
+-          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
+-        >
+-          <option value="">All</option>
+-          {DEFAULT_STATUSES.map((status) => (
+-            <option key={status} value={status} className="text-base py-2">
+-              {getStatusLabel(status)}
+-            </option>
+-          ))}
+-        </select>
+-      </div>
++        <div className="space-y-2">
++          <label className="text-sm font-medium">Status</label>
++          <select
++            value={initialStatus}
++            onChange={(e) => handleStatusChange(e.target.value)}
++            className="h-11 w-full rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
++          >
++            <option value="">All</option>
++            {DEFAULT_STATUSES.map((status) => (
++              <option key={status} value={status} className="text-base py-2">
++                {getStatusLabel(status)}
++              </option>
++            ))}
++          </select>
++        </div>
+ 
+-      <div className="w-full md:w-56 space-y-2">
+-        <label className="text-sm font-medium">Priority</label>
+-        <select
+-          value={initialPriority}
+-          onChange={(e) => handlePriorityChange(e.target.value)}
+-          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
+-        >
+-          <option value="">All</option>
+-          {DEFAULT_PRIORITIES.map((priority) => (
+-            <option key={priority} value={priority} className="text-base py-2">
+-              {getPriorityLabel(priority)}
+-            </option>
+-          ))}
+-        </select>
++        <div className="space-y-2">
++          <label className="text-sm font-medium">Priority</label>
++          <select
++            value={initialPriority}
++            onChange={(e) => handlePriorityChange(e.target.value)}
++            className="h-11 w-full rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
++          >
++            <option value="">All</option>
++            {DEFAULT_PRIORITIES.map((priority) => (
++              <option key={priority} value={priority} className="text-base py-2">
++                {getPriorityLabel(priority)}
++              </option>
++            ))}
++          </select>
++        </div>
+       </div>
+ 
+       {hasActiveFilters && (
+-        <div className="flex items-end">
++        <div className="flex items-center">
+           <Link
+             href="/dashboard/tickets"
+             className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+diff --git a/web/tailwind.config.ts b/web/tailwind.config.ts
+index d8d80fd..c224f06 100644
+--- a/web/tailwind.config.ts
++++ b/web/tailwind.config.ts
+@@ -2,11 +2,62 @@ import type { Config } from "tailwindcss";
+ 
+ const config: Config = {
+   content: [
+-    "./src/**/*.{ts,tsx}",
+-    "./app/**/*.{ts,tsx}",
++    "./src/**/*.{js,ts,jsx,tsx,mdx}",
++    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
++    "./src/horizon/**/*.{js,ts,jsx,tsx,mdx}",
+   ],
++  darkMode: 'class',
+   theme: {
+-    extend: {},
++    extend: {
++      screens: {
++        '3xl': '1920px',
++      },
++      colors: {
++        // Horizon navy palette (blue-gray for dark mode backgrounds)
++        navy: {
++          50: '#f0f4ff',
++          100: '#e0e9ff',
++          200: '#c7d4ff',
++          300: '#a4b5ff',
++          400: '#818cff',
++          500: '#6366f1',
++          600: '#4f46e5',
++          700: '#0b1437', // Darker navy for dark mode (common Horizon value)
++          800: '#1a1f3a', // Very dark navy
++          900: '#1e293b', // Almost black navy
++        },
++        // Horizon brand palette (blue accent for active states)
++        brand: {
++          50: '#eff6ff',
++          100: '#dbeafe',
++          200: '#bfdbfe',
++          300: '#93c5fd',
++          400: '#60a5fa',
++          500: '#3b82f6', // Primary brand blue
++          600: '#2563eb',
++          700: '#1d4ed8',
++          800: '#1e40af',
++          900: '#1e3a8a',
++        },
++        // Horizon lightPrimary (light blue tint for search/nav backgrounds)
++        lightPrimary: '#e0f2fe',
++        // Horizon background shades (main layout backgrounds)
++        background: {
++          100: '#f4f7fe', // Light gray-blue background
++          900: '#0b1437', // Dark navy background
++        },
++      },
++      boxShadow: {
++        // Horizon shadow utilities
++        'shadow-500': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
++        '3xl': '0 35px 60px -15px rgba(0, 0, 0, 0.3)',
++      },
++      fontFamily: {
++        // Horizon fonts
++        poppins: ['Poppins', 'sans-serif'],
++        dm: ['DM Sans', 'sans-serif'],
++      },
++    },
+   },
+   plugins: [],
+ };
+diff --git a/web/tsconfig.json b/web/tsconfig.json
+index 1a99a3e..b94acec 100644
+--- a/web/tsconfig.json
++++ b/web/tsconfig.json
+@@ -25,7 +25,13 @@
+     "paths": {
+       "@/*": [
+         "./src/*"
+-      ]
++      ],
++      "routes": ["./src/horizon/routes"],
++      "components/*": ["./src/horizon/components/*"],
++      "contexts/*": ["./src/horizon/contexts/*"],
++      "variables/*": ["./src/horizon/variables/*"],
++      "utils/*": ["./src/horizon/utils/*"],
++      "styles/*": ["./src/horizon/styles/*"]
+     }
+   },
+   "include": [
+
+## 7) Untracked files
+supabase/migrations/20250124000000_deduplicate_profiles_and_add_unique_indexes.sql
+vercel_diff_report_2026-01-08_13-48.txt
+web-folder-schema.txt
+web/DELTA_PLAN_TAILWIND.md
+web/HORIZON_PREVIEW_STATUS.md
+web/HORIZON_SETUP.md
+web/project-schema.txt
+web/public/horizon/favicon.ico
+web/public/horizon/fonts/dm-sans/DMSans-Bold.ttf
+web/public/horizon/fonts/dm-sans/DMSans-BoldItalic.ttf
+web/public/horizon/fonts/dm-sans/DMSans-Italic.ttf
+web/public/horizon/fonts/dm-sans/DMSans-Medium.ttf
+web/public/horizon/fonts/dm-sans/DMSans-MediumItalic.ttf
+web/public/horizon/fonts/dm-sans/DMSans-Regular.ttf
+web/public/horizon/fonts/dm-sans/OFL.txt
+web/public/horizon/horizon.bundle.css
+web/public/horizon/img/auth/auth.png
+web/public/horizon/img/avatars/avatar1.png
+web/public/horizon/img/avatars/avatar10.png
+web/public/horizon/img/avatars/avatar11.png
+web/public/horizon/img/avatars/avatar2.png
+web/public/horizon/img/avatars/avatar3.png
+web/public/horizon/img/avatars/avatar4.png
+web/public/horizon/img/avatars/avatar5.png
+web/public/horizon/img/avatars/avatar6.png
+web/public/horizon/img/avatars/avatar7.png
+web/public/horizon/img/avatars/avatar8.png
+web/public/horizon/img/avatars/avatar9.png
+web/public/horizon/img/avatars/avatarSimmmple.png
+web/public/horizon/img/dashboards/Battery.png
+web/public/horizon/img/dashboards/Blueprint.png
+web/public/horizon/img/dashboards/Debit.png
+web/public/horizon/img/dashboards/Tesla.png
+web/public/horizon/img/dashboards/balanceImg.png
+web/public/horizon/img/dashboards/elipse-light.png
+web/public/horizon/img/dashboards/fakeGraph.png
+web/public/horizon/img/dashboards/home.png
+web/public/horizon/img/dashboards/usa.png
+web/public/horizon/img/layout/Navbar.png
+web/public/horizon/img/layout/logoWhite.png
+web/public/horizon/img/nfts/Nft1.png
+web/public/horizon/img/nfts/Nft2.png
+web/public/horizon/img/nfts/Nft3.png
+web/public/horizon/img/nfts/Nft4.png
+web/public/horizon/img/nfts/Nft5.png
+web/public/horizon/img/nfts/Nft6.png
+web/public/horizon/img/nfts/NftBanner1.png
+web/public/horizon/img/others/error.png
+web/public/horizon/img/product/glassy/product-glassy-main.png
+web/public/horizon/img/product/glassy/product-glassy1.png
+web/public/horizon/img/product/glassy/product-glassy2.png
+web/public/horizon/img/product/glassy/product-glassy3.png
+web/public/horizon/img/product/glassy/product-glassy4.png
+web/public/horizon/img/product/product-footer.png
+web/public/horizon/img/product/purity-free/product-purity-free-main.png
+web/public/horizon/img/product/purity-free/product-purity-free1.png
+web/public/horizon/img/product/purity-free/product-purity-free2.png
+web/public/horizon/img/product/purity-free/product-purity-free3.png
+web/public/horizon/img/product/purity-free/product-purity-free4.png
+web/public/horizon/img/product/purity-pro/product-purity-pro-main.png
+web/public/horizon/img/product/purity-pro/product-purity-pro1.png
+web/public/horizon/img/product/purity-pro/product-purity-pro2.png
+web/public/horizon/img/product/purity-pro/product-purity-pro3.png
+web/public/horizon/img/product/purity-pro/product-purity-pro4.png
+web/public/horizon/img/product/saturn/product-saturn-main.png
+web/public/horizon/img/product/saturn/product-saturn1.png
+web/public/horizon/img/product/saturn/product-saturn2.png
+web/public/horizon/img/product/saturn/product-saturn3.png
+web/public/horizon/img/product/tasklist/product-tasklist-main.png
+web/public/horizon/img/product/tasklist/product-tasklist1.png
+web/public/horizon/img/product/tasklist/product-tasklist2.png
+web/public/horizon/img/product/tasklist/product-tasklist3.png
+web/public/horizon/img/product/uranus-free/product-uranus-free-main.png
+web/public/horizon/img/product/uranus-free/product-uranus-free1.png
+web/public/horizon/img/product/uranus-free/product-uranus-free2.png
+web/public/horizon/img/product/uranus-free/product-uranus-free3.png
+web/public/horizon/img/product/uranus-free/product-uranus-free4.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro-main.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro1.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro2.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro3.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro4.png
+web/public/horizon/img/product/uranus-pro/product-uranus-pro5.png
+web/public/horizon/img/product/venus-db-free/venusDbFree1.png
+web/public/horizon/img/product/venus-db-free/venusDbFree2.png
+web/public/horizon/img/product/venus-db-free/venusDbFree3.png
+web/public/horizon/img/product/venus-db-free/venusDbFree4.png
+web/public/horizon/img/product/venus-db-free/venusDbFree5.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro-main.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro1.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro2.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro3.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro4.png
+web/public/horizon/img/product/venus-db-pro/product-venus-db-pro5.png
+web/public/horizon/img/product/venus-ds-free/product-venus-ds-free-main.png
+web/public/horizon/img/product/venus-ds-free/product-venus-ds-free1.png
+web/public/horizon/img/product/venus-ds-free/product-venus-ds-free2.png
+web/public/horizon/img/product/venus-ds-free/product-venus-ds-free3.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro-main.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro1.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro2-min.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro3-min.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro4-min.png
+web/public/horizon/img/product/venus-ds-pro/product-venus-ds-pro5-min.png
+web/public/horizon/img/product/vision-chakra-free/visionChakraFree1.png
+web/public/horizon/img/product/vision-chakra-free/visionChakraFree2.png
+web/public/horizon/img/product/vision-chakra-free/visionChakraFree3.png
+web/public/horizon/img/product/vision-chakra-free/visionChakraFree4.png
+web/public/horizon/img/product/vision-chakra-free/visionChakraFreeMain.png
+web/public/horizon/img/product/vision-chakra-pro/visionChakraPRO1.png
+web/public/horizon/img/product/vision-chakra-pro/visionChakraPRO2.png
+web/public/horizon/img/product/vision-chakra-pro/visionChakraPRO3.png
+web/public/horizon/img/product/vision-chakra-pro/visionChakraPROMain.png
+web/public/horizon/img/product/vision-react-free/visionReactFree1.png
+web/public/horizon/img/product/vision-react-free/visionReactFree2.png
+web/public/horizon/img/product/vision-react-free/visionReactFree3.png
+web/public/horizon/img/product/vision-react-free/visionReactFree4.png
+web/public/horizon/img/product/vision-react-free/visionReactFree5.png
+web/public/horizon/img/product/vision-react-free/visionReactFreeMain.png
+web/public/horizon/img/product/vision-react-pro/visionReactPRO1.png
+web/public/horizon/img/product/vision-react-pro/visionReactPRO2.png
+web/public/horizon/img/product/vision-react-pro/visionReactPRO3.png
+web/public/horizon/img/product/vision-react-pro/visionReactPRO4.png
+web/public/horizon/img/product/vision-react-pro/visionReactPROMain.png
+web/public/horizon/img/profile/banner.png
+web/public/horizon/img/profile/image1.png
+web/public/horizon/img/profile/image2.png
+web/public/horizon/img/profile/image3.png
+web/public/horizon/manifest.json
+web/public/horizon/robots.txt
+web/public/horizon/svg/checked.svg
+web/src/app/(app)/_components/DashboardNav.tsx
+web/src/app/(app)/_components/DashboardSidebar.tsx
+web/src/app/(app)/_components/DashboardTopBar.tsx
+web/src/app/(app)/dashboard/DashboardClient.tsx
+web/src/app/admin/data-tables/page.tsx
+web/src/app/admin/default/page.tsx
+web/src/app/admin/layout.tsx
+web/src/app/admin/nft-marketplace/page.tsx
+web/src/app/admin/profile/page.tsx
+web/src/app/horizon-preview/layout.tsx
+web/src/app/horizon-preview/page.tsx
+web/src/components/horizon-shell/HorizonShell.tsx
+web/src/components/horizon-shell/HorizonStylesheet.tsx
+web/src/components/horizon-shell/Links.tsx
+web/src/components/horizon-shell/ProfileDropdown.tsx
+web/src/components/horizon-shell/SidebarAdapter.tsx
+web/src/components/horizon-shell/nav.tsx
+web/src/components/horizon-shell/navigation.ts
+web/src/components/ui-horizon/badge.tsx
+web/src/components/ui-horizon/card.tsx
+web/src/components/ui-horizon/empty.tsx
+web/src/components/ui-horizon/hero.tsx
+web/src/components/ui-horizon/loading.tsx
+web/src/components/ui-horizon/stat.tsx
+web/src/components/ui-horizon/table.tsx
+web/src/components/ui-horizon/toolbar.tsx
+web/src/horizon/Fonts.tsx
+web/src/horizon/README.md
+web/src/horizon/app/AppWrappers.tsx
+web/src/horizon/app/admin/data-tables/page.tsx
+web/src/horizon/app/admin/default/page.tsx
+web/src/horizon/app/admin/layout.tsx
+web/src/horizon/app/admin/nft-marketplace/page.tsx
+web/src/horizon/app/admin/page.tsx
+web/src/horizon/app/admin/profile/page.tsx
+web/src/horizon/app/auth/layout.tsx
+web/src/horizon/app/auth/sign-in/page.tsx
+web/src/horizon/app/head.tsx
+web/src/horizon/app/layout.tsx
+web/src/horizon/app/page.tsx
+web/src/horizon/app/rtl/rtl-default/layout.tsx
+web/src/horizon/app/rtl/rtl-default/page.tsx
+web/src/horizon/components/admin/data-tables/CheckTable.tsx
+web/src/horizon/components/admin/data-tables/ColumnsTable.tsx
+web/src/horizon/components/admin/data-tables/ComplexTable.tsx
+web/src/horizon/components/admin/data-tables/DevelopmentTable.tsx
+web/src/horizon/components/admin/default/CheckTable.tsx
+web/src/horizon/components/admin/default/ComplexTable.tsx
+web/src/horizon/components/admin/default/DailyTraffic.tsx
+web/src/horizon/components/admin/default/PieChartCard.tsx
+web/src/horizon/components/admin/default/TaskCard.tsx
+web/src/horizon/components/admin/default/TotalSpent.tsx
+web/src/horizon/components/admin/default/WeeklyRevenue.tsx
+web/src/horizon/components/admin/nft-marketplace/Banner.tsx
+web/src/horizon/components/admin/nft-marketplace/HistoryItem.tsx
+web/src/horizon/components/admin/nft-marketplace/TableTopCreators.tsx
+web/src/horizon/components/admin/profile/Banner.tsx
+web/src/horizon/components/admin/profile/General.tsx
+web/src/horizon/components/admin/profile/Notification.tsx
+web/src/horizon/components/admin/profile/Notifications.tsx
+web/src/horizon/components/admin/profile/Project.tsx
+web/src/horizon/components/admin/profile/Storage.tsx
+web/src/horizon/components/admin/profile/Upload.tsx
+web/src/horizon/components/auth/variants/DefaultAuthLayout/index.tsx
+web/src/horizon/components/calendar/MiniCalendar.tsx
+web/src/horizon/components/card/CardMenu.tsx
+web/src/horizon/components/card/NftCard.tsx
+web/src/horizon/components/card/index.tsx
+web/src/horizon/components/charts/BarChart.tsx
+web/src/horizon/components/charts/LineAreaChart.tsx
+web/src/horizon/components/charts/LineChart.tsx
+web/src/horizon/components/charts/PieChart.tsx
+web/src/horizon/components/checkbox/index.tsx
+web/src/horizon/components/dropdown/index.tsx
+web/src/horizon/components/fields/InputField.tsx
+web/src/horizon/components/fields/SwitchField.tsx
+web/src/horizon/components/fixedPlugin/FixedPlugin.tsx
+web/src/horizon/components/footer/Footer.tsx
+web/src/horizon/components/footer/FooterAuthDefault.tsx
+web/src/horizon/components/icons/ClockIcon.tsx
+web/src/horizon/components/icons/ClockIcon1.tsx
+web/src/horizon/components/icons/CloseIcon.tsx
+web/src/horizon/components/icons/DarkmodeIcon.tsx
+web/src/horizon/components/icons/DashCurveDown.tsx
+web/src/horizon/components/icons/DashCurveUp.tsx
+web/src/horizon/components/icons/DashIcon.tsx
+web/src/horizon/components/icons/DotIcon.tsx
+web/src/horizon/components/icons/EtherLogoOutline.tsx
+web/src/horizon/components/icons/HorizonLogo.tsx
+web/src/horizon/components/icons/KanbanIcon.tsx
+web/src/horizon/components/icons/MarketIcon.tsx
+web/src/horizon/components/icons/MasterCardIcon.tsx
+web/src/horizon/components/icons/NotificationIcon.tsx
+web/src/horizon/components/icons/ProfileIcon.tsx
+web/src/horizon/components/icons/SearchIcon.tsx
+web/src/horizon/components/icons/SignIn.tsx
+web/src/horizon/components/icons/TablesIcon.tsx
+web/src/horizon/components/icons/ThemsIcon.tsx
+web/src/horizon/components/icons/VideoIcon.tsx
+web/src/horizon/components/icons/WidgetIcon/ChartIcon.tsx
+web/src/horizon/components/icons/WidgetIcon/DollarIcon.tsx
+web/src/horizon/components/icons/WidgetIcon/PDFIcon.tsx
+web/src/horizon/components/icons/visaIcon.tsx
+web/src/horizon/components/image/Avatar.tsx
+web/src/horizon/components/image/Image.tsx
+web/src/horizon/components/link/NavLink.tsx
+web/src/horizon/components/navbar/RTL.tsx
+web/src/horizon/components/navbar/index.tsx
+web/src/horizon/components/popover/index.tsx
+web/src/horizon/components/progress/index.tsx
+web/src/horizon/components/radio/index.tsx
+web/src/horizon/components/rtl/dashboard/CheckTable.tsx
+web/src/horizon/components/rtl/dashboard/ComplexTable.tsx
+web/src/horizon/components/rtl/dashboard/DailyTraffic.tsx
+web/src/horizon/components/rtl/dashboard/PieCard.tsx
+web/src/horizon/components/rtl/dashboard/Tasks.tsx
+web/src/horizon/components/rtl/dashboard/TotalSpent.tsx
+web/src/horizon/components/rtl/dashboard/WeeklyRevenue.tsx
+web/src/horizon/components/rtl/dashboard/Widget.tsx
+web/src/horizon/components/rtlProvider/RtlProvider.tsx
+web/src/horizon/components/scrollbar/Scrollbar.tsx
+web/src/horizon/components/sidebar/RTL.tsx
+web/src/horizon/components/sidebar/components/Links.tsx
+web/src/horizon/components/sidebar/components/SidebarCard.tsx
+web/src/horizon/components/sidebar/componentsrtl/Links.tsx
+web/src/horizon/components/sidebar/componentsrtl/SidebarCard.tsx
+web/src/horizon/components/sidebar/index.tsx
+web/src/horizon/components/switch/index.tsx
+web/src/horizon/components/tooltip/index.tsx
+web/src/horizon/components/widget/Widget.tsx
+web/src/horizon/contexts/SidebarContext.ts
+web/src/horizon/routes.tsx
+web/src/horizon/styles/App.css
+web/src/horizon/styles/Contact.css
+web/src/horizon/styles/MiniCalendar.css
+web/src/horizon/styles/index.css
+web/src/horizon/styles/public/svg/checked.svg
+web/src/horizon/types/hui-types.d.ts
+web/src/horizon/types/images.d.ts
+web/src/horizon/types/navigation.d.ts
+web/src/horizon/types/react-table-config.d.ts
+web/src/horizon/types/stylis.d.ts
+web/src/horizon/utils/navigation.ts
+web/src/horizon/variables/applications/calendar/calendarData.ts
+web/src/horizon/variables/calendar.ts
+web/src/horizon/variables/charts.ts
+web/src/horizon/variables/dashboards/default/tableDataMostVisited.ts
+web/src/horizon/variables/dashboards/rtl/tableDataCheck.ts
+web/src/horizon/variables/dashboards/rtl/tableDataComplex.ts
+web/src/horizon/variables/data-tables/tableDataCheck.ts
+web/src/horizon/variables/data-tables/tableDataColumns.ts
+web/src/horizon/variables/data-tables/tableDataComplex.ts
+web/src/horizon/variables/data-tables/tableDataDevelopment.ts
+web/src/horizon/variables/nfts/marketplace/tableDataTopCreators.ts
+
+## 8) Tree snapshot (depth 4) - prefers web/src, else src
+Using: .\web\src
+
+FullName                                                                                          
+--------                                                                                          
+C:\Users\alien\sovereign-ai\web\src\app                                                           
+C:\Users\alien\sovereign-ai\web\src\components                                                    
+C:\Users\alien\sovereign-ai\web\src\config                                                        
+C:\Users\alien\sovereign-ai\web\src\horizon                                                       
+C:\Users\alien\sovereign-ai\web\src\lib                                                           
+C:\Users\alien\sovereign-ai\web\src\middleware.ts                                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)                                                     
+C:\Users\alien\sovereign-ai\web\src\app\(auth)                                                    
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)                                               
+C:\Users\alien\sovereign-ai\web\src\app\admin                                                     
+C:\Users\alien\sovereign-ai\web\src\app\api                                                       
+C:\Users\alien\sovereign-ai\web\src\app\auth                                                      
+C:\Users\alien\sovereign-ai\web\src\app\horizon-preview                                           
+C:\Users\alien\sovereign-ai\web\src\app\favicon.ico                                               
+C:\Users\alien\sovereign-ai\web\src\app\globals.css                                               
+C:\Users\alien\sovereign-ai\web\src\app\layout.tsx                                                
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard                                           
+C:\Users\alien\sovereign-ai\web\src\app\(app)\_components                                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\AccountMenu.tsx                                     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\DashboardHeader.tsx                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)\EmptyStatePanel.tsx                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)\GoLiveReadinessCard.tsx                             
+C:\Users\alien\sovereign-ai\web\src\app\(app)\layout.tsx                                          
+C:\Users\alien\sovereign-ai\web\src\app\(app)\LiveFeedCard.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\(app)\LoadingSkeleton.tsx                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)\OperationalOverviewCard.tsx                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\QuickActionsCard.tsx                                
+C:\Users\alien\sovereign-ai\web\src\app\(app)\WorkloadCard.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\activity                                  
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\agents                                    
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\analytics                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\billing                                   
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\calls                                     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\knowledge                                 
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\leads                                     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\risk                                      
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings                                  
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tickets                                   
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tools                                     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\_components                               
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\actions.ts                                
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\DashboardClient.tsx                       
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\getDashboardOverview.ts                   
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\loading.tsx                               
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\page.tsx                                  
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\activity\page.tsx                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\agents\new                                
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\agents\[agentId]                          
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\agents\page.tsx                           
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\analytics\page.tsx                        
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\billing\page.tsx                          
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\calls\[callId]                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\calls\_components                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\calls\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\knowledge\[sourceId]                      
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\knowledge\page.tsx                        
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\leads\[leadId]                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\leads\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\risk\page.tsx                             
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\account                          
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\agents                           
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\integrations                     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\workspace                        
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\_actions                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\_components                      
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\_lib                             
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\settings\page.tsx                         
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tickets\new                               
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tickets\[ticketId]                        
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tickets\page.tsx                          
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tools\[toolId]                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\tools\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\app\(app)\dashboard\_components\PausedWorkspaceBanner.tsx     
+C:\Users\alien\sovereign-ai\web\src\app\(app)\_components\DashboardNav.tsx                        
+C:\Users\alien\sovereign-ai\web\src\app\(app)\_components\DashboardSidebar.tsx                    
+C:\Users\alien\sovereign-ai\web\src\app\(app)\_components\DashboardTopBar.tsx                     
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\login                                              
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup                                             
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email                                       
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\layout.tsx                                         
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\login\error.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\login\loading.tsx                                  
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\login\loginAction.ts                               
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\login\page.tsx                                     
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup\_components                                 
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup\page.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup\sendCodeAction.ts                           
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup\signupAction.ts                             
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\signup\_components\SignupForm.tsx                  
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions                              
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components                           
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\page.tsx                              
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions\checkConfirmed.ts            
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions\resendSignupEmail.ts         
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions\saveSignupPhone.ts           
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions\setPassword.ts               
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_actions\verify.ts                    
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components\SetPasswordForm.tsx       
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components\VerifyEmailForm.tsx       
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components\VerifyEmailHoldingPage.tsx
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components\VerifyEmailInputForm.tsx  
+C:\Users\alien\sovereign-ai\web\src\app\(auth)\verify-email\_components\VerifyEmailPageClient.tsx 
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\about                                         
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\contact                                       
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\pricing                                       
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\privacy                                       
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\terms                                         
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\use-cases                                     
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\layout.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\page.tsx                                      
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\about\page.tsx                                
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\contact\page.tsx                              
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\pricing\page.tsx                              
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\privacy\page.tsx                              
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\terms\page.tsx                                
+C:\Users\alien\sovereign-ai\web\src\app\(marketing)\use-cases\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\app\admin\data-tables                                         
+C:\Users\alien\sovereign-ai\web\src\app\admin\default                                             
+C:\Users\alien\sovereign-ai\web\src\app\admin\nft-marketplace                                     
+C:\Users\alien\sovereign-ai\web\src\app\admin\profile                                             
+C:\Users\alien\sovereign-ai\web\src\app\admin\layout.tsx                                          
+C:\Users\alien\sovereign-ai\web\src\app\admin\page.tsx                                            
+C:\Users\alien\sovereign-ai\web\src\app\admin\data-tables\page.tsx                                
+C:\Users\alien\sovereign-ai\web\src\app\admin\default\page.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\admin\nft-marketplace\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\app\admin\profile\page.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\app\api\admin                                                 
+C:\Users\alien\sovereign-ai\web\src\app\api\conversations                                         
+C:\Users\alien\sovereign-ai\web\src\app\api\debug                                                 
+C:\Users\alien\sovereign-ai\web\src\app\api\tools                                                 
+C:\Users\alien\sovereign-ai\web\src\app\api\vapi                                                  
+C:\Users\alien\sovereign-ai\web\src\app\api\webhooks                                              
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\agents                                          
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\analytics                                       
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\appointments                                    
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\calls                                           
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\leads                                           
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\members                                         
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\tickets                                         
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\agents\by-ids                                   
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\agents\[agentId]                                
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\analytics\export                                
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\appointments\route.ts                           
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\calls\[callId]                                  
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\calls\route.ts                                  
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\leads\route.ts                                  
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\members\invite                                  
+C:\Users\alien\sovereign-ai\web\src\app\api\admin\tickets\route.ts                                
+C:\Users\alien\sovereign-ai\web\src\app\api\conversations\message                                 
+C:\Users\alien\sovereign-ai\web\src\app\api\conversations\start                                   
+C:\Users\alien\sovereign-ai\web\src\app\api\conversations\message\route.ts                        
+C:\Users\alien\sovereign-ai\web\src\app\api\conversations\start\route.ts                          
+C:\Users\alien\sovereign-ai\web\src\app\api\debug\basic-auth                                      
+C:\Users\alien\sovereign-ai\web\src\app\api\debug\headers                                         
+C:\Users\alien\sovereign-ai\web\src\app\api\debug\basic-auth\route.ts                             
+C:\Users\alien\sovereign-ai\web\src\app\api\debug\headers\route.ts                                
+C:\Users\alien\sovereign-ai\web\src\app\api\tools\create-appointment                              
+C:\Users\alien\sovereign-ai\web\src\app\api\tools\create-ticket                                   
+C:\Users\alien\sovereign-ai\web\src\app\api\tools\create-appointment\route.ts                     
+C:\Users\alien\sovereign-ai\web\src\app\api\tools\create-ticket\route.ts                          
+C:\Users\alien\sovereign-ai\web\src\app\api\vapi\assistants                                       
+C:\Users\alien\sovereign-ai\web\src\app\api\vapi\assistants\route.ts                              
+C:\Users\alien\sovereign-ai\web\src\app\api\webhooks\vapi                                         
+C:\Users\alien\sovereign-ai\web\src\app\api\webhooks\vapi\route.ts                                
+C:\Users\alien\sovereign-ai\web\src\app\auth\callback                                             
+C:\Users\alien\sovereign-ai\web\src\app\auth\callback\route.ts                                    
+C:\Users\alien\sovereign-ai\web\src\app\horizon-preview\layout.tsx                                
+C:\Users\alien\sovereign-ai\web\src\app\horizon-preview\page.tsx                                  
+C:\Users\alien\sovereign-ai\web\src\components\analytics                                          
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell                                      
+C:\Users\alien\sovereign-ai\web\src\components\marketing                                          
+C:\Users\alien\sovereign-ai\web\src\components\tickets                                            
+C:\Users\alien\sovereign-ai\web\src\components\ui                                                 
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon                                         
+C:\Users\alien\sovereign-ai\web\src\components\theme-provider.tsx                                 
+C:\Users\alien\sovereign-ai\web\src\components\analytics\ByAgentTable.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\analytics\DailyTrendTable.tsx                      
+C:\Users\alien\sovereign-ai\web\src\components\analytics\InsightsPanel.tsx                        
+C:\Users\alien\sovereign-ai\web\src\components\analytics\KpiGrid.tsx                              
+C:\Users\alien\sovereign-ai\web\src\components\analytics\OutcomeBreakdown.tsx                     
+C:\Users\alien\sovereign-ai\web\src\components\analytics\TicketsAnalytics.tsx                     
+C:\Users\alien\sovereign-ai\web\src\components\analytics\TicketsFunnel.tsx                        
+C:\Users\alien\sovereign-ai\web\src\components\analytics\TicketsKPICards.tsx                      
+C:\Users\alien\sovereign-ai\web\src\components\analytics\TicketsResponseTimes.tsx                 
+C:\Users\alien\sovereign-ai\web\src\components\analytics\TicketsSeries.tsx                        
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\HorizonShell.tsx                     
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\HorizonStylesheet.tsx                
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\Links.tsx                            
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\nav.tsx                              
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\navigation.ts                        
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\ProfileDropdown.tsx                  
+C:\Users\alien\sovereign-ai\web\src\components\horizon-shell\SidebarAdapter.tsx                   
+C:\Users\alien\sovereign-ai\web\src\components\marketing\about-page.tsx                           
+C:\Users\alien\sovereign-ai\web\src\components\marketing\Button.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\marketing\contact-page.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\marketing\Container.tsx                            
+C:\Users\alien\sovereign-ai\web\src\components\marketing\final-cta.tsx                            
+C:\Users\alien\sovereign-ai\web\src\components\marketing\Footer.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\marketing\hero.tsx                                 
+C:\Users\alien\sovereign-ai\web\src\components\marketing\how-it-works.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\marketing\Navbar.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\marketing\pricing-preview.tsx                      
+C:\Users\alien\sovereign-ai\web\src\components\marketing\pricing-table.tsx                        
+C:\Users\alien\sovereign-ai\web\src\components\marketing\Section.tsx                              
+C:\Users\alien\sovereign-ai\web\src\components\marketing\social-proof.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\marketing\use-cases-page.tsx                       
+C:\Users\alien\sovereign-ai\web\src\components\marketing\use-cases.tsx                            
+C:\Users\alien\sovereign-ai\web\src\components\tickets\CopyButton.tsx                             
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketActivity.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketBadges.tsx                           
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketComments.tsx                         
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketDetailForm.tsx                       
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketDetailQuickActions.tsx               
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketFilters.tsx                          
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketPrimaryAction.tsx                    
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketQuickActions.tsx                     
+C:\Users\alien\sovereign-ai\web\src\components\tickets\TicketRequester.tsx                        
+C:\Users\alien\sovereign-ai\web\src\components\ui\button.tsx                                      
+C:\Users\alien\sovereign-ai\web\src\components\ui\command.tsx                                     
+C:\Users\alien\sovereign-ai\web\src\components\ui\dialog.tsx                                      
+C:\Users\alien\sovereign-ai\web\src\components\ui\popover.tsx                                     
+C:\Users\alien\sovereign-ai\web\src\components\ui\select.tsx                                      
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\badge.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\card.tsx                                
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\empty.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\hero.tsx                                
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\loading.tsx                             
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\stat.tsx                                
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\table.tsx                               
+C:\Users\alien\sovereign-ai\web\src\components\ui-horizon\toolbar.tsx                             
+C:\Users\alien\sovereign-ai\web\src\config\site.ts                                                
+C:\Users\alien\sovereign-ai\web\src\horizon\app                                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components                                            
+C:\Users\alien\sovereign-ai\web\src\horizon\contexts                                              
+C:\Users\alien\sovereign-ai\web\src\horizon\styles                                                
+C:\Users\alien\sovereign-ai\web\src\horizon\types                                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\utils                                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\variables                                             
+C:\Users\alien\sovereign-ai\web\src\horizon\Fonts.tsx                                             
+C:\Users\alien\sovereign-ai\web\src\horizon\README.md                                             
+C:\Users\alien\sovereign-ai\web\src\horizon\routes.tsx                                            
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin                                             
+C:\Users\alien\sovereign-ai\web\src\horizon\app\auth                                              
+C:\Users\alien\sovereign-ai\web\src\horizon\app\rtl                                               
+C:\Users\alien\sovereign-ai\web\src\horizon\app\AppWrappers.tsx                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\app\head.tsx                                          
+C:\Users\alien\sovereign-ai\web\src\horizon\app\layout.tsx                                        
+C:\Users\alien\sovereign-ai\web\src\horizon\app\page.tsx                                          
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\data-tables                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\default                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\nft-marketplace                             
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\profile                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\layout.tsx                                  
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\page.tsx                                    
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\data-tables\page.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\default\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\nft-marketplace\page.tsx                    
+C:\Users\alien\sovereign-ai\web\src\horizon\app\admin\profile\page.tsx                            
+C:\Users\alien\sovereign-ai\web\src\horizon\app\auth\sign-in                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\app\auth\layout.tsx                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\app\auth\sign-in\page.tsx                             
+C:\Users\alien\sovereign-ai\web\src\horizon\app\rtl\rtl-default                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\app\rtl\rtl-default\layout.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\app\rtl\rtl-default\page.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\auth                                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\calendar                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\card                                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\charts                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\checkbox                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\dropdown                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\fields                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\fixedPlugin                                
+C:\Users\alien\sovereign-ai\web\src\horizon\components\footer                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\image                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\link                                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\navbar                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\popover                                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\progress                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\radio                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl                                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtlProvider                                
+C:\Users\alien\sovereign-ai\web\src\horizon\components\scrollbar                                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar                                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\switch                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\tooltip                                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\widget                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\data-tables                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default                              
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\nft-marketplace                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile                              
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\data-tables\CheckTable.tsx           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\data-tables\ColumnsTable.tsx         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\data-tables\ComplexTable.tsx         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\data-tables\DevelopmentTable.tsx     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\CheckTable.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\ComplexTable.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\DailyTraffic.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\PieChartCard.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\TaskCard.tsx                 
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\TotalSpent.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\default\WeeklyRevenue.tsx            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\nft-marketplace\Banner.tsx           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\nft-marketplace\HistoryItem.tsx      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\nft-marketplace\TableTopCreators.tsx 
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Banner.tsx                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\General.tsx                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Notification.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Notifications.tsx            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Project.tsx                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Storage.tsx                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\admin\profile\Upload.tsx                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\auth\variants                              
+C:\Users\alien\sovereign-ai\web\src\horizon\components\auth\variants\DefaultAuthLayout            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\calendar\MiniCalendar.tsx                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\card\CardMenu.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\card\index.tsx                             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\card\NftCard.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\charts\BarChart.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\charts\LineAreaChart.tsx                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\charts\LineChart.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\charts\PieChart.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\checkbox\index.tsx                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\dropdown\index.tsx                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\fields\InputField.tsx                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\fields\SwitchField.tsx                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\fixedPlugin\FixedPlugin.tsx                
+C:\Users\alien\sovereign-ai\web\src\horizon\components\footer\Footer.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\footer\FooterAuthDefault.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\WidgetIcon                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\ClockIcon.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\ClockIcon1.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\CloseIcon.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\DarkmodeIcon.tsx                     
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\DashCurveDown.tsx                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\DashCurveUp.tsx                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\DashIcon.tsx                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\DotIcon.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\EtherLogoOutline.tsx                 
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\HorizonLogo.tsx                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\KanbanIcon.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\MarketIcon.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\MasterCardIcon.tsx                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\NotificationIcon.tsx                 
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\ProfileIcon.tsx                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\SearchIcon.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\SignIn.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\TablesIcon.tsx                       
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\ThemsIcon.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\VideoIcon.tsx                        
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\visaIcon.tsx                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\WidgetIcon\ChartIcon.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\WidgetIcon\DollarIcon.tsx            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\icons\WidgetIcon\PDFIcon.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\image\Avatar.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\image\Image.tsx                            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\link\NavLink.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\navbar\index.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\navbar\RTL.tsx                             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\popover\index.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\progress\index.tsx                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\radio\index.tsx                            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard                              
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\CheckTable.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\ComplexTable.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\DailyTraffic.tsx             
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\PieCard.tsx                  
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\Tasks.tsx                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\TotalSpent.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\WeeklyRevenue.tsx            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtl\dashboard\Widget.tsx                   
+C:\Users\alien\sovereign-ai\web\src\horizon\components\rtlProvider\RtlProvider.tsx                
+C:\Users\alien\sovereign-ai\web\src\horizon\components\scrollbar\Scrollbar.tsx                    
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\components                         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\componentsrtl                      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\index.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\RTL.tsx                            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\components\Links.tsx               
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\components\SidebarCard.tsx         
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\componentsrtl\Links.tsx            
+C:\Users\alien\sovereign-ai\web\src\horizon\components\sidebar\componentsrtl\SidebarCard.tsx      
+C:\Users\alien\sovereign-ai\web\src\horizon\components\switch\index.tsx                           
+C:\Users\alien\sovereign-ai\web\src\horizon\components\tooltip\index.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\components\widget\Widget.tsx                          
+C:\Users\alien\sovereign-ai\web\src\horizon\contexts\SidebarContext.ts                            
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\public                                         
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\App.css                                        
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\Contact.css                                    
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\index.css                                      
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\MiniCalendar.css                               
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\public\svg                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\styles\public\svg\checked.svg                         
+C:\Users\alien\sovereign-ai\web\src\horizon\types\hui-types.d.ts                                  
+C:\Users\alien\sovereign-ai\web\src\horizon\types\images.d.ts                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\types\navigation.d.ts                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\types\react-table-config.d.ts                         
+C:\Users\alien\sovereign-ai\web\src\horizon\types\stylis.d.ts                                     
+C:\Users\alien\sovereign-ai\web\src\horizon\utils\navigation.ts                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\applications                                
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards                                  
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\data-tables                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\nfts                                        
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\calendar.ts                                 
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\charts.ts                                   
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\applications\calendar                       
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\applications\calendar\calendarData.ts       
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards\default                          
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards\rtl                              
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards\default\tableDataMostVisited.ts  
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards\rtl\tableDataCheck.ts            
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\dashboards\rtl\tableDataComplex.ts          
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\data-tables\tableDataCheck.ts               
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\data-tables\tableDataColumns.ts             
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\data-tables\tableDataComplex.ts             
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\data-tables\tableDataDevelopment.ts         
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\nfts\marketplace                            
+C:\Users\alien\sovereign-ai\web\src\horizon\variables\nfts\marketplace\tableDataTopCreators.ts    
+C:\Users\alien\sovereign-ai\web\src\lib\analytics                                                 
+C:\Users\alien\sovereign-ai\web\src\lib\audit                                                     
+C:\Users\alien\sovereign-ai\web\src\lib\auth                                                      
+C:\Users\alien\sovereign-ai\web\src\lib\dashboard                                                 
+C:\Users\alien\sovereign-ai\web\src\lib\supabase                                                  
+C:\Users\alien\sovereign-ai\web\src\lib\tickets                                                   
+C:\Users\alien\sovereign-ai\web\src\lib\utils                                                     
+C:\Users\alien\sovereign-ai\web\src\lib\vapi                                                      
+C:\Users\alien\sovereign-ai\web\src\lib\rateLimit.ts                                              
+C:\Users\alien\sovereign-ai\web\src\lib\supabaseAdmin.ts                                          
+C:\Users\alien\sovereign-ai\web\src\lib\supabaseClient.ts                                         
+C:\Users\alien\sovereign-ai\web\src\lib\utils.ts                                                  
+C:\Users\alien\sovereign-ai\web\src\lib\workspace-status.ts                                       
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\format.ts                                       
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\insights.ts                                     
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\params.ts                                       
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\queries.ts                                      
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\tickets.queries.ts                              
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\tickets.types.ts                                
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\tickets.utils.ts                                
+C:\Users\alien\sovereign-ai\web\src\lib\analytics\types.ts                                        
+C:\Users\alien\sovereign-ai\web\src\lib\audit\log.ts                                              
+C:\Users\alien\sovereign-ai\web\src\lib\auth\basic.ts                                             
+C:\Users\alien\sovereign-ai\web\src\lib\auth\requireVerifiedEmail.ts                              
+C:\Users\alien\sovereign-ai\web\src\lib\dashboard\getAvgResponseTime.ts                           
+C:\Users\alien\sovereign-ai\web\src\lib\dashboard\getDashboardOverview.ts                         
+C:\Users\alien\sovereign-ai\web\src\lib\supabase\admin.ts                                         
+C:\Users\alien\sovereign-ai\web\src\lib\supabase\server.ts                                        
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\actions.ts                                        
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\activity.actions.ts                               
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\activity.queries.ts                               
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\activity.types.ts                                 
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\comments.actions.ts                               
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\comments.queries.ts                               
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\comments.types.ts                                 
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\queries.ts                                        
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\types.ts                                          
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\utils.client.ts                                   
+C:\Users\alien\sovereign-ai\web\src\lib\tickets\utils.server.ts                                   
+C:\Users\alien\sovereign-ai\web\src\lib\utils\url.ts                                              
+C:\Users\alien\sovereign-ai\web\src\lib\vapi\server.ts                                            
+
+
+
+## 9) Quick config dump: package.json, tsconfig, tailwind, next config
+
+### FILE: .\tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+### FILE: .\web\package.json
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "@tanstack/react-table": "^8.21.3",
+    "apexcharts": "^5.3.6",
+    "chrono-node": "^2.9.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "next-themes": "^0.4.6",
+    "react": "19.2.3",
+    "react-apexcharts": "^1.9.0",
+    "react-calendar": "^6.0.0",
+    "react-dom": "19.2.3",
+    "react-icons": "^5.5.0",
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5"
+  }
+}
+
+
+### FILE: .\web\tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "routes": ["./src/horizon/routes"],
+      "components/*": ["./src/horizon/components/*"],
+      "contexts/*": ["./src/horizon/contexts/*"],
+      "variables/*": ["./src/horizon/variables/*"],
+      "utils/*": ["./src/horizon/utils/*"],
+      "styles/*": ["./src/horizon/styles/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}
+
+
+### FILE: .\web\tailwind.config.ts
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/horizon/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      screens: {
+        '3xl': '1920px',
+      },
+      colors: {
+        // Horizon navy palette (blue-gray for dark mode backgrounds)
+        navy: {
+          50: '#f0f4ff',
+          100: '#e0e9ff',
+          200: '#c7d4ff',
+          300: '#a4b5ff',
+          400: '#818cff',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#0b1437', // Darker navy for dark mode (common Horizon value)
+          800: '#1a1f3a', // Very dark navy
+          900: '#1e293b', // Almost black navy
+        },
+        // Horizon brand palette (blue accent for active states)
+        brand: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6', // Primary brand blue
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+        },
+        // Horizon lightPrimary (light blue tint for search/nav backgrounds)
+        lightPrimary: '#e0f2fe',
+        // Horizon background shades (main layout backgrounds)
+        background: {
+          100: '#f4f7fe', // Light gray-blue background
+          900: '#0b1437', // Dark navy background
+        },
+      },
+      boxShadow: {
+        // Horizon shadow utilities
+        'shadow-500': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        '3xl': '0 35px 60px -15px rgba(0, 0, 0, 0.3)',
+      },
+      fontFamily: {
+        // Horizon fonts
+        poppins: ['Poppins', 'sans-serif'],
+        dm: ['DM Sans', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [],
+};
+
+export default config;
+
+
+ D O N E .   R e p o r t :   v e r c e l _ d i f f _ r e p o r t _ 2 0 2 6 - 0 1 - 0 8 _ 1 3 - 4 8 . t x t  
+ 

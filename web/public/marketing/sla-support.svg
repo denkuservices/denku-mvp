@@ -1,0 +1,20 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SLA/Support visualization -->
+  <rect x="50" y="80" width="300" height="160" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2"/>
+  
+  <!-- Clock/time indicator -->
+  <circle cx="200" cy="150" r="50" fill="white" stroke="#2563EB" stroke-width="3"/>
+  <line x1="200" y1="150" x2="200" y2="130" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
+  <line x1="200" y1="150" x2="215" y2="165" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="200" cy="150" r="4" fill="#2563EB"/>
+  
+  <!-- Response indicators -->
+  <rect x="100" y="220" width="80" height="20" rx="4" fill="#10B981" opacity="0.2"/>
+  <text x="140" y="233" text-anchor="middle" fill="#10B981" font-family="system-ui" font-size="10" font-weight="600">Priority</text>
+  
+  <rect x="200" y="220" width="80" height="20" rx="4" fill="#2563EB" opacity="0.2"/>
+  <text x="240" y="233" text-anchor="middle" fill="#2563EB" font-family="system-ui" font-size="10" font-weight="600">SLA</text>
+  
+  <rect x="300" y="220" width="80" height="20" rx="4" fill="#64748B" opacity="0.2"/>
+  <text x="340" y="233" text-anchor="middle" fill="#64748B" font-family="system-ui" font-size="10" font-weight="600">Contract</text>
+</svg>
