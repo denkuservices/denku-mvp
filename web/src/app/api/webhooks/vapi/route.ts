@@ -618,8 +618,8 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Reject call if limit reached or org inactive
-          if (leaseResult.reason === "limit_reached" || leaseResult.reason === "org_inactive") {
+          // Reject call if limit reached, org inactive, or RPC returned no row
+          if (leaseResult.reason === "limit_reached" || leaseResult.reason === "org_inactive" || leaseResult.reason === "rpc_no_row") {
             return NextResponse.json({
               ok: true,
               rejected: true,
