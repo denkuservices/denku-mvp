@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
       const { data: debugData, error: debugErr } = await supabaseAdmin
         .from("webhook_debug")
         .insert({
-          source: "vapi_route_hit",
+          source: "vapi",
           headers: headersObj,
           body: body,
         })
@@ -301,7 +301,7 @@ export async function POST(req: NextRequest) {
           const { error: serverErr } = await supabaseServer
             .from("webhook_debug")
             .insert({
-              source: "vapi_route_hit_fallback",
+              source: "vapi",
               headers: headersObj,
               body: body,
             });
@@ -400,6 +400,7 @@ export async function POST(req: NextRequest) {
       const { data: debugInsert, error: debugErr } = await supabaseAdmin
         .from("webhook_debug")
         .insert({
+          source: "vapi", // REQUIRED: source must always be set to non-null value
           event_type: eventType,
           vapi_call_id: vapiCallId,
           raw_payload: body,
@@ -413,22 +414,22 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (debugErr) {
-        console.error("[WEBHOOK] CRITICAL: Failed to write webhook_debug row:", {
+        console.error("[WEBHOOK] Failed to write webhook_debug row (non-fatal):", {
           error: debugErr,
           vapiCallId,
           eventType,
         });
-        // DO NOT swallow - this is critical instrumentation
+        // Log error but continue - webhook processing must not fail due to debug logging
       } else {
         debugRowId = debugInsert?.id ?? null;
         console.log("[WEBHOOK] Debug row written", { debugRowId, vapiCallId, eventType });
       }
     } catch (debugException) {
-      console.error("[WEBHOOK] CRITICAL: Exception writing webhook_debug:", {
+      console.error("[WEBHOOK] Exception writing webhook_debug (non-fatal):", {
         error: debugException,
         vapiCallId,
       });
-      // DO NOT swallow
+      // Log exception but continue - webhook processing must not fail due to debug logging
     }
 
     // PART C: CONCURRENCY ENFORCEMENT (ORG-LEVEL)
