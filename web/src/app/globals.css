@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800&display=swap');
+
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -43,6 +45,20 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  
+  /* Horizon UI color tokens */
+  --color-background-100: #f4f7fe;
+  --color-background-900: #0b1437;
+  --color-navy-700: #0b1437;
+  --color-navy-800: #1a1f3a;
+  --color-navy-900: #1e293b;
+  --color-brand-500: #3b82f6;
+  --color-lightPrimary: #e0f2fe;
+  
+  /* Horizon UI shadow tokens */
+  --shadow-3xl: 0px 18px 40px rgba(112, 144, 176, 0.12);
+  --shadow-shadow-500: 0px 18px 40px rgba(112, 144, 176, 0.12);
+  --shadow-shadow-100: 0px 18px 40px rgba(112, 144, 176, 0.12);
 }
 
 :root {
@@ -115,10 +131,73 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  html {
+    scroll-behavior: smooth;
   }
+  
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@keyframes breath {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scaleY(1.15);
+  }
+}
+
+@keyframes flowConnector {
+  0% {
+    left: 0;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    left: calc(100% - 6px);
+    opacity: 0.3;
+  }
+}
+
+@keyframes flowConnectorVertical {
+  0% {
+    top: 0;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    top: calc(100% - 6px);
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-connector-dot {
+    animation: none !important;
+  }
+  
+  .pulse-dot {
+    animation: none !important;
+  }
+}
+
+.pulse-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }

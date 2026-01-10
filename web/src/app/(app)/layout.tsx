@@ -1,6 +1,13 @@
-import Link from "next/link";
-import DashboardHeader from "@/app/(app)/DashboardHeader";
+import { DM_Sans } from "next/font/google";
 import { requireVerifiedEmail } from "@/lib/auth/requireVerifiedEmail";
+import HorizonShell from "@/components/horizon-shell/HorizonShell";
+import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
 
 export default async function AppLayout({
   children,
@@ -11,18 +18,11 @@ export default async function AppLayout({
   await requireVerifiedEmail();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="border-b bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-3">
-          <DashboardHeader />
-        </div>
+    <>
+      <HorizonStylesheet />
+      <div className={`${dmSans.className} w-full`}>
+        <HorizonShell>{children}</HorizonShell>
       </div>
-
-      {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        {children}
-      </main>
-    </div>
+    </>
   );
 }

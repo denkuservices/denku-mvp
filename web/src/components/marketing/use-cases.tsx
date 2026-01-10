@@ -28,7 +28,7 @@ const useCases = [
 
 export function UseCases() {
   return (
-    <Section>
+    <Section id="use-cases" className="scroll-mt-20">
       <Container>
         {/* Header */}
         <div className="flex items-end justify-between gap-6">
@@ -51,7 +51,7 @@ export function UseCases() {
           {useCases.map((u) => (
             <div
               key={u.title}
-              className="rounded-2xl border bg-background p-6"
+              className="group rounded-2xl border border-border/50 bg-background p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-1"
             >
               <div className="text-xl font-semibold tracking-tight">
                 {u.title}

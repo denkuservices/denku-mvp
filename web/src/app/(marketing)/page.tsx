@@ -1,19 +1,19 @@
-import { Hero } from '@/components/marketing/hero';
-import { SocialProof } from '@/components/marketing/social-proof';
-import { HowItWorks } from '@/components/marketing/how-it-works';
-import { UseCases } from '@/components/marketing/use-cases';
-import { PricingPreview } from '@/components/marketing/pricing-preview';
-import { FinalCta } from '@/components/marketing/final-cta';
+import { HeroPremium } from '@/components/marketing/hero-premium';
+import { UseCases } from '@/components/marketing/UseCases';
+import { OutcomesStrip } from '@/components/marketing/OutcomesStrip';
+import { Pricing } from '@/components/marketing/Pricing';
+import { SecurityTeaser } from '@/components/marketing/SecurityTeaser';
+import { Contact } from '@/components/marketing/Contact';
 
 export default function HomePage() {
   return (
     <>
-      <Hero />
-      <SocialProof />
-      <HowItWorks />
+      <HeroPremium />
       <UseCases />
-      <PricingPreview />
-      <FinalCta />
+      <OutcomesStrip />
+      <Pricing />
+      <SecurityTeaser />
+      <Contact />
     </>
   );
 }

@@ -13,6 +13,26 @@ export type DashboardOverview = {
     appointments_count: number; // Total appointments created
     tickets_count: number; // Total tickets created
     estimated_savings: number; // Estimated savings vs human agents ($25/hour)
+    total_calls_month: number;
+    handled_calls_month: number;
+    answer_rate: number;
+    tickets_created_month: number;
+    appointments_created_month: number;
+    estimated_savings_usd: number;
+    total_calls_this_month: number;
+    total_calls_last_month: number;
+    total_calls_series: Array<{ monthLabel: string; value: number }>;
+    handled_calls_series: Array<{ monthLabel: string; value: number }>;
+    weekly_outcomes: Array<{ label: string; handledCalls: number; supportTickets: number }>;
+    total_calls_today: number;
+    total_calls_yesterday: number;
+    hourly_calls_series: Array<{ label: string; value: number }>;
+    agent_performance: Array<{
+      name: [string, boolean];
+      progress: string;
+      quantity: number;
+      date: string;
+    }>;
   };
   system_status: "Healthy" | "Attention Needed";
   feed: Array<{ id: string; message: string; time: string }>;
@@ -284,12 +304,452 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const checkedCount = readinessSteps.filter((s) => s.done).length;
   const readinessScore = Math.round((checkedCount / readinessSteps.length) * 100);
 
-  // 11) Compute estimated savings (reuse analytics computation, no new queries)
-  // Use 30-day range for dashboard overview
+  // Date range for this month
+  const now = new Date();
+  const monthStart = new Date(now);
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const monthEnd = new Date(now);
+  monthEnd.setUTCHours(23, 59, 59, 999);
+
+  // Last month range
+  const lastMonthStart = new Date(monthStart);
+  lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
+  const lastMonthEnd = new Date(monthStart);
+  lastMonthEnd.setUTCMilliseconds(-1);
+
+  // Monthly metrics (all use same time window: this month)
+  let totalCallsMonth = 0;
+  let handledCallsMonth = 0;
+  let answerRate = 0;
+  let ticketsCreatedMonth = 0;
+  let appointmentsCreatedMonth = 0;
+  let estimatedSavingsUsd = 0;
+  let totalCallsThisMonth = 0;
+  let totalCallsLastMonth = 0;
+  let totalCallsSeries: Array<{ monthLabel: string; value: number }> = [];
+  let handledCallsSeries: Array<{ monthLabel: string; value: number }> = [];
+  let weeklyOutcomes: Array<{ label: string; handledCalls: number; supportTickets: number }> = [];
+  let totalCallsToday = 0;
+  let totalCallsYesterday = 0;
+  let hourlyCallsSeries: Array<{ label: string; value: number }> = [];
+  let agentPerformance: Array<{
+    name: [string, boolean];
+    progress: string;
+    quantity: number;
+    date: string;
+  }> = [];
+
+  if (orgId) {
+    // Total calls this month
+    const { count: monthTotalCount } = await supabase
+      .from("calls")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", monthStart.toISOString())
+      .lte("started_at", monthEnd.toISOString());
+
+    totalCallsMonth = typeof monthTotalCount === "number" ? monthTotalCount : 0;
+    totalCallsThisMonth = totalCallsMonth;
+
+    // Total calls last month
+    const { count: lastMonthTotalCount } = await supabase
+      .from("calls")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", lastMonthStart.toISOString())
+      .lte("started_at", lastMonthEnd.toISOString());
+
+    totalCallsLastMonth = typeof lastMonthTotalCount === "number" ? lastMonthTotalCount : 0;
+
+    // Handled calls this month (duration_seconds >= 5 AND ended_at IS NOT NULL)
+    const { count: handledCount } = await supabase
+      .from("calls")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", monthStart.toISOString())
+      .lte("started_at", monthEnd.toISOString())
+      .not("ended_at", "is", null)
+      .gte("duration_seconds", 5);
+
+    handledCallsMonth = typeof handledCount === "number" ? handledCount : 0;
+
+    // Answer rate
+    answerRate = totalCallsMonth > 0 ? (handledCallsMonth / totalCallsMonth) * 100 : 0;
+
+    // Tickets created this month
+    const { count: ticketsMonthCount } = await supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("created_at", monthStart.toISOString())
+      .lte("created_at", monthEnd.toISOString());
+
+    ticketsCreatedMonth = typeof ticketsMonthCount === "number" ? ticketsMonthCount : 0;
+
+    // Appointments created this month
+    const { count: appointmentsMonthCount } = await supabase
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("created_at", monthStart.toISOString())
+      .lte("created_at", monthEnd.toISOString());
+
+    appointmentsCreatedMonth = typeof appointmentsMonthCount === "number" ? appointmentsMonthCount : 0;
+
+    // Estimated savings USD: (SUM(duration_seconds of handled calls in month) / 3600) * 25
+    const { data: handledCallsData } = await supabase
+      .from("calls")
+      .select("duration_seconds")
+      .eq("org_id", orgId)
+      .gte("started_at", monthStart.toISOString())
+      .lte("started_at", monthEnd.toISOString())
+      .not("ended_at", "is", null)
+      .gte("duration_seconds", 5);
+
+    if (handledCallsData) {
+      const totalSeconds = handledCallsData.reduce(
+        (sum, c) => sum + (c.duration_seconds || 0),
+        0
+      );
+      estimatedSavingsUsd = (totalSeconds / 3600) * 25;
+    }
+
+    // Generate 6-month series (last 6 months including current)
+    const monthLabels: string[] = [];
+    const monthRanges: Array<{ start: Date; end: Date }> = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now);
+      monthDate.setUTCMonth(monthDate.getUTCMonth() - i);
+      monthDate.setUTCDate(1);
+      monthDate.setUTCHours(0, 0, 0, 0);
+      
+      const monthEndDate = new Date(monthDate);
+      monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+      monthEndDate.setUTCMilliseconds(-1);
+      
+      monthRanges.push({ start: monthDate, end: monthEndDate });
+      const monthName = monthDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
+      monthLabels.push(monthName);
+    }
+
+    // Aggregate calls by month (single query for efficiency)
+    const sixMonthsAgoStart = monthRanges[0].start;
+    const { data: callsData } = await supabase
+      .from("calls")
+      .select("started_at, ended_at, duration_seconds")
+      .eq("org_id", orgId)
+      .gte("started_at", sixMonthsAgoStart.toISOString())
+      .lte("started_at", monthEnd.toISOString());
+
+    if (callsData) {
+      // Initialize buckets
+      const totalCallsBuckets = new Array(6).fill(0);
+      const handledCallsBuckets = new Array(6).fill(0);
+
+      for (const call of callsData) {
+        if (!call.started_at) continue;
+        const callDate = new Date(call.started_at);
+        
+        for (let idx = 0; idx < monthRanges.length; idx++) {
+          const range = monthRanges[idx];
+          if (callDate >= range.start && callDate <= range.end) {
+            totalCallsBuckets[idx]++;
+            if (call.ended_at !== null && call.duration_seconds !== null && call.duration_seconds >= 5) {
+              handledCallsBuckets[idx]++;
+            }
+            break;
+          }
+        }
+      }
+
+      totalCallsSeries = monthLabels.map((label, idx) => ({
+        monthLabel: label,
+        value: totalCallsBuckets[idx],
+      }));
+
+      handledCallsSeries = monthLabels.map((label, idx) => ({
+        monthLabel: label,
+        value: handledCallsBuckets[idx],
+      }));
+    }
+
+    // Generate 8-week series (last 8 weeks including current)
+    const weekLabels: string[] = [];
+    const weekRanges: Array<{ start: Date; end: Date }> = [];
+    
+    for (let i = 7; i >= 0; i--) {
+      const weekDate = new Date(now);
+      weekDate.setUTCDate(weekDate.getUTCDate() - (i * 7));
+      const dayOfWeek = weekDate.getUTCDay();
+      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStart = new Date(weekDate);
+      weekStart.setUTCDate(weekStart.getUTCDate() + daysToMonday);
+      weekStart.setUTCHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+      weekEnd.setUTCHours(23, 59, 59, 999);
+      
+      weekRanges.push({ start: weekStart, end: weekEnd });
+      const startOfYear = new Date(Date.UTC(weekStart.getUTCFullYear(), 0, 1));
+      const diffTime = weekStart.getTime() - startOfYear.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const weekNum = Math.ceil((diffDays + 1) / 7);
+      weekLabels.push(`W${String(weekNum).padStart(2, '0')}`);
+    }
+
+    // Fetch calls and tickets for 8-week window
+    const eightWeeksAgoStart = weekRanges[0].start;
+    const { data: weeklyCallsData } = await supabase
+      .from("calls")
+      .select("started_at, ended_at, duration_seconds")
+      .eq("org_id", orgId)
+      .gte("started_at", eightWeeksAgoStart.toISOString())
+      .lte("started_at", monthEnd.toISOString());
+
+    const { data: weeklyTicketsData } = await supabase
+      .from("tickets")
+      .select("created_at")
+      .eq("org_id", orgId)
+      .gte("created_at", eightWeeksAgoStart.toISOString())
+      .lte("created_at", monthEnd.toISOString());
+
+    const handledCallsWeekly = new Array(8).fill(0);
+    const supportTicketsWeekly = new Array(8).fill(0);
+
+    if (weeklyCallsData) {
+      for (const call of weeklyCallsData) {
+        if (!call.started_at) continue;
+        const callDate = new Date(call.started_at);
+        
+        for (let idx = 0; idx < weekRanges.length; idx++) {
+          const range = weekRanges[idx];
+          if (callDate >= range.start && callDate <= range.end) {
+            if (call.ended_at !== null && call.duration_seconds !== null && call.duration_seconds >= 5) {
+              handledCallsWeekly[idx]++;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    if (weeklyTicketsData) {
+      for (const ticket of weeklyTicketsData) {
+        if (!ticket.created_at) continue;
+        const ticketDate = new Date(ticket.created_at);
+        
+        for (let idx = 0; idx < weekRanges.length; idx++) {
+          const range = weekRanges[idx];
+          if (ticketDate >= range.start && ticketDate <= range.end) {
+            supportTicketsWeekly[idx]++;
+            break;
+          }
+        }
+      }
+    }
+
+    weeklyOutcomes = weekLabels.map((label, idx) => ({
+      label,
+      handledCalls: handledCallsWeekly[idx],
+      supportTickets: supportTicketsWeekly[idx],
+    }));
+
+    // Today range
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+    todayEnd.setUTCMilliseconds(-1);
+
+    // Yesterday range
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+    const yesterdayEnd = new Date(todayStart);
+    yesterdayEnd.setUTCMilliseconds(-1);
+
+    // Total calls today
+    const { count: todayCount } = await supabase
+      .from("calls")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", todayStart.toISOString())
+      .lt("started_at", todayEnd.toISOString());
+
+    totalCallsToday = typeof todayCount === "number" ? todayCount : 0;
+
+    // Total calls yesterday
+    const { count: yesterdayCount } = await supabase
+      .from("calls")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("started_at", yesterdayStart.toISOString())
+      .lt("started_at", yesterdayEnd.toISOString());
+
+    totalCallsYesterday = typeof yesterdayCount === "number" ? yesterdayCount : 0;
+
+    // Hourly buckets for today: ['00', '04', '08', '12', '14', '16', '18']
+    const hourlyLabels = ['00', '04', '08', '12', '14', '16', '18'];
+    const hourlyBuckets: Array<{ start: Date; end: Date }> = [];
+    
+    for (let i = 0; i < hourlyLabels.length; i++) {
+      const hour = parseInt(hourlyLabels[i], 10);
+      const bucketStart = new Date(todayStart);
+      bucketStart.setUTCHours(hour, 0, 0, 0);
+      
+      const nextHour = i < hourlyLabels.length - 1 ? parseInt(hourlyLabels[i + 1], 10) : 24;
+      const bucketEnd = new Date(todayStart);
+      if (nextHour === 24) {
+        bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 1);
+        bucketEnd.setUTCHours(0, 0, 0, 0);
+        bucketEnd.setUTCMilliseconds(-1);
+      } else {
+        bucketEnd.setUTCHours(nextHour, 0, 0, 0);
+        bucketEnd.setUTCMilliseconds(-1);
+      }
+      
+      hourlyBuckets.push({ start: bucketStart, end: bucketEnd });
+    }
+
+    // Fetch calls for today
+    const { data: todayCallsData } = await supabase
+      .from("calls")
+      .select("started_at")
+      .eq("org_id", orgId)
+      .gte("started_at", todayStart.toISOString())
+      .lt("started_at", todayEnd.toISOString());
+
+    const hourlyBucketsCount = new Array(7).fill(0);
+
+    if (todayCallsData) {
+      for (const call of todayCallsData) {
+        if (!call.started_at) continue;
+        const callDate = new Date(call.started_at);
+        
+        for (let idx = 0; idx < hourlyBuckets.length; idx++) {
+          const range = hourlyBuckets[idx];
+          if (callDate >= range.start && callDate <= range.end) {
+            hourlyBucketsCount[idx]++;
+            break;
+          }
+        }
+      }
+    }
+
+    hourlyCallsSeries = hourlyLabels.map((label, idx) => ({
+      label,
+      value: hourlyBucketsCount[idx],
+    }));
+
+    // Agent performance for this month
+    const { data: agentsData } = await supabase
+      .from("agents")
+      .select("id, name")
+      .eq("org_id", orgId);
+
+    if (agentsData && agentsData.length > 0) {
+      const agentIds = agentsData.map((a) => a.id);
+      const { data: callsData } = await supabase
+        .from("calls")
+        .select("agent_id, started_at, ended_at, duration_seconds")
+        .eq("org_id", orgId)
+        .in("agent_id", agentIds)
+        .gte("started_at", monthStart.toISOString())
+        .lte("started_at", monthEnd.toISOString());
+
+      type AgentMetrics = {
+        agentId: string;
+        agentName: string;
+        totalCalls: number;
+        handledCalls: number;
+        lastActive: Date | null;
+      };
+
+      const agentMetricsMap = new Map<string, AgentMetrics>();
+
+      // Initialize map
+      for (const agent of agentsData) {
+        agentMetricsMap.set(agent.id, {
+          agentId: agent.id,
+          agentName: agent.name || "Unnamed Agent",
+          totalCalls: 0,
+          handledCalls: 0,
+          lastActive: null,
+        });
+      }
+
+      // Aggregate calls
+      if (callsData) {
+        for (const call of callsData) {
+          if (!call.agent_id) continue;
+          const metrics = agentMetricsMap.get(call.agent_id);
+          if (!metrics) continue;
+
+          metrics.totalCalls++;
+          if (
+            call.ended_at !== null &&
+            call.duration_seconds !== null &&
+            call.duration_seconds >= 5
+          ) {
+            metrics.handledCalls++;
+          }
+
+          if (call.started_at) {
+            const callDate = new Date(call.started_at);
+            if (!metrics.lastActive || callDate > metrics.lastActive) {
+              metrics.lastActive = callDate;
+            }
+          }
+        }
+      }
+
+      // Convert to array and format
+      const agentPerfArray = Array.from(agentMetricsMap.values())
+        .filter((m) => m.totalCalls > 0)
+        .sort((a, b) => {
+          if (b.handledCalls !== a.handledCalls) {
+            return b.handledCalls - a.handledCalls;
+          }
+          if (a.lastActive && b.lastActive) {
+            return b.lastActive.getTime() - a.lastActive.getTime();
+          }
+          if (b.lastActive) return 1;
+          if (a.lastActive) return -1;
+          return 0;
+        })
+        .slice(0, 5)
+        .map((m) => {
+          const answerRate =
+            m.totalCalls > 0
+              ? ((m.handledCalls / m.totalCalls) * 100).toFixed(1)
+              : "0.0";
+          const dateStr = m.lastActive
+            ? (() => {
+                const day = m.lastActive.getDate();
+                const month = m.lastActive.toLocaleDateString("en-US", { month: "short" });
+                const year = m.lastActive.getFullYear();
+                return `${day} ${month} ${year}`;
+              })()
+            : "—";
+
+          return {
+            name: [m.agentName, true] as [string, boolean],
+            progress: `${answerRate}%`,
+            quantity: m.handledCalls,
+            date: dateStr,
+          };
+        });
+
+      agentPerformance = agentPerfArray;
+    }
+  }
+
+  // 11) Compute estimated savings (legacy, 30-day range for compatibility)
   let estimatedSavings = 0;
   if (orgId) {
     try {
-      const now = new Date();
       const to = new Date(now);
       to.setUTCHours(23, 59, 59, 999);
       const from = new Date(to);
@@ -302,11 +762,9 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         to,
       });
 
-      // Compute summary to get estimated savings (counts not needed for dashboard)
       const summary = computeSummary(calls, 0, 0, 0);
       estimatedSavings = summary.estimatedSavings;
     } catch (err) {
-      // If analytics computation fails, default to 0 (non-blocking)
       console.error("[DASHBOARD] Failed to compute estimated savings:", err);
       estimatedSavings = 0;
     }
@@ -316,13 +774,28 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     user: { name: userName, org: orgName },
     metrics: {
       agents_total: agentsTotal,
-      agents_active: agentsTotal, // placeholder until you add status field
+      agents_active: agentsTotal,
       calls_total: callsTotal,
       calls_last_7d: callsLast7d,
       leads_count: leadsCount,
       appointments_count: appointmentsCount,
       tickets_count: ticketsCount,
       estimated_savings: estimatedSavings,
+      total_calls_month: totalCallsMonth,
+      handled_calls_month: handledCallsMonth,
+      answer_rate: answerRate,
+      tickets_created_month: ticketsCreatedMonth,
+      appointments_created_month: appointmentsCreatedMonth,
+      estimated_savings_usd: estimatedSavingsUsd,
+      total_calls_this_month: totalCallsThisMonth,
+      total_calls_last_month: totalCallsLastMonth,
+      total_calls_series: totalCallsSeries,
+      handled_calls_series: handledCallsSeries,
+      weekly_outcomes: weeklyOutcomes,
+      total_calls_today: totalCallsToday,
+      total_calls_yesterday: totalCallsYesterday,
+      hourly_calls_series: hourlyCallsSeries,
+      agent_performance: agentPerformance,
     },
     system_status: systemStatus,
     feed,

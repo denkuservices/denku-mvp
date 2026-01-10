@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { CollapsibleAuditMetadata } from "./CollapsibleAuditMetadata";
 
 type CallRow = {
   id: string;
@@ -16,8 +17,9 @@ type CallRow = {
   cost_usd: number | string | null;
   outcome: string | null;
   transcript: string | null;
-  raw_payload: string | null; // DB’de text
+  raw_payload: string | null; // DB'de text
   created_at: string | null;
+  from_phone: string | null;
 };
 
 function formatDate(value?: string | null) {
@@ -260,7 +262,7 @@ export default async function CallDetailPage({
   const { data: call, error: callErr } = await supabaseAdmin
     .from("calls")
     .select(
-      "id, vapi_call_id, org_id, agent_id, started_at, ended_at, duration_seconds, cost_usd, outcome, transcript, raw_payload, created_at"
+      "id, vapi_call_id, org_id, agent_id, started_at, ended_at, duration_seconds, cost_usd, outcome, transcript, raw_payload, created_at, from_phone"
     )
     .eq("id", callId)
     .maybeSingle<CallRow>();
@@ -355,247 +357,348 @@ export default async function CallDetailPage({
         </Link>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-lg border bg-white p-4">
-          <h3 className="text-sm font-semibold text-gray-900">Agent Context</h3>
-          <dl className="mt-2 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-600">Agent</dt>
-              <dd className="font-medium text-gray-800">{agentName ?? "Unassigned"}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-600">Call Type</dt>
-              <dd className="font-medium text-gray-800">Inbound</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-600">Status</dt>
-              <dd className="font-medium text-gray-800">{callStatus}</dd>
-            </div>
-          </dl>
+      <div className="mt-4 grid w-full grid-cols-1 gap-5 xl:grid-cols-2 items-stretch">
+        <div className="!z-5 relative flex h-full flex-col w-full min-w-0 rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Agent Context</h2>
+          </div>
+          <div className="mt-4 flex-1 overflow-x-auto px-6 pb-6 min-w-0">
+            <table className="min-w-full text-sm">
+              <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Agent</td>
+                  <td className="px-4 py-3 text-sm font-bold text-navy-700 dark:text-white">{agentName ?? "Unassigned"}</td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Caller</td>
+                  <td className="px-4 py-3 text-sm font-bold text-navy-700 dark:text-white">{call.from_phone ? maskPhoneNumber(call.from_phone) : "—"}</td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Call Type</td>
+                  <td className="px-4 py-3 text-sm font-bold text-navy-700 dark:text-white">Inbound</td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Status</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      callStatus === "Completed"
+                        ? "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-200"
+                        : callStatus === "In progress"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-200"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                    }`}>
+                      {callStatus}
+                    </span>
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Outcome</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass}`}>
+                      {outcome || "—"}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div className="mt-2">
-        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badgeClass}`}>
-          {outcome || "—"}
-        </span>
-      </div>
-
-      <div className="mt-6 grid gap-3 lg:grid-cols-3">
-        <div className="rounded-md border bg-white p-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold">KPIs</h2>
-          <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs text-gray-600">Started</dt>
-              <dd className="text-sm text-gray-900">{formatDate(call.started_at)}</dd>
+        <div className="!z-5 relative flex h-full flex-col w-full min-w-0 rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">KPIs</h2>
+          </div>
+          <div className="mt-4 flex-1 grid grid-cols-1 gap-4 px-6 pb-6 sm:grid-cols-2 min-w-0">
+            <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Started</p>
+              <p className="mt-1 text-sm font-bold text-navy-700 dark:text-white">{formatDate(call.started_at)}</p>
             </div>
-            <div>
-              <dt className="text-xs text-gray-600">Ended</dt>
-              <dd className="text-sm text-gray-900">{formatDate(call.ended_at)}</dd>
+            <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Ended</p>
+              <p className="mt-1 text-sm font-bold text-navy-700 dark:text-white">{formatDate(call.ended_at)}</p>
             </div>
-            <div>
-              <dt className="text-xs text-gray-600">Duration</dt>
-              <dd className="flex items-baseline gap-2 text-sm text-gray-900">
-                <span>{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</span>
+            <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Duration</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-sm font-bold text-navy-700 dark:text-white">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</span>
                 {durationDescriptor && (
-                  <span className="text-xs text-gray-500">({durationDescriptor})</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">({durationDescriptor})</span>
                 )}
-              </dd>
+              </div>
             </div>
-            <div>
-              <dt className="text-xs text-gray-600">Cost</dt>
-              <dd className="flex items-baseline gap-2 text-sm text-gray-900">
-                <span>{formatMoney(call.cost_usd)}</span>
+            <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Cost</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-sm font-bold text-navy-700 dark:text-white">{formatMoney(call.cost_usd)}</span>
                 {costDescriptor && (
-                  <span className="text-xs text-gray-500">({costDescriptor})</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">({costDescriptor})</span>
                 )}
-              </dd>
+              </div>
             </div>
-          </dl>
+          </div>
         </div>
+      </div>
 
-        <div className="rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Recording</h2>
-          {recordingUrl && (
-            <div className="mt-3">
-              <div className="rounded-xl border bg-gray-50 p-4">
+      <div className="mt-6">
+        <div className="!z-5 relative flex h-full flex-col w-full min-w-0 rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Recording</h2>
+          </div>
+          {recordingUrl ? (
+            <div className="mt-4 flex-1 px-6 pb-6 flex items-center min-w-0">
+              <div className="w-full rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-navy-700 p-4">
                 <audio controls className="h-14 w-full">
                   <source src={recordingUrl} />
                 </audio>
               </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex-1 px-6 pb-6 flex items-center min-w-0">
+              <p className="text-sm text-gray-600 dark:text-gray-400">No recording available</p>
             </div>
           )}
         </div>
       </div>
 
       <div className="mt-6">
-        <div className="rounded-md border bg-gray-50 p-4">
-          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Summary</h2>
-          <div className="mt-3">
+        <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Call Summary</h2>
+          </div>
+          <div className="mt-4 overflow-x-auto px-6 pb-6">
             {callSummary.length > 0 ? (
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {callSummary.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <table className="min-w-full text-sm">
+                <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                  {callSummary.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                      <td className="px-4 py-3 text-sm font-bold text-navy-700 dark:text-white">{item}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-              <p className="text-sm text-gray-600">No summary available for this call.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">No summary available for this call.</p>
             )}
           </div>
         </div>
       </div>
 
       <div className="mt-6">
-        <div className="rounded-md border bg-white p-4">
-          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Timeline</h2>
-          <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
-              <div className="flex items-center gap-2">
-                <span className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                  <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </span>
-                <span className="text-sm text-gray-800">Call Started</span>
-              </div>
-              <div className="text-right text-sm text-gray-500 tabular-nums">
-                <time>{formatDate(call.started_at)}</time>
-              </div>
-            </div>
-            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
-              <div className="flex items-center gap-2">
-                <span className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <svg className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </span>
-                <span className="text-sm text-gray-800">Conversation</span>
-              </div>
-              <div className="text-right text-sm text-gray-500 tabular-nums">
-                {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
-              </div>
-            </div>
-            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    call.ended_at ? "bg-green-500" : "bg-gray-200"
-                  }`}
-                >
-                  <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </span>
-                <span className="text-sm text-gray-800">Call Ended</span>
-              </div>
-              <div className="text-right text-sm text-gray-500 tabular-nums">
-                {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
-              </div>
-            </div>
+        <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Call Timeline</h2>
+          </div>
+          <div className="mt-4 overflow-x-auto px-6 pb-6">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-white/20">
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-white">Event</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 dark:text-white">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                      <span className="text-sm font-bold text-navy-700 dark:text-white">Call Started</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                    <time>{formatDate(call.started_at)}</time>
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-full bg-brand-500 flex items-center justify-center flex-shrink-0">
+                        <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                      <span className="text-sm font-bold text-navy-700 dark:text-white">Conversation</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                    {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${call.ended_at ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"}`}>
+                        <svg className={`h-4 w-4 ${call.ended_at ? "text-white" : "text-gray-500 dark:text-gray-400"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                      <span className="text-sm font-bold text-navy-700 dark:text-white">Call Ended</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                    {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
       <div className="mt-6">
-        <div className="rounded-md border bg-white p-4">
-          <h2 className="text-base font-semibold leading-6 text-gray-900">Call Outcome Insights</h2>
-          <div className="mt-3">
-            <ul className="list-disc space-y-1 pl-5 text-sm">
-              {callInsights.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+        <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Call Outcome Insights</h2>
+          </div>
+          <div className="mt-4 overflow-x-auto px-6 pb-6">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-white/20">
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-white">Metric</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-white">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                {callInsights.map((insight, index) => {
+                  // Extract key-value pairs if format is "Key: Value", otherwise treat as value only
+                  const parts = insight.split(/:\s+/);
+                  const metric = parts.length > 1 ? parts[0] : "Insight";
+                  const value = parts.length > 1 ? parts.slice(1).join(": ") : insight;
+
+                  // Determine if value represents a status (for badge styling)
+                  const isStatus = value.toLowerCase().includes("completed") ||
+                    value.toLowerCase().includes("scheduled") ||
+                    value.toLowerCase().includes("failed") ||
+                    value.toLowerCase().includes("ended");
+
+                  return (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {metric}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isStatus ? (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              value.toLowerCase().includes("completed") || value.toLowerCase().includes("scheduled")
+                                ? "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-200"
+                                : value.toLowerCase().includes("failed") || value.toLowerCase().includes("ended")
+                                ? "bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-200"
+                                : "bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-200"
+                            }`}
+                          >
+                            {value}
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold text-navy-700 dark:text-white">{value}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
       {parsedTranscript.length > 0 && (
         <div className="mt-6">
-          <div className="rounded-md border bg-white p-4">
-            <h2 className="text-base font-semibold leading-6 text-gray-900">Conversation Timeline</h2>
-            <div className="mt-4 space-y-6">
-              {parsedTranscript.map((segment, index) => (
-                <div key={index} className="relative flex gap-x-3">
-                  <div className="flex-none text-sm font-semibold leading-6 text-gray-500">
-                    {segment.speaker === "AI" ? "Agent" : "Caller"}
-                  </div>
-                  <div className="flex-auto rounded-md p-3 ring-1 ring-inset ring-gray-200">
-                    <div className="text-sm leading-6 text-gray-700">
-                      <p className="whitespace-pre-wrap">{segment.text}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+            <div className="flex items-center justify-between px-6 pt-6">
+              <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Conversation Timeline</h2>
+            </div>
+            <div className="mt-4 overflow-x-auto px-6 pb-6">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-white/20">
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-white">Speaker</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-white">Message</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 dark:text-white">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                  {parsedTranscript.map((segment, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            segment.speaker === "AI"
+                              ? "bg-brand-100 text-brand-800 dark:bg-brand-700 dark:text-brand-200"
+                              : segment.speaker === "User"
+                              ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-200"
+                          }`}
+                        >
+                          {segment.speaker === "AI" ? "Agent" : segment.speaker === "User" ? "Caller" : "System"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-700 dark:text-white">
+                          <p className="whitespace-pre-wrap">{segment.text}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-gray-400">
+                        {/* Timestamp would be parsed from transcript if available */}
+                        —
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-1">
-        <div className="rounded-md border bg-white p-4">
-          <h2 className="text-sm font-semibold">Transcript</h2>
-          <pre className="mt-3 whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-xs text-gray-800 font-mono">
-            {call.transcript ?? "—"}
-          </pre>
+      <div className="mt-6">
+        <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Transcript</h2>
+          </div>
+          <div className="mt-4 overflow-x-auto px-6 pb-6">
+            {call.transcript ? (
+              <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
+                <pre className="whitespace-pre-wrap break-words text-xs text-gray-800 dark:text-gray-200 font-mono">
+                  {call.transcript}
+                </pre>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-400">No transcript available</p>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="mt-6">
-        <details className="group rounded-lg border bg-white p-4">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-gray-900 group-open:mb-4">
-            Audit & Metadata
-          </summary>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <dt className="text-gray-600">Call ID</dt>
-              <dd className="font-mono text-gray-800">{call.id}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Provider Call ID</dt>
-              <dd className="font-mono text-gray-800">{call.vapi_call_id ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Agent</dt>
-              <dd className="text-gray-800">{agentName ?? call.agent_id ?? "Unassigned"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Direction</dt>
-              <dd className="text-gray-800">Inbound</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">From</dt>
-              <dd className="font-mono text-gray-800">{maskPhoneNumber(fromNumber)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">To</dt>
-              <dd className="font-mono text-gray-800">{maskPhoneNumber(toNumber)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Started</dt>
-              <dd className="text-gray-800">{formatDate(call.started_at)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Ended</dt>
-              <dd className="text-gray-800">{formatDate(call.ended_at)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Cost (Raw)</dt>
-              <dd className="font-mono text-gray-800">{formatMoneyRaw(call.cost_usd)}</dd>
-            </div>
-          </div>
-        </details>
+        <CollapsibleAuditMetadata
+          rows={[
+            { field: "Call ID", value: <span className="font-mono">{call.id}</span> },
+            { field: "Provider Call ID", value: <span className="font-mono">{call.vapi_call_id ?? "—"}</span> },
+            { field: "Agent", value: agentName ?? call.agent_id ?? "Unassigned" },
+            { field: "Direction", value: "Inbound" },
+            { field: "From", value: <span className="font-mono">{maskPhoneNumber(fromNumber)}</span> },
+            { field: "To", value: <span className="font-mono">{maskPhoneNumber(toNumber)}</span> },
+            { field: "Started", value: formatDate(call.started_at) },
+            { field: "Ended", value: formatDate(call.ended_at) },
+            { field: "Cost (Raw)", value: <span className="font-mono">{formatMoneyRaw(call.cost_usd)}</span> },
+          ]}
+        />
       </div>
     </div>
   );

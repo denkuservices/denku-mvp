@@ -43,7 +43,7 @@ const plans = [
 
 export function PricingPreview() {
   return (
-    <Section>
+    <Section id="pricing" className="scroll-mt-20">
       <Container>
         <div className="text-center">
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
@@ -59,8 +59,10 @@ export function PricingPreview() {
             <div
               key={p.name}
               className={[
-                'flex flex-col rounded-2xl border p-6 shadow-sm',
-                p.highlight ? 'border-foreground/40' : '',
+                'group flex flex-col rounded-2xl border p-8 shadow-sm transition-all',
+                p.highlight 
+                  ? 'border-foreground/40 shadow-md scale-105' 
+                  : 'border-border/50 hover:shadow-md hover:-translate-y-1',
               ].join(' ')}
             >
               <div className="flex items-baseline justify-between">

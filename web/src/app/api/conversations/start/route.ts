@@ -3,12 +3,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const user = auth.user;
-
-  if (!user) {
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  
+  // Handle missing session gracefully
+  if (authError || !auth?.user) {
+    // Don't throw AuthSessionMissingError - return proper 401 response
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  const user = auth.user;
 
   const body = await req.json().catch(() => ({}));
   const agent_id = body?.agent_id ?? null;

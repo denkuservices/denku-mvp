@@ -142,7 +142,7 @@ export default async function AnalyticsPage({
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
@@ -238,7 +238,7 @@ export default async function AnalyticsPage({
               range={currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d"}
             />
           ) : (
-            <div className="rounded-xl border bg-white p-8 text-center">
+            <div className="rounded-xl border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">Failed to load tickets analytics.</p>
             </div>
           )}

@@ -23,10 +23,20 @@ async function resolveUser(req: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
-    if (user) return { user, mode: "cookie" as const };
-  } catch {
-    // cookie write/ctx sorunlarında patlasa bile aşağıda bearer’a düşeceğiz
+    // Handle missing session gracefully - don't throw, return null user
+    if (error) {
+      // Auth session missing is expected if no cookies present - continue to bearer token check
+      if (process.env.NODE_ENV === 'development' && error.message?.includes('session')) {
+        // Silent - this is expected when no session exists
+      }
+    } else if (user) {
+      return { user, mode: "cookie" as const };
+    }
+  } catch (err) {
+    // cookie write/ctx sorunlarında patlasa bile aşağıda bearer'a düşeceğiz
+    // Don't log AuthSessionMissingError - it's expected when no session exists
   }
 
   // 2) Sonra bearer token (PowerShell test)

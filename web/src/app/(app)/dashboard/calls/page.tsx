@@ -3,6 +3,17 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { getOrgTimezone } from "@/lib/tickets/utils.server";
 import Link from "next/link";
+import {
+  TableCard,
+  TableRoot,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui-horizon/table";
+import { Toolbar } from "@/components/ui-horizon/toolbar";
+import { EmptyState } from "@/components/ui-horizon/empty";
 
 // Disable Next.js Server Component caching to ensure fresh data on every request
 export const dynamic = "force-dynamic";
@@ -416,14 +427,22 @@ export default async function CallsPage({
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="space-y-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Calls
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Browse recent calls from all agents.
-        </p>
+        <Toolbar
+          left={
+            <>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  Calls
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Browse recent calls from all agents.
+                </p>
+              </div>
+            </>
+          }
+        />
       </div>
 
       <div className="mb-6">
@@ -431,30 +450,24 @@ export default async function CallsPage({
       </div>
 
       {filteredCalls.length === 0 ? (
-        <div className="rounded-md border bg-white p-6 text-center text-sm text-gray-700">
-          {calls.length === 0 ? 'No calls found yet.' : 'No calls match your filters.'}
-        </div>
+        <EmptyState
+          title={calls.length === 0 ? 'No calls found yet.' : 'No calls match your filters.'}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-gray-600">
-              <tr>
-                <th className="px-4 py-3 font-medium">Agent</th>
-                <th className="px-4 py-3 font-medium">Outcome</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">
-                  Started
-                </th>
-                <th className="hidden px-4 py-3 font-medium sm:table-cell">
-                  Duration
-                </th>
-                <th className="hidden px-4 py-3 font-medium lg:table-cell">
-                  Cost
-                </th>
-                <th className="px-4 py-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
+        <TableCard className="overflow-x-auto p-0">
+          <TableRoot>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Agent</TableHead>
+                <TableHead>Outcome</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Cost</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
 
-            <tbody>
+            <TableBody>
               {filteredCalls.map((call) => {
                 const href = `/dashboard/calls/${call.id}`;
                 const agentObj = Array.isArray(call.agent)
@@ -466,19 +479,16 @@ export default async function CallsPage({
                 const startedValue = call.started_at ?? call.created_at;
 
                 return (
-                  <tr key={call.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3 align-top">
+                  <TableRow key={call.id} className="hover:bg-muted/50">
+                    <TableCell className="align-top">
                       <Link href={href} className="block group">
-                        <div className="font-medium text-gray-900 group-hover:underline">
+                        <div className="font-medium text-foreground group-hover:underline">
                           {agentName}
                         </div>
-                        <div className="mt-1 text-xs text-gray-500 md:hidden">
-                          {formatDate(startedValue)}
-                        </div>
                       </Link>
-                    </td>
+                    </TableCell>
 
-                    <td className="px-4 py-3 align-top">
+                    <TableCell className="align-top">
                       <Link href={href} className="block" tabIndex={-1}>
                         <span
                           className={`inline-block max-w-[140px] truncate rounded-full px-2 py-0.5 text-xs font-medium sm:max-w-[200px] ${outcomeBadgeClass(
@@ -489,44 +499,44 @@ export default async function CallsPage({
                           {outcomeLabel}
                         </span>
                       </Link>
-                    </td>
+                    </TableCell>
 
-                    <td className="hidden px-4 py-3 align-top md:table-cell">
+                    <TableCell className="align-top">
                       <Link href={href} className="block" tabIndex={-1}>
                         {formatDate(startedValue)}
                       </Link>
-                    </td>
+                    </TableCell>
 
-                    <td className="hidden px-4 py-3 align-top sm:table-cell">
+                    <TableCell className="align-top">
                       <Link href={href} className="block" tabIndex={-1}>
                         <span className={getDurationClass(call.duration_seconds)}>
                           {formatDuration(call.duration_seconds)}
                         </span>
                       </Link>
-                    </td>
+                    </TableCell>
 
-                    <td className="hidden px-4 py-3 align-top lg:table-cell">
+                    <TableCell className="align-top">
                       <Link href={href} className="block" tabIndex={-1}>
                         <span className={getCostClass(call.cost_usd)}>
                           {money(call.cost_usd)}
                         </span>
                       </Link>
-                    </td>
+                    </TableCell>
 
-                    <td className="px-4 py-3 text-right align-top">
+                    <TableCell className="text-right align-top">
                       <Link
                         href={href}
-                        className="rounded-md border bg-white px-2.5 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                        className="rounded-md border border-border bg-card px-2.5 py-1 text-sm font-medium text-foreground shadow-sm hover:bg-muted"
                       >
                         View
                       </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </TableRoot>
+        </TableCard>
       )}
     </div>
   );

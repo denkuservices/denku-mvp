@@ -10,6 +10,17 @@ import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { StatusBadge, PriorityBadge } from "@/components/tickets/TicketBadges";
 import { TicketQuickActions } from "@/components/tickets/TicketQuickActions";
 import { Phone } from "lucide-react";
+import {
+  TableCard,
+  TableRoot,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui-horizon/table";
+import { Toolbar } from "@/components/ui-horizon/toolbar";
+import { EmptyState } from "@/components/ui-horizon/empty";
 
 function asString(v: string | string[] | undefined) {
   if (!v) return "";
@@ -74,7 +85,7 @@ export default async function TicketsPage({
   }).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Workspace Paused Banner */}
       {isPaused && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -83,44 +94,47 @@ export default async function TicketsPage({
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Tickets</h1>
-          <p className="text-sm text-muted-foreground">
-            Operational follow-ups and escalations created from calls and lead activity.
-          </p>
-        </div>
-
-        {canMutate && (
-          isPaused ? (
-            <span
-              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
-              title="Workspace is paused"
-            >
-              New ticket
-            </span>
-          ) : (
-            <Link
-              href="/dashboard/tickets/new"
-              className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-              title="Create new ticket"
-            >
-              New ticket
-            </Link>
+      <Toolbar
+        left={
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Tickets</h1>
+            <p className="text-sm text-muted-foreground">
+              Operational follow-ups and escalations created from calls and lead activity.
+            </p>
+          </div>
+        }
+        right={
+          canMutate && (
+            isPaused ? (
+              <span
+                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
+                title="Workspace is paused"
+              >
+                New ticket
+              </span>
+            ) : (
+              <Link
+                href="/dashboard/tickets/new"
+                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                title="Create new ticket"
+              >
+                New ticket
+              </Link>
+            )
           )
-        )}
-      </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Open</p>
-          <p className="mt-1 text-2xl font-semibold">{openCount}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">{openCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Requires attention</p>
         </div>
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Needs attention</p>
-          <p className="mt-1 text-2xl font-semibold">{needsAttentionCount}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">{needsAttentionCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Open + High/Urgent priority</p>
         </div>
       </div>
@@ -135,9 +149,9 @@ export default async function TicketsPage({
       />
 
       {/* Table */}
-      <div className="rounded-xl border bg-white">
-        <div className="border-b p-4">
-          <p className="text-sm font-medium">Results</p>
+      <TableCard>
+        <div className="border-b border-border p-4">
+          <p className="text-sm font-medium text-foreground">Results</p>
           <p className="text-xs text-muted-foreground">
             {total} ticket{total !== 1 ? "s" : ""}
             {totalPages > 1 && ` · Page ${page} of ${totalPages}`}
@@ -145,54 +159,54 @@ export default async function TicketsPage({
         </div>
 
         {rows.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-medium">No tickets found</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
-            </p>
-            {canMutate && !isPaused && (
-              <Link
-                href="/dashboard/tickets/new"
-                className="mt-4 inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-              >
-                New ticket
-              </Link>
-            )}
-          </div>
+          <EmptyState
+            title="No tickets found"
+            description={q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
+            action={
+              canMutate && !isPaused ? (
+                <Link
+                  href="/dashboard/tickets/new"
+                  className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  New ticket
+                </Link>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="px-4 py-3 font-medium">Subject</th>
-                  <th className="px-4 py-3 font-medium">Lead</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Priority</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Updated</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+            <TableRoot>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Lead</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((item) => {
                   const { ticket, lead, call } = item;
                   return (
-                    <tr
+                    <TableRow
                       key={ticket.id}
-                      className="border-b last:border-b-0 hover:bg-zinc-50"
+                      className="hover:bg-muted/50"
                     >
-                      <td className="px-4 py-3">
+                      <TableCell>
                         {/* RSC: Cannot pass onClick handlers from Server to Client. Use Link for navigation instead. */}
                         <Link href={`/dashboard/tickets/${ticket.id}`} className="block">
-                          <div className="font-medium">{ticket.subject}</div>
+                          <div className="font-medium text-foreground">{ticket.subject}</div>
                           <div className="text-xs text-muted-foreground">Ticket ID: {ticket.id.slice(0, 8)}...</div>
                         </Link>
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3">
+                      <TableCell>
                         {lead ? (
                           <div>
-                            <div className="font-medium">{lead.name || "—"}</div>
+                            <div className="font-medium text-foreground">{lead.name || "—"}</div>
                             {lead.phone && (
                               <div className="text-xs text-muted-foreground">{lead.phone}</div>
                             )}
@@ -203,31 +217,31 @@ export default async function TicketsPage({
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3">
+                      <TableCell>
                         <StatusBadge status={ticket.status} />
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3">
+                      <TableCell>
                         <PriorityBadge priority={ticket.priority} />
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {formatDateInTZ(ticket.created_at, timezone)}
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {formatDateInTZ(ticket.updated_at, timezone)}
-                      </td>
+                      </TableCell>
 
-                      <td className="px-4 py-3 text-right">
+                      <TableCell className="text-right">
                         {/* RSC: No onClick handlers needed - Links handle navigation natively */}
                         <div className="flex items-center justify-end gap-2">
                           {call && (
                             <Link
                               href={`/dashboard/calls/${call.id}`}
-                              className="rounded-md border bg-white p-1.5 hover:bg-zinc-50"
+                              className="rounded-md border border-border bg-card p-1.5 hover:bg-muted"
                               title="View call"
                             >
                               <Phone className="h-4 w-4" />
@@ -247,23 +261,23 @@ export default async function TicketsPage({
                           )}
                           <Link
                             href={`/dashboard/tickets/${ticket.id}`}
-                            className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
+                            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                           >
                             View
                           </Link>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </TableRoot>
           </div>
         )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="border-t p-4 flex items-center justify-between">
+          <div className="border-t border-border p-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}
             </div>
@@ -276,7 +290,7 @@ export default async function TicketsPage({
                     ...(priority && { priority }),
                     page: String(page - 1),
                   }).toString()}`}
-                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+                  className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Previous
                 </Link>
@@ -289,7 +303,7 @@ export default async function TicketsPage({
                     ...(priority && { priority }),
                     page: String(page + 1),
                   }).toString()}`}
-                  className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+                  className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Next
                 </Link>
@@ -297,7 +311,7 @@ export default async function TicketsPage({
             </div>
           </div>
         )}
-      </div>
+      </TableCard>
     </div>
   );
 }

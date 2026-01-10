@@ -36,7 +36,7 @@ export function TicketsAnalytics({ data, range }: TicketsAnalyticsProps) {
           <TicketsSeries series={data.series} range={range} />
         </>
       ) : (
-        <div className="rounded-xl border bg-white p-8 text-center">
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">No tickets for this range.</p>
         </div>
       )}

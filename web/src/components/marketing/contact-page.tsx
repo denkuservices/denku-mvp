@@ -52,8 +52,9 @@ export function ContactPage() {
             className="mt-6 space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              // MVP: no backend yet
-              alert('Request submitted (MVP). Next step: wire to /api.');
+              // Note: This is a separate contact page component.
+              // The main Contact component in Contact.tsx handles the marketing homepage form.
+              // If this page needs form submission, it should use the same API route /api/marketing/contact.
             }}
           >
             <div className="space-y-2">

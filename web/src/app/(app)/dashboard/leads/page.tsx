@@ -189,14 +189,12 @@ export default async function Page({
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60"
-          title="Coming soon"
+        <Link
+          href="/dashboard/leads/new"
+          className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
         >
-          Create lead
-        </button>
+          Create Lead
+        </Link>
       </div>
 
       {/* KPI strip */}
@@ -219,43 +217,50 @@ export default async function Page({
       </div>
 
       {/* Controls */}
-      <form className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex-1 space-y-2">
-          <label className="text-sm font-medium">Search</label>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Name, phone, or email…"
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-          />
-        </div>
+      <form>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="grid w-full gap-3 md:max-w-[900px] md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search</label>
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Name, phone, or email…"
+                className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+            </div>
 
-        <div className="w-full md:w-56 space-y-2">
-          <label className="text-sm font-medium">Status</label>
-          <select
-            name="status"
-            defaultValue={status}
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-          >
-            <option value="">All</option>
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
-            <option value="unqualified">Unqualified</option>
-          </select>
-        </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <select
+                name="status"
+                defaultValue={status}
+                className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+              >
+                <option value="">All</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option>
+                <option value="unqualified">Unqualified</option>
+              </select>
+            </div>
+          </div>
 
-        <div className="flex gap-2">
-          <button type="submit" className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50">
-            Apply
-          </button>
-          <Link
-            href="/dashboard/leads"
-            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
-            title="Clear filters"
-          >
-            Reset
-          </Link>
+          <div className="flex w-full justify-end gap-2 md:w-auto">
+            <button
+              type="submit"
+              className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
+            >
+              Apply
+            </button>
+            <Link
+              href="/dashboard/leads"
+              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-navy-700 dark:text-white dark:hover:bg-navy-600"
+              title="Clear filters"
+            >
+              Reset
+            </Link>
+          </div>
         </div>
       </form>
 

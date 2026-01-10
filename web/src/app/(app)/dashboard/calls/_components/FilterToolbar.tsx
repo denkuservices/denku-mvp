@@ -98,9 +98,9 @@ export function FilterToolbar() {
 
   return (
     <div className="rounded-md border bg-white p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="flex-grow">
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="search" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
             Search
           </label>
           <input
@@ -108,19 +108,19 @@ export function FilterToolbar() {
             id="search"
             value={searchValue}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             placeholder="Search agent, outcome, etc."
           />
         </div>
-        <div className="min-w-[150px]">
-          <label htmlFor="outcome" className="block text-sm font-medium text-gray-700">
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="outcome" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
             Outcome
           </label>
           <select
             id="outcome"
             value={outcome}
             onChange={(e) => handleOutcomeChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All</option>
             <option value="completed">Completed</option>
@@ -128,15 +128,15 @@ export function FilterToolbar() {
             <option value="other">Other</option>
           </select>
         </div>
-        <div className="min-w-[150px]">
-          <label htmlFor="since" className="block text-sm font-medium text-gray-700">
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="since" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
             Time range
           </label>
           <select
             id="since"
             value={since}
             onChange={(e) => handleSinceChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Any time</option>
             <option value="1d">Last 24h</option>
@@ -144,20 +144,20 @@ export function FilterToolbar() {
             <option value="30d">Last 30 days</option>
           </select>
         </div>
-        {(q || outcome || since) && (
-          <div className="flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                router.push("/dashboard/calls");
-              }}
-              className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
       </div>
+      {(q || outcome || since) && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              router.push("/dashboard/calls");
+            }}
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
     </div>
   );
 }

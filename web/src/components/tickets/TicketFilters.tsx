@@ -84,55 +84,66 @@ export function TicketFilters({
   const hasActiveFilters = Boolean(q || initialStatus || initialPriority);
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div className="flex-1 space-y-2">
-        <label className="text-sm font-medium">Search</label>
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder="Subject, lead name, phone, or email…"
-          className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-        />
-      </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="ticket-search" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
+            Search
+          </label>
+          <input
+            type="text"
+            id="ticket-search"
+            value={q}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Subject, lead name, phone, or email…"
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
 
-      <div className="w-full md:w-56 space-y-2">
-        <label className="text-sm font-medium">Status</label>
-        <select
-          value={initialStatus}
-          onChange={(e) => handleStatusChange(e.target.value)}
-          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
-        >
-          <option value="">All</option>
-          {DEFAULT_STATUSES.map((status) => (
-            <option key={status} value={status} className="text-base py-2">
-              {getStatusLabel(status)}
-            </option>
-          ))}
-        </select>
-      </div>
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="ticket-status" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
+            Status
+          </label>
+          <select
+            id="ticket-status"
+            value={initialStatus}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All</option>
+            {DEFAULT_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {getStatusLabel(status)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div className="w-full md:w-56 space-y-2">
-        <label className="text-sm font-medium">Priority</label>
-        <select
-          value={initialPriority}
-          onChange={(e) => handlePriorityChange(e.target.value)}
-          className="h-11 w-full min-w-[12rem] rounded-md border bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-zinc-200"
-        >
-          <option value="">All</option>
-          {DEFAULT_PRIORITIES.map((priority) => (
-            <option key={priority} value={priority} className="text-base py-2">
-              {getPriorityLabel(priority)}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-2 w-full">
+          <label htmlFor="ticket-priority" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
+            Priority
+          </label>
+          <select
+            id="ticket-priority"
+            value={initialPriority}
+            onChange={(e) => handlePriorityChange(e.target.value)}
+            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All</option>
+            {DEFAULT_PRIORITIES.map((priority) => (
+              <option key={priority} value={priority}>
+                {getPriorityLabel(priority)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {hasActiveFilters && (
-        <div className="flex items-end">
+        <div>
           <Link
             href="/dashboard/tickets"
-            className="rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             title="Clear filters"
           >
             Clear filters

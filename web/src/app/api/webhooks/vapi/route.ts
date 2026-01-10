@@ -3,6 +3,11 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 import { logAuditEvent } from "@/lib/audit/log";
+import {
+  acquireOrgConcurrencyLease,
+  releaseOrgConcurrencyLease,
+  releaseExpiredLeases,
+} from "@/lib/concurrency/leases";
 
 const VapiWebhookSchema = z
   .object({
@@ -214,10 +219,111 @@ async function resolveLeadId(orgId: string, phone: string | null) {
    POST
 ----------------------------- */
 export async function POST(req: NextRequest) {
+  console.log("### VAPI ROUTE TOP HIT ###");
+  
+  const routeMarker = "### HIT ROUTE: /api/webhooks/vapi ###";
+  const timestamp = new Date().toISOString();
+  
+  // TASK 1: Unmistakable server-side logging at route entry
+  console.log(routeMarker, {
+    timestamp,
+    method: "POST",
+    path: "/api/webhooks/vapi",
+  });
+
   try {
+    // Parse headers for debug logging
+    const headersObj: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      headersObj[key] = value;
+    });
+
     const body = await req.json();
+    
+    // TASK 2: Write to webhook_debug IMMEDIATELY at route entry (before any validation)
+    // Use existing schema: source, headers, body
+    let debugInsertSuccess = false;
+    let debugInsertMethod = "none";
+    
+    try {
+      // Try admin client first
+      const { data: debugData, error: debugErr } = await supabaseAdmin
+        .from("webhook_debug")
+        .insert({
+          source: "vapi_route_hit",
+          headers: headersObj,
+          body: body,
+        })
+        .select("id")
+        .single();
+
+      if (debugErr) {
+        console.error("[WEBHOOK_DEBUG] Admin insert failed:", {
+          error: debugErr,
+          code: debugErr.code,
+          message: debugErr.message,
+          details: debugErr.details,
+          hint: debugErr.hint,
+        });
+        throw debugErr; // Trigger fallback
+      } else {
+        debugInsertSuccess = true;
+        debugInsertMethod = "admin";
+        console.log("[WEBHOOK_DEBUG] Admin insert SUCCESS:", {
+          debugId: debugData?.id,
+          timestamp,
+        });
+      }
+    } catch (adminErr) {
+      console.error("[WEBHOOK_DEBUG] Admin insert exception, trying fallback:", adminErr);
+      
+      // Fallback: Try server client (but it may not have insert permissions due to RLS)
+      // Still log the attempt for visibility
+      try {
+        const { createServerClient } = await import("@supabase/ssr");
+        const { cookies } = await import("next/headers");
+        const cookieStore = (await cookies()) as any;
+        
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (url && anonKey) {
+          const supabaseServer = createServerClient(url, anonKey, {
+            cookies: {
+              get(name: string) {
+                return cookieStore.get(name)?.value;
+              },
+              set() {},
+              remove() {},
+            },
+          });
+
+          const { error: serverErr } = await supabaseServer
+            .from("webhook_debug")
+            .insert({
+              source: "vapi_route_hit_fallback",
+              headers: headersObj,
+              body: body,
+            });
+
+          if (serverErr) {
+            console.error("[WEBHOOK_DEBUG] Server client fallback also failed:", serverErr);
+            debugInsertMethod = "both_failed";
+          } else {
+            debugInsertSuccess = true;
+            debugInsertMethod = "server_fallback";
+            console.log("[WEBHOOK_DEBUG] Server client fallback SUCCESS");
+          }
+        }
+      } catch (fallbackErr) {
+        console.error("[WEBHOOK_DEBUG] Fallback attempt exception:", fallbackErr);
+        debugInsertMethod = "both_failed";
+      }
+    }
+
     const parsed = VapiWebhookSchema.safeParse(body);
     if (!parsed.success) {
+      console.log("[WEBHOOK] Schema validation failed, returning 400");
       return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
     }
 
@@ -226,7 +332,7 @@ export async function POST(req: NextRequest) {
     const eventType = msg?.type ?? null;
     const status = asString(call?.status) ?? asString(msg?.status) ?? null;
 
-    // Normalize vapi_call_id once at the top
+    // Normalize vapi_call_id once at the top (after body parsing)
     const vapiCallId = asString(extractCallId(body));
 
     console.log("[WEBHOOK]", {
@@ -234,14 +340,19 @@ export async function POST(req: NextRequest) {
       status,
       vapiCallId,
       hasCall: !!call,
+      debugInsertSuccess,
+      debugInsertMethod,
     });
 
+    // Continue processing even if vapiCallId is missing (for debug visibility)
     if (!vapiCallId) {
+      console.log("[WEBHOOK] No vapi_call_id found, returning early");
       return NextResponse.json({ ok: true, ignored: "no_call_id" });
     }
 
     const { agentId, orgId } = await resolveAgentByVapi(body);
     if (!agentId || !orgId) {
+      console.log("[WEBHOOK] Agent not found, returning early", { vapiCallId });
       return NextResponse.json({ ok: true, ignored: "agent_not_found" });
     }
 
@@ -281,13 +392,86 @@ export async function POST(req: NextRequest) {
         ? "outbound"
         : "unknown";
 
+    console.log("### BEFORE LEASE / DEBUG BLOCK ###");
+
+    // PHASE 2: HARD INSTRUMENTATION - Write debug row on EVERY request (using service role)
+    let debugRowId: string | null = null;
+    try {
+      const { data: debugInsert, error: debugErr } = await supabaseAdmin
+        .from("webhook_debug")
+        .insert({
+          event_type: eventType,
+          vapi_call_id: vapiCallId,
+          raw_payload: body,
+          org_id: orgId,
+          agent_id: agentId,
+          direction,
+          started_at: startedAt,
+          ended_at: endedAt,
+        })
+        .select("id")
+        .single();
+
+      if (debugErr) {
+        console.error("[WEBHOOK] CRITICAL: Failed to write webhook_debug row:", {
+          error: debugErr,
+          vapiCallId,
+          eventType,
+        });
+        // DO NOT swallow - this is critical instrumentation
+      } else {
+        debugRowId = debugInsert?.id ?? null;
+        console.log("[WEBHOOK] Debug row written", { debugRowId, vapiCallId, eventType });
+      }
+    } catch (debugException) {
+      console.error("[WEBHOOK] CRITICAL: Exception writing webhook_debug:", {
+        error: debugException,
+        vapiCallId,
+      });
+      // DO NOT swallow
+    }
+
+    // PART C: CONCURRENCY ENFORCEMENT (ORG-LEVEL)
+    // Clean up expired leases on each webhook (best-effort, log failures)
+    try {
+      const expiredCount = await releaseExpiredLeases();
+      if (expiredCount > 0) {
+        console.log(`[WEBHOOK] Cleaned up ${expiredCount} expired lease(s)`, { orgId });
+      }
+    } catch (expiredErr) {
+      console.error("[WEBHOOK] Failed to release expired leases (non-fatal):", {
+        orgId,
+        error: expiredErr,
+      });
+    }
+
+    // Check if call already exists in database (to determine if this is a NEW call)
+    let existingCall: { id: string; org_id: string; agent_id: string | null; ended_at: string | null } | null = null;
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from("calls")
+        .select("id, org_id, agent_id, ended_at")
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle();
+
+      existingCall = existing;
+    } catch (existingErr) {
+      console.error("[WEBHOOK] Failed to check existing call:", existingErr);
+      // Continue anyway
+    }
+
+    const isNewCall = !existingCall;
+    const wasEnded = existingCall?.ended_at != null;
+    const isNowEnded = endedAt != null;
+    const callJustEnded = !wasEnded && isNowEnded;
+
     const vapi_assistant_id =
       call?.assistantId ?? msg?.assistantId ?? msg?.summary_table?.assistantId ?? null;
 
     const vapi_phone_number_id =
       call?.phoneNumberId ?? msg?.phoneNumberId ?? null;
 
-    // Non-final’de de lead’i bağlayabiliriz (inbound için caller phone)
+    // Non-final'de de lead'i bağlayabiliriz (inbound için caller phone)
     const leadId = direction === "inbound" ? await resolveLeadId(orgId, from_phone) : null;
 
     // duration: final eventte daha doğru (summary_table.minutes vs / call.durationSeconds)
@@ -296,7 +480,7 @@ export async function POST(req: NextRequest) {
       safeNumber(msg?.durationSeconds) ??
       null;
 
-    // 1) Her eventte row’u var etmek için UPSERT (cost_usd yazmıyoruz)
+    // 1) Her eventte row'u var etmek için UPSERT (cost_usd yazmıyoruz)
     const baseUpsert = {
       vapi_call_id: vapiCallId,
       org_id: orgId,
@@ -312,16 +496,275 @@ export async function POST(req: NextRequest) {
       lead_id: leadId ?? undefined,
       raw_payload: body,
       outcome: asString(call?.status) ?? asString(msg?.status) ?? undefined,
-      transcript: undefined, // transcript’i final eventte daha iyi yaz
+      transcript: undefined, // transcript'i final eventte daha iyi yaz
     };
 
-    const { error: upsertErr } = await supabaseAdmin
+    // TASK 3: Unique marker log RIGHT BEFORE calls table write
+    console.log("### CALLS TABLE WRITE: /api/webhooks/vapi POST handler ###", {
+      timestamp: new Date().toISOString(),
+      file: "web/src/app/api/webhooks/vapi/route.ts",
+      function: "POST handler",
+      operation: "upsert",
+      org_id: orgId,
+      agent_id: agentId,
+      vapi_call_id: vapiCallId,
+      direction,
+      started_at: startedAt,
+      ended_at: endedAt,
+    });
+
+    console.log("### BEFORE CALL UPSERT ###", { eventType, status, vapiCallId });
+
+    const { data: upsertedCall, error: upsertErr } = await supabaseAdmin
       .from("calls")
-      .upsert(compact(baseUpsert), { onConflict: "vapi_call_id" });
+      .upsert(compact(baseUpsert), { onConflict: "vapi_call_id" })
+      .select("id, org_id, agent_id, ended_at")
+      .single();
+
+    console.log("### AFTER CALL UPSERT ###");
 
     if (upsertErr) {
-      console.error("[VAPI] upsert failed", upsertErr);
+      console.error("### CALLS TABLE WRITE FAILED ###", {
+        timestamp: new Date().toISOString(),
+        file: "web/src/app/api/webhooks/vapi/route.ts",
+        error: upsertErr,
+        org_id: orgId,
+        agent_id: agentId,
+        vapi_call_id: vapiCallId,
+      });
+      
+      // Update debug row with error
+      if (debugRowId) {
+        await supabaseAdmin
+          .from("webhook_debug")
+          .update({ error_message: `upsert_failed: ${upsertErr.message}` })
+          .eq("id", debugRowId)
+          .catch(() => {}); // Ignore debug update failures
+      }
+      
       return NextResponse.json({ ok: false, error: "upsert_failed" }, { status: 500 });
+    }
+
+    // PHASE 4: Use org_id and agent_id from the ACTUAL calls row (more reliable)
+    const actualOrgId = upsertedCall?.org_id ?? orgId;
+    const actualAgentId = upsertedCall?.agent_id ?? agentId;
+    const actualEndedAt = upsertedCall?.ended_at;
+
+    // PHASE 4: Acquire lease on NEW call (when call row is created for first time)
+    if (isNewCall && startedAt && !actualEndedAt) {
+      console.log("[WEBHOOK] NEW CALL DETECTED - acquiring lease", {
+        vapiCallId,
+        actualOrgId,
+        actualAgentId,
+        startedAt,
+      });
+
+      let leaseAcquired = false;
+      let leaseError: string | null = null;
+
+      try {
+        const leaseResult = await acquireOrgConcurrencyLease({
+          orgId: actualOrgId,
+          agentId: actualAgentId,
+          vapiCallId: vapiCallId,
+          ttlMinutes: 15,
+        });
+
+        if (!leaseResult.ok) {
+          leaseError = `${leaseResult.reason}: ${leaseResult.error ?? "unknown"}`;
+          console.warn("[WEBHOOK] Lease acquire failed for new call:", {
+            vapiCallId,
+            actualOrgId,
+            actualAgentId,
+            reason: leaseResult.reason,
+            error: leaseResult.error,
+          });
+
+          // Write audit log for failure
+          try {
+            await logAuditEvent({
+              org_id: actualOrgId,
+              actor_user_id: null,
+              action: leaseResult.reason === "limit_reached" ? "concurrency_limit_reached" : "lease_acquire_failed",
+              entity_type: "call",
+              entity_id: vapiCallId ?? actualOrgId,
+              diff: {
+                reason: { before: null, after: leaseResult.reason },
+                vapi_call_id: { before: null, after: vapiCallId },
+                direction: { before: null, after: direction },
+                error: { before: null, after: leaseResult.error ?? null },
+              },
+            });
+          } catch (auditErr) {
+            console.error("[WEBHOOK] Audit log failed:", auditErr);
+          }
+
+          // Update debug row
+          if (debugRowId) {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({
+                lease_acquired: false,
+                error_message: leaseError,
+              })
+              .eq("id", debugRowId)
+              .catch(() => {});
+          }
+
+          // Reject call if limit reached or org inactive
+          if (leaseResult.reason === "limit_reached" || leaseResult.reason === "org_inactive") {
+            return NextResponse.json({
+              ok: true,
+              rejected: true,
+              reason: leaseResult.reason,
+            });
+          }
+        } else {
+          leaseAcquired = true;
+          console.log("[WEBHOOK] Lease acquired successfully for new call", {
+            vapiCallId,
+            actualOrgId,
+            actualAgentId,
+          });
+
+          // Update debug row
+          if (debugRowId) {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({ lease_acquired: true })
+              .eq("id", debugRowId)
+              .catch(() => {});
+          }
+        }
+      } catch (leaseException) {
+        leaseError = leaseException instanceof Error ? leaseException.message : String(leaseException);
+        console.error("[WEBHOOK] Exception during lease acquisition:", {
+          vapiCallId,
+          actualOrgId,
+          actualAgentId,
+          error: leaseException,
+        });
+
+        // Write audit log for exception
+        try {
+          await logAuditEvent({
+            org_id: actualOrgId,
+            actor_user_id: null,
+            action: "lease_acquire_failed",
+            entity_type: "call",
+            entity_id: vapiCallId ?? actualOrgId,
+            diff: {
+              reason: { before: null, after: `Exception: ${leaseError}` },
+              vapi_call_id: { before: null, after: vapiCallId },
+              direction: { before: null, after: direction },
+            },
+          });
+        } catch (auditErr) {
+          console.error("[WEBHOOK] Audit log failed:", auditErr);
+        }
+
+        // Update debug row
+        if (debugRowId) {
+          await supabaseAdmin
+            .from("webhook_debug")
+            .update({
+              lease_acquired: false,
+              error_message: leaseError,
+            })
+            .eq("id", debugRowId)
+            .catch(() => {});
+        }
+
+        // Reject call on exception
+        return NextResponse.json({
+          ok: true,
+          rejected: true,
+          reason: "lease_acquire_failed",
+          error: leaseError,
+        });
+      }
+    }
+
+    console.log("### AFTER LEASE / DEBUG BLOCK ###");
+
+    // PHASE 4: Release lease when call JUST ended (idempotent)
+    // Release on any event where call transitions from not-ended to ended
+    let leaseReleased = false;
+    let releaseError: string | null = null;
+
+    if (callJustEnded || (isNowEnded && !wasEnded)) {
+      console.log("[WEBHOOK] CALL JUST ENDED - releasing lease", {
+        vapiCallId,
+        actualOrgId,
+        actualAgentId,
+        wasEnded,
+        isNowEnded,
+        actualEndedAt,
+        endedAt,
+      });
+
+      try {
+        await releaseOrgConcurrencyLease({
+          orgId: actualOrgId,
+          vapiCallId: vapiCallId,
+        });
+        leaseReleased = true;
+        console.log("[WEBHOOK] Lease released successfully (call ended)", {
+          vapiCallId,
+          actualOrgId,
+          actualAgentId,
+        });
+
+        // Update debug row
+        if (debugRowId) {
+          await supabaseAdmin
+            .from("webhook_debug")
+            .update({ lease_released: true })
+            .eq("id", debugRowId)
+            .catch(() => {});
+        }
+      } catch (releaseErr) {
+        releaseError = releaseErr instanceof Error ? releaseErr.message : String(releaseErr);
+        console.error("[WEBHOOK] Failed to release lease on call end:", {
+          actualOrgId,
+          actualAgentId,
+          vapiCallId,
+          direction,
+          error: releaseErr,
+        });
+
+        // Write audit log for release failure
+        try {
+          await logAuditEvent({
+            org_id: actualOrgId,
+            actor_user_id: null,
+            action: "lease_release_failed",
+            entity_type: "call",
+            entity_id: vapiCallId ?? actualOrgId,
+            diff: {
+              reason: { before: null, after: releaseError },
+              vapi_call_id: { before: null, after: vapiCallId },
+              direction: { before: null, after: direction },
+            },
+          });
+        } catch (auditErr) {
+          console.error("[WEBHOOK] Audit log failed for lease release error:", auditErr);
+        }
+
+        // Update debug row
+        if (debugRowId) {
+          await supabaseAdmin
+            .from("webhook_debug")
+            .update({
+              lease_released: false,
+              error_message: releaseError,
+            })
+            .eq("id", debugRowId)
+            .catch(() => {});
+        }
+
+        // Don't fail webhook - release is cleanup, but log for visibility
+      }
     }
 
     // 2) Final event → UPDATE ile kesin final alanları yaz
@@ -363,6 +806,18 @@ export async function POST(req: NextRequest) {
         raw_payload: body,
       });
 
+      // TASK 3: Unique marker log RIGHT BEFORE calls table UPDATE (final event)
+      console.log("### CALLS TABLE UPDATE: /api/webhooks/vapi POST handler (final event) ###", {
+        timestamp: new Date().toISOString(),
+        file: "web/src/app/api/webhooks/vapi/route.ts",
+        function: "POST handler (final event)",
+        operation: "update",
+        vapi_call_id: vapiCallId,
+        actual_org_id: actualOrgId,
+        actual_agent_id: actualAgentId,
+        final_ended_at: finalEndedAt,
+      });
+
       const { data: updated, error: updateErr } = await supabaseAdmin
         .from("calls")
         .update(finalUpdate)
@@ -378,14 +833,88 @@ export async function POST(req: NextRequest) {
       });
 
       if (updateErr) {
-        console.error("[VAPI] final update failed", updateErr);
+        console.error("### CALLS TABLE UPDATE FAILED ###", {
+          timestamp: new Date().toISOString(),
+          file: "web/src/app/api/webhooks/vapi/route.ts",
+          error: updateErr,
+          vapi_call_id: vapiCallId,
+        });
         return NextResponse.json({ ok: false, error: "final_update_failed" }, { status: 500 });
+      }
+
+      console.log("### CALLS TABLE UPDATE SUCCESS ###", {
+        timestamp: new Date().toISOString(),
+        vapi_call_id: vapiCallId,
+        affected_rows: updated?.length ?? 0,
+      });
+
+      // PHASE 4: Ensure lease is released after final update (safety check)
+      // This handles cases where ended_at might not have been set in earlier events
+      if (finalEndedAt && !leaseReleased) {
+        console.log("[WEBHOOK] Final event - ensuring lease is released", {
+          vapiCallId,
+          actualOrgId,
+          actualAgentId,
+          finalEndedAt,
+        });
+
+        try {
+          await releaseOrgConcurrencyLease({
+            orgId: actualOrgId,
+            vapiCallId: vapiCallId,
+          });
+          console.log("[WEBHOOK] Lease released on final event", {
+            vapiCallId,
+            actualOrgId,
+          });
+
+          // Update debug row
+          if (debugRowId) {
+            await supabaseAdmin
+              .from("webhook_debug")
+              .update({ lease_released: true })
+              .eq("id", debugRowId)
+              .catch(() => {});
+          }
+        } catch (finalReleaseErr) {
+          console.error("[WEBHOOK] Failed to release lease on final event:", {
+            vapiCallId,
+            actualOrgId,
+            error: finalReleaseErr,
+          });
+          // Don't fail - already logged
+        }
       }
     }
 
-    return NextResponse.json({ ok: true });
+    console.log("### BEFORE RESPONSE RETURN ###");
+
+    // TASK 5: Add response headers with diagnostic info
+    const responseHeaders = new Headers();
+    responseHeaders.set("X-Webhook-Debug-Insert", debugInsertSuccess ? "success" : "failed");
+    responseHeaders.set("X-Webhook-Debug-Method", debugInsertMethod);
+    responseHeaders.set("X-Webhook-Event-Type", eventType ?? "unknown");
+    responseHeaders.set("X-Webhook-Vapi-Call-Id", vapiCallId ?? "none");
+
+    return NextResponse.json(
+      { 
+        ok: true,
+        _debug: {
+          debugInsertSuccess,
+          debugInsertMethod,
+          eventType,
+          vapiCallId,
+        },
+      },
+      { headers: responseHeaders }
+    );
   } catch (err: any) {
-    console.error("[VAPI WEBHOOK ERROR]", err);
+    console.error("### WEBHOOK ROUTE EXCEPTION ###", {
+      timestamp: new Date().toISOString(),
+      route: "/api/webhooks/vapi",
+      error: err,
+      stack: err?.stack,
+    });
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }

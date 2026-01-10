@@ -33,56 +33,84 @@ export function Navbar() {
     }
   }, [isMobileMenuOpen]);
 
+
+  const handleProductClick = (e: React.MouseEvent) => {
+    if (pathname === '/') {
+      e.preventDefault();
+      const element = document.querySelector('#product');
+      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
+    <header className="sticky top-0 z-50 w-full border-b border-[#CBD5E1] bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
       <Container>
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold">{siteConfig.name}</span>
+            <span className="font-bold text-[#0F172A]">{siteConfig.name}</span>
           </Link>
           <div className="hidden md:flex md:items-center md:space-x-6">
             <nav className="flex items-center space-x-6 text-sm font-medium">
-              <Link
-                href="/about"
-                className={cn(
-                  "transition-colors hover:text-foreground/80",
-                  pathname === "/about" ? "text-foreground" : "text-foreground/60"
-                )}
-              >
-                About
-              </Link>
-              <Link
-                href="/use-cases"
-                className={cn(
-                  "transition-colors hover:text-foreground/80",
-                  pathname?.startsWith("/use-cases")
-                    ? "text-foreground"
-                    : "text-foreground/60"
-                )}
-              >
-                Use Cases
-              </Link>
+              {pathname === "/" ? (
+                <a
+                  href="#product"
+                  onClick={handleProductClick}
+                  className="transition-colors hover:text-[#2563EB] cursor-pointer text-[#0F172A]"
+                >
+                  Product
+                </a>
+              ) : (
+                <Link
+                  href="/#product"
+                  className="transition-colors hover:text-[#2563EB] cursor-pointer text-[#475569]"
+                >
+                  Product
+                </Link>
+              )}
               <Link
                 href="/pricing"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
-                  pathname?.startsWith("/pricing")
-                    ? "text-foreground"
-                    : "text-foreground/60"
+                  "transition-colors hover:text-[#2563EB] cursor-pointer",
+                  pathname === "/pricing" ? "text-[#0F172A]" : "text-[#475569]"
                 )}
               >
                 Pricing
               </Link>
               <Link
-                href="/contact"
+                href="/security"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
-                  pathname?.startsWith("/contact")
-                    ? "text-foreground"
-                    : "text-foreground/60"
+                  "transition-colors hover:text-[#2563EB] cursor-pointer",
+                  pathname === "/security" ? "text-[#0F172A]" : "text-[#475569]"
                 )}
               >
-                Contact
+                Security
+              </Link>
+              <Link
+                href="/docs"
+                className={cn(
+                  "transition-colors hover:text-[#2563EB] cursor-pointer",
+                  pathname === "/docs" ? "text-[#0F172A]" : "text-[#475569]"
+                )}
+              >
+                Docs
+              </Link>
+              <Link
+                href="/company"
+                className={cn(
+                  "transition-colors hover:text-[#2563EB] cursor-pointer",
+                  pathname === "/company" ? "text-[#0F172A]" : "text-[#475569]"
+                )}
+              >
+                Company
+              </Link>
+              <Link
+                href="/support"
+                className={cn(
+                  "transition-colors hover:text-[#2563EB] cursor-pointer",
+                  pathname === "/support" ? "text-[#0F172A]" : "text-[#475569]"
+                )}
+              >
+                Support
               </Link>
             </nav>
             <div className="flex items-center space-x-4">
@@ -113,35 +141,53 @@ export function Navbar() {
             <div className="relative z-20 grid gap-6 rounded-md bg-popover p-4 text-popover-foreground shadow-md">
               <nav className="grid grid-flow-row auto-rows-max text-sm">
                 <Link
-                  href="/about"
-                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline"
+                  href="/#product"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
                 >
-                  About
-                </Link>
-                <Link
-                  href="/use-cases"
-                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline"
-                >
-                  Use Cases
+                  Product
                 </Link>
                 <Link
                   href="/pricing"
-                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
                 >
                   Pricing
                 </Link>
                 <Link
-                  href="/contact"
-                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline"
+                  href="/security"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
                 >
-                  Contact
+                  Security
+                </Link>
+                <Link
+                  href="/docs"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
+                >
+                  Docs
+                </Link>
+                <Link
+                  href="/company"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
+                >
+                  Company
+                </Link>
+                <Link
+                  href="/support"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline cursor-pointer"
+                >
+                  Support
                 </Link>
               </nav>
               <div className="grid gap-4">
                 <Button asChild>
                   <Link href="/pricing">Get started</Link>
                 </Button>
-                <Button variant="outline" asChild>
+                <Button variant="secondary" asChild>
                   <Link href="/login">Log in</Link>
                 </Button>
               </div>
