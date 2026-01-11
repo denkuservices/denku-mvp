@@ -349,6 +349,168 @@ async function selectPersonaKey(agentId: string): Promise<string | null> {
 }
 
 /**
+ * Check if a call is a web call (for demo abuse detection).
+ * Returns true if call.type === "webCall" OR call.transport.provider === "daily".
+ */
+function isWebCall(body: any): boolean {
+  const msg = body?.message;
+  const call = msg?.call;
+  
+  const callType = call?.type ?? msg?.summary_table?.type ?? null;
+  const transportProvider = call?.transport?.provider ?? null;
+  
+  return callType === "webCall" || transportProvider === "daily";
+}
+
+/**
+ * Check if transcript contains off-topic keywords (recipes, cooking, gym plans, etc.).
+ * Returns true if off-topic usage detected.
+ */
+function hasOffTopicContent(transcript: string | null): boolean {
+  if (!transcript) return false;
+  
+  const normalized = transcript.toLowerCase();
+  const offTopicKeywords = [
+    'recipe',
+    'cook',
+    'cooking',
+    'gym plan',
+    'workout plan',
+    'exercise routine',
+    'diet plan',
+    'meal plan',
+    'how to make',
+    'ingredients for',
+  ];
+  
+  return offTopicKeywords.some((keyword) => normalized.includes(keyword));
+}
+
+/**
+ * Check if call duration exceeds demo limit (5 minutes).
+ * Returns true if duration exceeds 5 minutes.
+ */
+function exceedsDemoDuration(startedAt: string | null, endedAt: string | null, durationSeconds: number | null): boolean {
+  const DEMO_MAX_DURATION_SECONDS = 5 * 60; // 5 minutes
+  
+  if (durationSeconds !== null && durationSeconds > DEMO_MAX_DURATION_SECONDS) {
+    return true;
+  }
+  
+  if (startedAt && endedAt) {
+    const started = new Date(startedAt).getTime();
+    const ended = new Date(endedAt).getTime();
+    if (!isNaN(started) && !isNaN(ended)) {
+      const durationMs = ended - started;
+      const durationSec = Math.floor(durationMs / 1000);
+      return durationSec > DEMO_MAX_DURATION_SECONDS;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Create abuse/misuse ticket for demo calls that exceed limits.
+ * Idempotent: checks for existing ticket by call_id before creating.
+ */
+async function createAbuseTicket(
+  callId: string,
+  orgId: string,
+  fromPhone: string | null,
+  toPhone: string | null,
+  transcript: string | null,
+  reason: string
+): Promise<void> {
+  try {
+    // Check if abuse ticket already exists (idempotency)
+    const { data: existingTicket } = await supabaseAdmin
+      .from("tickets")
+      .select("id")
+      .eq("call_id", callId)
+      .eq("subject", "Demo misuse / exceeded limits")
+      .maybeSingle<{ id: string }>();
+
+    if (existingTicket) {
+      console.log("[DEMO GUARDRAIL] Abuse ticket already exists:", { callId, ticketId: existingTicket.id });
+      return;
+    }
+
+    const subject = "Demo misuse / exceeded limits";
+    const description = `Demo call exceeded limits.\n\nReason: ${reason}\n\nTranscript snippet: ${transcript?.substring(0, 500) || "No transcript available"}`;
+
+    // Use existing createTicketForCall function with special subject
+    // We need to modify it slightly or call the tool route directly
+    // For now, let's call the tool route directly
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const toolSecret = process.env.DENKU_TOOL_SECRET || "";
+
+    if (!toPhone || !fromPhone) {
+      console.error("[DEMO GUARDRAIL] Missing phone numbers for abuse ticket:", { callId, toPhone, fromPhone });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/api/tools/create-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(toolSecret && { "x-denku-secret": toolSecret }),
+        },
+        body: JSON.stringify({
+          to_phone: toPhone,
+          lead_phone: fromPhone,
+          subject,
+          description,
+          call_id: callId,
+          priority: "normal",
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("[DEMO GUARDRAIL] Abuse ticket created:", { callId, ticketId: result.ticket?.id, reason });
+        return;
+      }
+
+      // Fallback: Direct DB insert
+      const leadId = await resolveLeadId(orgId, fromPhone);
+      if (!leadId) {
+        console.error("[DEMO GUARDRAIL] Failed to resolve lead for abuse ticket:", { callId, orgId, fromPhone });
+        return;
+      }
+
+      const { data: ticket, error: dbErr } = await supabaseAdmin
+        .from("tickets")
+        .insert({
+          org_id: orgId,
+          lead_id: leadId,
+          call_id: callId,
+          subject,
+          description,
+          status: "open",
+          priority: "normal",
+        })
+        .select("id")
+        .single();
+
+      if (dbErr || !ticket?.id) {
+        console.error("[DEMO GUARDRAIL] Failed to create abuse ticket:", { callId, orgId, error: dbErr });
+      } else {
+        console.log("[DEMO GUARDRAIL] Abuse ticket created via direct insert:", { callId, ticketId: ticket.id, reason });
+      }
+    } catch (err) {
+      console.error("[DEMO GUARDRAIL] Exception creating abuse ticket:", { callId, orgId, error: err });
+    }
+  } catch (err) {
+    console.error("[DEMO GUARDRAIL] Exception in createAbuseTicket:", { callId, orgId, error: err });
+    // Never throw - allow call finalization to continue
+  }
+}
+
+/**
  * Ensure artifact (ticket/appointment) exists for a call based on intent.
  * Idempotent: checks for existing artifacts by call_id before creating.
  * 
@@ -929,9 +1091,23 @@ export async function POST(req: NextRequest) {
 
     console.log("### BEFORE CALL UPSERT ###", { eventType, status, vapiCallId });
 
+    // Check if call exists to determine insert vs update
+    let wasExisting = false;
+    try {
+      const { data: existingCheck } = await supabaseAdmin
+        .from("calls")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle<{ id: string }>();
+      wasExisting = !!existingCheck;
+    } catch {
+      // Ignore check errors, proceed with upsert
+    }
+
     const { data: upsertedCall, error: upsertErr } = await supabaseAdmin
       .from("calls")
-      .upsert(compact(baseUpsert), { onConflict: "vapi_call_id" })
+      .upsert(compact(baseUpsert), { onConflict: "org_id,vapi_call_id" })
       .select("id, org_id, agent_id, ended_at")
       .single();
 
@@ -947,7 +1123,7 @@ export async function POST(req: NextRequest) {
         vapi_call_id: vapiCallId,
       });
       
-      // Update debug row with error
+      // Update debug row with error (never throw, log and continue)
       if (debugRowId) {
         try {
           await supabaseAdmin
@@ -959,7 +1135,21 @@ export async function POST(req: NextRequest) {
         }
       }
       
-      return NextResponse.json({ ok: false, error: "upsert_failed" }, { status: 500 });
+      // Continue processing even if upsert failed (non-blocking)
+      // This allows the webhook to complete and return 200
+      console.warn("[WEBHOOK] Call upsert failed, continuing processing", {
+        vapiCallId,
+        orgId,
+        error: upsertErr.message,
+      });
+    } else {
+      // Log whether we inserted or updated
+      console.log("[CALL UPSERT]", {
+        vapiCallId,
+        orgId,
+        operation: wasExisting ? "updated" : "inserted",
+        callId: upsertedCall?.id,
+      });
     }
 
     // PHASE 4: Use org_id and agent_id from the ACTUAL calls row (more reliable)
@@ -1338,6 +1528,61 @@ export async function POST(req: NextRequest) {
         vapi_call_id: vapiCallId,
         affected_rows: updated?.length ?? 0,
       });
+
+      // DEMO GUARDRAIL: Check for web call abuse (duration + off-topic content)
+      // Only apply to web calls (webCall type or daily transport provider)
+      // Must NOT affect phone calls (inboundPhoneCall/outboundPhoneCall)
+      if (updated?.[0]?.id && actualOrgId && isWebCall(body)) {
+        try {
+          const callDuration = finalDuration ?? null;
+          const callTranscript = transcript ?? null;
+          const callStartedAt = startedAt;
+          const callEndedAt = finalEndedAt;
+          
+          let abuseReason: string | null = null;
+          
+          // Check duration
+          if (exceedsDemoDuration(callStartedAt, callEndedAt, callDuration)) {
+            abuseReason = `Call duration exceeded 5-minute demo limit (duration: ${callDuration ?? 'calculated'} seconds)`;
+          }
+          
+          // Check off-topic content
+          if (hasOffTopicContent(callTranscript)) {
+            abuseReason = abuseReason 
+              ? `${abuseReason}; Off-topic content detected in transcript`
+              : "Off-topic content detected in transcript (recipes, cooking, gym plans, etc.)";
+          }
+          
+          if (abuseReason) {
+            console.log("[DEMO GUARDRAIL] Abuse detected for web call:", {
+              vapiCallId,
+              callId: updated[0].id,
+              orgId: actualOrgId,
+              reason: abuseReason,
+              duration: callDuration,
+              transcriptLength: callTranscript?.length ?? 0,
+            });
+            
+            // Create abuse ticket
+            await createAbuseTicket(
+              updated[0].id,
+              actualOrgId,
+              from_phone,
+              to_phone,
+              callTranscript,
+              abuseReason
+            );
+          }
+        } catch (guardrailErr) {
+          console.error("[DEMO GUARDRAIL] Exception in demo guardrail:", {
+            vapiCallId,
+            callId: updated?.[0]?.id,
+            orgId: actualOrgId,
+            error: guardrailErr,
+          });
+          // Never throw - allow call finalization to continue
+        }
+      }
 
       // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls
       if (direction !== "outbound" && updated?.[0]?.id && actualOrgId) {
