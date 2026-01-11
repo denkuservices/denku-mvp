@@ -64,7 +64,11 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
 
   // Closing instruction
   prompt +=
-    "Be helpful, accurate, and maintain the appropriate tone for your role. If you don't know something, say so honestly.";
+    "Be helpful, accurate, and maintain the appropriate tone for your role. If you don't know something, say so honestly.\n\n";
+
+  // Mandatory fallback rule: Never leave caller without a clear next step
+  prompt +=
+    "CRITICAL: If you are uncertain, if the intent is unclear, or if any tool call fails, you must say exactly: \"I'll notify our team and make sure someone follows up shortly.\" Do not apologize or provide extra explanation.";
 
   return prompt.trim();
 }

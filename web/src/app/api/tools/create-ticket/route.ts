@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1) Resolve org by to_phone
+  // TODO: Migrate phone_number mapping to dedicated table/orgs. For now, using organizations VIEW
   const { data: org, error: orgErr } = await supabaseAdmin
     .from("organizations")
     .select("id, phone_number")

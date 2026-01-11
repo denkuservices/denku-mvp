@@ -100,9 +100,9 @@ export async function updateAgentConfiguration(
     return { ok: false, error: "Agent not found or unauthorized" };
   }
 
-  // 6) Get organization name for prompt derivation
+  // 6) Get organization name for prompt derivation (using orgs table as source of truth)
   const { data: org } = await supabase
-    .from("organizations")
+    .from("orgs")
     .select("name")
     .eq("id", orgId)
     .single<{ name: string }>();
@@ -383,9 +383,9 @@ export async function updateAgentPromptOverride(
     return { ok: false, error: "Agent not found or unauthorized" };
   }
 
-  // 6) Get organization name for prompt derivation
+  // 6) Get organization name for prompt derivation (using orgs table as source of truth)
   const { data: org } = await supabase
-    .from("organizations")
+    .from("orgs")
     .select("name")
     .eq("id", orgId)
     .single<{ name: string }>();

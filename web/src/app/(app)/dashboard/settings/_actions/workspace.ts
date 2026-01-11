@@ -132,9 +132,9 @@ export async function getWorkspaceGeneral() {
   const orgId: string = profile.org_id; // ensure non-null type
   const role = profile.role;
   
-  // 3) Get organization name
+  // 3) Get organization name (using orgs table as source of truth)
   const { data: org, error: orgErr } = await supabase
-    .from("organizations")
+    .from("orgs")
     .select("id, name")
     .eq("id", orgId)
     .single<Organization>();
@@ -235,7 +235,7 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
 
   // 5) Fetch existing data for audit diff (before update)
   const { data: existingOrg, error: orgFetchErr } = await supabase
-    .from("organizations")
+    .from("orgs")
     .select("name")
     .eq("id", orgId)
     .single<{ name: string }>();
@@ -254,9 +254,9 @@ export async function updateWorkspaceGeneral(input: UpdateWorkspaceGeneralInput)
       billing_email: string | null;
     }>();
 
-  // 6) Update organizations.name (source of truth)
+  // 6) Update orgs.name (source of truth)
   const { error: orgUpdateErr } = await supabase
-    .from("organizations")
+    .from("orgs")
     .update({ name: validated.workspace_name.trim() })
     .eq("id", orgId);
 

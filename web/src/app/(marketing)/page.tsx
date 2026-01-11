@@ -1,4 +1,4 @@
-import { HeroPremium } from '@/components/marketing/hero-premium';
+import HeroPremium from '@/components/marketing/hero-premium';
 import { UseCases } from '@/components/marketing/UseCases';
 import { OutcomesStrip } from '@/components/marketing/OutcomesStrip';
 import { Pricing } from '@/components/marketing/Pricing';

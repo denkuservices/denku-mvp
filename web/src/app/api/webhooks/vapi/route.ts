@@ -181,6 +181,350 @@ async function resolveAgentByVapi(body: any): Promise<{ agentId: string | null; 
 }
 
 /**
+ * Detect call intent from webhook payload.
+ * Returns "support" | "appointment" | "other".
+ * 
+ * TODO: Enhance with transcript analysis or other heuristics as needed.
+ * For now, defaults to "other" since we don't have transcript at call start.
+ */
+function detectCallIntent(body: any, direction: string): "support" | "appointment" | "other" {
+  // For now, default to "other" since intent detection requires transcript analysis
+  // which is not available at call start. This can be enhanced later with:
+  // - Transcript keyword analysis
+  // - Vapi function call tracking
+  // - Other heuristics
+  return "other";
+}
+
+/**
+ * Validate persona exists in personas catalog and is active.
+ * Returns true if persona exists and is_active = true, false otherwise.
+ */
+async function validatePersona(personaKey: string): Promise<boolean> {
+  try {
+    const { data: persona, error: personaError } = await supabaseAdmin
+      .from("personas")
+      .select("key, is_active")
+      .eq("key", personaKey)
+      .maybeSingle<{ key: string; is_active: boolean | null }>();
+
+    if (personaError) {
+      console.error("[PERSONA] Failed to validate persona:", personaKey, personaError);
+      return false;
+    }
+
+    if (!persona) {
+      return false;
+    }
+
+    // Check is_active (default to true if null for backwards compatibility)
+    return persona.is_active !== false;
+  } catch (err) {
+    console.error("[PERSONA] Exception validating persona:", personaKey, err);
+    return false;
+  }
+}
+
+/**
+ * Stub function to check if org has sales persona entitlement.
+ * TODO: Connect to org_addons table to check for sales persona entitlement.
+ */
+async function checkSalesEntitlement(orgId: string): Promise<boolean> {
+  // Stub: always return false for now
+  // TODO: Implement actual entitlement check via org_addons table
+  return false;
+}
+
+/**
+ * Check if call is outside business hours.
+ * Returns true if outside hours, false if inside hours or no business hours config.
+ */
+function isOutsideBusinessHours(
+  callTimestamp: string,
+  agentTimezone: string | null,
+  businessHoursConfig: any
+): boolean {
+  // If no business hours config exists, treat as inside hours
+  if (!businessHoursConfig) {
+    return false;
+  }
+
+  // TODO: Implement business hours logic based on businessHoursConfig
+  // For now, return false (inside hours) since config structure is not defined yet
+  return false;
+}
+
+/**
+ * Select persona_key for a call based on language, business hours, intent, and entitlements.
+ * 
+ * Selection logic:
+ * 1. Language: Use agent.language if present; fallback to 'en'
+ * 2. Business hours: If outside hours -> after_hours_<lang>
+ * 3. Intent: support/appointment/other -> support_<lang>
+ * 4. Fallback order: support_<lang> -> agent.default_persona_key -> support_en
+ * 
+ * Returns persona_key string or null if not found/invalid.
+ */
+async function selectPersonaKeyForCall(
+  agentId: string,
+  intent: "support" | "appointment" | "other" | null,
+  callTimestamp: string,
+  orgId: string
+): Promise<string | null> {
+  try {
+    // Fetch agent config
+    const { data: agent, error: agentError } = await supabaseAdmin
+      .from("agents")
+      .select("language, timezone, default_persona_key, business_hours")
+      .eq("id", agentId)
+      .maybeSingle<{
+        language: string | null;
+        timezone: string | null;
+        default_persona_key: string | null;
+        business_hours: any;
+      }>();
+
+    if (agentError || !agent) {
+      console.error("[PERSONA] Failed to fetch agent:", agentId, agentError);
+      return null;
+    }
+
+    // Determine language (fallback to 'en')
+    const lang = agent.language?.toLowerCase() || "en";
+    const langSuffix = lang === "en" ? "en" : lang.split("-")[0] || "en"; // Normalize language code
+
+    // Check if outside business hours
+    const outsideHours = isOutsideBusinessHours(callTimestamp, agent.timezone, agent.business_hours);
+
+    // Build candidate persona keys based on intent and context
+    const candidates: string[] = [];
+
+    // Business hours override
+    if (outsideHours) {
+      candidates.push(`after_hours_${langSuffix}`);
+    }
+
+    // Intent-based selection
+    // Note: detectCallIntent currently only returns "support" | "appointment" | "other"
+    // If "sales" intent is added in the future, it would be handled here with entitlement check
+    // For now, all intents map to support_<lang>
+    candidates.push(`support_${langSuffix}`);
+
+    // Fallback candidates (in order)
+    if (agent.default_persona_key) {
+      candidates.push(agent.default_persona_key);
+    }
+    candidates.push("support_en"); // Final fallback
+
+    // Try each candidate in order
+    for (const candidateKey of candidates) {
+      if (await validatePersona(candidateKey)) {
+        return candidateKey;
+      }
+    }
+
+    // No valid persona found
+    console.error("[PERSONA] No valid persona found after fallbacks:", {
+      agentId,
+      intent,
+      lang: langSuffix,
+      candidates,
+    });
+    return null;
+  } catch (err) {
+    console.error("[PERSONA] Exception selecting persona for call:", agentId, err);
+    return null;
+  }
+}
+
+/**
+ * Select persona_key for a call (legacy function for backwards compatibility).
+ * For now, delegates to selectPersonaKeyForCall with default parameters.
+ * 
+ * @deprecated Use selectPersonaKeyForCall instead.
+ */
+async function selectPersonaKey(agentId: string): Promise<string | null> {
+  // Legacy: use default intent and current timestamp
+  return selectPersonaKeyForCall(agentId, "other", new Date().toISOString(), "");
+}
+
+/**
+ * Ensure artifact (ticket/appointment) exists for a call based on intent.
+ * Idempotent: checks for existing artifacts by call_id before creating.
+ * 
+ * Routing logic:
+ * - intent = 'appointment': create ticket labeled as appointment request (if appointment doesn't exist)
+ * - intent in ('support','other'): ensure ticket exists
+ * 
+ * Uses POST /api/tools/create-ticket route when possible, falls back to direct DB insert if needed.
+ */
+async function ensureArtifactForCall(
+  callId: string,
+  orgId: string,
+  intent: "support" | "appointment" | "other" | null,
+  fromPhone: string | null,
+  toPhone: string | null,
+  transcript: string | null
+): Promise<void> {
+  try {
+    // Idempotency: Check if ticket already exists
+    const { data: existingTicket } = await supabaseAdmin
+      .from("tickets")
+      .select("id")
+      .eq("call_id", callId)
+      .maybeSingle<{ id: string }>();
+
+    if (existingTicket) {
+      console.log("[ARTIFACT] Ticket already exists for call:", { callId, ticketId: existingTicket.id });
+      return; // Already have ticket, nothing to do
+    }
+
+    // Idempotency: Check if appointment already exists
+    const { data: existingAppointment } = await supabaseAdmin
+      .from("appointments")
+      .select("id")
+      .eq("call_id", callId)
+      .maybeSingle<{ id: string }>();
+
+    if (existingAppointment) {
+      console.log("[ARTIFACT] Appointment already exists for call:", { callId, appointmentId: existingAppointment.id });
+      return; // Already have appointment, nothing to do
+    }
+
+    // Routing logic
+    if (intent === "appointment") {
+      // If appointment exists (checked above), we're done
+      // Otherwise, create a ticket labeled as appointment request
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment");
+    } else if (intent === "support" || intent === "other" || !intent) {
+      // Ensure ticket exists
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support");
+    } else {
+      // Unknown intent, default to support
+      console.warn("[ARTIFACT] Unknown intent, defaulting to support:", { callId, intent });
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support");
+    }
+  } catch (err) {
+    console.error("[ARTIFACT] Exception ensuring artifact for call:", { callId, orgId, error: err });
+    // Never throw - allow call finalization to continue
+  }
+}
+
+/**
+ * Create ticket for a call via tool route or direct DB insert fallback.
+ * Idempotent: checks call_id before creating.
+ */
+async function createTicketForCall(
+  callId: string,
+  orgId: string,
+  fromPhone: string | null,
+  toPhone: string | null,
+  transcript: string | null,
+  intentType: "appointment" | "support"
+): Promise<void> {
+  // Validate required fields
+  if (!toPhone || !fromPhone) {
+    console.error("[ARTIFACT] Missing phone numbers for ticket creation:", { callId, toPhone, fromPhone });
+    return;
+  }
+
+  const subject = intentType === "appointment" ? "Appointment Request" : "Support Request";
+  const description = transcript || `Call artifact created for ${intentType} intent.`;
+
+  // Try tool route first
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const toolSecret = process.env.DENKU_TOOL_SECRET || "";
+
+    const response = await fetch(`${baseUrl}/api/tools/create-ticket`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(toolSecret && { "x-denku-secret": toolSecret }),
+      },
+      body: JSON.stringify({
+        to_phone: toPhone,
+        lead_phone: fromPhone,
+        subject,
+        description,
+        call_id: callId,
+        priority: "normal",
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("[ARTIFACT] Ticket created via tool route:", { callId, ticketId: result.ticket?.id });
+      return; // Success
+    }
+
+    // Tool route failed, log and fall back
+    const errorText = await response.text().catch(() => "unknown error");
+    console.error("[ARTIFACT] Tool route failed, falling back to direct insert:", {
+      callId,
+      orgId,
+      status: response.status,
+      error: errorText,
+    });
+  } catch (fetchErr) {
+    console.error("[ARTIFACT] Tool route exception, falling back to direct insert:", {
+      callId,
+      orgId,
+      error: fetchErr,
+    });
+  }
+
+  // Fallback: Direct DB insert (idempotent by call_id)
+  try {
+    // Check again for idempotency (race condition protection)
+    const { data: existing } = await supabaseAdmin
+      .from("tickets")
+      .select("id")
+      .eq("call_id", callId)
+      .maybeSingle<{ id: string }>();
+
+    if (existing) {
+      console.log("[ARTIFACT] Ticket already exists (race condition check):", { callId, ticketId: existing.id });
+      return;
+    }
+
+    // Resolve lead_id by phone (or create if needed)
+    const leadId = await resolveLeadId(orgId, fromPhone);
+    if (!leadId) {
+      console.error("[ARTIFACT] Failed to resolve/create lead for ticket:", { callId, orgId, fromPhone });
+      return;
+    }
+
+    // Direct insert with minimal safe fields
+    const { data: ticket, error: insertErr } = await supabaseAdmin
+      .from("tickets")
+      .insert({
+        org_id: orgId,
+        lead_id: leadId,
+        call_id: callId,
+        subject,
+        description,
+        status: "open",
+        priority: "normal",
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !ticket) {
+      console.error("[ARTIFACT] Direct insert failed:", { callId, orgId, error: insertErr });
+      return;
+    }
+
+    console.log("[ARTIFACT] Ticket created via direct insert (fallback):", { callId, ticketId: ticket.id });
+  } catch (insertErr) {
+    console.error("[ARTIFACT] Direct insert exception:", { callId, orgId, error: insertErr });
+    // Never throw - allow call finalization to continue
+  }
+}
+
+/**
  * lead resolve/create by phone (opsiyonel ama lead_id doldurmak için gerekli)
  * Eğer leads tablon yoksa bunu tamamen kaldırabilirsin.
  */
@@ -475,6 +819,69 @@ export async function POST(req: NextRequest) {
     // Non-final'de de lead'i bağlayabiliriz (inbound için caller phone)
     const leadId = direction === "inbound" ? await resolveLeadId(orgId, from_phone) : null;
 
+    // Detect intent and select persona for inbound calls
+    let intent: "support" | "appointment" | "other" | null = null;
+    let personaKey: string | null = null;
+    
+    if (direction === "inbound" && isNewCall) {
+      // Detect intent (for now defaults to "other", can be enhanced later)
+      intent = detectCallIntent(body, direction);
+      
+      // Select persona_key based on language, business hours, intent, and entitlements
+      personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId);
+      
+      if (!personaKey) {
+        console.error("[WEBHOOK] Failed to select persona_key for inbound call - call cannot proceed", {
+          agentId,
+          vapiCallId,
+          orgId,
+          intent,
+        });
+        // Return error response - call cannot complete without persona_key
+        return NextResponse.json(
+          { ok: false, error: "persona_key_required", message: "Call cannot proceed without valid persona_key" },
+          { status: 500 }
+        );
+      }
+      
+      console.log("[WEBHOOK] Intent and persona selected for inbound call:", {
+        vapiCallId,
+        agentId,
+        intent,
+        personaKey,
+      });
+    } else if (!isNewCall) {
+      // For existing calls, fetch intent and persona_key from existing call record
+      // to ensure we don't overwrite them
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from("calls")
+          .select("intent, persona_key")
+          .eq("vapi_call_id", vapiCallId)
+          .maybeSingle<{ intent: string | null; persona_key: string | null }>();
+        
+        if (existing) {
+          intent = (existing.intent as "support" | "appointment" | "other") || null;
+          personaKey = existing.persona_key;
+        }
+      } catch (fetchErr) {
+        console.error("[WEBHOOK] Failed to fetch existing intent/persona_key:", fetchErr);
+        // Continue - we'll try to set it if it's an inbound call
+      }
+      
+      // If call exists but missing persona_key, try to select it (safety fallback)
+      if (!personaKey && direction === "inbound") {
+        personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId);
+        if (!personaKey) {
+          console.error("[WEBHOOK] Existing call missing persona_key and selection failed", {
+            agentId,
+            vapiCallId,
+            intent,
+          });
+        }
+      }
+    }
+
     // duration: final eventte daha doğru (summary_table.minutes vs / call.durationSeconds)
     const durationSeconds =
       safeNumber(call?.durationSeconds) ??
@@ -498,6 +905,8 @@ export async function POST(req: NextRequest) {
       raw_payload: body,
       outcome: asString(call?.status) ?? asString(msg?.status) ?? undefined,
       transcript: undefined, // transcript'i final eventte daha iyi yaz
+      intent: intent ?? undefined,
+      persona_key: personaKey ?? undefined,
     };
 
     // TASK 3: Unique marker log RIGHT BEFORE calls table write
@@ -810,9 +1219,64 @@ export async function POST(req: NextRequest) {
         finalLeadId = await resolveLeadId(orgId, from_phone);
       }
 
+      // Ensure persona_key exists before allowing call to complete
+      let finalPersonaKey = personaKey;
+      if (!finalPersonaKey) {
+        // Fetch existing persona_key and intent from call record
+        let existingIntent: "support" | "appointment" | "other" | null = null;
+        try {
+          const { data: existing } = await supabaseAdmin
+            .from("calls")
+            .select("persona_key, intent")
+            .eq("vapi_call_id", vapiCallId)
+            .maybeSingle<{ persona_key: string | null; intent: string | null }>();
+          
+          finalPersonaKey = existing?.persona_key ?? null;
+          existingIntent = (existing?.intent as "support" | "appointment" | "other") || null;
+        } catch (fetchErr) {
+          console.error("[WEBHOOK] Failed to fetch existing persona_key/intent:", fetchErr);
+        }
+        
+        // If still missing, try to select it (safety fallback - re-run selection)
+        if (!finalPersonaKey && direction === "inbound" && actualAgentId) {
+          finalPersonaKey = await selectPersonaKeyForCall(
+            actualAgentId,
+            existingIntent || intent,
+            startedAt || new Date().toISOString(),
+            actualOrgId
+          );
+          if (finalPersonaKey) {
+            console.log("[WEBHOOK] Re-selected persona_key on final event:", {
+              vapiCallId,
+              actualAgentId,
+              intent: existingIntent || intent,
+              personaKey: finalPersonaKey,
+            });
+          } else {
+            console.error("[WEBHOOK] Failed to re-select persona_key on final event:", {
+              vapiCallId,
+              actualAgentId,
+              intent: existingIntent || intent,
+            });
+          }
+        }
+      }
+
+      // Never allow call to complete without persona_key (for inbound calls)
+      if (direction === "inbound" && !finalPersonaKey) {
+        console.error("[WEBHOOK] Call cannot complete without persona_key", {
+          vapiCallId,
+          actualOrgId,
+          actualAgentId,
+        });
+        // Log error but don't fail webhook - persona_key is required but missing
+        // This should not happen in normal operation since we check on call start
+      }
+
       // Always update: ended_at, outcome, duration_seconds
       // Only update cost_usd if valid (do NOT overwrite with null or 0)
       // Only update transcript if present (do not wipe existing transcript)
+      // Preserve persona_key (do not overwrite if missing in finalUpdate)
       const finalUpdate = compact({
         ended_at: finalEndedAt,
         outcome: "completed",
@@ -823,6 +1287,7 @@ export async function POST(req: NextRequest) {
         vapi_phone_number_id,
         lead_id: finalLeadId ?? undefined,
         raw_payload: body,
+        persona_key: finalPersonaKey ?? undefined, // Only set if we have it (preserves existing if null)
       });
 
       // TASK 3: Unique marker log RIGHT BEFORE calls table UPDATE (final event)
@@ -866,6 +1331,43 @@ export async function POST(req: NextRequest) {
         vapi_call_id: vapiCallId,
         affected_rows: updated?.length ?? 0,
       });
+
+      // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls
+      if (direction === "inbound" && updated?.[0]?.id && actualOrgId) {
+        try {
+          // Load call row with all fields needed for artifact routing
+          const { data: callRow } = await supabaseAdmin
+            .from("calls")
+            .select("id, org_id, intent, from_phone, to_phone, transcript")
+            .eq("id", updated[0].id)
+            .maybeSingle<{
+              id: string;
+              org_id: string | null;
+              intent: string | null;
+              from_phone: string | null;
+              to_phone: string | null;
+              transcript: string | null;
+            }>();
+
+          if (callRow?.id && callRow.org_id) {
+            await ensureArtifactForCall(
+              callRow.id,
+              callRow.org_id,
+              (callRow.intent as "support" | "appointment" | "other") || null,
+              callRow.from_phone,
+              callRow.to_phone,
+              callRow.transcript || transcript
+            );
+          }
+        } catch (artifactErr) {
+          console.error("[ARTIFACT] Failed to ensure artifact for call:", {
+            callId: updated?.[0]?.id,
+            orgId: actualOrgId,
+            error: artifactErr,
+          });
+          // Never throw - allow call finalization to continue
+        }
+      }
 
       // PHASE 4: Ensure lease is released after final update (safety check)
       // This handles cases where ended_at might not have been set in earlier events

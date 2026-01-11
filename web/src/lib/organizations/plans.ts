@@ -27,10 +27,13 @@ const DEFAULT_CONCURRENCY_LIMIT = 1;
  * 3. Defaults to "active"
  * 
  * Plan is read from organizations.plan (defaults to "mvp" if missing/unknown).
+ * 
+ * TODO: Plan will move to a dedicated plans/org_plan model soon.
+ * Currently uses organizations VIEW (which maps to orgs table with defaults).
  */
 export async function getOrgPlan(orgId: string): Promise<{ plan: string; status: string } | null> {
   try {
-    // Try to read from organizations table first
+    // TODO: Plan will move to dedicated model. For now, using organizations VIEW (maps to orgs with defaults)
     const { data: org, error: orgError } = await supabaseAdmin
       .from("organizations")
       .select("plan, status")
