@@ -367,6 +367,9 @@ async function ensureArtifactForCall(
   transcript: string | null
 ): Promise<void> {
   try {
+    // Normalize intent: default to 'other' if null
+    const normalizedIntent = intent ?? "other";
+    
     // Idempotency: Check if ticket already exists
     const { data: existingTicket } = await supabaseAdmin
       .from("tickets")
@@ -391,17 +394,13 @@ async function ensureArtifactForCall(
       return; // Already have appointment, nothing to do
     }
 
-    // Routing logic
-    if (intent === "appointment") {
+    // Routing logic (using normalized intent)
+    if (normalizedIntent === "appointment") {
       // If appointment exists (checked above), we're done
       // Otherwise, create a ticket labeled as appointment request
       await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment");
-    } else if (intent === "support" || intent === "other" || !intent) {
-      // Ensure ticket exists
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support");
     } else {
-      // Unknown intent, default to support
-      console.warn("[ARTIFACT] Unknown intent, defaulting to support:", { callId, intent });
+      // support, other, or any other value -> ensure ticket exists
       await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support");
     }
   } catch (err) {
@@ -736,6 +735,11 @@ export async function POST(req: NextRequest) {
         ? "outbound"
         : "unknown";
 
+    // Normalize direction: treat "unknown" as inbound-like (not outbound)
+    if (direction === "unknown") {
+      console.log("[CALL PIPELINE] normalized direction=unknown -> inbound-like", { vapiCallId });
+    }
+
     console.log("### BEFORE LEASE / DEBUG BLOCK ###");
 
     // PHASE 2: HARD INSTRUMENTATION - Write debug row on EVERY request (using service role)
@@ -817,13 +821,13 @@ export async function POST(req: NextRequest) {
       call?.phoneNumberId ?? msg?.phoneNumberId ?? null;
 
     // Non-final'de de lead'i bağlayabiliriz (inbound için caller phone)
-    const leadId = direction === "inbound" ? await resolveLeadId(orgId, from_phone) : null;
+    const leadId = direction !== "outbound" ? await resolveLeadId(orgId, from_phone) : null;
 
     // Detect intent and select persona for inbound calls
     let intent: "support" | "appointment" | "other" | null = null;
     let personaKey: string | null = null;
     
-    if (direction === "inbound" && isNewCall) {
+    if (direction !== "outbound" && isNewCall) {
       // Detect intent (for now defaults to "other", can be enhanced later)
       intent = detectCallIntent(body, direction);
       
@@ -870,7 +874,7 @@ export async function POST(req: NextRequest) {
       }
       
       // If call exists but missing persona_key, try to select it (safety fallback)
-      if (!personaKey && direction === "inbound") {
+      if (!personaKey && direction !== "outbound") {
         personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId);
         if (!personaKey) {
           console.error("[WEBHOOK] Existing call missing persona_key and selection failed", {
@@ -1219,51 +1223,53 @@ export async function POST(req: NextRequest) {
         finalLeadId = await resolveLeadId(orgId, from_phone);
       }
 
-      // Ensure persona_key exists before allowing call to complete
+      // Ensure persona_key and intent exist before allowing call to complete
       let finalPersonaKey = personaKey;
-      if (!finalPersonaKey) {
-        // Fetch existing persona_key and intent from call record
-        let existingIntent: "support" | "appointment" | "other" | null = null;
-        try {
-          const { data: existing } = await supabaseAdmin
-            .from("calls")
-            .select("persona_key, intent")
-            .eq("vapi_call_id", vapiCallId)
-            .maybeSingle<{ persona_key: string | null; intent: string | null }>();
-          
-          finalPersonaKey = existing?.persona_key ?? null;
-          existingIntent = (existing?.intent as "support" | "appointment" | "other") || null;
-        } catch (fetchErr) {
-          console.error("[WEBHOOK] Failed to fetch existing persona_key/intent:", fetchErr);
-        }
+      let finalIntent = intent;
+      
+      // Fetch existing persona_key and intent from call record
+      let existingIntent: "support" | "appointment" | "other" | null = null;
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from("calls")
+          .select("persona_key, intent")
+          .eq("vapi_call_id", vapiCallId)
+          .maybeSingle<{ persona_key: string | null; intent: string | null }>();
         
-        // If still missing, try to select it (safety fallback - re-run selection)
-        if (!finalPersonaKey && direction === "inbound" && actualAgentId) {
-          finalPersonaKey = await selectPersonaKeyForCall(
+        finalPersonaKey = existing?.persona_key ?? finalPersonaKey;
+        existingIntent = (existing?.intent as "support" | "appointment" | "other") || null;
+        finalIntent = existingIntent || finalIntent;
+      } catch (fetchErr) {
+        console.error("[WEBHOOK] Failed to fetch existing persona_key/intent:", fetchErr);
+      }
+      
+      // Normalize intent: default to 'other' if missing (idempotent - only set if missing)
+      if (!finalIntent && direction !== "outbound") {
+        finalIntent = "other";
+        console.log("[CALL PIPELINE] intent missing -> defaulted to other", { vapiCallId });
+      }
+      
+      // Reselect persona_key if missing (idempotent - only set if missing)
+      if (!finalPersonaKey && direction !== "outbound" && actualAgentId) {
+        finalPersonaKey = await selectPersonaKeyForCall(
+          actualAgentId,
+          finalIntent,
+          startedAt || new Date().toISOString(),
+          actualOrgId
+        );
+        if (finalPersonaKey) {
+          console.log("[CALL PIPELINE] persona_key missing -> reselected", { vapiCallId, personaKey: finalPersonaKey });
+        } else {
+          console.error("[WEBHOOK] Failed to re-select persona_key on final event:", {
+            vapiCallId,
             actualAgentId,
-            existingIntent || intent,
-            startedAt || new Date().toISOString(),
-            actualOrgId
-          );
-          if (finalPersonaKey) {
-            console.log("[WEBHOOK] Re-selected persona_key on final event:", {
-              vapiCallId,
-              actualAgentId,
-              intent: existingIntent || intent,
-              personaKey: finalPersonaKey,
-            });
-          } else {
-            console.error("[WEBHOOK] Failed to re-select persona_key on final event:", {
-              vapiCallId,
-              actualAgentId,
-              intent: existingIntent || intent,
-            });
-          }
+            intent: finalIntent,
+          });
         }
       }
 
       // Never allow call to complete without persona_key (for inbound calls)
-      if (direction === "inbound" && !finalPersonaKey) {
+      if (direction !== "outbound" && !finalPersonaKey) {
         console.error("[WEBHOOK] Call cannot complete without persona_key", {
           vapiCallId,
           actualOrgId,
@@ -1276,7 +1282,7 @@ export async function POST(req: NextRequest) {
       // Always update: ended_at, outcome, duration_seconds
       // Only update cost_usd if valid (do NOT overwrite with null or 0)
       // Only update transcript if present (do not wipe existing transcript)
-      // Preserve persona_key (do not overwrite if missing in finalUpdate)
+      // Ensure intent and persona_key are set (idempotent - only set if we have values)
       const finalUpdate = compact({
         ended_at: finalEndedAt,
         outcome: "completed",
@@ -1287,7 +1293,8 @@ export async function POST(req: NextRequest) {
         vapi_phone_number_id,
         lead_id: finalLeadId ?? undefined,
         raw_payload: body,
-        persona_key: finalPersonaKey ?? undefined, // Only set if we have it (preserves existing if null)
+        intent: finalIntent ?? undefined, // Set intent if we normalized it
+        persona_key: finalPersonaKey ?? undefined, // Set persona_key if we reselected it
       });
 
       // TASK 3: Unique marker log RIGHT BEFORE calls table UPDATE (final event)
@@ -1333,7 +1340,7 @@ export async function POST(req: NextRequest) {
       });
 
       // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls
-      if (direction === "inbound" && updated?.[0]?.id && actualOrgId) {
+      if (direction !== "outbound" && updated?.[0]?.id && actualOrgId) {
         try {
           // Load call row with all fields needed for artifact routing
           const { data: callRow } = await supabaseAdmin
