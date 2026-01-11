@@ -1100,11 +1100,48 @@ export async function POST(req: NextRequest) {
       // Ignore check errors, proceed with upsert
     }
 
-    const { data: upsertedCall, error: upsertErr } = await supabaseAdmin
+    // Remove 'id' from baseUpsert to avoid forcing inserts - let DB handle id generation
+    const upsertPayload = { ...compact(baseUpsert) };
+    delete (upsertPayload as any).id;
+
+    let upsertedCall: { id: string; org_id: string; agent_id: string; ended_at: string | null } | null = null;
+    let upsertErr: any = null;
+
+    const { data: upsertResult, error: upsertError } = await supabaseAdmin
       .from("calls")
-      .upsert(compact(baseUpsert), { onConflict: "org_id,vapi_call_id" })
+      .upsert(upsertPayload, { onConflict: "vapi_call_id" })
       .select("id, org_id, agent_id, ended_at")
       .single();
+
+    upsertedCall = upsertResult;
+    upsertErr = upsertError;
+
+    // Handle 23505 duplicate key error: fetch existing row and continue
+    if (upsertErr && upsertErr.code === "23505") {
+      console.warn("[WEBHOOK] Upsert hit duplicate key (23505), fetching existing row:", {
+        vapiCallId,
+        orgId,
+        constraint: upsertErr.constraint ?? "unknown",
+      });
+
+      try {
+        const { data: existingCall, error: fetchErr } = await supabaseAdmin
+          .from("calls")
+          .select("id, org_id, agent_id, ended_at")
+          .eq("vapi_call_id", vapiCallId)
+          .maybeSingle<{ id: string; org_id: string; agent_id: string; ended_at: string | null }>();
+
+        if (!fetchErr && existingCall) {
+          upsertedCall = existingCall;
+          upsertErr = null; // Clear error - we have the row
+        }
+      } catch (fetchErr) {
+        console.error("[WEBHOOK] Failed to fetch existing call after 23505:", {
+          vapiCallId,
+          error: fetchErr,
+        });
+      }
+    }
 
     console.log("### AFTER CALL UPSERT ###");
 
@@ -1562,8 +1599,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls
-      if (direction !== "outbound" && updated?.[0]?.id && actualOrgId) {
+      // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls and web calls
+      // Treat webCall as inbound-equivalent for routing (direction may be 'unknown' for web calls)
+      const shouldRunArtifactRouting = (direction !== "outbound" || isWebCall(body)) && updated?.[0]?.id && actualOrgId;
+      
+      if (shouldRunArtifactRouting) {
+        // Log if we're routing for webCall even though direction is not inbound
+        if (direction !== "inbound" && isWebCall(body)) {
+          console.log("[ARTIFACT] Running artifact routing for webCall (direction:", direction, "):", {
+            vapiCallId,
+            callId: updated[0].id,
+          });
+        }
+
         try {
           // Load call row with all fields needed for artifact routing
           const { data: callRow } = await supabaseAdmin
