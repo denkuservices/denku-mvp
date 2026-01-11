@@ -255,54 +255,51 @@ function isOutsideBusinessHours(
 }
 
 /**
- * Select persona_key for a call based on language, business hours, intent, and entitlements.
+ * Select persona_key for a call based on language, intent, and entitlements.
  * 
  * Selection logic:
  * 1. Language: Use agent.language if present; fallback to 'en'
- * 2. Business hours: If outside hours -> after_hours_<lang>
- * 3. Intent: support/appointment/other -> support_<lang>
- * 4. Fallback order: support_<lang> -> agent.default_persona_key -> support_en
+ * 2. Intent: support/appointment/other -> support_<lang>
+ * 3. Fallback order: support_<lang> -> agent.default_persona_key -> support_en
  * 
- * Returns persona_key string or null if not found/invalid.
+ * Returns persona_key string (always returns at least "support_en" as safe fallback).
  */
 async function selectPersonaKeyForCall(
   agentId: string,
   intent: "support" | "appointment" | "other" | null,
   callTimestamp: string,
-  orgId: string
-): Promise<string | null> {
+  orgId: string,
+  vapiCallId?: string
+): Promise<string> {
+  const safeFallback = "support_en";
+  
   try {
-    // Fetch agent config
+    // Fetch agent config (without business_hours column)
     const { data: agent, error: agentError } = await supabaseAdmin
       .from("agents")
-      .select("language, timezone, default_persona_key, business_hours")
+      .select("language, timezone, default_persona_key")
       .eq("id", agentId)
       .maybeSingle<{
         language: string | null;
         timezone: string | null;
         default_persona_key: string | null;
-        business_hours: any;
       }>();
 
     if (agentError || !agent) {
-      console.error("[PERSONA] Failed to fetch agent:", agentId, agentError);
-      return null;
+      console.warn("[PERSONA] Failed to fetch agent, using fallback:", {
+        agentId,
+        vapiCallId,
+        error: agentError?.message ?? "agent not found",
+      });
+      return safeFallback;
     }
 
     // Determine language (fallback to 'en')
     const lang = agent.language?.toLowerCase() || "en";
     const langSuffix = lang === "en" ? "en" : lang.split("-")[0] || "en"; // Normalize language code
 
-    // Check if outside business hours
-    const outsideHours = isOutsideBusinessHours(callTimestamp, agent.timezone, agent.business_hours);
-
     // Build candidate persona keys based on intent and context
     const candidates: string[] = [];
-
-    // Business hours override
-    if (outsideHours) {
-      candidates.push(`after_hours_${langSuffix}`);
-    }
 
     // Intent-based selection
     // Note: detectCallIntent currently only returns "support" | "appointment" | "other"
@@ -314,26 +311,43 @@ async function selectPersonaKeyForCall(
     if (agent.default_persona_key) {
       candidates.push(agent.default_persona_key);
     }
-    candidates.push("support_en"); // Final fallback
+    candidates.push(safeFallback); // Final fallback (always included)
 
-    // Try each candidate in order
+    // Try each candidate in order (validate when possible, but allow fallback if validation fails)
     for (const candidateKey of candidates) {
-      if (await validatePersona(candidateKey)) {
-        return candidateKey;
+      try {
+        const isValid = await validatePersona(candidateKey);
+        if (isValid) {
+          return candidateKey;
+        }
+      } catch (validationErr) {
+        // Log but continue to next candidate
+        console.warn("[PERSONA] Validation failed for candidate, trying next:", {
+          agentId,
+          vapiCallId,
+          candidateKey,
+          error: validationErr instanceof Error ? validationErr.message : String(validationErr),
+        });
+        continue;
       }
     }
 
-    // No valid persona found
-    console.error("[PERSONA] No valid persona found after fallbacks:", {
+    // If we get here, all validation failed - return safe fallback
+    console.warn("[PERSONA] All persona validation failed, using safe fallback:", {
       agentId,
+      vapiCallId,
       intent,
       lang: langSuffix,
       candidates,
     });
-    return null;
+    return safeFallback;
   } catch (err) {
-    console.error("[PERSONA] Exception selecting persona for call:", agentId, err);
-    return null;
+    console.warn("[PERSONA] Exception selecting persona, using fallback:", {
+      agentId,
+      vapiCallId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return safeFallback;
   }
 }
 
@@ -343,7 +357,7 @@ async function selectPersonaKeyForCall(
  * 
  * @deprecated Use selectPersonaKeyForCall instead.
  */
-async function selectPersonaKey(agentId: string): Promise<string | null> {
+async function selectPersonaKey(agentId: string): Promise<string> {
   // Legacy: use default intent and current timestamp
   return selectPersonaKeyForCall(agentId, "other", new Date().toISOString(), "");
 }
@@ -993,22 +1007,9 @@ export async function POST(req: NextRequest) {
       // Detect intent (for now defaults to "other", can be enhanced later)
       intent = detectCallIntent(body, direction);
       
-      // Select persona_key based on language, business hours, intent, and entitlements
-      personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId);
-      
-      if (!personaKey) {
-        console.error("[WEBHOOK] Failed to select persona_key for inbound call - call cannot proceed", {
-          agentId,
-          vapiCallId,
-          orgId,
-          intent,
-        });
-        // Return error response - call cannot complete without persona_key
-        return NextResponse.json(
-          { ok: false, error: "persona_key_required", message: "Call cannot proceed without valid persona_key" },
-          { status: 500 }
-        );
-      }
+      // Select persona_key based on language, intent, and entitlements
+      // Always returns a safe fallback (support_en) - never throws or returns null
+      personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId, vapiCallId);
       
       console.log("[WEBHOOK] Intent and persona selected for inbound call:", {
         vapiCallId,
@@ -1036,15 +1037,9 @@ export async function POST(req: NextRequest) {
       }
       
       // If call exists but missing persona_key, try to select it (safety fallback)
+      // Always returns a safe fallback (support_en) - never throws or returns null
       if (!personaKey && direction !== "outbound") {
-        personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId);
-        if (!personaKey) {
-          console.error("[WEBHOOK] Existing call missing persona_key and selection failed", {
-            agentId,
-            vapiCallId,
-            intent,
-          });
-        }
+        personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId, vapiCallId);
       }
     }
 
@@ -1440,33 +1435,16 @@ export async function POST(req: NextRequest) {
       }
       
       // Reselect persona_key if missing (idempotent - only set if missing)
+      // Always returns a safe fallback (support_en) - never throws or returns null
       if (!finalPersonaKey && direction !== "outbound" && actualAgentId) {
         finalPersonaKey = await selectPersonaKeyForCall(
           actualAgentId,
           finalIntent,
           startedAt || new Date().toISOString(),
-          actualOrgId
-        );
-        if (finalPersonaKey) {
-          console.log("[CALL PIPELINE] persona_key missing -> reselected", { vapiCallId, personaKey: finalPersonaKey });
-        } else {
-          console.error("[WEBHOOK] Failed to re-select persona_key on final event:", {
-            vapiCallId,
-            actualAgentId,
-            intent: finalIntent,
-          });
-        }
-      }
-
-      // Never allow call to complete without persona_key (for inbound calls)
-      if (direction !== "outbound" && !finalPersonaKey) {
-        console.error("[WEBHOOK] Call cannot complete without persona_key", {
-          vapiCallId,
           actualOrgId,
-          actualAgentId,
-        });
-        // Log error but don't fail webhook - persona_key is required but missing
-        // This should not happen in normal operation since we check on call start
+          vapiCallId
+        );
+        console.log("[CALL PIPELINE] persona_key missing -> reselected", { vapiCallId, personaKey: finalPersonaKey });
       }
 
       // Always update: ended_at, outcome, duration_seconds
