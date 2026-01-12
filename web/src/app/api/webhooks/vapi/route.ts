@@ -703,6 +703,130 @@ async function createAbuseTicket(
 }
 
 /**
+ * Count user turns in transcript (count "User:" lines).
+ * Fallback: returns 0 if transcript is null/empty.
+ */
+function countUserTurns(transcript: string | null): number {
+  if (!transcript) return 0;
+  
+  // Count lines that start with "User:" (case-insensitive)
+  const lines = transcript.split("\n");
+  let count = 0;
+  for (const line of lines) {
+    if (line.trim().toLowerCase().startsWith("user:")) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Compute intent_confidence based on intent, transcript, duration, and user turns.
+ * Returns a value between 0 and 1, rounded to 3 decimals.
+ */
+function computeIntentConfidence(
+  intent: "support" | "appointment" | "other" | null,
+  transcript: string | null,
+  durationSeconds: number | null,
+  userTurnCount: number
+): number {
+  // Base confidence
+  let confidence = 0.0;
+  if (intent === "appointment" || intent === "support") {
+    confidence = 0.70;
+  } else {
+    confidence = 0.40; // "other" or null
+  }
+  
+  // Add +0.15 if transcript matches strong intent keywords
+  if (transcript) {
+    const lowerTranscript = transcript.toLowerCase();
+    
+    if (intent === "appointment") {
+      const appointmentKeywords = /\b(schedule|book|appointment|tomorrow|next week|afternoon|am|pm|at [0-9])\b/;
+      if (appointmentKeywords.test(lowerTranscript)) {
+        confidence += 0.15;
+      }
+    } else if (intent === "support") {
+      const supportKeywords = /\b(order|refund|late|broken|issue|problem|missing|damaged)\b/;
+      if (supportKeywords.test(lowerTranscript)) {
+        confidence += 0.15;
+      }
+    }
+  }
+  
+  // Add +0.05 if durationSeconds >= 20
+  if (durationSeconds !== null && durationSeconds >= 20) {
+    confidence += 0.05;
+  }
+  
+  // Add +0.05 if userTurnCount >= 2
+  if (userTurnCount >= 2) {
+    confidence += 0.05;
+  }
+  
+  // Clamp to [0, 1] and round to 3 decimals
+  confidence = Math.max(0, Math.min(1, confidence));
+  return Math.round(confidence * 1000) / 1000;
+}
+
+/**
+ * Compute completion_state based on duration, user turns, intent, and artifacts.
+ * Returns: "abandoned" | "completed" | "partial"
+ */
+async function computeCompletionState(
+  callId: string,
+  orgId: string,
+  intent: "support" | "appointment" | "other" | null,
+  durationSeconds: number | null,
+  userTurnCount: number
+): Promise<"abandoned" | "completed" | "partial"> {
+  // Abandoned if durationSeconds < 15 OR userTurnCount < 1
+  if ((durationSeconds !== null && durationSeconds < 15) || userTurnCount < 1) {
+    return "abandoned";
+  }
+  
+  // Completed if:
+  // - intent='appointment' AND an appointments row exists for this call_id
+  // - intent in ('support','other') AND a tickets row exists for this call_id
+  try {
+    if (intent === "appointment") {
+      const { data: appointment } = await supabaseAdmin
+        .from("appointments")
+        .select("id")
+        .eq("call_id", callId)
+        .eq("org_id", orgId)
+        .maybeSingle<{ id: string }>();
+      
+      if (appointment) {
+        return "completed";
+      }
+    } else if (intent === "support" || intent === "other") {
+      const { data: ticket } = await supabaseAdmin
+        .from("tickets")
+        .select("id")
+        .eq("call_id", callId)
+        .eq("org_id", orgId)
+        .maybeSingle<{ id: string }>();
+      
+      if (ticket) {
+        return "completed";
+      }
+    }
+  } catch (err) {
+    // If artifact check fails, default to partial (non-blocking)
+    console.warn("[SCORING] Failed to check artifacts for completion_state:", {
+      callId,
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  
+  // Default to partial if not abandoned and not completed
+  return "partial";
+}
+
+/**
  * Ensure ticket exists for a call with intent = "support" (or "other" treated as support).
  * Idempotent: checks for existing ticket by call_id before creating.
  * 
@@ -2008,6 +2132,95 @@ export async function POST(req: NextRequest) {
             callId: updated?.[0]?.id,
             orgId: actualOrgId,
             error: artifactErr,
+          });
+          // Never throw - allow call finalization to continue
+        }
+      }
+
+      // TASK 4: Compute and update intent_confidence + completion_state
+      if (updated?.[0]?.id && actualOrgId) {
+        try {
+          // Load call row to get started_at and ended_at for duration calculation
+          const { data: callRowForScoring } = await supabaseAdmin
+            .from("calls")
+            .select("id, org_id, intent, started_at, ended_at, transcript, duration_seconds")
+            .eq("id", updated[0].id)
+            .maybeSingle<{
+              id: string;
+              org_id: string | null;
+              intent: string | null;
+              started_at: string | null;
+              ended_at: string | null;
+              transcript: string | null;
+              duration_seconds: number | null;
+            }>();
+
+          if (callRowForScoring?.id && callRowForScoring.org_id) {
+            // Compute durationSeconds (prefer DB, fallback to payload)
+            let computedDuration: number | null = callRowForScoring.duration_seconds;
+            if (computedDuration === null && callRowForScoring.started_at && callRowForScoring.ended_at) {
+              const startMs = new Date(callRowForScoring.started_at).getTime();
+              const endMs = new Date(callRowForScoring.ended_at).getTime();
+              if (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) {
+                computedDuration = Math.round((endMs - startMs) / 1000);
+              }
+            }
+            // Fallback to finalDuration from payload if still null
+            if (computedDuration === null) {
+              computedDuration = finalDuration;
+            }
+
+            // Count user turns from transcript
+            const userTurnCount = countUserTurns(callRowForScoring.transcript || transcript);
+
+            // Compute intent_confidence
+            const intent = (callRowForScoring.intent as "support" | "appointment" | "other") || null;
+            const intentConfidence = computeIntentConfidence(
+              intent,
+              callRowForScoring.transcript || transcript,
+              computedDuration,
+              userTurnCount
+            );
+
+            // Compute completion_state
+            const completionState = await computeCompletionState(
+              callRowForScoring.id,
+              callRowForScoring.org_id,
+              intent,
+              computedDuration,
+              userTurnCount
+            );
+
+            // Update calls row with intent_confidence and completion_state
+            const { error: scoringErr } = await supabaseAdmin
+              .from("calls")
+              .update({
+                intent_confidence: intentConfidence,
+                completion_state: completionState,
+              })
+              .eq("id", callRowForScoring.id);
+
+            if (scoringErr) {
+              console.warn("[SCORING] Failed to update intent_confidence/completion_state:", {
+                callId: callRowForScoring.id,
+                orgId: callRowForScoring.org_id,
+                error: scoringErr.message,
+              });
+            } else {
+              console.log("[SCORING] Updated intent_confidence and completion_state:", {
+                callId: callRowForScoring.id,
+                intent_confidence: intentConfidence,
+                completion_state: completionState,
+                durationSeconds: computedDuration,
+                userTurnCount: userTurnCount,
+              });
+            }
+          }
+        } catch (scoringErr) {
+          console.warn("[SCORING] Exception computing intent_confidence/completion_state:", {
+            callId: updated?.[0]?.id,
+            orgId: actualOrgId,
+            error: scoringErr instanceof Error ? scoringErr.message : String(scoringErr),
           });
           // Never throw - allow call finalization to continue
         }
