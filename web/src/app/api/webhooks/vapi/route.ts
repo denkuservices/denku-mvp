@@ -703,28 +703,24 @@ async function createAbuseTicket(
 }
 
 /**
- * Ensure artifact (ticket/appointment) exists for a call based on intent.
- * Idempotent: checks for existing artifacts by call_id before creating.
+ * Ensure ticket exists for a call with intent = "support" (or "other" treated as support).
+ * Idempotent: checks for existing ticket by call_id before creating.
  * 
- * Routing logic:
- * - intent = 'appointment': create ticket labeled as appointment request (if appointment doesn't exist)
- * - intent in ('support','other'): ensure ticket exists
+ * This is a post-call guarantee: ensures every call with intent="support" (or "other")
+ * always results in a ticket artifact, even if the LLM never calls a tool.
  * 
- * Uses POST /api/tools/create-ticket route when possible, falls back to direct DB insert if needed.
+ * Note: For appointment intent, do NOT call this function. Use ensureAppointmentForCall instead.
  */
-async function ensureArtifactForCall(
+async function ensureTicketForCall(
   callId: string,
   orgId: string,
-  intent: "support" | "appointment" | "other" | null,
   fromPhone: string | null,
   toPhone: string | null,
   transcript: string | null,
-  rawPayload: any
+  rawPayload: any,
+  vapiCallId?: string
 ): Promise<void> {
   try {
-    // Normalize intent: default to 'other' if null
-    const normalizedIntent = intent ?? "other";
-    
     // Idempotency: Check if ticket already exists
     const { data: existingTicket } = await supabaseAdmin
       .from("tickets")
@@ -733,39 +729,19 @@ async function ensureArtifactForCall(
       .maybeSingle<{ id: string }>();
 
     if (existingTicket) {
-      console.log("[ARTIFACT] Ticket already exists for call:", { callId, ticketId: existingTicket.id });
+      console.log("[DETERMINISTIC] Ticket ensured for call", { callId, ticketId: existingTicket.id });
       return; // Already have ticket, nothing to do
-    }
-
-    // Idempotency: Check if appointment already exists
-    const { data: existingAppointment } = await supabaseAdmin
-      .from("appointments")
-      .select("id")
-      .eq("call_id", callId)
-      .maybeSingle<{ id: string }>();
-
-    if (existingAppointment) {
-      console.log("[ARTIFACT] Appointment already exists for call:", { callId, appointmentId: existingAppointment.id });
-      return; // Already have appointment, nothing to do
     }
 
     // Detect if this is a web call
     const isWebCallType = isWebCall(rawPayload);
     
-    // Determine if caller phone exists
-    const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
-
-    // Routing logic (using normalized intent)
-    if (normalizedIntent === "appointment") {
-      // If appointment exists (checked above), we're done
-      // Otherwise, create a ticket labeled as appointment request
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment", isWebCallType, rawPayload);
-    } else {
-      // support, other, or any other value -> ensure ticket exists
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType, rawPayload);
-    }
+    // Create ticket (support intent)
+    await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType, rawPayload, vapiCallId);
+    
+    console.log("[DETERMINISTIC] Ticket ensured for call", { callId });
   } catch (err) {
-    console.error("[ARTIFACT] Exception ensuring artifact for call:", { callId, orgId, error: err });
+    console.error("[DETERMINISTIC] Exception ensuring ticket for call:", { callId, orgId, error: err });
     // Never throw - allow call finalization to continue
   }
 }
@@ -781,11 +757,13 @@ async function ensureArtifactForCall(
  * - Direct DB insert (tool route requires datetime which we don't have for requests)
  * - Status: "requested"
  * - Source: "voice"
+ * - Notes: Full transcript
  */
 async function ensureAppointmentForCall(
   callId: string,
   orgId: string,
-  transcript: string | null
+  transcript: string | null,
+  fromPhone: string | null
 ): Promise<void> {
   try {
     // Idempotency: Check if appointment already exists
@@ -796,34 +774,38 @@ async function ensureAppointmentForCall(
       .maybeSingle<{ id: string }>();
 
     if (existingAppointment) {
-      console.log("[APPOINTMENT] appointment_exists", {
+      console.log("[DETERMINISTIC] Appointment ensured for call", {
         callId,
         appointmentId: existingAppointment.id,
       });
       return; // Already have appointment, nothing to do
     }
 
+    // Resolve lead_id by phone (if caller phone exists)
+    let leadId: string | null = null;
+    if (fromPhone) {
+      leadId = await resolveLeadId(orgId, fromPhone);
+    }
+
     // Create appointment via direct DB insert
     // Note: Tool route requires datetime which we don't have for appointment requests
     // So we skip tool route and go straight to DB insert
-    const truncatedNotes = transcript
-      ? (transcript.length > 1000 ? transcript.substring(0, 1000) : transcript)
-      : null;
-
+    // Use full transcript in notes (appointments table should handle long text)
     const { data: appointment, error: insertErr } = await supabaseAdmin
       .from("appointments")
       .insert({
         org_id: orgId,
+        lead_id: leadId,
         call_id: callId,
         status: "requested",
         source: "voice",
-        notes: truncatedNotes,
+        notes: transcript, // Full transcript
       })
       .select("id")
       .single();
 
     if (insertErr || !appointment) {
-      console.error("[APPOINTMENT] appointment_fallback_used", {
+      console.error("[DETERMINISTIC] Failed to create appointment for call", {
         callId,
         orgId,
         error: insertErr?.message ?? "unknown error",
@@ -831,13 +813,13 @@ async function ensureAppointmentForCall(
       return;
     }
 
-    console.log("[APPOINTMENT] appointment_created", {
+    console.log("[DETERMINISTIC] Appointment ensured for call", {
       callId,
       appointmentId: appointment.id,
       orgId,
     });
   } catch (err) {
-    console.error("[APPOINTMENT] Exception ensuring appointment for call:", {
+    console.error("[DETERMINISTIC] Exception ensuring appointment for call:", {
       callId,
       orgId,
       error: err instanceof Error ? err.message : String(err),
@@ -1996,23 +1978,28 @@ export async function POST(req: NextRequest) {
             }>();
 
           if (callRow?.id && callRow.org_id) {
-            await ensureArtifactForCall(
-              callRow.id,
-              callRow.org_id,
-              (callRow.intent as "support" | "appointment" | "other") || null,
-              callRow.from_phone,
-              callRow.to_phone,
-              callRow.transcript || transcript,
-              callRow.raw_payload || body // Use raw_payload from DB, fallback to body
-            );
+            // Deterministic intent fallback: appointment → appointment, everything else → support
+            const rawIntent = (callRow.intent as "support" | "appointment" | "other") || null;
+            const finalIntent = rawIntent === "appointment" ? "appointment" : "support";
             
-            // APPOINTMENT GUARANTEE: Ensure appointment exists for calls with intent="appointment"
-            const callIntent = (callRow.intent as "support" | "appointment" | "other") || null;
-            if (callIntent === "appointment") {
+            if (finalIntent === "appointment") {
+              // Appointment intent → create appointment (NOT ticket)
               await ensureAppointmentForCall(
                 callRow.id,
                 callRow.org_id,
-                callRow.transcript || transcript
+                callRow.transcript || transcript,
+                callRow.from_phone
+              );
+            } else {
+              // Support/other intent → create ticket
+              await ensureTicketForCall(
+                callRow.id,
+                callRow.org_id,
+                callRow.from_phone,
+                callRow.to_phone,
+                callRow.transcript || transcript,
+                callRow.raw_payload || body,
+                extractCallId(callRow.raw_payload || body) ?? undefined
               );
             }
           }
