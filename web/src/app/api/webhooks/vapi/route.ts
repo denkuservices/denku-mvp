@@ -540,7 +540,8 @@ async function ensureArtifactForCall(
   intent: "support" | "appointment" | "other" | null,
   fromPhone: string | null,
   toPhone: string | null,
-  transcript: string | null
+  transcript: string | null,
+  rawPayload: any
 ): Promise<void> {
   try {
     // Normalize intent: default to 'other' if null
@@ -570,14 +571,20 @@ async function ensureArtifactForCall(
       return; // Already have appointment, nothing to do
     }
 
+    // Detect if this is a web call
+    const isWebCallType = isWebCall(rawPayload);
+    
+    // Determine if caller phone exists
+    const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
+
     // Routing logic (using normalized intent)
     if (normalizedIntent === "appointment") {
       // If appointment exists (checked above), we're done
       // Otherwise, create a ticket labeled as appointment request
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment");
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment", isWebCallType);
     } else {
       // support, other, or any other value -> ensure ticket exists
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support");
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType);
     }
   } catch (err) {
     console.error("[ARTIFACT] Exception ensuring artifact for call:", { callId, orgId, error: err });
@@ -588,6 +595,9 @@ async function ensureArtifactForCall(
 /**
  * Create ticket for a call via tool route or direct DB insert fallback.
  * Idempotent: checks call_id before creating.
+ * 
+ * Tool route is only used for phone calls with caller phone present.
+ * Web calls or calls without caller phone use direct DB insert.
  */
 async function createTicketForCall(
   callId: string,
@@ -595,63 +605,77 @@ async function createTicketForCall(
   fromPhone: string | null,
   toPhone: string | null,
   transcript: string | null,
-  intentType: "appointment" | "support"
+  intentType: "appointment" | "support",
+  isWebCallType: boolean
 ): Promise<void> {
-  // Validate required fields
-  if (!toPhone || !fromPhone) {
-    console.error("[ARTIFACT] Missing phone numbers for ticket creation:", { callId, toPhone, fromPhone });
-    return;
-  }
-
   const subject = intentType === "appointment" ? "Appointment Request" : "Support Request";
-  const description = transcript || `Call artifact created for ${intentType} intent.`;
-
-  // Try tool route first
-  try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const toolSecret = process.env.DENKU_TOOL_SECRET || "";
-
-    const response = await fetch(`${baseUrl}/api/tools/create-ticket`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(toolSecret && { "x-denku-secret": toolSecret }),
-      },
-      body: JSON.stringify({
-        to_phone: toPhone,
-        lead_phone: fromPhone,
-        subject,
-        description,
-        call_id: callId,
-        priority: "normal",
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("[ARTIFACT] Ticket created via tool route:", { callId, ticketId: result.ticket?.id });
-      return; // Success
-    }
-
-    // Tool route failed, log and fall back
-    const errorText = await response.text().catch(() => "unknown error");
-    console.error("[ARTIFACT] Tool route failed, falling back to direct insert:", {
-      callId,
-      orgId,
-      status: response.status,
-      error: errorText,
-    });
-  } catch (fetchErr) {
-    console.error("[ARTIFACT] Tool route exception, falling back to direct insert:", {
-      callId,
-      orgId,
-      error: fetchErr,
-    });
+  const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
+  
+  // Determine description with web call prefix if needed
+  let description = transcript || `Call artifact created for ${intentType} intent.`;
+  if (isWebCallType || !hasCallerPhone) {
+    description = `[WebCall] No caller phone available.\n\n${description}`;
   }
 
-  // Fallback: Direct DB insert (idempotent by call_id)
+  // Skip tool route for web calls or when caller phone is missing
+  if (isWebCallType || !hasCallerPhone) {
+    console.log("[ARTIFACT] skip tool route: webCall or missing from_phone", {
+      callId,
+      isWebCallType,
+      hasCallerPhone,
+    });
+    // Fall through to direct DB insert
+  } else if (toPhone && fromPhone) {
+    // Try tool route first (only for phone calls with caller phone)
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      const toolSecret = process.env.DENKU_TOOL_SECRET || "";
+
+      const response = await fetch(`${baseUrl}/api/tools/create-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(toolSecret && { "x-denku-secret": toolSecret }),
+        },
+        body: JSON.stringify({
+          to_phone: toPhone,
+          lead_phone: fromPhone,
+          subject,
+          description,
+          call_id: callId,
+          priority: "normal",
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("[ARTIFACT] tool route success", {
+          callId,
+          ticketId: result.ticket?.id,
+        });
+        return; // Success
+      }
+
+      // Tool route failed, log and fall back
+      const errorText = await response.text().catch(() => "unknown error");
+      console.log("[ARTIFACT] tool route failed, falling back to DB insert", {
+        callId,
+        orgId,
+        status: response.status,
+        error: errorText,
+      });
+    } catch (fetchErr) {
+      console.log("[ARTIFACT] tool route failed, falling back to DB insert", {
+        callId,
+        orgId,
+        error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+      });
+    }
+  }
+
+  // Direct DB insert (always used for web calls, or as fallback for phone calls)
   try {
     // Check again for idempotency (race condition protection)
     const { data: existing } = await supabaseAdmin
@@ -661,26 +685,32 @@ async function createTicketForCall(
       .maybeSingle<{ id: string }>();
 
     if (existing) {
-      console.log("[ARTIFACT] Ticket already exists (race condition check):", { callId, ticketId: existing.id });
+      console.log("[ARTIFACT] ticket already exists for call_id", {
+        callId,
+        ticketId: existing.id,
+      });
       return;
     }
 
-    // Resolve lead_id by phone (or create if needed)
-    const leadId = await resolveLeadId(orgId, fromPhone);
-    if (!leadId) {
-      console.error("[ARTIFACT] Failed to resolve/create lead for ticket:", { callId, orgId, fromPhone });
-      return;
+    // Resolve lead_id by phone (only if caller phone exists)
+    let leadId: string | null = null;
+    if (hasCallerPhone && fromPhone) {
+      leadId = await resolveLeadId(orgId, fromPhone);
+      // Note: leadId can be null for web calls - that's acceptable
     }
+
+    // Truncate description safely (max 2000 chars)
+    const truncatedDescription = description.length > 2000 ? description.substring(0, 2000) : description;
 
     // Direct insert with minimal safe fields
     const { data: ticket, error: insertErr } = await supabaseAdmin
       .from("tickets")
       .insert({
         org_id: orgId,
-        lead_id: leadId,
+        lead_id: leadId, // Can be null for web calls
         call_id: callId,
         subject,
-        description,
+        description: truncatedDescription,
         status: "open",
         priority: "normal",
       })
@@ -688,13 +718,26 @@ async function createTicketForCall(
       .single();
 
     if (insertErr || !ticket) {
-      console.error("[ARTIFACT] Direct insert failed:", { callId, orgId, error: insertErr });
+      console.error("[ARTIFACT] DB insert failed:", {
+        callId,
+        orgId,
+        error: insertErr,
+      });
       return;
     }
 
-    console.log("[ARTIFACT] Ticket created via direct insert (fallback):", { callId, ticketId: ticket.id });
+    console.log("[ARTIFACT] DB insert created ticket", {
+      callId,
+      ticketId: ticket.id,
+      isWebCallType,
+      hasLeadId: !!leadId,
+    });
   } catch (insertErr) {
-    console.error("[ARTIFACT] Direct insert exception:", { callId, orgId, error: insertErr });
+    console.error("[ARTIFACT] DB insert exception:", {
+      callId,
+      orgId,
+      error: insertErr instanceof Error ? insertErr.message : String(insertErr),
+    });
     // Never throw - allow call finalization to continue
   }
 }
@@ -1613,10 +1656,10 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          // Load call row with all fields needed for artifact routing
+          // Load call row with all fields needed for artifact routing (including raw_payload for web call detection)
           const { data: callRow } = await supabaseAdmin
             .from("calls")
-            .select("id, org_id, intent, from_phone, to_phone, transcript")
+            .select("id, org_id, intent, from_phone, to_phone, transcript, raw_payload")
             .eq("id", updated[0].id)
             .maybeSingle<{
               id: string;
@@ -1625,6 +1668,7 @@ export async function POST(req: NextRequest) {
               from_phone: string | null;
               to_phone: string | null;
               transcript: string | null;
+              raw_payload: any;
             }>();
 
           if (callRow?.id && callRow.org_id) {
@@ -1634,7 +1678,8 @@ export async function POST(req: NextRequest) {
               (callRow.intent as "support" | "appointment" | "other") || null,
               callRow.from_phone,
               callRow.to_phone,
-              callRow.transcript || transcript
+              callRow.transcript || transcript,
+              callRow.raw_payload || body // Use raw_payload from DB, fallback to body
             );
           }
         } catch (artifactErr) {
