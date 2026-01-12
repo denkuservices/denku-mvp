@@ -771,6 +771,82 @@ async function ensureArtifactForCall(
 }
 
 /**
+ * Ensure appointment exists for a call with intent = "appointment".
+ * Idempotent: checks for existing appointment by call_id before creating.
+ * 
+ * This is a post-call guarantee: ensures every call with intent="appointment"
+ * always results in an appointment artifact, even if the LLM never calls a tool.
+ * 
+ * Creation strategy:
+ * - Direct DB insert (tool route requires datetime which we don't have for requests)
+ * - Status: "requested"
+ * - Source: "voice"
+ */
+async function ensureAppointmentForCall(
+  callId: string,
+  orgId: string,
+  transcript: string | null
+): Promise<void> {
+  try {
+    // Idempotency: Check if appointment already exists
+    const { data: existingAppointment } = await supabaseAdmin
+      .from("appointments")
+      .select("id")
+      .eq("call_id", callId)
+      .maybeSingle<{ id: string }>();
+
+    if (existingAppointment) {
+      console.log("[APPOINTMENT] appointment_exists", {
+        callId,
+        appointmentId: existingAppointment.id,
+      });
+      return; // Already have appointment, nothing to do
+    }
+
+    // Create appointment via direct DB insert
+    // Note: Tool route requires datetime which we don't have for appointment requests
+    // So we skip tool route and go straight to DB insert
+    const truncatedNotes = transcript
+      ? (transcript.length > 1000 ? transcript.substring(0, 1000) : transcript)
+      : null;
+
+    const { data: appointment, error: insertErr } = await supabaseAdmin
+      .from("appointments")
+      .insert({
+        org_id: orgId,
+        call_id: callId,
+        status: "requested",
+        source: "voice",
+        notes: truncatedNotes,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !appointment) {
+      console.error("[APPOINTMENT] appointment_fallback_used", {
+        callId,
+        orgId,
+        error: insertErr?.message ?? "unknown error",
+      });
+      return;
+    }
+
+    console.log("[APPOINTMENT] appointment_created", {
+      callId,
+      appointmentId: appointment.id,
+      orgId,
+    });
+  } catch (err) {
+    console.error("[APPOINTMENT] Exception ensuring appointment for call:", {
+      callId,
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Never throw - allow call finalization to continue
+  }
+}
+
+/**
  * Create ticket for a call via tool route or direct DB insert fallback.
  * Idempotent: checks call_id before creating.
  * 
@@ -1929,6 +2005,16 @@ export async function POST(req: NextRequest) {
               callRow.transcript || transcript,
               callRow.raw_payload || body // Use raw_payload from DB, fallback to body
             );
+            
+            // APPOINTMENT GUARANTEE: Ensure appointment exists for calls with intent="appointment"
+            const callIntent = (callRow.intent as "support" | "appointment" | "other") || null;
+            if (callIntent === "appointment") {
+              await ensureAppointmentForCall(
+                callRow.id,
+                callRow.org_id,
+                callRow.transcript || transcript
+              );
+            }
           }
         } catch (artifactErr) {
           console.error("[ARTIFACT] Failed to ensure artifact for call:", {
