@@ -17,19 +17,15 @@ function requireToolSecret(req: NextRequest) {
 }
 
 const BodySchema = z.object({
-  to_phone: z.string().min(3),
-
-  lead_phone: z.string().min(7),
-  lead_name: z.string().optional().nullable(),
-  lead_email: z.string().email().optional().nullable(),
-
+  call_id: z.string().uuid(),
+  
+  requester_email: z.string().email().optional().nullable(),
+  requester_phone: z.string().optional().nullable(),
+  requester_name: z.string().optional().nullable(),
+  
   subject: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   priority: z.enum(["low", "normal", "high"]).optional().nullable(),
-  notes: z.string().optional().nullable(),
-
-  // Optional: link to call for outcome resolution
-  call_id: z.string().uuid().optional().nullable(),
 }).passthrough();
 
 export async function POST(req: NextRequest) {
@@ -53,96 +49,129 @@ export async function POST(req: NextRequest) {
 
   const input = parsed.data;
 
-  const toPhone = normalizePhone(input.to_phone);
-  const leadPhone = normalizePhone(input.lead_phone);
-
-  if (!toPhone || !leadPhone) {
+  // Require at least one contact method
+  const hasEmail = !!input.requester_email && input.requester_email.trim().length > 0;
+  const hasPhone = !!input.requester_phone && normalizePhone(input.requester_phone) !== null;
+  
+  if (!hasEmail && !hasPhone) {
     return NextResponse.json(
-      { error: "Invalid phone normalization" },
+      { error: "At least one of requester_email or requester_phone is required" },
       { status: 400 }
     );
   }
 
-  const subject = (input.subject ?? "").trim();
-  const description = (input.description ?? "").trim();
+  // Look up call to get org_id (do NOT trust client-sent org_id)
+  const { data: call, error: callErr } = await supabaseAdmin
+    .from("calls")
+    .select("id, org_id, agent_id, vapi_call_id")
+    .eq("id", input.call_id)
+    .maybeSingle<{
+      id: string;
+      org_id: string | null;
+      agent_id: string | null;
+      vapi_call_id: string | null;
+    }>();
 
-  if (!subject && !description) {
+  if (callErr || !call) {
     return NextResponse.json(
-      { error: "Either subject or description is required" },
-      { status: 400 }
-    );
-  }
-
-  // 1) Resolve org by to_phone
-  // TODO: Migrate phone_number mapping to dedicated table/orgs. For now, using organizations VIEW
-  const { data: org, error: orgErr } = await supabaseAdmin
-    .from("organizations")
-    .select("id, phone_number")
-    .eq("phone_number", toPhone)
-    .single();
-
-  if (orgErr || !org) {
-    return NextResponse.json(
-      { error: "Organization not found for phone_number", phone_number: toPhone },
+      { error: "Call not found", call_id: input.call_id },
       { status: 404 }
     );
   }
 
-  // 2) Upsert lead by (org_id, phone)
-  const { data: existingLead } = await supabaseAdmin
-    .from("leads")
-    .select("id")
-    .eq("org_id", org.id)
-    .eq("phone", leadPhone)
-    .maybeSingle();
-
-  let leadId: string;
-
-  if (existingLead?.id) {
-    leadId = existingLead.id;
-  } else {
-    const { data: newLead, error: leadErr } = await supabaseAdmin
-      .from("leads")
-      .insert({
-        org_id: org.id,
-        name: input.lead_name ?? null,
-        phone: leadPhone,
-        email: input.lead_email ?? null,
-        source: "vapi",
-        status: "new",
-        notes: input.notes ?? null,
-      })
-      .select("id")
-      .single();
-
-    if (leadErr || !newLead?.id) {
-      return NextResponse.json(
-        { error: "Failed to create lead", details: leadErr?.message ?? "unknown" },
-        { status: 500 }
-      );
-    }
-
-    leadId = newLead.id;
+  if (!call.org_id) {
+    return NextResponse.json(
+      { error: "Call has no org_id" },
+      { status: 400 }
+    );
   }
 
-  // 3) Resolve call_id if provided (for outcome resolution)
-  let callId: string | null = input.call_id ?? null;
-  // Optional: If call_id not provided but we have vapi_call_id in metadata, resolve it
-  // This would require additional context from Vapi tool calls
+  const orgId = call.org_id;
 
-  // 4) Create ticket
+  // Resolve lead by requester_phone or requester_email if available
+  let leadId: string | null = null;
+  const normalizedPhone = normalizePhone(input.requester_phone);
+  
+  if (normalizedPhone) {
+    const { data: existingLead } = await supabaseAdmin
+      .from("leads")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("phone", normalizedPhone)
+      .maybeSingle<{ id: string }>();
+
+    if (existingLead?.id) {
+      leadId = existingLead.id;
+    } else {
+      // Create lead if phone provided
+      const { data: newLead, error: leadErr } = await supabaseAdmin
+        .from("leads")
+        .insert({
+          org_id: orgId,
+          name: input.requester_name ?? null,
+          phone: normalizedPhone,
+          email: input.requester_email ?? null,
+          source: "vapi",
+          status: "new",
+        })
+        .select("id")
+        .single();
+
+      if (!leadErr && newLead?.id) {
+        leadId = newLead.id;
+      }
+    }
+  } else if (hasEmail) {
+    // Try to find lead by email if no phone
+    const { data: existingLead } = await supabaseAdmin
+      .from("leads")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("email", input.requester_email)
+      .maybeSingle<{ id: string }>();
+
+    if (existingLead?.id) {
+      leadId = existingLead.id;
+    } else {
+      // Create lead by email
+      const { data: newLead, error: leadErr } = await supabaseAdmin
+        .from("leads")
+        .insert({
+          org_id: orgId,
+          name: input.requester_name ?? null,
+          email: input.requester_email,
+          source: "vapi",
+          status: "new",
+        })
+        .select("id")
+        .single();
+
+      if (!leadErr && newLead?.id) {
+        leadId = newLead.id;
+      }
+    }
+  }
+
+  // Prepare ticket fields
+  const subject = (input.subject ?? "Support Request").trim();
+  const description = input.description?.trim() || "Created via Vapi tool call";
+
+  // Create ticket
   const { data: ticket, error: tErr } = await supabaseAdmin
     .from("tickets")
     .insert({
-      org_id: org.id,
+      org_id: orgId,
       lead_id: leadId,
-      call_id: callId,
-      subject: subject || "Support Request",
-      description: description || input.notes || "Created via Vapi tool",
+      call_id: input.call_id,
+      subject,
+      description,
       status: "open",
       priority: input.priority ?? "normal",
+      requester_email: input.requester_email ?? null,
+      requester_phone: normalizedPhone,
+      requester_name: input.requester_name ?? null,
     })
-    .select("id, org_id, lead_id, call_id, subject, status, priority, created_at")
+    .select("id")
     .single();
 
   if (tErr || !ticket) {
@@ -152,6 +181,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, ticket }, { status: 200 });
-}
+  console.log("[TOOLS] create-ticket", {
+    call_id: input.call_id,
+    org_id: orgId,
+    ticket_id: ticket.id,
+    has_email: hasEmail,
+    has_phone: hasPhone,
+  });
 
+  return NextResponse.json({
+    ok: true,
+    ticket_id: ticket.id,
+    call_id: input.call_id,
+  });
+}
