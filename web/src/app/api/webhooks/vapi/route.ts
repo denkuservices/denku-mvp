@@ -61,6 +61,16 @@ function normalizePhone(input?: string | null) {
   return digits.replace(/\D/g, "");
 }
 
+/**
+ * Mask phone number for logging (show first 4 chars + last 4 chars).
+ * Example: +13215555718 -> +132***5718
+ */
+function maskPhoneForLogging(phone: string | null): string {
+  if (!phone || phone.length < 8) return phone || "null";
+  if (phone.length <= 8) return `${phone.slice(0, 2)}***${phone.slice(-2)}`;
+  return `${phone.slice(0, 4)}***${phone.slice(-4)}`;
+}
+
 function compact<T extends Record<string, any>>(obj: T): Partial<T> {
   const out: any = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -581,10 +591,10 @@ async function ensureArtifactForCall(
     if (normalizedIntent === "appointment") {
       // If appointment exists (checked above), we're done
       // Otherwise, create a ticket labeled as appointment request
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment", isWebCallType);
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "appointment", isWebCallType, rawPayload);
     } else {
       // support, other, or any other value -> ensure ticket exists
-      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType);
+      await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType, rawPayload);
     }
   } catch (err) {
     console.error("[ARTIFACT] Exception ensuring artifact for call:", { callId, orgId, error: err });
@@ -606,7 +616,9 @@ async function createTicketForCall(
   toPhone: string | null,
   transcript: string | null,
   intentType: "appointment" | "support",
-  isWebCallType: boolean
+  isWebCallType: boolean,
+  rawPayload?: any,
+  vapiCallId?: string
 ): Promise<void> {
   const subject = intentType === "appointment" ? "Appointment Request" : "Support Request";
   const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
@@ -699,6 +711,34 @@ async function createTicketForCall(
       // Note: leadId can be null for web calls - that's acceptable
     }
 
+    // Extract requester_phone and requester_name for phone calls
+    // Only set for non-web calls where caller phone exists
+    let requesterPhone: string | null = null;
+    let requesterName: string | null = null;
+    
+    if (!isWebCallType && hasCallerPhone && fromPhone) {
+      // Use normalized fromPhone as requester_phone (already E.164 format)
+      requesterPhone = fromPhone;
+      
+      // Try to extract customer name from payload if available
+      if (rawPayload) {
+        const msg = rawPayload?.message;
+        const call = msg?.call;
+        const customerName = asString(call?.customer?.name) ?? asString(msg?.customer?.name);
+        if (customerName && customerName.trim().length > 0) {
+          requesterName = customerName.trim();
+        }
+      }
+      
+      // Log when we set requester_phone
+      console.log("[ARTIFACT] setting requester_phone", {
+        vapiCallId,
+        callId,
+        requester_phone: maskPhoneForLogging(requesterPhone),
+        has_requester_name: !!requesterName,
+      });
+    }
+
     // Truncate description safely (max 2000 chars)
     const truncatedDescription = description.length > 2000 ? description.substring(0, 2000) : description;
 
@@ -713,6 +753,8 @@ async function createTicketForCall(
         description: truncatedDescription,
         status: "open",
         priority: "normal",
+        requester_phone: requesterPhone, // Set for phone calls, null for web calls
+        requester_name: requesterName, // Set if available in payload, null otherwise
       })
       .select("id")
       .single();
