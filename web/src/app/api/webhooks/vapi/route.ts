@@ -771,52 +771,134 @@ function computeIntentConfidence(
 }
 
 /**
+ * Check if transcript has truncated agent last line.
+ * Returns true if last non-empty line starts with "AI:" and looks cut off.
+ */
+function detectTruncatedAgentLastLine(transcript: string | null): boolean {
+  if (!transcript) return false;
+  
+  const lines = transcript.split("\n").filter(line => line.trim().length > 0);
+  if (lines.length === 0) return false;
+  
+  const lastLine = lines[lines.length - 1].trim();
+  if (!lastLine.toLowerCase().startsWith("ai:")) return false;
+  
+  const content = lastLine.substring(3).trim();
+  if (content.length === 0) return false;
+  
+  // Check for trailing indicators of truncation
+  const lastChar = content[content.length - 1];
+  if (lastChar === "," || (lastChar === "." && content.endsWith("..."))) {
+    return true;
+  }
+  
+  // Check for incomplete sentences (no punctuation)
+  if (!/[.!?]$/.test(content)) {
+    // Check for mid-sentence patterns
+    const incompletePatterns = /\b(create|set up|provide|contact|details)$/i;
+    if (incompletePatterns.test(content)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Detect if a tool was called based on payload structure.
+ * Conservative: returns true only if strong indicators exist.
+ */
+function detectToolUsed(rawPayload: any): boolean {
+  if (!rawPayload) return false;
+  
+  const msg = rawPayload?.message;
+  const artifact = msg?.artifact;
+  const messages = msg?.messages;
+  
+  // Check for function-call in messages
+  if (Array.isArray(messages)) {
+    for (const m of messages) {
+      if (m?.type === "function-call" || m?.role === "function") {
+        return true;
+      }
+    }
+  }
+  
+  // Check for artifact indicating tool execution
+  if (artifact) {
+    // If artifact exists and has meaningful content, tool may have run
+    // But this is conservative - we need stronger signals
+    // For now, only return true if explicit function-call found
+  }
+  
+  return false;
+}
+
+/**
  * Infer completion_state based on intent, duration, transcript, artifacts, and call metadata.
  * Returns: "abandoned" | "completed" | "partial"
+ * 
+ * Rules:
+ * - abandoned: duration <= 8 AND userTurns == 0, OR empty transcript AND duration <= 15
+ * - partial: userTurns >= 1 AND (duration < 30 OR truncated OR (toolUsed == false AND deterministic artifact))
+ * - completed: toolUsed == true OR (duration >= 30 AND userTurns >= 2 AND not truncated) OR non-deterministic artifact
+ * - fallback: completed if duration >= 15, else partial
  */
 function inferCompletionState(
   intent: string | null,
   durationSeconds: number | null,
   transcript: string | null,
+  userTurns: number,
+  toolUsed: boolean,
+  truncatedAgentLastLine: boolean,
+  deterministicTicket: boolean,
+  deterministicAppointment: boolean,
   ticketCreated: boolean,
-  appointmentCreated: boolean,
-  fromPhone: string | null,
-  callType: string | null
+  appointmentCreated: boolean
 ): "abandoned" | "completed" | "partial" {
-  // ABANDONED: durationSeconds <= 8 OR transcript is empty/only greeting
-  if (durationSeconds !== null && durationSeconds <= 8) {
+  // ABANDONED: durationSeconds <= 8 AND userTurns == 0, OR empty transcript AND duration <= 15
+  if (durationSeconds !== null && durationSeconds <= 8 && userTurns === 0) {
     return "abandoned";
   }
   
-  if (!transcript || transcript.trim().length < 20) {
+  if ((!transcript || transcript.trim().length < 20) && durationSeconds !== null && durationSeconds <= 15) {
     return "abandoned";
   }
   
-  // Check if transcript is only greeting (very short content)
-  const lowerTranscript = transcript.toLowerCase().trim();
-  const greetingPatterns = /^(hi|hello|hey|thanks|thank you|bye|goodbye)$/i;
-  if (greetingPatterns.test(lowerTranscript)) {
-    return "abandoned";
-  }
-  
-  // COMPLETED: Check for strong signals
-  if (appointmentCreated) {
-    return "completed";
-  }
-  
-  if (ticketCreated) {
-    // Check for strong detail signals in transcript
-    const hasStrongDetails = checkStrongDetailSignals(transcript);
+  // PARTIAL: userTurns >= 1 AND (duration < 30 OR truncated OR (toolUsed == false AND deterministic artifact))
+  if (userTurns >= 1) {
+    if (durationSeconds !== null && durationSeconds < 30) {
+      return "partial";
+    }
     
-    // Check for strong closing phrases from AI
-    const hasStrongClosing = checkStrongClosingPhrases(transcript);
+    if (truncatedAgentLastLine) {
+      return "partial";
+    }
     
-    if (hasStrongDetails || hasStrongClosing) {
-      return "completed";
+    if (!toolUsed && (deterministicTicket || deterministicAppointment)) {
+      return "partial";
     }
   }
   
-  // PARTIAL: Default fallback when not abandoned and not completed
+  // COMPLETED: toolUsed == true OR (duration >= 30 AND userTurns >= 2 AND not truncated) OR non-deterministic artifact
+  if (toolUsed) {
+    return "completed";
+  }
+  
+  if (durationSeconds !== null && durationSeconds >= 30 && userTurns >= 2 && !truncatedAgentLastLine) {
+    return "completed";
+  }
+  
+  // Non-deterministic artifact (ticket/appointment exists but without deterministic marker)
+  if ((ticketCreated && !deterministicTicket) || (appointmentCreated && !deterministicAppointment)) {
+    return "completed";
+  }
+  
+  // FALLBACK: completed if duration >= 15, else partial
+  if (durationSeconds !== null && durationSeconds >= 15) {
+    return "completed";
+  }
+  
   return "partial";
 }
 
@@ -988,6 +1070,16 @@ async function ensureAppointmentForCall(
     // Note: Tool route requires datetime which we don't have for appointment requests
     // So we skip tool route and go straight to DB insert
     // Use full transcript in notes (appointments table should handle long text)
+    let finalNotes = transcript || "";
+    
+    // Add deterministic marker if not already present (idempotent)
+    const deterministicMarker = "[System] created_by=deterministic";
+    if (finalNotes && !finalNotes.includes(deterministicMarker)) {
+      finalNotes = finalNotes + "\n" + deterministicMarker;
+    } else if (!finalNotes) {
+      finalNotes = deterministicMarker;
+    }
+    
     const { data: appointment, error: insertErr } = await supabaseAdmin
       .from("appointments")
       .insert({
@@ -996,7 +1088,7 @@ async function ensureAppointmentForCall(
         call_id: callId,
         status: "requested",
         source: "voice",
-        notes: transcript, // Full transcript
+        notes: finalNotes,
       })
       .select("id")
       .single();
@@ -1201,7 +1293,13 @@ async function createTicketForCall(
     }
 
     // Truncate description safely (max 2000 chars)
-    const truncatedDescription = description.length > 2000 ? description.substring(0, 2000) : description;
+    let finalDescription = description.length > 2000 ? description.substring(0, 2000) : description;
+    
+    // Add deterministic marker if not already present (idempotent)
+    const deterministicMarker = "[System] created_by=deterministic";
+    if (!finalDescription.includes(deterministicMarker)) {
+      finalDescription = finalDescription + "\n" + deterministicMarker;
+    }
 
     // Direct insert with minimal safe fields
     const { data: ticket, error: insertErr } = await supabaseAdmin
@@ -1211,7 +1309,7 @@ async function createTicketForCall(
         lead_id: leadId, // Can be null for web calls
         call_id: callId,
         subject,
-        description: truncatedDescription,
+        description: finalDescription,
         status: "open",
         priority: "normal",
         requester_phone: requesterPhone, // Set for phone calls, null for web calls
@@ -2257,19 +2355,24 @@ export async function POST(req: NextRequest) {
               userTurnCount
             );
 
-            // Query for ticket/appointment existence (AFTER deterministic guarantee)
+            // Query for ticket/appointment existence and check for deterministic markers (AFTER deterministic guarantee)
             let ticketCreated = false;
             let appointmentCreated = false;
+            let deterministicTicket = false;
+            let deterministicAppointment = false;
             
             try {
               const { data: ticket } = await supabaseAdmin
                 .from("tickets")
-                .select("id")
+                .select("id, description")
                 .eq("call_id", callRowForScoring.id)
                 .limit(1)
-                .maybeSingle<{ id: string }>();
+                .maybeSingle<{ id: string; description: string | null }>();
               
               ticketCreated = !!ticket;
+              if (ticket && ticket.description) {
+                deterministicTicket = ticket.description.includes("[System] created_by=deterministic");
+              }
             } catch (ticketErr) {
               console.warn("[SCORING] Failed to check ticket existence:", {
                 callId: callRowForScoring.id,
@@ -2280,12 +2383,15 @@ export async function POST(req: NextRequest) {
             try {
               const { data: appointment } = await supabaseAdmin
                 .from("appointments")
-                .select("id")
+                .select("id, notes")
                 .eq("call_id", callRowForScoring.id)
                 .limit(1)
-                .maybeSingle<{ id: string }>();
+                .maybeSingle<{ id: string; notes: string | null }>();
               
               appointmentCreated = !!appointment;
+              if (appointment && appointment.notes) {
+                deterministicAppointment = appointment.notes.includes("[System] created_by=deterministic");
+              }
             } catch (appointmentErr) {
               console.warn("[SCORING] Failed to check appointment existence:", {
                 callId: callRowForScoring.id,
@@ -2293,18 +2399,22 @@ export async function POST(req: NextRequest) {
               });
             }
 
-            // Determine callType from raw_payload or direction
-            const callType = isWebCall(callRowForScoring.raw_payload || body) ? "webCall" : (direction || null);
+            // Detect tool usage and truncated agent line
+            const toolUsed = detectToolUsed(callRowForScoring.raw_payload || body);
+            const truncatedAgentLastLine = detectTruncatedAgentLastLine(callRowForScoring.transcript || transcript);
 
             // Infer completion_state using new helper
             const completionState = inferCompletionState(
               intent,
               computedDuration,
               callRowForScoring.transcript || transcript,
+              userTurnCount,
+              toolUsed,
+              truncatedAgentLastLine,
+              deterministicTicket,
+              deterministicAppointment,
               ticketCreated,
-              appointmentCreated,
-              callRowForScoring.from_phone || null,
-              callType
+              appointmentCreated
             );
 
             // Update calls row with intent_confidence and completion_state
@@ -2323,13 +2433,15 @@ export async function POST(req: NextRequest) {
                 error: scoringErr.message,
               });
             } else {
-              console.log("[WEBHOOK] completion_state inferred", {
+              console.log("[COMPLETION]", {
                 vapiCallId,
                 callId: callRowForScoring.id,
-                intent,
                 durationSeconds: computedDuration,
-                ticketCreated,
-                appointmentCreated,
+                userTurns: userTurnCount,
+                toolUsed,
+                truncatedAgentLastLine,
+                deterministicTicket,
+                deterministicAppointment,
                 completion_state: completionState,
               });
               console.log("[SCORING] Updated intent_confidence and completion_state:", {
