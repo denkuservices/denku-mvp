@@ -771,59 +771,132 @@ function computeIntentConfidence(
 }
 
 /**
- * Compute completion_state based on duration, user turns, intent, and artifacts.
+ * Infer completion_state based on intent, duration, transcript, artifacts, and call metadata.
  * Returns: "abandoned" | "completed" | "partial"
  */
-async function computeCompletionState(
-  callId: string,
-  orgId: string,
-  intent: "support" | "appointment" | "other" | null,
+function inferCompletionState(
+  intent: string | null,
   durationSeconds: number | null,
-  userTurnCount: number
-): Promise<"abandoned" | "completed" | "partial"> {
-  // Abandoned if durationSeconds < 15 OR userTurnCount < 1
-  if ((durationSeconds !== null && durationSeconds < 15) || userTurnCount < 1) {
+  transcript: string | null,
+  ticketCreated: boolean,
+  appointmentCreated: boolean,
+  fromPhone: string | null,
+  callType: string | null
+): "abandoned" | "completed" | "partial" {
+  // ABANDONED: durationSeconds <= 8 OR transcript is empty/only greeting
+  if (durationSeconds !== null && durationSeconds <= 8) {
     return "abandoned";
   }
   
-  // Completed if:
-  // - intent='appointment' AND an appointments row exists for this call_id
-  // - intent in ('support','other') AND a tickets row exists for this call_id
-  try {
-    if (intent === "appointment") {
-      const { data: appointment } = await supabaseAdmin
-        .from("appointments")
-        .select("id")
-        .eq("call_id", callId)
-        .eq("org_id", orgId)
-        .maybeSingle<{ id: string }>();
-      
-      if (appointment) {
-        return "completed";
-      }
-    } else if (intent === "support" || intent === "other") {
-      const { data: ticket } = await supabaseAdmin
-        .from("tickets")
-        .select("id")
-        .eq("call_id", callId)
-        .eq("org_id", orgId)
-        .maybeSingle<{ id: string }>();
-      
-      if (ticket) {
-        return "completed";
-      }
-    }
-  } catch (err) {
-    // If artifact check fails, default to partial (non-blocking)
-    console.warn("[SCORING] Failed to check artifacts for completion_state:", {
-      callId,
-      orgId,
-      error: err instanceof Error ? err.message : String(err),
-    });
+  if (!transcript || transcript.trim().length < 20) {
+    return "abandoned";
   }
   
-  // Default to partial if not abandoned and not completed
+  // Check if transcript is only greeting (very short content)
+  const lowerTranscript = transcript.toLowerCase().trim();
+  const greetingPatterns = /^(hi|hello|hey|thanks|thank you|bye|goodbye)$/i;
+  if (greetingPatterns.test(lowerTranscript)) {
+    return "abandoned";
+  }
+  
+  // COMPLETED: Check for strong signals
+  if (appointmentCreated) {
+    return "completed";
+  }
+  
+  if (ticketCreated) {
+    // Check for strong detail signals in transcript
+    const hasStrongDetails = checkStrongDetailSignals(transcript);
+    
+    // Check for strong closing phrases from AI
+    const hasStrongClosing = checkStrongClosingPhrases(transcript);
+    
+    if (hasStrongDetails || hasStrongClosing) {
+      return "completed";
+    }
+  }
+  
+  // PARTIAL: Default fallback when not abandoned and not completed
   return "partial";
+}
+
+/**
+ * Check if transcript contains strong detail signals (order numbers, email, phone, address, dates/times, or substantial user content).
+ */
+function checkStrongDetailSignals(transcript: string | null): boolean {
+  if (!transcript) return false;
+  
+  const lowerTranscript = transcript.toLowerCase();
+  
+  // Order number patterns
+  if (/\b(order\s*#|order\s*number|#\s*\d{3,}|order\s*\d{3,})\b/i.test(transcript)) {
+    return true;
+  }
+  
+  // Email-like pattern
+  if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(transcript)) {
+    return true;
+  }
+  
+  // Phone-like pattern (E.164 or common formats)
+  if (/\b(\+?1?\s*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{10,})\b/.test(transcript)) {
+    return true;
+  }
+  
+  // Address keywords
+  if (/\b(street|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|city|state|zip|postal)\b/i.test(transcript)) {
+    return true;
+  }
+  
+  // Dates/times
+  if (/\b(tomorrow|today|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|am|pm|morning|afternoon|evening)\b/i.test(transcript)) {
+    return true;
+  }
+  
+  // Check for at least 2 sentences from user beyond simple responses
+  const userLines = transcript.split("\n").filter(line => line.trim().toLowerCase().startsWith("user:"));
+  const substantialUserLines = userLines.filter(line => {
+    const content = line.substring(5).trim().toLowerCase();
+    // Exclude simple responses
+    const excludePatterns = /^(i don't know|i just wanted to let you know|ok|okay|thanks|thank you|yeah|yes|no|sure)$/i;
+    return !excludePatterns.test(content) && content.length > 20;
+  });
+  
+  if (substantialUserLines.length >= 2) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if transcript includes strong closing phrases from AI.
+ */
+function checkStrongClosingPhrases(transcript: string | null): boolean {
+  if (!transcript) return false;
+  
+  const lowerTranscript = transcript.toLowerCase();
+  
+  const closingPhrases = [
+    "i've created a ticket",
+    "i have created",
+    "your ticket number",
+    "ticket number is",
+    "i booked",
+    "appointment is scheduled",
+    "you're all set",
+    "i've submitted",
+    "ticket has been created",
+    "appointment has been scheduled",
+  ];
+  
+  for (const phrase of closingPhrases) {
+    if (lowerTranscript.includes(phrase)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -2143,7 +2216,7 @@ export async function POST(req: NextRequest) {
           // Load call row to get started_at and ended_at for duration calculation
           const { data: callRowForScoring } = await supabaseAdmin
             .from("calls")
-            .select("id, org_id, intent, started_at, ended_at, transcript, duration_seconds")
+            .select("id, org_id, intent, started_at, ended_at, transcript, duration_seconds, from_phone, raw_payload")
             .eq("id", updated[0].id)
             .maybeSingle<{
               id: string;
@@ -2153,6 +2226,8 @@ export async function POST(req: NextRequest) {
               ended_at: string | null;
               transcript: string | null;
               duration_seconds: number | null;
+              from_phone: string | null;
+              raw_payload: any;
             }>();
 
           if (callRowForScoring?.id && callRowForScoring.org_id) {
@@ -2182,13 +2257,54 @@ export async function POST(req: NextRequest) {
               userTurnCount
             );
 
-            // Compute completion_state
-            const completionState = await computeCompletionState(
-              callRowForScoring.id,
-              callRowForScoring.org_id,
+            // Query for ticket/appointment existence (AFTER deterministic guarantee)
+            let ticketCreated = false;
+            let appointmentCreated = false;
+            
+            try {
+              const { data: ticket } = await supabaseAdmin
+                .from("tickets")
+                .select("id")
+                .eq("call_id", callRowForScoring.id)
+                .limit(1)
+                .maybeSingle<{ id: string }>();
+              
+              ticketCreated = !!ticket;
+            } catch (ticketErr) {
+              console.warn("[SCORING] Failed to check ticket existence:", {
+                callId: callRowForScoring.id,
+                error: ticketErr instanceof Error ? ticketErr.message : String(ticketErr),
+              });
+            }
+            
+            try {
+              const { data: appointment } = await supabaseAdmin
+                .from("appointments")
+                .select("id")
+                .eq("call_id", callRowForScoring.id)
+                .limit(1)
+                .maybeSingle<{ id: string }>();
+              
+              appointmentCreated = !!appointment;
+            } catch (appointmentErr) {
+              console.warn("[SCORING] Failed to check appointment existence:", {
+                callId: callRowForScoring.id,
+                error: appointmentErr instanceof Error ? appointmentErr.message : String(appointmentErr),
+              });
+            }
+
+            // Determine callType from raw_payload or direction
+            const callType = isWebCall(callRowForScoring.raw_payload || body) ? "webCall" : (direction || null);
+
+            // Infer completion_state using new helper
+            const completionState = inferCompletionState(
               intent,
               computedDuration,
-              userTurnCount
+              callRowForScoring.transcript || transcript,
+              ticketCreated,
+              appointmentCreated,
+              callRowForScoring.from_phone || null,
+              callType
             );
 
             // Update calls row with intent_confidence and completion_state
@@ -2207,6 +2323,15 @@ export async function POST(req: NextRequest) {
                 error: scoringErr.message,
               });
             } else {
+              console.log("[WEBHOOK] completion_state inferred", {
+                vapiCallId,
+                callId: callRowForScoring.id,
+                intent,
+                durationSeconds: computedDuration,
+                ticketCreated,
+                appointmentCreated,
+                completion_state: completionState,
+              });
               console.log("[SCORING] Updated intent_confidence and completion_state:", {
                 callId: callRowForScoring.id,
                 intent_confidence: intentConfidence,
