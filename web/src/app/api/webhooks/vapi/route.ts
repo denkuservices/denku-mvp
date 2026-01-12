@@ -387,6 +387,174 @@ function isWebCall(body: any): boolean {
 }
 
 /**
+ * Build ticket subject from transcript using keyword matching.
+ * Returns: "Billing Question", "Order Issue", "Scheduling Request", or "Support Request".
+ */
+function buildTicketSubject(transcript: string | null): string {
+  if (!transcript) return "Support Request";
+  
+  const normalized = transcript.toLowerCase();
+  
+  // Billing keywords
+  const billingKeywords = ["refund", "chargeback", "charged", "payment", "billing", "invoice", "card", "subscription", "plan", "cancel"];
+  if (billingKeywords.some(keyword => normalized.includes(keyword))) {
+    return "Billing Question";
+  }
+  
+  // Order keywords
+  const orderKeywords = ["order", "shipment", "shipping", "delivery", "tracking", "arrived", "missing", "damaged", "return", "exchange"];
+  if (orderKeywords.some(keyword => normalized.includes(keyword))) {
+    return "Order Issue";
+  }
+  
+  // Scheduling keywords
+  const schedulingKeywords = ["appointment", "schedule", "reschedule", "booking", "book", "availability"];
+  if (schedulingKeywords.some(keyword => normalized.includes(keyword))) {
+    return "Scheduling Request";
+  }
+  
+  return "Support Request";
+}
+
+/**
+ * Build premium ticket description with metadata header.
+ * Format:
+ * [Channel] Phone Call | Web Call
+ * [Caller] +1XXXXXXXXXX OR Unknown (Web Call)
+ * [Agent] <persona_key if present else agent_id>
+ * [Vapi] <vapi_call_id>
+ * [Time] <started_at ISO> → <ended_at ISO or "ongoing">
+ * 
+ * (blank line)
+ * [WebCall] No caller phone available. (only for web calls without phone)
+ * (blank line)
+ * Then transcript content
+ */
+function buildTicketDescription(opts: {
+  isWebCall: boolean;
+  fromPhone: string | null;
+  personaKey: string | null;
+  agentId: string | null;
+  vapiCallId: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  transcript: string | null;
+}): string {
+  const {
+    isWebCall,
+    fromPhone,
+    personaKey,
+    agentId,
+    vapiCallId,
+    startedAt,
+    endedAt,
+    transcript,
+  } = opts;
+  
+  // Build header lines
+  const channel = isWebCall ? "Web Call" : "Phone Call";
+  const caller = fromPhone || (isWebCall ? "Unknown (Web Call)" : "Unknown");
+  const agent = personaKey || agentId || "Unknown";
+  const vapi = vapiCallId || "Unknown";
+  const startTime = startedAt || "unknown";
+  const endTime = endedAt || "ongoing";
+  
+  const header = [
+    `[Channel] ${channel}`,
+    `[Caller] ${caller}`,
+    `[Agent] ${agent}`,
+    `[Vapi] ${vapi}`,
+    `[Time] ${startTime} → ${endTime}`,
+  ].join("\n");
+  
+  // Build body
+  let body = "";
+  
+  // Add web call notice if applicable
+  if (isWebCall && !fromPhone) {
+    body = "[WebCall] No caller phone available.\n\n";
+  }
+  
+  // Add transcript
+  const transcriptContent = transcript || "No transcript available.";
+  body += transcriptContent;
+  
+  // Combine header, blank line, and body
+  return `${header}\n\n${body}`;
+}
+
+/**
+ * Upsert call and return call row ID (idempotent by vapi_call_id).
+ * Uses Supabase upsert with onConflict: "vapi_call_id".
+ * Always returns a call ID (fetches existing if upsert fails).
+ */
+async function upsertCallAndGetId(
+  payload: Record<string, any>,
+  vapiCallId: string
+): Promise<string | null> {
+  try {
+    // Remove 'id' to avoid forcing inserts
+    const upsertPayload = { ...compact(payload) };
+    delete (upsertPayload as any).id;
+    
+    // Add updated_at
+    upsertPayload.updated_at = new Date().toISOString();
+    
+    // Upsert with onConflict on vapi_call_id
+    const { data: result, error } = await supabaseAdmin
+      .from("calls")
+      .upsert(upsertPayload, { onConflict: "vapi_call_id" })
+      .select("id")
+      .single();
+    
+    if (error) {
+      // If upsert fails, try to fetch existing row
+      console.warn("[CALL UPSERT] Upsert failed, fetching existing row:", {
+        vapiCallId,
+        error: error.message,
+      });
+      
+      const { data: existing } = await supabaseAdmin
+        .from("calls")
+        .select("id")
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle<{ id: string }>();
+      
+      if (existing) {
+        return existing.id;
+      }
+      
+      console.error("[CALL UPSERT] Failed to upsert or fetch existing call:", {
+        vapiCallId,
+        error: error.message,
+      });
+      return null;
+    }
+    
+    return result?.id ?? null;
+  } catch (err) {
+    console.error("[CALL UPSERT] Exception in upsertCallAndGetId:", {
+      vapiCallId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    
+    // Try to fetch existing row as fallback
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from("calls")
+        .select("id")
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle<{ id: string }>();
+      
+      return existing?.id ?? null;
+    } catch (fetchErr) {
+      console.error("[CALL UPSERT] Failed to fetch existing call as fallback:", fetchErr);
+      return null;
+    }
+  }
+}
+
+/**
  * Check if transcript contains off-topic keywords (recipes, cooking, gym plans, etc.).
  * Returns true if off-topic usage detected.
  */
@@ -620,14 +788,52 @@ async function createTicketForCall(
   rawPayload?: any,
   vapiCallId?: string
 ): Promise<void> {
-  const subject = intentType === "appointment" ? "Appointment Request" : "Support Request";
+  // Build subject using heuristic (for support) or appointment label
+  const subject = intentType === "appointment" ? "Appointment Request" : buildTicketSubject(transcript);
   const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
   
-  // Determine description with web call prefix if needed
-  let description = transcript || `Call artifact created for ${intentType} intent.`;
-  if (isWebCallType || !hasCallerPhone) {
-    description = `[WebCall] No caller phone available.\n\n${description}`;
+  // Fetch call row to get metadata for description header
+  let callRowData: {
+    persona_key: string | null;
+    agent_id: string | null;
+    started_at: string | null;
+    ended_at: string | null;
+    vapi_call_id: string | null;
+  } | null = null;
+  
+  try {
+    const { data: callRow } = await supabaseAdmin
+      .from("calls")
+      .select("persona_key, agent_id, started_at, ended_at, vapi_call_id")
+      .eq("id", callId)
+      .maybeSingle<{
+        persona_key: string | null;
+        agent_id: string | null;
+        started_at: string | null;
+        ended_at: string | null;
+        vapi_call_id: string | null;
+      }>();
+    
+    callRowData = callRow;
+  } catch (fetchErr) {
+    console.warn("[ARTIFACT] Failed to fetch call row for metadata:", {
+      callId,
+      error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+    });
+    // Continue with available data
   }
+  
+  // Build premium description with metadata header
+  const description = buildTicketDescription({
+    isWebCall: isWebCallType,
+    fromPhone,
+    personaKey: callRowData?.persona_key ?? null,
+    agentId: callRowData?.agent_id ?? null,
+    vapiCallId: callRowData?.vapi_call_id ?? vapiCallId ?? null,
+    startedAt: callRowData?.started_at ?? null,
+    endedAt: callRowData?.ended_at ?? null,
+    transcript: transcript || `Call artifact created for ${intentType} intent.`,
+  });
 
   // Skip tool route for web calls or when caller phone is missing
   if (isWebCallType || !hasCallerPhone) {
