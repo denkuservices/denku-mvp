@@ -214,16 +214,38 @@ const RequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Collect diagnostic info before auth check
+    const incomingHeader = request.headers.get("x-denku-secret");
+    const hasHeader = incomingHeader !== null;
+    const headerLen = incomingHeader?.length ?? 0;
+    
+    // Check for various possible env var names (never log values)
+    const envCandidates = {
+      DENKU_TOOL_SECRET: !!process.env.DENKU_TOOL_SECRET,
+      DENKU_SECRET: !!process.env.DENKU_SECRET,
+      TOOL_SECRET: !!process.env.TOOL_SECRET,
+      X_DENKU_SECRET: !!process.env.X_DENKU_SECRET,
+    };
+    
+    const runtime = process.env.VERCEL ? "vercel" : "local";
+    
     const isAuthorized = checkAuth(request);
     
     if (!isAuthorized) {
-      // Log auth failure (we don't have call_id/org_id yet)
+      // Log diagnostic info for auth failure (never log secret values)
       logEvent({
-        tag: "[TOOL][AUTH_FAIL]",
+        tag: "[TOOL][AUTH_DIAG]",
         ts: Date.now(),
         stage: "TOOL",
         source: "tool_create_ticket",
         severity: "warn",
+        details: {
+          has_header: hasHeader,
+          header_len: headerLen,
+          env_candidates: envCandidates,
+          runtime,
+          matched: false,
+        },
       });
       
       return NextResponse.json({
@@ -234,6 +256,21 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+    
+    // Log diagnostic info for auth success
+    logEvent({
+      tag: "[TOOL][AUTH_DIAG_OK]",
+      ts: Date.now(),
+      stage: "TOOL",
+      source: "tool_create_ticket",
+      details: {
+        has_header: hasHeader,
+        header_len: headerLen,
+        env_candidates: envCandidates,
+        runtime,
+        matched: true,
+      },
+    });
 
     // Parse body
     let body: unknown;
