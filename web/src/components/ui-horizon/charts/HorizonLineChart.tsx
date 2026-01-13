@@ -65,7 +65,7 @@ export default function HorizonLineChart({
     grid: {
       show: true,
       borderColor: '#e5e7eb',
-      strokeDashArray: 0,
+      strokeDashArray: 3,
       xaxis: {
         lines: {
           show: false,
@@ -74,7 +74,6 @@ export default function HorizonLineChart({
       yaxis: {
         lines: {
           show: true,
-          strokeDashArray: 3,
         },
       },
       padding: {

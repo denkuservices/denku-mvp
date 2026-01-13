@@ -60,7 +60,7 @@ export default function HorizonStackedBarChart({
     grid: {
       show: true,
       borderColor: '#e5e7eb',
-      strokeDashArray: 0,
+      strokeDashArray: 3,
       xaxis: {
         lines: {
           show: false,
@@ -69,7 +69,6 @@ export default function HorizonStackedBarChart({
       yaxis: {
         lines: {
           show: true,
-          strokeDashArray: 3,
         },
       },
       padding: {
