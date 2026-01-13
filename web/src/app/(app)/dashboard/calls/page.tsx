@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { getOrgTimezone } from "@/lib/tickets/utils.server";
+import { formatUsd } from "@/lib/utils";
 import Link from "next/link";
 import {
   TableCard,
@@ -46,12 +47,6 @@ function formatDuration(sec?: number | null) {
   return `${m}m ${s}s`;
 }
 
-function money(v?: number | string | null) {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return `$${n.toFixed(4)}`;
-}
 
 function outcomeBadgeClass(outcome?: string | null) {
   const lower = (outcome ?? "").toLowerCase();
@@ -518,7 +513,7 @@ export default async function CallsPage({
                     <TableCell className="align-top">
                       <Link href={href} className="block" tabIndex={-1}>
                         <span className={getCostClass(call.cost_usd)}>
-                          {money(call.cost_usd)}
+                          {formatUsd(call.cost_usd)}
                         </span>
                       </Link>
                     </TableCell>

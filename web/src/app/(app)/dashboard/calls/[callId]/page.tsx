@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { formatUsd } from "@/lib/utils";
 import { CollapsibleAuditMetadata } from "./CollapsibleAuditMetadata";
 
 type CallRow = {
@@ -29,19 +30,6 @@ function formatDate(value?: string | null) {
   return d.toLocaleString();
 }
 
-function formatMoney(v?: number | string | null) {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return `$${n.toFixed(2)}`;
-}
-
-function formatMoneyRaw(v?: number | string | null) {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return n.toFixed(4);
-}
 
 function maskPhoneNumber(phone?: string | null): string {
   if (!phone) return "—";
@@ -429,7 +417,7 @@ export default async function CallDetailPage({
             <div className="rounded-lg bg-gray-50 dark:bg-navy-700 p-4">
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Cost</p>
               <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-sm font-bold text-navy-700 dark:text-white">{formatMoney(call.cost_usd)}</span>
+                <span className="text-sm font-bold text-navy-700 dark:text-white">{formatUsd(call.cost_usd)}</span>
                 {costDescriptor && (
                   <span className="text-xs text-gray-500 dark:text-gray-400">({costDescriptor})</span>
                 )}
@@ -696,7 +684,7 @@ export default async function CallDetailPage({
             { field: "To", value: <span className="font-mono">{maskPhoneNumber(toNumber)}</span> },
             { field: "Started", value: formatDate(call.started_at) },
             { field: "Ended", value: formatDate(call.ended_at) },
-            { field: "Cost (Raw)", value: <span className="font-mono">{formatMoneyRaw(call.cost_usd)}</span> },
+            { field: "Cost (Raw)", value: <span className="font-mono">{call.cost_usd != null ? Number(call.cost_usd).toFixed(6) : "—"}</span> },
           ]}
         />
       </div>
