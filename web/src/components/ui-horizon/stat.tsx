@@ -21,17 +21,17 @@ export function Stat({ label, value, icon, helperText, className }: StatProps) {
       <div className="flex items-center gap-3">
         {/* Icon circle */}
         {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <div className="text-primary [&>svg]:h-5 [&>svg]:w-5">{icon}</div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
+            <div className="text-navy-700 dark:text-white [&>svg]:h-5 [&>svg]:w-5">{icon}</div>
           </div>
         )}
         
         {/* Text content */}
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <div className="text-xs font-medium text-primary leading-tight">{label}</div>
-          <div className="mt-0.5 text-xl font-semibold text-foreground leading-tight tracking-tight">{value}</div>
+          <div className="text-xs font-medium text-gray-600 dark:text-white/60 leading-tight">{label}</div>
+          <div className="mt-0.5 text-xl font-semibold text-navy-700 dark:text-white leading-tight tracking-tight">{value}</div>
           {helperText && (
-            <div className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{helperText}</div>
+            <div className="mt-0.5 text-[10px] text-gray-500 dark:text-white/40 leading-relaxed">{helperText}</div>
           )}
         </div>
       </div>

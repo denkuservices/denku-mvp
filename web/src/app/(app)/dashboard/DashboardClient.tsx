@@ -1,14 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Widget from '@/components/dashboard/Widget';
-import WeeklyRevenue from '@/components/dashboard/WeeklyRevenue';
-import TotalSpent from '@/components/dashboard/TotalSpent';
-import CheckTable from '@/components/dashboard/CheckTable';
-import DailyTraffic from '@/components/dashboard/DailyTraffic';
+import HourlyCalls from "@/components/dashboard/HourlyCalls";
+import DashboardHeader from '@/components/horizon-shell/DashboardHeader';
 import { MdBarChart, MdDashboard } from 'react-icons/md';
 import { Phone, Info, Ticket, Percent, Headset } from 'lucide-react';
 import { formatUSD } from '@/lib/analytics/format';
 import type { DashboardOverview } from '@/lib/dashboard/getDashboardOverview';
+
+// Dynamically import chart components with ssr:false to eliminate hydration mismatch (ApexCharts is client-only)
+const TotalSpent = dynamic(() => import('@/components/dashboard/TotalSpent'), { ssr: false });
+const WeeklyRevenue = dynamic(() => import('@/components/dashboard/WeeklyRevenue'), { ssr: false });
+const AgentComplexTable = dynamic(() => import('@/components/dashboard/AgentComplexTable'), { ssr: false });
 
 interface DashboardClientProps {
   data: DashboardOverview;
@@ -20,20 +24,58 @@ interface DashboardClientProps {
  * All Horizon components that use hooks (charts, tables, calendars) are rendered here.
  */
 export default function DashboardClient({ data }: DashboardClientProps) {
+  // Map agent_performance to Horizon ComplexTable format
+  const tableData = data.metrics.agent_performance.map((agent) => {
+    // Extract answer rate percentage from progress string (e.g., "85.5%" -> 85.5)
+    let answerRate = parseFloat(agent.progress.replace('%', ''));
+    
+    // If answer rate is 0-1 (decimal), convert to percentage (0-100)
+    if (answerRate > 0 && answerRate <= 1) {
+      answerRate = answerRate * 100;
+    }
+    
+    // Ensure answerRate is in 0-100 range
+    answerRate = Math.max(0, Math.min(100, answerRate));
+    
+    // Map status based on answer rate
+    let status: 'Approved' | 'Disabled' | 'Error';
+    if (answerRate >= 90) {
+      status = 'Approved';
+    } else if (answerRate >= 70) {
+      status = 'Error'; // Warning state
+    } else {
+      status = 'Disabled';
+    }
+
+    // Calculate total calls from answer rate and handled calls
+    // answerRate = (handledCalls / totalCalls) * 100
+    // totalCalls = (handledCalls / answerRate) * 100
+    const callsHandled = agent.quantity; // handledCalls
+    const callsTotal = answerRate > 0 
+      ? Math.round((callsHandled / answerRate) * 100)
+      : callsHandled; // If answer rate is 0, use handled calls as total
+
+    return {
+      agent: agent.name[0], // Extract agent name from tuple
+      status: status,
+      calls: `${callsHandled} / ${callsTotal}`,
+      lastActive: agent.date, // Already in "12 Jan 2026" format
+      answerRate: answerRate, // Keep as decimal for precision (0-100)
+      callsHandled: callsHandled,
+      callsTotal: callsTotal,
+    };
+  });
+
   return (
-    <div>
-      {/* Card widget - Exact Horizon structure using Widget component */}
+    <div className="pt-5 px-2 md:px-6 bg-background-100">
+      {/* Horizon Free Dashboard Header */}
+      <DashboardHeader breadcrumb="Pages / Main Dashboard" title="Main Dashboard" />
+      
+      {/* Stats Row: 6 stat cards - Horizon Free exact grid */}
       <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 3xl:grid-cols-6">
         <Widget
           icon={<MdBarChart className="h-7 w-7" />}
-          title={
-            <span className="flex items-center gap-1">
-              Est. Savings
-              <span title="Estimated based on $25/hour average human agent cost.">
-                <Info className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-              </span>
-            </span>
-          }
+          title="Est. Savings"
           subtitle={formatUSD(data.metrics.estimated_savings_usd)}
         />
         <Widget
@@ -63,30 +105,21 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         />
       </div>
 
-      {/* Charts section - matching Horizon layout */}
-      <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* Charts Row: Two columns - Horizon Free exact grid */}
+      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <TotalSpent
           totalCallsThisMonth={data.metrics.total_calls_this_month}
           totalCallsLastMonth={data.metrics.total_calls_last_month}
           totalCallsSeries={data.metrics.total_calls_series}
           handledCallsSeries={data.metrics.handled_calls_series}
         />
-        <WeeklyRevenue weeklyOutcomes={data.metrics.weekly_outcomes} />
+        <WeeklyRevenue weeklyOutcomes={data.metrics.weekly_outcomes} /> 
       </div>
 
-      {/* Tables & Charts section - matching Horizon layout */}
+      {/* Bottom Row: Table + Chart - Horizon Free exact grid */}
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {/* Agent Performance Overview */}
-        <div>
-          <CheckTable tableData={data.metrics.agent_performance} />
-        </div>
-
-        {/* Traffic chart */}
-        <DailyTraffic
-          totalCallsToday={data.metrics.total_calls_today}
-          totalCallsYesterday={data.metrics.total_calls_yesterday}
-          hourlyCallsSeries={data.metrics.hourly_calls_series}
-        />
+        <AgentComplexTable tableData={tableData} />
+        <HourlyCalls hourlyCallsSeries={data.metrics.hourly_calls_series} />
       </div>
     </div>
   );

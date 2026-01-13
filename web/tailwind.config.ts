@@ -52,6 +52,9 @@ const config: Config = {
         '3xl': '14px 17px 40px 4px',
         'shadow-100': '0px 18px 40px rgba(112, 144, 176, 0.12)',
         'shadow-500': '0px 18px 40px rgba(112, 144, 176, 0.12)',
+        // Horizon shadow classes (used as shadow-shadow-100, shadow-shadow-500)
+        'shadow-shadow-100': '0px 18px 40px rgba(112, 144, 176, 0.12)',
+        'shadow-shadow-500': '0px 18px 40px rgba(112, 144, 176, 0.12)',
       },
       fontFamily: {
         // Horizon fonts

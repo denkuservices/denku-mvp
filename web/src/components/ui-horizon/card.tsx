@@ -1,25 +1,31 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
 
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  children: React.ReactNode;
-}
+
+import * as React from "react";
 
 /**
- * Horizon UI-style card adapter.
- * Uses existing Tailwind tokens for easy removal.
+ * Horizon Card component - birebir Horizon'dan kopyalandı
+ * Props signature: variant?: string; extra?: string; children?: JSX.Element | any[]; [x: string]: any;
  */
-export function Card({ className, children, ...props }: CardProps) {
+function Card(props: {
+  variant?: string;
+  extra?: string;
+  children?: React.ReactNode;
+  [x: string]: any;
+}) {
+  const { variant, extra, children, ...rest } = props;
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-border bg-card p-6 shadow-sm focus-within:ring-1 focus-within:ring-primary/10",
-        className
-      )}
-      {...props}
+      className={`!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-3xl ${
+        props.default
+          ? 'shadow-shadow-500 dark:shadow-none'
+          : 'shadow-shadow-100 dark:shadow-none'
+      }  dark:!bg-navy-800 dark:text-white  ${extra || ''}`}
+      {...rest}
     >
       {children}
     </div>
   );
 }
+export default Card;
+export { Card };
 

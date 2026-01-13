@@ -137,6 +137,9 @@
   
   body {
     @apply bg-background text-foreground;
+    /* Horizon font smoothing */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 

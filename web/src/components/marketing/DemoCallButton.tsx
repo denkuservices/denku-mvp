@@ -38,6 +38,8 @@ export function DemoCallButton() {
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningCountdownRef = useRef<NodeJS.Timeout | null>(null);
+  const callIdRef = useRef<string | null>(null);
+  const callStartTimeRef = useRef<number | null>(null);
 
   // Check rate limit on mount
   useEffect(() => {
@@ -69,6 +71,9 @@ export function DemoCallButton() {
         }
         vapiRef.current = null;
       }
+      // Clean up call tracking refs
+      callIdRef.current = null;
+      callStartTimeRef.current = null;
     };
   }, []);
 
@@ -145,10 +150,31 @@ export function DemoCallButton() {
       vapi.start(DEMO_ASSISTANT_ID);
 
       // Set up event handlers
-      vapi.on('call-start', () => {
+      vapi.on('call-start', (data: any) => {
         setCallState('live');
         setError(null);
         recordCall();
+
+        // Extract or generate call_id from Vapi event
+        const vapiCallId = data?.call?.id || data?.callId || data?.id || crypto.randomUUID();
+        callIdRef.current = vapiCallId;
+        callStartTimeRef.current = Date.now();
+
+        // Send "started" event to backend
+        fetch('/api/webcall/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            call_id: vapiCallId,
+            event: 'started',
+            ts: callStartTimeRef.current,
+            meta: { channel: 'web' },
+          }),
+          keepalive: true,
+        }).catch((err) => {
+          // Silently fail - don't block UI
+          console.warn('[WEBCALL] Failed to send started event:', err);
+        });
 
         // Start warning timer (show warning 1 minute before auto-end)
         const warningTime = MAX_CALL_DURATION_MS - WARNING_THRESHOLD_MS;
@@ -169,6 +195,27 @@ export function DemoCallButton() {
       });
 
       vapi.on('call-end', () => {
+        // Send "ended" event to backend if we have a call_id
+        if (callIdRef.current && callStartTimeRef.current) {
+          const endTime = Date.now();
+          const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
+          
+          fetch('/api/webcall/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              call_id: callIdRef.current,
+              event: 'ended',
+              ts: endTime,
+              duration_seconds: durationSeconds,
+            }),
+            keepalive: true,
+          }).catch((err) => {
+            // Silently fail - don't block UI
+            console.warn('[WEBCALL] Failed to send ended event:', err);
+          });
+        }
+
         setCallState('idle');
         setError(null);
         setShowWarning(false);
@@ -184,7 +231,9 @@ export function DemoCallButton() {
           clearInterval(warningCountdownRef.current);
           warningCountdownRef.current = null;
         }
-        // Clean up event listeners
+        // Clean up event listeners and refs
+        callIdRef.current = null;
+        callStartTimeRef.current = null;
         try {
           vapi.off?.('call-start');
           vapi.off?.('call-end');
@@ -213,6 +262,8 @@ export function DemoCallButton() {
           warningCountdownRef.current = null;
         }
         // Clean up on error
+        callIdRef.current = null;
+        callStartTimeRef.current = null;
         try {
           vapi.off?.('call-start');
           vapi.off?.('call-end');
@@ -236,8 +287,29 @@ export function DemoCallButton() {
       try {
         vapiRef.current.stop();
         // State will be updated via 'call-end' event listener
+        // "ended" event will be sent in call-end handler
       } catch (err: any) {
         console.error('Stop error:', err);
+        // Send "ended" event manually if stop fails but we have call_id
+        if (callIdRef.current && callStartTimeRef.current) {
+          const endTime = Date.now();
+          const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
+          
+          fetch('/api/webcall/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              call_id: callIdRef.current,
+              event: 'ended',
+              ts: endTime,
+              duration_seconds: durationSeconds,
+            }),
+            keepalive: true,
+          }).catch((fetchErr) => {
+            console.warn('[WEBCALL] Failed to send ended event on stop error:', fetchErr);
+          });
+        }
+        
         setError('Unable to end call. Please try again.');
         setCallState('error');
         // Fallback: manually reset state if stop fails
@@ -249,6 +321,8 @@ export function DemoCallButton() {
           // Ignore cleanup errors
         }
         vapiRef.current = null;
+        callIdRef.current = null;
+        callStartTimeRef.current = null;
         setCallState('idle');
         setShowWarning(false);
         if (durationTimerRef.current) {
