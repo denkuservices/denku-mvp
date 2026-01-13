@@ -76,10 +76,11 @@ export function DemoCallButton() {
   /**
    * Safely stop the Vapi call with defensive guards for Krisp/WASM cleanup.
    * Idempotent: can be called multiple times safely.
+   * ALWAYS transitions UI to idle in finally block, even if stop() throws.
    */
   const safeStopCall = () => {
     // Prevent double teardown
-    if (isEndingRef.current || !vapiRef.current) {
+    if (isEndingRef.current) {
       return;
     }
 
@@ -111,10 +112,39 @@ export function DemoCallButton() {
       }
       // Never rethrow - always succeed in stopping UI state
     } finally {
-      // Reset flag after a short delay to allow cleanup
-      setTimeout(() => {
-        isEndingRef.current = false;
-      }, 100);
+      // ALWAYS transition to idle state, clear timers, and reset refs
+      // This ensures UI never gets stuck, even if SDK events fail
+      setCallState('idle');
+      setError(null);
+      setShowWarning(false);
+      
+      // Clear all timers
+      if (durationTimerRef.current) {
+        clearTimeout(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current);
+        warningTimerRef.current = null;
+      }
+      if (warningCountdownRef.current) {
+        clearInterval(warningCountdownRef.current);
+        warningCountdownRef.current = null;
+      }
+      
+      // Clear call tracking refs
+      callIdRef.current = null;
+      vapiCallIdRef.current = null;
+      callStartTimeRef.current = null;
+      
+      // Reset ending flag and clear vapi ref (allow future starts)
+      isEndingRef.current = false;
+      // Note: We don't set vapiRef.current = null here to allow call-end event to still fire
+      // But we ensure UI is already idle, so it won't block
+      
+      console.info('[WEBCALL][CLIENT][STOP_FINALLY_IDLE]', {
+        vapiRefExists: !!vapiRef.current,
+      });
     }
   };
 
@@ -269,6 +299,8 @@ export function DemoCallButton() {
         // CRITICAL: Only POST if we have both call_id and the real Vapi call ID
         // Never send "ended" event without the real Vapi call ID
         if (!callIdRef.current || !callStartTimeRef.current) {
+          // Still ensure UI is idle even if we can't send event
+          setCallState('idle');
           return;
         }
 
@@ -286,6 +318,8 @@ export function DemoCallButton() {
             callId_from_data: data?.callId,
             id_from_data: data?.id,
           });
+          // Still ensure UI is idle
+          setCallState('idle');
           return;
         }
 
@@ -395,10 +429,60 @@ export function DemoCallButton() {
   };
 
   const handleStop = () => {
+    console.info('[WEBCALL][CLIENT][END_CLICK]', {
+      callState,
+      isEnding: isEndingRef.current,
+    });
+    
     // Use safe stop function (idempotent, handles Krisp errors)
     safeStopCall();
-    // State will be updated via 'call-end' event listener
-    // "ended" event will be sent in call-end handler
+    
+    // Failsafe: If still not idle after 1500ms, force-reset to idle
+    const failsafeTimeout = setTimeout(() => {
+      if (callState !== 'idle') {
+        console.info('[WEBCALL][CLIENT][FORCE_RESET_IDLE]', {
+          previousState: callState,
+        });
+        
+        // Force reset to idle
+        setCallState('idle');
+        setError(null);
+        setShowWarning(false);
+        isEndingRef.current = false;
+        
+        // Clear all timers
+        if (durationTimerRef.current) {
+          clearTimeout(durationTimerRef.current);
+          durationTimerRef.current = null;
+        }
+        if (warningTimerRef.current) {
+          clearTimeout(warningTimerRef.current);
+          warningTimerRef.current = null;
+        }
+        if (warningCountdownRef.current) {
+          clearInterval(warningCountdownRef.current);
+          warningCountdownRef.current = null;
+        }
+        
+        // Clear call tracking refs
+        callIdRef.current = null;
+        vapiCallIdRef.current = null;
+        callStartTimeRef.current = null;
+      }
+    }, 1500);
+    
+    // Clear failsafe if state becomes idle before timeout
+    const checkInterval = setInterval(() => {
+      if (callState === 'idle') {
+        clearTimeout(failsafeTimeout);
+        clearInterval(checkInterval);
+      }
+    }, 100);
+    
+    // Clean up check interval after failsafe timeout
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 1500);
   };
 
   const handleButtonClick = () => {
@@ -410,7 +494,9 @@ export function DemoCallButton() {
   };
 
   const isLive = callState === 'live';
-  const isDisabled = callState === 'connecting' || rateLimitCooldown;
+  // End Call is ALWAYS clickable (never disabled when live)
+  // Only "Talk to the agent" button is disabled during connecting or rate limit cooldown
+  const isDisabled = !isLive && (callState === 'connecting' || rateLimitCooldown);
 
   return (
     <div className="flex flex-col items-center gap-2">
