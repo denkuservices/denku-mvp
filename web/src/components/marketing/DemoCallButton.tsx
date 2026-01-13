@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
  * Features:
  * - Starts Vapi web call with hardcoded assistant ID
  * - 5-minute duration limit (auto-ends silently)
- * - Rate limiting: 4 calls per 1 hour (localStorage)
+ * - Rate limiting: enforced by backend via /api/webcall/event (10 starts per 10 minutes)
  * - Minimal UI: no countdown timers, no demo language
  * - Warning shown only in last 1 minute of call
  */
@@ -20,33 +20,23 @@ let Vapi: any = null;
 const DEMO_ASSISTANT_ID = '155b21ad-2f8b-4593-b33c-c5021e644328';
 const MAX_CALL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const WARNING_THRESHOLD_MS = 60 * 1000; // Show warning in last 1 minute
-const RATE_LIMIT_CALLS = 4;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const STORAGE_KEY = 'call_history';
 
-type CallState = 'idle' | 'connecting' | 'live' | 'error' | 'rate-limited';
-
-interface CallHistoryEntry {
-  timestamp: number;
-}
+type CallState = 'idle' | 'connecting' | 'live' | 'error';
 
 export function DemoCallButton() {
   const [callState, setCallState] = useState<CallState>('idle');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(false);
   const vapiRef = useRef<any>(null);
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningCountdownRef = useRef<NodeJS.Timeout | null>(null);
+  const rateLimitCooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callIdRef = useRef<string | null>(null);
+  const vapiCallIdRef = useRef<string | null>(null); // Real Vapi call ID (e.g., "019bb...")
   const callStartTimeRef = useRef<number | null>(null);
-
-  // Check rate limit on mount
-  useEffect(() => {
-    if (isRateLimited()) {
-      setCallState('rate-limited');
-    }
-  }, []);
+  const isEndingRef = useRef<boolean>(false);
 
   // Cleanup timers and call on unmount
   useEffect(() => {
@@ -60,9 +50,14 @@ export function DemoCallButton() {
       if (warningCountdownRef.current) {
         clearInterval(warningCountdownRef.current);
       }
+      if (rateLimitCooldownTimerRef.current) {
+        clearTimeout(rateLimitCooldownTimerRef.current);
+      }
+      // Safe cleanup on unmount
       if (vapiRef.current) {
+        isEndingRef.current = false; // Reset flag for cleanup
+        safeStopCall();
         try {
-          vapiRef.current.stop();
           vapiRef.current.off?.('call-start');
           vapiRef.current.off?.('call-end');
           vapiRef.current.off?.('error');
@@ -71,53 +66,59 @@ export function DemoCallButton() {
         }
         vapiRef.current = null;
       }
-      // Clean up call tracking refs
-      callIdRef.current = null;
-      callStartTimeRef.current = null;
+        // Clean up call tracking refs
+        callIdRef.current = null;
+        vapiCallIdRef.current = null;
+        callStartTimeRef.current = null;
     };
   }, []);
 
-  function getCallHistory(): CallHistoryEntry[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return [];
-      const history = JSON.parse(stored) as CallHistoryEntry[];
-      // Filter out old entries (older than rate limit window)
-      const now = Date.now();
-      return history.filter((entry) => now - entry.timestamp < RATE_LIMIT_WINDOW_MS);
-    } catch {
-      return [];
-    }
-  }
-
-  function saveCallHistory(history: CallHistoryEntry[]) {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-    } catch {
-      // Ignore localStorage errors
-    }
-  }
-
-  function isRateLimited(): boolean {
-    const history = getCallHistory();
-    return history.length >= RATE_LIMIT_CALLS;
-  }
-
-  function recordCall() {
-    const history = getCallHistory();
-    history.push({ timestamp: Date.now() });
-    saveCallHistory(history);
-  }
-
-  const handleStart = async () => {
-    // Check rate limit (silent enforcement)
-    if (isRateLimited()) {
-      setCallState('rate-limited');
-      // Don't show error message - silently fail
+  /**
+   * Safely stop the Vapi call with defensive guards for Krisp/WASM cleanup.
+   * Idempotent: can be called multiple times safely.
+   */
+  const safeStopCall = () => {
+    // Prevent double teardown
+    if (isEndingRef.current || !vapiRef.current) {
       return;
     }
+
+    isEndingRef.current = true;
+
+    try {
+      // Check if vapi instance exists and has stop method
+      if (vapiRef.current && typeof vapiRef.current.stop === 'function') {
+        vapiRef.current.stop();
+      }
+    } catch (err: any) {
+      // Catch Krisp/WASM errors specifically
+      const errorMessage = err?.message || String(err);
+      const isKrispError = errorMessage.includes('krisp') || 
+                           errorMessage.includes('Krisp') ||
+                           errorMessage.includes('WASM') ||
+                           errorMessage.includes('worker') ||
+                           errorMessage.includes('processor');
+      
+      if (isKrispError) {
+        // Log Krisp-specific error with structured format
+        console.info('[WEBCALL][AUDIO][KRISP_UNLOAD_SKIPPED]', { 
+          reason: errorMessage.includes('NOT_READY') ? 'WASM_OR_WORKER_NOT_READY' : 'UNLOAD_ERROR',
+          error: errorMessage,
+        });
+      } else {
+        // Log other stop errors (but don't surface to user)
+        console.warn('[WEBCALL] Stop error (non-Krisp):', errorMessage);
+      }
+      // Never rethrow - always succeed in stopping UI state
+    } finally {
+      // Reset flag after a short delay to allow cleanup
+      setTimeout(() => {
+        isEndingRef.current = false;
+      }, 100);
+    }
+  };
+
+  const handleStart = async () => {
 
     const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
     if (!publicKey) {
@@ -144,7 +145,13 @@ export function DemoCallButton() {
 
     try {
       // Initialize Vapi Web SDK
+      // Note: If Vapi SDK supports disabling Krisp via config, add it here:
+      // const vapi = new Vapi(publicKey, { disableKrisp: true });
+      // For now, we rely on defensive stop() handling
       const vapi = new Vapi(publicKey);
+
+      // Reset ending flag when starting new call
+      isEndingRef.current = false;
 
       // Start call with hardcoded assistant ID
       vapi.start(DEMO_ASSISTANT_ID);
@@ -153,25 +160,75 @@ export function DemoCallButton() {
       vapi.on('call-start', (data: any) => {
         setCallState('live');
         setError(null);
-        recordCall();
 
-        // Extract or generate call_id from Vapi event
-        const vapiCallId = data?.call?.id || data?.callId || data?.id || crypto.randomUUID();
-        callIdRef.current = vapiCallId;
+        // Extract real Vapi call ID (e.g., "019bb...") from Vapi event
+        const realVapiCallId = data?.call?.id || data?.callId || data?.id || null;
+        vapiCallIdRef.current = realVapiCallId;
+        
+        // Generate our internal UUID for call_id (used across platform/tools)
+        const internalCallId = crypto.randomUUID();
+        callIdRef.current = internalCallId;
         callStartTimeRef.current = Date.now();
 
         // Send "started" event to backend
+        // Include both call_id (our internal UUID) and vapi_call_id (real Vapi ID)
         fetch('/api/webcall/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            call_id: vapiCallId,
+            call_id: internalCallId,
+            vapi_call_id: realVapiCallId, // Real Vapi call ID (required)
             event: 'started',
             ts: callStartTimeRef.current,
             meta: { channel: 'web' },
           }),
           keepalive: true,
-        }).catch((err) => {
+        })
+        .then(async (response) => {
+          const data = await response.json().catch(() => null);
+          
+          // Check if backend says END_CALL (rate limited)
+          if (data && !data.ok && data.action?.type === 'END_CALL') {
+            const reason = data.action?.reason || 'RATE_LIMIT';
+            
+            // Log the event
+            console.info('[WEBCALL][CLIENT][END_CALL]', { reason });
+            
+            // Immediately end the call (safe, idempotent)
+            safeStopCall();
+            
+            // Disable button for 60 seconds
+            setRateLimitCooldown(true);
+            if (rateLimitCooldownTimerRef.current) {
+              clearTimeout(rateLimitCooldownTimerRef.current);
+            }
+            rateLimitCooldownTimerRef.current = setTimeout(() => {
+              setRateLimitCooldown(false);
+              rateLimitCooldownTimerRef.current = null;
+            }, 60 * 1000);
+            
+            // Reset call state
+            setCallState('idle');
+            setError(null);
+            setShowWarning(false);
+            if (durationTimerRef.current) {
+              clearTimeout(durationTimerRef.current);
+              durationTimerRef.current = null;
+            }
+            if (warningTimerRef.current) {
+              clearTimeout(warningTimerRef.current);
+              warningTimerRef.current = null;
+            }
+            if (warningCountdownRef.current) {
+              clearInterval(warningCountdownRef.current);
+              warningCountdownRef.current = null;
+            }
+            callIdRef.current = null;
+            vapiCallIdRef.current = null;
+            callStartTimeRef.current = null;
+          }
+        })
+        .catch((err) => {
           // Silently fail - don't block UI
           console.warn('[WEBCALL] Failed to send started event:', err);
         });
@@ -184,30 +241,42 @@ export function DemoCallButton() {
 
         // Start 5-minute duration timer (auto-end silently)
         durationTimerRef.current = setTimeout(() => {
-          if (vapiRef.current) {
-            try {
-              vapiRef.current.stop();
-            } catch (e) {
-              // Ignore errors
-            }
-          }
+          safeStopCall();
         }, MAX_CALL_DURATION_MS);
       });
 
-      vapi.on('call-end', () => {
+      vapi.on('call-end', (data: any) => {
+        // Reset ending flag when call naturally ends
+        isEndingRef.current = false;
+        
         // Send "ended" event to backend if we have a call_id
         if (callIdRef.current && callStartTimeRef.current) {
           const endTime = Date.now();
           const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
+          
+          // Try to extract cost from Vapi call-end event data (if available)
+          // Vapi SDK may provide cost in data.cost, data.call?.cost, or similar
+          let costUsd: number | undefined = undefined;
+          if (data) {
+            const rawCost = data?.cost ?? data?.call?.cost ?? data?.summary?.cost;
+            if (rawCost !== undefined && rawCost !== null) {
+              const parsed = parseFloat(String(rawCost));
+              if (Number.isFinite(parsed) && parsed >= 0) {
+                costUsd = parsed;
+              }
+            }
+          }
           
           fetch('/api/webcall/event', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               call_id: callIdRef.current,
+              vapi_call_id: vapiCallIdRef.current, // Real Vapi call ID (required)
               event: 'ended',
               ts: endTime,
               duration_seconds: durationSeconds,
+              ...(costUsd !== undefined ? { cost_usd: costUsd } : {}),
             }),
             keepalive: true,
           }).catch((err) => {
@@ -233,6 +302,7 @@ export function DemoCallButton() {
         }
         // Clean up event listeners and refs
         callIdRef.current = null;
+        vapiCallIdRef.current = null;
         callStartTimeRef.current = null;
         try {
           vapi.off?.('call-start');
@@ -245,6 +315,9 @@ export function DemoCallButton() {
       });
 
       vapi.on('error', (e: any) => {
+        // Reset ending flag on error
+        isEndingRef.current = false;
+        
         console.error('Vapi error:', e);
         setError('Connection error. Please try again.');
         setCallState('error');
@@ -263,6 +336,7 @@ export function DemoCallButton() {
         }
         // Clean up on error
         callIdRef.current = null;
+        vapiCallIdRef.current = null;
         callStartTimeRef.current = null;
         try {
           vapi.off?.('call-start');
@@ -283,62 +357,10 @@ export function DemoCallButton() {
   };
 
   const handleStop = () => {
-    if (vapiRef.current) {
-      try {
-        vapiRef.current.stop();
-        // State will be updated via 'call-end' event listener
-        // "ended" event will be sent in call-end handler
-      } catch (err: any) {
-        console.error('Stop error:', err);
-        // Send "ended" event manually if stop fails but we have call_id
-        if (callIdRef.current && callStartTimeRef.current) {
-          const endTime = Date.now();
-          const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
-          
-          fetch('/api/webcall/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              call_id: callIdRef.current,
-              event: 'ended',
-              ts: endTime,
-              duration_seconds: durationSeconds,
-            }),
-            keepalive: true,
-          }).catch((fetchErr) => {
-            console.warn('[WEBCALL] Failed to send ended event on stop error:', fetchErr);
-          });
-        }
-        
-        setError('Unable to end call. Please try again.');
-        setCallState('error');
-        // Fallback: manually reset state if stop fails
-        try {
-          vapiRef.current.off?.('call-start');
-          vapiRef.current.off?.('call-end');
-          vapiRef.current.off?.('error');
-        } catch (cleanupErr) {
-          // Ignore cleanup errors
-        }
-        vapiRef.current = null;
-        callIdRef.current = null;
-        callStartTimeRef.current = null;
-        setCallState('idle');
-        setShowWarning(false);
-        if (durationTimerRef.current) {
-          clearTimeout(durationTimerRef.current);
-          durationTimerRef.current = null;
-        }
-        if (warningTimerRef.current) {
-          clearTimeout(warningTimerRef.current);
-          warningTimerRef.current = null;
-        }
-        if (warningCountdownRef.current) {
-          clearInterval(warningCountdownRef.current);
-          warningCountdownRef.current = null;
-        }
-      }
-    }
+    // Use safe stop function (idempotent, handles Krisp errors)
+    safeStopCall();
+    // State will be updated via 'call-end' event listener
+    // "ended" event will be sent in call-end handler
   };
 
   const handleButtonClick = () => {
@@ -350,7 +372,7 @@ export function DemoCallButton() {
   };
 
   const isLive = callState === 'live';
-  const isDisabled = callState === 'connecting' || callState === 'rate-limited';
+  const isDisabled = callState === 'connecting' || rateLimitCooldown;
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -371,9 +393,16 @@ export function DemoCallButton() {
       </Button>
       
       {/* Minimal supporting text - only shown when idle */}
-      {callState === 'idle' && (
+      {callState === 'idle' && !rateLimitCooldown && (
         <p className="text-sm text-black/60 text-center">
           Ask anything about our services.
+        </p>
+      )}
+      
+      {/* Rate limit message - shown when cooldown is active */}
+      {rateLimitCooldown && (
+        <p className="text-sm text-black/60 text-center">
+          Please try again in a few minutes.
         </p>
       )}
 

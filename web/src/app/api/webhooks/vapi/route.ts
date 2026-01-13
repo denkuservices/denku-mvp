@@ -1853,8 +1853,10 @@ export async function POST(req: NextRequest) {
 
     console.log("### BEFORE CALL UPSERT ###", { eventType, status, vapiCallId });
 
-    // Check if call exists to determine insert vs update
+    // Check if call exists by (org_id + vapi_call_id) for deterministic correlation
+    // This ensures webcall/event and vapi webhook update the SAME row
     let wasExisting = false;
+    let existingCallId: string | null = null;
     try {
       const { data: existingCheck } = await supabaseAdmin
         .from("calls")
@@ -1863,25 +1865,63 @@ export async function POST(req: NextRequest) {
         .eq("vapi_call_id", vapiCallId)
         .maybeSingle<{ id: string }>();
       wasExisting = !!existingCheck;
+      existingCallId = existingCheck?.id ?? null;
     } catch {
       // Ignore check errors, proceed with upsert
     }
 
-    // Remove 'id' from baseUpsert to avoid forcing inserts - let DB handle id generation
-    const upsertPayload = { ...compact(baseUpsert) };
-    delete (upsertPayload as any).id;
-
+    // If call exists, UPDATE it instead of creating a new row
+    // This unifies webcall/event and vapi webhook to use the same row
     let upsertedCall: { id: string; org_id: string; agent_id: string; ended_at: string | null } | null = null;
     let upsertErr: any = null;
 
-    const { data: upsertResult, error: upsertError } = await supabaseAdmin
-      .from("calls")
-      .upsert(upsertPayload, { onConflict: "vapi_call_id" })
-      .select("id, org_id, agent_id, ended_at")
-      .single();
+    if (wasExisting && existingCallId) {
+      // UPDATE existing row (do not create new row)
+      const updatePayload = { ...compact(baseUpsert) };
+      delete (updatePayload as any).id; // Don't update id
 
-    upsertedCall = upsertResult;
-    upsertErr = upsertError;
+      const { data: updateResult, error: updateError } = await supabaseAdmin
+        .from("calls")
+        .update(updatePayload)
+        .eq("vapi_call_id", vapiCallId)
+        .eq("org_id", orgId)
+        .select("id, org_id, agent_id, ended_at")
+        .single();
+
+      upsertedCall = updateResult;
+      upsertErr = updateError;
+
+      if (!upsertErr) {
+        console.info("[CALL][MERGED]", {
+          vapiCallId,
+          orgId,
+          operation: "updated_existing",
+          call_id: existingCallId,
+        });
+      }
+    } else {
+      // INSERT new row (call doesn't exist yet)
+      const upsertPayload = { ...compact(baseUpsert) };
+      delete (upsertPayload as any).id; // Let DB handle id generation
+
+      const { data: upsertResult, error: upsertError } = await supabaseAdmin
+        .from("calls")
+        .upsert(upsertPayload, { onConflict: "vapi_call_id" })
+        .select("id, org_id, agent_id, ended_at")
+        .single();
+
+      upsertedCall = upsertResult;
+      upsertErr = upsertError;
+
+      if (!upsertErr && !wasExisting) {
+        console.info("[CALL][MISSING_PRECALL_ROW]", {
+          vapiCallId,
+          orgId,
+          operation: "created_new",
+          note: "No pre-existing row found from webcall/event",
+        });
+      }
+    }
 
     // Handle 23505 duplicate key error: fetch existing row and continue
     if (upsertErr && upsertErr.code === "23505") {
