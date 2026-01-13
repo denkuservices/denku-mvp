@@ -1851,6 +1851,7 @@ export async function POST(req: NextRequest) {
 
     // Deep-merge raw_payload: preserve existing meta, ensure channel='web' for webcalls
     // raw_payload itself is the full Vapi report (body), so we merge it properly
+    // CRITICAL: Treat null/undefined meta as missing (use {})
     const mergedRawPayload = (() => {
       // Start with the current webhook body (full Vapi report)
       const currentPayload = body && typeof body === 'object' ? body : {};
@@ -1858,19 +1859,34 @@ export async function POST(req: NextRequest) {
       // Get existing raw_payload (if any) - but don't overwrite the current report
       const existing = existingRawPayload && typeof existingRawPayload === 'object' ? existingRawPayload : {};
       
-      // Preserve existing meta if it exists
-      const existingMeta = existing.meta && typeof existing.meta === 'object' ? existing.meta : {};
+      // Extract meta from current payload - treat null/undefined/non-object as missing
+      const currentMeta = 
+        currentPayload.meta !== null && 
+        currentPayload.meta !== undefined && 
+        typeof currentPayload.meta === 'object'
+          ? currentPayload.meta
+          : {};
       
-      // Ensure meta exists and channel='web' for webcalls
-      const mergedMeta = { ...existingMeta };
+      // Extract meta from existing payload - treat null/undefined/non-object as missing
+      const existingMeta = 
+        existing.meta !== null && 
+        existing.meta !== undefined && 
+        typeof existing.meta === 'object'
+          ? existing.meta
+          : {};
+      
+      // Merge both metas (existing takes precedence for non-channel fields)
+      const mergedMeta = { ...currentMeta, ...existingMeta };
+      
+      // Ensure meta.channel='web' for webcalls (always set, even if both were null)
       if (isWebcall) {
         mergedMeta.channel = 'web';
       }
       
-      // Merge: use current payload (full report) as base, but preserve/merge meta
+      // Merge: use current payload (full report) as base, but ensure meta is an object
       return {
         ...currentPayload, // Full Vapi report
-        meta: mergedMeta, // Ensure meta.channel='web' for webcalls
+        meta: mergedMeta, // Always an object, channel='web' for webcalls
       };
     })();
 
