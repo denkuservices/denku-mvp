@@ -2,44 +2,17 @@ import Link from 'next/link';
 import { Button } from './Button';
 import { Container } from './Container';
 import { Section } from './Section';
+import { pricingPlans } from './pricing-data';
 
-const plans = [
-  {
-    name: 'Starter',
-    price: 'From $49',
-    note: '',
-    desc: 'For small teams getting started with their first AI agent.',
-    features: ['1 Agent', 'Basic Analytics', 'Standard Integrations'],
-    cta: { label: 'Choose Plan', href: '/pricing' },
-  },
-  {
-    name: 'Pro',
-    price: 'From $99',
-    note: '',
-    desc: 'For growing teams that need more power and customization.',
-    features: [
-      'Up to 10 Agents',
-      'Advanced Analytics',
-      'Custom Tools & Webhooks',
-      'Priority Support',
-    ],
-    highlight: true,
-    cta: { label: 'Choose Plan', href: '/pricing' },
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    note: 'annual billing',
-    desc: 'For organizations with advanced security and compliance needs.',
-    features: [
-      'Unlimited Agents',
-      'Custom Isolation Architecture',
-      'Security Reviews & SLA',
-      'Dedicated Support',
-    ],
-    cta: { label: 'Contact Sales', href: '/contact' },
-  },
-];
+const plans = pricingPlans.map(plan => ({
+  name: plan.name,
+  price: plan.price || plan.monthlyPrice,
+  note: plan.note || '',
+  desc: plan.desc || plan.bestFor || '',
+  features: plan.features,
+  highlight: plan.highlight,
+  cta: plan.cta,
+}));
 
 export function PricingPreview() {
   return (
@@ -49,9 +22,17 @@ export function PricingPreview() {
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
             Simple, Transparent Pricing
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            Find the right plan for your team. Scale up as you grow.
-          </p>
+          <div className="mx-auto mt-4 max-w-2xl space-y-2">
+            <p className="text-base font-semibold text-foreground">
+              Unlimited personas. Limited concurrent calls.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Personas define behavior. Concurrency defines capacity. Included minutes are a capacity bonus.
+            </p>
+            <p className="text-xs text-muted-foreground/70 mt-3">
+              Phone numbers create entry points. Concurrent calls define capacity.
+            </p>
+          </div>
         </div>
 
         <div className="mt-12 grid gap-8 md:grid-cols-3">

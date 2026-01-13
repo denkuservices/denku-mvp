@@ -1,61 +1,28 @@
 import Link from 'next/link';
+import { pricingPlans } from './pricing-data';
 
-const plans = [
-  {
-    name: 'Starter',
-    price: '$99',
-    cadence: '/mo',
-    desc: 'Launch your first agent with a clean, fast setup.',
-    features: [
-      '1–2 agents',
-      'Voice or chat',
-      'Basic analytics',
-      'Standard support',
-    ],
-    cta: { label: 'Start Starter', href: '/signup' },
-  },
-  {
-    name: 'Pro',
-    price: '$299',
-    cadence: '/mo',
-    desc: 'Scale across channels with tools and webhooks.',
-    features: [
-      'Up to 10 agents',
-      'Voice + chat',
-      'Tools & webhooks',
-      'Advanced analytics',
-      'Priority support',
-    ],
-    highlight: true,
-    cta: { label: 'Start Pro', href: '/signup' },
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    cadence: '',
-    desc: 'Security reviews, SLAs, and custom requirements.',
-    features: [
-      'Custom isolation model',
-      'SLA & compliance support',
-      'Dedicated success engineer',
-      'Custom integrations',
-    ],
-    cta: { label: 'Contact Sales', href: '/contact' },
-  },
-];
+const plans = pricingPlans.map(plan => ({
+  name: plan.name,
+  price: plan.price || plan.monthlyPrice,
+  cadence: plan.cadence || (plan.monthlyPrice !== 'Custom' ? '/mo' : ''),
+  desc: plan.desc || plan.bestFor || '',
+  features: plan.features,
+  highlight: plan.highlight,
+  cta: plan.cta,
+}));
 
 const faqs = [
   {
-    q: 'Do you support multi-tenant setups?',
-    a: 'Yes. The platform is designed around tenant-scoped data access and tool permissions.',
+    q: 'Do phone numbers increase concurrency?',
+    a: 'No. Phone numbers create entry points. Concurrent calls define capacity. Additional phone numbers ($10/number/month) do not increase your concurrency limit.',
   },
   {
-    q: 'Can I start with one agent and scale later?',
-    a: 'Yes. Start small and upgrade as your usage, channels, and workflows grow.',
+    q: 'Can I add more personas without upgrading?',
+    a: 'Yes. All plans include unlimited core personas (Support, FAQ, Router, After-hours). Additional specialized personas (Sales Agent, CEO/Ops Agent) are available as add-ons and share your existing concurrency pool.',
   },
   {
-    q: 'Do you offer enterprise contracts?',
-    a: 'Yes. We can provide custom terms, SLAs, security documentation, and onboarding support.',
+    q: 'How does overage pricing work?',
+    a: 'Each plan includes minutes as a capacity bonus. Overage is charged per minute at the plan rate (Starter: $0.22/min, Growth: $0.18/min, Scale: from $0.13/min).',
   },
 ];
 
@@ -64,9 +31,17 @@ export function PricingTable() {
     <section className="py-14 md:py-16">
       <div className="max-w-3xl">
         <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Pricing</h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Simple plans built for speed. Upgrade when you need more agents, channels, or tooling.
-        </p>
+        <div className="mt-4 space-y-2">
+          <p className="text-base font-semibold text-foreground">
+            Unlimited personas. Limited concurrent calls.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Personas define behavior. Concurrency defines capacity. Included minutes are a capacity bonus.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-3">
+            Phone numbers create entry points. Concurrent calls define capacity.
+          </p>
+        </div>
       </div>
 
       <div className="mt-10 grid gap-4 md:grid-cols-3">

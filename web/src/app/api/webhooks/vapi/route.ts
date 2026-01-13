@@ -135,6 +135,28 @@ function extractCost(body: any): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Get cost USD from payload for reconciliation.
+ * Returns 0 if missing/invalid, never NaN.
+ * Rounds to 6 decimals.
+ */
+function getCostUsd(payload: any): number {
+  const rawCost =
+    payload?.cost ??
+    payload?.message?.cost ??
+    payload?.message?.call?.cost ??
+    payload?.message?.summary_table?.cost ??
+    payload?.message?.call?.summary_table?.cost;
+
+  if (rawCost === undefined || rawCost === null) return 0;
+
+  const parsed = parseFloat(String(rawCost));
+  if (!Number.isFinite(parsed)) return 0;
+
+  // Round to 6 decimals: Number(Math.round(x*1e6)/1e6)
+  return Number(Math.round(parsed * 1e6) / 1e6);
+}
+
 function extractCallId(body: any) {
   const msg = body?.message;
   const call = msg?.call;
@@ -2323,6 +2345,84 @@ export async function POST(req: NextRequest) {
     if (isFinalEvent) {
       const costUsd = extractCost(body);
       const transcript = extractTranscript(body);
+
+      // Late Cost Reconciliation: Call RPC to reconcile cost (deterministic + idempotent)
+      // This handles late/retry webhooks and ensures calls.cost_usd is the source of truth
+      try {
+        const reconciledCostUsd = getCostUsd(body);
+        const { data: reconcileResult, error: reconcileErr } = await supabaseAdmin.rpc(
+          'reconcile_call_cost',
+          {
+            p_org_id: actualOrgId,
+            p_vapi_call_id: vapiCallId,
+            p_cost_usd: reconciledCostUsd,
+            p_payload: body,
+            p_source: 'vapi_end_of_call',
+          }
+        );
+
+        if (reconcileErr) {
+          // Non-blocking: log error but continue webhook processing
+          logEvent({
+            tag: "[COST][RECONCILE_ERROR]",
+            ts: Date.now(),
+            stage: "COST",
+            source: "vapi_webhook",
+            org_id: actualOrgId,
+            vapi_call_id: vapiCallId,
+            severity: "error",
+            details: {
+              error: reconcileErr.message || String(reconcileErr),
+            },
+          });
+        } else if (reconcileResult) {
+          const updated = reconcileResult.updated === true;
+          if (updated) {
+            logEvent({
+              tag: "[COST][RECONCILED]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "vapi_webhook",
+              org_id: actualOrgId,
+              vapi_call_id: vapiCallId,
+              details: {
+                old_cost_usd: reconcileResult.old_cost_usd ?? null,
+                new_cost_usd: reconcileResult.new_cost_usd ?? null,
+                costUsd: reconciledCostUsd,
+                source: 'vapi_end_of_call',
+                event: eventType,
+                type: msg?.type ?? null,
+              },
+            });
+          } else {
+            logEvent({
+              tag: "[COST][RECONCILED_NOOP]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "vapi_webhook",
+              org_id: actualOrgId,
+              vapi_call_id: vapiCallId,
+              details: {
+                costUsd: reconciledCostUsd,
+              },
+            });
+          }
+        }
+      } catch (reconcileEx) {
+        // Non-blocking: log exception but continue webhook processing
+        logEvent({
+          tag: "[COST][RECONCILE_ERROR]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "vapi_webhook",
+          org_id: actualOrgId,
+          vapi_call_id: vapiCallId,
+          severity: "error",
+          details: {
+            error: reconcileEx instanceof Error ? reconcileEx.message : String(reconcileEx),
+          },
+        });
+      }
 
       // final duration: call.durationSeconds yoksa summary_table.minutes * 60
       // Always round to integer for duration_seconds column

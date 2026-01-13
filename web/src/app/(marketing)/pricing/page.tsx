@@ -7,72 +7,70 @@ import { Section } from '@/components/marketing/Section';
 import { Button } from '@/components/marketing/Button';
 import { Check, ArrowRight, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import React from 'react';
+import { pricingPlans } from '@/components/marketing/pricing-data';
 
-const plans = [
-  {
-    name: 'Starter',
-    subtitle: 'For solo builders & small teams',
-    price: '$49',
-    priceUnit: '/ month',
-    bullets: ['1 voice agent', 'Core observability', 'Standard integrations'],
-    cta: { label: 'Get started', href: '/signup' },
-  },
-  {
-    name: 'Pro',
-    subtitle: 'For growing products',
-    price: '$99',
-    priceUnit: '/ month',
-    bullets: ['Up to 10 voice agents', 'Advanced analytics', 'Custom tools & webhooks'],
-    cta: { label: 'Get started', href: '/signup' },
-    highlight: true,
-  },
-  {
-    name: 'Enterprise',
-    subtitle: 'For scale & compliance',
-    price: 'Custom',
-    priceUnit: '',
-    bullets: ['Unlimited agents', 'Custom isolation', 'Security & SLA'],
-    cta: { label: 'Talk to sales', href: '/#contact' },
-  },
-];
+const plans = pricingPlans.map(plan => ({
+  name: plan.name,
+  subtitle: plan.subtitle || plan.bestFor || '',
+  price: plan.price || plan.monthlyPrice,
+  priceUnit: plan.priceUnit || (plan.monthlyPrice !== 'Custom' ? '/ month' : ''),
+  concurrencyLine: plan.concurrencyLine,
+  bullets: plan.coreBullets || plan.bullets || plan.features,
+  cta: plan.cta,
+  highlight: plan.highlight,
+}));
 
 // Feature groups for comparison table
 const featureGroups = [
   {
-    category: 'CORE',
+    category: 'CAPACITY',
     features: [
-      { name: 'Agents included', starter: '1', pro: 'Up to 10', enterprise: 'Unlimited' },
-      { name: 'Workspaces / tenants', starter: '1', pro: 'Up to 5', enterprise: 'Unlimited' },
-      { name: 'Channels (Voice, Chat)', starter: '1 channel', pro: 'Both', enterprise: 'Both' },
-      { name: 'Team seats', starter: '3', pro: '10', enterprise: 'Unlimited' },
+      { name: 'Phone numbers included', starter: '1', growth: '2', scale: '5' },
+      { name: 'Concurrent calls', starter: '1', growth: '4', scale: '10' },
+      { name: 'Personas', starter: 'Unlimited core', growth: 'Unlimited core', scale: 'Unlimited core' },
+      { name: 'Included minutes (capacity bonus)', starter: '400 / month', growth: '1,200 / month', scale: '3,600 / month' },
+      { name: 'Overage rate', starter: '$0.22 / min', growth: '$0.18 / min', scale: 'From $0.13 / min' },
     ],
   },
   {
-    category: 'OBSERVABILITY',
+    category: 'FEATURES',
     features: [
-      { name: 'Live dashboards', starter: 'Basic', pro: 'Advanced', enterprise: 'Custom' },
-      { name: 'Call / chat transcripts', starter: '✓', pro: '✓', enterprise: '✓' },
-      { name: 'Structured logs', starter: '✓', pro: '✓', enterprise: '✓' },
-      { name: 'Alerts & webhooks', starter: '—', pro: '✓', enterprise: '✓' },
-      { name: 'Data retention', starter: '30 days', pro: '90 days', enterprise: 'Custom' },
+      { name: 'Languages', starter: '20+', growth: '20+', scale: '20+' },
+      { name: 'Ticket creation', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Appointment booking', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Advanced routing', starter: '—', growth: '✓', scale: '✓' },
+      { name: 'Multilingual routing', starter: '—', growth: '✓', scale: '✓' },
+      { name: 'CRM integrations', starter: '—', growth: '✓', scale: '✓' },
+      { name: 'API access', starter: '—', growth: '—', scale: '✓' },
+      { name: 'Unlimited knowledge base', starter: '—', growth: '—', scale: '✓' },
     ],
   },
   {
-    category: 'SECURITY',
+    category: 'ANALYTICS & OBSERVABILITY',
     features: [
-      { name: 'Tenant isolation', starter: '✓', pro: '✓', enterprise: '✓' },
-      { name: 'Role-based access (RBAC)', starter: 'Basic', pro: 'Advanced', enterprise: 'Custom' },
-      { name: 'Audit logs', starter: 'Basic', pro: 'Full', enterprise: 'Full + Immutable' },
-      { name: 'Webhook signature verification', starter: '—', pro: '✓', enterprise: '✓' },
-      { name: 'SSO / SAML', starter: '—', pro: '—', enterprise: 'Roadmap' },
+      { name: 'Basic analytics', starter: '✓', growth: '—', scale: '—' },
+      { name: 'Advanced analytics', starter: '—', growth: '✓', scale: '✓' },
+      { name: 'Call / chat transcripts', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Structured logs', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Alerts & webhooks', starter: '—', growth: '✓', scale: '✓' },
+    ],
+  },
+  {
+    category: 'SECURITY & COMPLIANCE',
+    features: [
+      { name: 'Tenant isolation', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Audit logs', starter: 'Basic', growth: 'Full', scale: 'Full + Immutable' },
+      { name: 'HIPAA compliance', starter: '—', growth: '—', scale: '✓' },
+      { name: 'Webhook signature verification', starter: '—', growth: '✓', scale: '✓' },
     ],
   },
   {
     category: 'SUPPORT',
     features: [
-      { name: 'Community support', starter: '✓', pro: '✓', enterprise: '✓' },
-      { name: 'Priority support', starter: '—', pro: '✓', enterprise: '✓' },
-      { name: 'Dedicated support / SLA', starter: '—', pro: '—', enterprise: '✓' },
+      { name: 'Community support', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Priority support', starter: '—', growth: '✓', scale: '✓' },
+      { name: 'Account manager', starter: '—', growth: '—', scale: '✓' },
+      { name: 'SLA', starter: '—', growth: '—', scale: '✓' },
     ],
   },
 ];
@@ -107,9 +105,14 @@ export default function PricingPage() {
             <h1 className="text-3xl font-bold text-[#0F172A] md:text-4xl lg:text-5xl mb-4">
               Simple, transparent pricing.
             </h1>
-            <p className="text-base text-[#475569] md:text-lg">
-              Start small. Scale when you need to.
-            </p>
+            <div className="space-y-2">
+              <p className="text-base font-semibold text-[#0F172A]">
+                Unlimited personas. Limited concurrent calls.
+              </p>
+              <p className="text-sm text-[#475569]">
+                Personas define behavior. Concurrency defines capacity.
+              </p>
+            </div>
           </div>
         </Container>
       </Section>
@@ -142,7 +145,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Price */}
-                <div className="mb-6">
+                <div className="mb-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-bold text-[#0F172A]">{plan.price}</span>
                     {plan.priceUnit && (
@@ -151,18 +154,54 @@ export default function PricingPage() {
                   </div>
                 </div>
 
+                {/* Concurrency line - prominent but secondary to price */}
+                {plan.concurrencyLine && (
+                  <p className="mb-4 text-base font-medium text-[#0F172A]">
+                    {plan.concurrencyLine}
+                  </p>
+                )}
+
                 {/* Bullets */}
                 <ul className="flex-1 space-y-3 mb-8">
-                  {plan.bullets.map((bullet, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
-                        <Check className="h-3.5 w-3.5 text-[#2563EB]" />
-                      </div>
-                      <span className="text-sm font-medium text-[#0F172A] leading-relaxed">
-                        {bullet}
-                      </span>
-                    </li>
-                  ))}
+                  {plan.bullets.map((bullet, index, array) => {
+                    // Handle two-line treatment for minutes + capacity bonus
+                    const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+minutes included/);
+                    const isCapacityBonus = bullet === 'Capacity bonus';
+                    const nextIsCapacityBonus = array[index + 1] === 'Capacity bonus';
+                    
+                    if (minutesMatch && nextIsCapacityBonus) {
+                      const minutes = minutesMatch[1];
+                      return (
+                        <li key={`${bullet}-${index}`} className="space-y-1">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
+                              <Check className="h-3.5 w-3.5 text-[#2563EB]" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes included</span>
+                              <span className="text-xs text-[#64748B]">Capacity bonus</span>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    }
+                    
+                    // Skip capacity bonus if it was already rendered with minutes
+                    if (isCapacityBonus && index > 0 && array[index - 1].includes('minutes included')) {
+                      return null;
+                    }
+                    
+                    return (
+                      <li key={bullet} className="flex items-start gap-3">
+                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
+                          <Check className="h-3.5 w-3.5 text-[#2563EB]" />
+                        </div>
+                        <span className="text-sm font-medium text-[#0F172A] leading-relaxed">
+                          {bullet}
+                        </span>
+                      </li>
+                    );
+                  }).filter(Boolean)}
                 </ul>
 
                 {/* CTA Button */}
@@ -234,14 +273,14 @@ export default function PricingPage() {
                           </th>
                           <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <p className="text-sm font-bold text-[#64748B] uppercase">PRO</p>
+                              <p className="text-sm font-bold text-[#64748B] uppercase">GROWTH</p>
                               <span className="rounded-full bg-[#2563EB] px-2 py-0.5 text-xs font-bold text-white">
                                 Most Popular
                               </span>
                             </div>
                           </th>
                           <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
-                            <p className="text-sm font-bold text-[#64748B] uppercase">ENTERPRISE</p>
+                            <p className="text-sm font-bold text-[#64748B] uppercase">SCALE</p>
                           </th>
                         </tr>
                       </thead>
@@ -267,10 +306,10 @@ export default function PricingPage() {
                                   {renderCellValue(feature.starter)}
                                 </td>
                                 <td className="border-white/0 py-3 pr-4 text-center">
-                                  {renderCellValue(feature.pro)}
+                                  {renderCellValue(feature.growth)}
                                 </td>
                                 <td className="border-white/0 py-3 pr-4 text-center">
-                                  {renderCellValue(feature.enterprise)}
+                                  {renderCellValue(feature.scale)}
                                 </td>
                               </tr>
                             ))}
@@ -282,6 +321,31 @@ export default function PricingPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Add-ons Section */}
+          <div className="mt-12 rounded-2xl border border-[#CBD5E1] bg-white p-6 md:p-8 shadow-sm max-w-4xl mx-auto">
+            <h3 className="text-xl font-bold text-[#0F172A] mb-4">Add-ons</h3>
+            <p className="text-sm text-[#64748B] mb-6">
+              Add-ons share the same concurrency pool and do not increase capacity.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-lg border border-[#CBD5E1] p-4">
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">Additional Phone Numbers</div>
+                <div className="text-lg font-bold text-[#0F172A] mb-2">$10 / number / month</div>
+                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
+              </div>
+              <div className="rounded-lg border border-[#CBD5E1] p-4">
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">Sales Agent</div>
+                <div className="text-lg font-bold text-[#0F172A] mb-2">$199 / month</div>
+                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
+              </div>
+              <div className="rounded-lg border border-[#CBD5E1] p-4">
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">CEO / Ops Agent</div>
+                <div className="text-lg font-bold text-[#0F172A] mb-2">$299 / month</div>
+                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
+              </div>
+            </div>
           </div>
         </Container>
       </Section>
