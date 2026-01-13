@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Widget from '@/components/dashboard/Widget';
 import HourlyCalls from "@/components/dashboard/HourlyCalls";
 import DashboardHeader from '@/components/horizon-shell/DashboardHeader';
+import Card from '@/components/ui-horizon/card';
 import { MdBarChart, MdDashboard } from 'react-icons/md';
 import { Phone, Info, Ticket, Percent, Headset } from 'lucide-react';
 import { formatUSD } from '@/lib/analytics/format';
@@ -119,7 +120,24 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       {/* Bottom Row: Table + Chart - Horizon Free exact grid */}
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <AgentComplexTable tableData={tableData} />
-        <HourlyCalls hourlyCallsSeries={data.metrics.hourly_calls_series} />
+        {(() => {
+          const hasData = data.metrics.hourly_calls_series?.some(item => (item.value ?? 0) > 0);
+          if (!hasData) {
+            return (
+              <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 md:px-6">
+                <div className="flex flex-col px-5">
+                  <div className="mb-[16px] flex flex-row items-center justify-between">
+                    <h4 className="text-lg font-bold text-navy-700 dark:text-white">Daily Traffic</h4>
+                  </div>
+                  <div className="mt-8 h-[260px] w-full flex items-center justify-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">No calls yet today</p>
+                  </div>
+                </div>
+              </Card>
+            );
+          }
+          return <HourlyCalls hourlyCallsSeries={data.metrics.hourly_calls_series} />;
+        })()}
       </div>
     </div>
   );

@@ -93,23 +93,24 @@ export default function AgentComplexTable(props: { tableData: any }) {
       ),
       cell: (info) => {
         const rate = info.getValue();
-        const progressBgColor = rate >= 90 
+        const pct = Math.max(0, Math.min(100, Number(rate ?? 0)));
+        const progressBgColor = pct >= 90 
           ? "bg-brand-500 dark:bg-brand-400" 
-          : rate >= 70 
+          : pct >= 70 
           ? "bg-brand-300 dark:bg-brand-400" 
           : "bg-gray-300 dark:bg-gray-400";
         
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-[120px] h-2.5 rounded-full bg-gray-200/70 dark:bg-navy-700 overflow-hidden">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-navy-700 dark:text-white text-center mb-1">
+              {pct.toFixed(1)}%
+            </span>
+            <div className="w-[120px] h-2.5 rounded-full bg-gray-200/70 dark:bg-navy-700 overflow-hidden">
               <div
                 className={`h-full rounded-full ${progressBgColor}`}
-                style={{ width: `${rate}%` }}
+                style={{ width: `${pct}%` }}
               />
             </div>
-            <span className="text-sm font-medium text-navy-700 dark:text-white tabular-nums">
-              {rate.toFixed(1)}%
-            </span>
           </div>
         );
       },
@@ -155,7 +156,7 @@ export default function AgentComplexTable(props: { tableData: any }) {
                       key={header.id}
                       colSpan={header.colSpan}
                       onClick={header.column.getToggleSortingHandler()}
-                      className="cursor-pointer pt-4 pb-3 px-3 text-start"
+                      className="cursor-pointer pt-4 pb-3 px-2 text-start"
                     >
                       {flexRender(
                         header.column.columnDef.header,
@@ -178,7 +179,7 @@ export default function AgentComplexTable(props: { tableData: any }) {
                       return (
                         <td
                           key={cell.id}
-                          className="py-3 px-3 align-middle"
+                          className="py-3 px-2 align-middle border-b border-gray-200/60"
                         >
                           {flexRender(
                             cell.column.columnDef.cell,
