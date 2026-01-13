@@ -162,7 +162,23 @@ export function DemoCallButton() {
         setError(null);
 
         // Extract real Vapi call ID (e.g., "019bb...") from Vapi event
+        // CRITICAL: Only proceed if we have the real Vapi call ID
         const realVapiCallId = data?.call?.id || data?.callId || data?.id || null;
+        
+        if (!realVapiCallId || typeof realVapiCallId !== 'string' || realVapiCallId.trim() === '') {
+          // Skip posting if we don't have the real Vapi call ID
+          console.info('[WEBCALL][CLIENT][MISSING_VAPI_CALL_ID]', {
+            event: 'call-start',
+            data_keys: Object.keys(data || {}),
+            call_id: data?.call?.id,
+            callId: data?.callId,
+            id: data?.id,
+          });
+          // Still set UI state, but don't send event to backend
+          callStartTimeRef.current = Date.now();
+          return;
+        }
+
         vapiCallIdRef.current = realVapiCallId;
         
         // Generate our internal UUID for call_id (used across platform/tools)
@@ -172,6 +188,7 @@ export function DemoCallButton() {
 
         // Send "started" event to backend
         // Include both call_id (our internal UUID) and vapi_call_id (real Vapi ID)
+        // Only POST if we have the real Vapi call ID
         fetch('/api/webcall/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -249,41 +266,62 @@ export function DemoCallButton() {
         // Reset ending flag when call naturally ends
         isEndingRef.current = false;
         
-        // Send "ended" event to backend if we have a call_id
-        if (callIdRef.current && callStartTimeRef.current) {
-          const endTime = Date.now();
-          const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
-          
-          // Try to extract cost from Vapi call-end event data (if available)
-          // Vapi SDK may provide cost in data.cost, data.call?.cost, or similar
-          let costUsd: number | undefined = undefined;
-          if (data) {
-            const rawCost = data?.cost ?? data?.call?.cost ?? data?.summary?.cost;
-            if (rawCost !== undefined && rawCost !== null) {
-              const parsed = parseFloat(String(rawCost));
-              if (Number.isFinite(parsed) && parsed >= 0) {
-                costUsd = parsed;
-              }
+        // CRITICAL: Only POST if we have both call_id and the real Vapi call ID
+        // Never send "ended" event without the real Vapi call ID
+        if (!callIdRef.current || !callStartTimeRef.current) {
+          return;
+        }
+
+        // Ensure we have the real Vapi call ID
+        const realVapiCallId = vapiCallIdRef.current || data?.call?.id || data?.callId || data?.id || null;
+        
+        if (!realVapiCallId || typeof realVapiCallId !== 'string' || realVapiCallId.trim() === '') {
+          // Skip posting if we don't have the real Vapi call ID
+          console.info('[WEBCALL][CLIENT][MISSING_VAPI_CALL_ID]', {
+            event: 'call-end',
+            call_id: callIdRef.current,
+            vapiCallIdRef: vapiCallIdRef.current,
+            data_keys: Object.keys(data || {}),
+            call_id_from_data: data?.call?.id,
+            callId_from_data: data?.callId,
+            id_from_data: data?.id,
+          });
+          return;
+        }
+
+        const endTime = Date.now();
+        const durationSeconds = Math.round((endTime - callStartTimeRef.current) / 1000);
+        
+        // Try to extract cost from Vapi call-end event data (if available)
+        // Vapi SDK may provide cost in data.cost, data.call?.cost, or similar
+        let costUsd: number | undefined = undefined;
+        if (data) {
+          const rawCost = data?.cost ?? data?.call?.cost ?? data?.summary?.cost;
+          if (rawCost !== undefined && rawCost !== null) {
+            const parsed = parseFloat(String(rawCost));
+            if (Number.isFinite(parsed) && parsed >= 0) {
+              costUsd = parsed;
             }
           }
-          
-          fetch('/api/webcall/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              call_id: callIdRef.current,
-              vapi_call_id: vapiCallIdRef.current, // Real Vapi call ID (required)
-              event: 'ended',
-              ts: endTime,
-              duration_seconds: durationSeconds,
-              ...(costUsd !== undefined ? { cost_usd: costUsd } : {}),
-            }),
-            keepalive: true,
-          }).catch((err) => {
-            // Silently fail - don't block UI
-            console.warn('[WEBCALL] Failed to send ended event:', err);
-          });
         }
+        
+        // Only POST if we have the real Vapi call ID
+        fetch('/api/webcall/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            call_id: callIdRef.current,
+            vapi_call_id: realVapiCallId, // Real Vapi call ID (required)
+            event: 'ended',
+            ts: endTime,
+            duration_seconds: durationSeconds,
+            ...(costUsd !== undefined ? { cost_usd: costUsd } : {}),
+          }),
+          keepalive: true,
+        }).catch((err) => {
+          // Silently fail - don't block UI
+          console.warn('[WEBCALL] Failed to send ended event:', err);
+        });
 
         setCallState('idle');
         setError(null);

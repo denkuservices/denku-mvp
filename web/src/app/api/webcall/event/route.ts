@@ -147,7 +147,8 @@ async function deriveOrgIdFromSession(): Promise<{ org_id: string | null; error:
  * WebCall Event Bridge
  * 
  * Receives lifecycle events from WebCall UI and persists them to the calls table.
- * For WebCall, we use vapi_call_id = `webcall:${call_id}` to distinguish from phone calls.
+ * For WebCall, we use the real Vapi call ID (e.g., "019bb...") from the SDK.
+ * We never create rows with vapi_call_id="webcall:<uuid>" patterns.
  */
 export async function POST(req: NextRequest) {
   process.stdout.write("[WEBCALL_EVENT_HIT]\n");
@@ -175,11 +176,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { call_id, vapi_call_id, event, ts, meta, duration_seconds } = parseResult.data;
-    // Use the real Vapi call ID (not "webcall:<uuid>")
-    const vapiCallId = vapi_call_id;
-    const startedAt = new Date(ts).toISOString();
-
-    // Derive org_id from session
+    
+    // Derive org_id from session (needed for logging)
     const { org_id, error: orgError } = await deriveOrgIdFromSession();
     if (orgError || !org_id) {
       return NextResponse.json(
@@ -187,6 +185,33 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
     }
+
+    // CRITICAL: Require real Vapi call ID - never accept "webcall:<uuid>" patterns
+    // This prevents legacy rows with vapi_call_id="webcall:..." from being created
+    if (!vapi_call_id || typeof vapi_call_id !== 'string' || vapi_call_id.trim() === '' || vapi_call_id.startsWith('webcall:')) {
+      try {
+        console.info(JSON.stringify({
+          tag: "[WEBCALL][MISSING_VAPI_CALL_ID]",
+          ts: Date.now(),
+          call_id,
+          org_id,
+          event,
+          vapi_call_id: vapi_call_id || null,
+          reason: vapi_call_id?.startsWith('webcall:') ? "LEGACY_PATTERN_REJECTED" : "MISSING_OR_EMPTY",
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+      
+      return NextResponse.json(
+        { ok: false, error: { code: "MISSING_VAPI_CALL_ID", recoverable: false } },
+        { status: 200 }
+      );
+    }
+
+    // Use the real Vapi call ID (e.g., "019bb...") - never "webcall:<uuid>"
+    const vapiCallId = vapi_call_id.trim();
+    const startedAt = new Date(ts).toISOString();
 
     if (event === "started") {
       // A) Rate limit check for WebCall start events (using audit_log)
