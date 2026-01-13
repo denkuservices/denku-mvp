@@ -1838,28 +1838,39 @@ export async function POST(req: NextRequest) {
       // Ignore check errors, proceed with upsert
     }
 
-    // Detect if this is a webcall:
-    // 1. Existing call has call_type='webcall'
-    // 2. OR no phone numbers (from_phone and to_phone are both null)
-    const isWebcall = existingCallType === 'webcall' || (from_phone === null && to_phone === null);
+    // Detect if this is a webcall deterministically from Vapi payload:
+    // 1. payload.message?.call?.type === "webCall"
+    // 2. OR payload.message?.call?.webCallUrl exists
+    // 3. OR existing call has call_type='webcall' (fallback)
+    // 4. OR no phone numbers (from_phone and to_phone are both null) (fallback)
+    const isWebcall = 
+      msg?.call?.type === "webCall" ||
+      msg?.call?.webCallUrl !== undefined ||
+      existingCallType === 'webcall' ||
+      (from_phone === null && to_phone === null);
 
     // Deep-merge raw_payload: preserve existing meta, ensure channel='web' for webcalls
-    // Attach webhook payload under raw_payload.vapi_webhook
+    // raw_payload itself is the full Vapi report (body), so we merge it properly
     const mergedRawPayload = (() => {
+      // Start with the current webhook body (full Vapi report)
+      const currentPayload = body && typeof body === 'object' ? body : {};
+      
+      // Get existing raw_payload (if any) - but don't overwrite the current report
       const existing = existingRawPayload && typeof existingRawPayload === 'object' ? existingRawPayload : {};
+      
+      // Preserve existing meta if it exists
       const existingMeta = existing.meta && typeof existing.meta === 'object' ? existing.meta : {};
       
-      // Ensure meta.channel='web' for webcalls
+      // Ensure meta exists and channel='web' for webcalls
       const mergedMeta = { ...existingMeta };
       if (isWebcall) {
         mergedMeta.channel = 'web';
       }
       
-      // Deep-merge: preserve existing fields, add vapi_webhook with current payload
+      // Merge: use current payload (full report) as base, but preserve/merge meta
       return {
-        ...existing,
-        meta: mergedMeta,
-        vapi_webhook: body, // Attach webhook payload without clobbering meta
+        ...currentPayload, // Full Vapi report
+        meta: mergedMeta, // Ensure meta.channel='web' for webcalls
       };
     })();
 
@@ -1930,15 +1941,16 @@ export async function POST(req: NextRequest) {
           call_id: existingCallId,
         });
         
-        // Canonical log for webhook merge (once per finalize)
+        // Canonical log for webhook normalization (once per finalize)
         if (isWebcall) {
           try {
             console.info(JSON.stringify({
-              tag: "[CALL][WEBHOOK_MERGE_OK]",
+              tag: "[CALL][WEBHOOK_NORMALIZE_OK]",
               ts: Date.now(),
               vapi_call_id: vapiCallId,
               call_id: existingCallId,
               call_type: "webcall",
+              channel: "web",
               org_id: orgId,
             }));
           } catch (logErr) {
@@ -1967,6 +1979,23 @@ export async function POST(req: NextRequest) {
           operation: "created_new",
           note: "No pre-existing row found from webcall/event",
         });
+        
+        // Canonical log for webhook normalization (once per finalize) - even for new rows
+        if (isWebcall) {
+          try {
+            console.info(JSON.stringify({
+              tag: "[CALL][WEBHOOK_NORMALIZE_OK]",
+              ts: Date.now(),
+              vapi_call_id: vapiCallId,
+              call_id: upsertedCall?.id ?? null,
+              call_type: "webcall",
+              channel: "web",
+              org_id: orgId,
+            }));
+          } catch (logErr) {
+            // Never throw from logging
+          }
+        }
       }
     }
 
