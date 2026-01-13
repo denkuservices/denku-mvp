@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/observability/logEvent";
 
 // Abuse control constants
 const WEBCALL_RATE_LIMIT_MAX_STARTS = 10;
@@ -219,17 +220,20 @@ export async function POST(req: NextRequest) {
       
       if (!rateLimitCheck.allowed) {
         // Rate limit exceeded - do NOT create/upsert the call
-        try {
-          console.info(JSON.stringify({
-            tag: "[ABUSE][RATE_LIMIT]",
-            ts: Date.now(),
-            org_id: org_id,
-            call_id: call_id,
+        logEvent({
+          tag: "[ABUSE][RATE_LIMIT]",
+          ts: Date.now(),
+          stage: "ABUSE",
+          source: "webcall_event",
+          org_id: org_id,
+          call_id: call_id,
+          vapi_call_id: vapiCallId,
+          severity: "warn",
+          details: {
+            window: "10m",
             count: rateLimitCheck.count,
-          }));
-        } catch (logErr) {
-          // Never throw from logging
-        }
+          },
+        });
         
         return NextResponse.json(
           { 
@@ -248,17 +252,18 @@ export async function POST(req: NextRequest) {
       }
       
       // Rate limit OK - emit log
-      try {
-        console.info(JSON.stringify({
-          tag: "[ABUSE][RATE_LIMIT_OK]",
-          ts: Date.now(),
-          org_id: org_id,
-          call_id: call_id,
+      logEvent({
+        tag: "[ABUSE][RATE_LIMIT_OK]",
+        ts: Date.now(),
+        stage: "ABUSE",
+        source: "webcall_event",
+        org_id: org_id,
+        call_id: call_id,
+        vapi_call_id: vapiCallId,
+        details: {
           count: rateLimitCheck.count,
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
+        },
+      });
       
       // Extract cost if available
       const costData = extractWebCallCost(body);
@@ -305,28 +310,31 @@ export async function POST(req: NextRequest) {
       }
 
       // Log cost status
-      try {
-        console.info(JSON.stringify({
-          tag: "[COST][STATUS]",
-          ts: Date.now(),
-          call_id: result.id,
-          status: costData.cost_status,
+      logEvent({
+        tag: "[COST][STATUS]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "webcall_event",
+        org_id: result.org_id,
+        call_id: result.id,
+        vapi_call_id: vapiCallId,
+        details: {
           cost_usd: costData.cost_usd,
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
+          cost_status: costData.cost_status,
+          cost_source: costData.cost_source,
+        },
+      });
 
       // Canonical event: CALL_START (only when auth succeeds)
-      console.info(JSON.stringify({
+      logEvent({
         tag: "[CALL_START]",
         ts: Date.now(),
+        stage: "CALL",
+        source: "webcall_event",
+        org_id: result.org_id,
         call_id: result.id,
-        org_id: result.org_id ?? null,
-        source: "webcall",
-        event: "started",
         vapi_call_id: vapiCallId,
-      }));
+      });
 
       return NextResponse.json({ 
         ok: true, 
@@ -464,17 +472,20 @@ export async function POST(req: NextRequest) {
         let durationObserved = false;
         if (finalDuration !== null && finalDuration >= DURATION_OBSERVATION_THRESHOLD) {
           durationObserved = true;
-          try {
-            console.info(JSON.stringify({
-              tag: "[ABUSE][DURATION_OBSERVED]",
-              ts: Date.now(),
-              org_id: existingCall.org_id ?? null,
-              call_id: callId,
+          logEvent({
+            tag: "[ABUSE][DURATION_OBSERVED]",
+            ts: Date.now(),
+            stage: "ABUSE",
+            source: "webcall_event",
+            org_id: existingCall.org_id,
+            call_id: callId,
+            vapi_call_id: vapiCallId,
+            severity: "warn",
+            details: {
               duration_seconds: finalDuration,
-            }));
-          } catch (logErr) {
-            // Never throw from logging
-          }
+              flag: "OVER_8_MIN",
+            },
+          });
         }
 
         // Check for tickets and appointments
@@ -596,35 +607,37 @@ export async function POST(req: NextRequest) {
         }
         
         // Always emit canonical log [COST][STATUS] with all required fields
-        try {
-          console.info(JSON.stringify({
-            tag: "[COST][STATUS]",
-            ts: Date.now(),
-            call_id: callId,
-            vapi_call_id: vapiCallId,
+        logEvent({
+          tag: "[COST][STATUS]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "webcall_event",
+          org_id: existingCall.org_id,
+          call_id: callId,
+          vapi_call_id: vapiCallId,
+          details: {
             cost_usd: finalCostUsd,
             cost_status: costData.cost_status,
             cost_source: costData.cost_source,
-            duration_seconds: finalDuration,
-            completion_state: completionState,
-          }));
-        } catch (logErr) {
-          // Never throw from logging
-        }
+          },
+        });
 
         // Canonical event: CALL_COMPLETED (only when auth succeeds)
-        console.info(JSON.stringify({
+        logEvent({
           tag: "[CALL_COMPLETED]",
           ts: Date.now(),
+          stage: "CALL",
+          source: "webcall_event",
+          org_id: existingCall.org_id,
           call_id: callId,
-          org_id: existingCall.org_id ?? null,
-          source: "webcall",
-          event: "ended",
-          completion_state: completionState,
-          intent: existingCall.intent ?? null,
-          intent_confidence: existingCall.intent_confidence ?? null,
-          duration_seconds: finalDuration,
-        }));
+          vapi_call_id: vapiCallId,
+          details: {
+            completion_state: completionState,
+            duration_seconds: finalDuration,
+            intent: existingCall.intent ?? null,
+            intent_confidence: existingCall.intent_confidence ?? null,
+          },
+        });
 
         return NextResponse.json({ 
           ok: true, 

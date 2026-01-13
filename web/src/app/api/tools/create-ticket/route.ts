@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { logEvent } from "@/lib/observability/logEvent";
 
 function checkAuth(request: NextRequest): boolean {
   const expected = process.env.DENKU_TOOL_SECRET;
@@ -187,11 +188,7 @@ async function ensureCallStub(
         return raceExisting;
       }
       
-      console.info("[TOOL][CREATE_TICKET][ERROR]", {
-        call_id: callId,
-        error: "Failed to create call stub",
-        details: error?.message || "unknown",
-      });
+      // Error logged by caller with org_id
       return null;
     }
     
@@ -202,11 +199,7 @@ async function ensureCallStub(
     
     return created;
   } catch (err) {
-    console.info("[TOOL][CREATE_TICKET][ERROR]", {
-      call_id: callId,
-      error: "Exception creating call stub",
-      details: err instanceof Error ? err.message : String(err),
-    });
+    // Error logged by caller with org_id
     return null;
   }
 }
@@ -224,6 +217,15 @@ export async function POST(request: NextRequest) {
     const isAuthorized = checkAuth(request);
     
     if (!isAuthorized) {
+      // Log auth failure (we don't have call_id/org_id yet)
+      logEvent({
+        tag: "[TOOL][AUTH_FAIL]",
+        ts: Date.now(),
+        stage: "TOOL",
+        source: "tool_create_ticket",
+        severity: "warn",
+      });
+      
       return NextResponse.json({
         ok: false,
         error: {
@@ -232,8 +234,6 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-
-    console.info("[TOOL][CREATE_TICKET][AUTH_OK]");
 
     // Parse body
     let body: unknown;
@@ -252,9 +252,17 @@ export async function POST(request: NextRequest) {
     // Validate schema
     const parsed = RequestSchema.safeParse(body);
     if (!parsed.success) {
-      console.info("[TOOL][CREATE_TICKET][VALIDATION_FAIL]", {
-        call_id: body && typeof body === "object" && "call_id" in body ? body.call_id : "unknown",
-        errors: parsed.error.flatten(),
+      const callIdFromBody = body && typeof body === "object" && "call_id" in body ? String(body.call_id) : null;
+      logEvent({
+        tag: "[TOOL][VALIDATION_FAIL]",
+        ts: Date.now(),
+        stage: "TOOL",
+        source: "tool_create_ticket",
+        call_id: callIdFromBody,
+        severity: "warn",
+        details: {
+          errors: parsed.error.issues.map(e => ({ path: e.path.join('.'), message: e.message })),
+        },
       });
       return NextResponse.json({
         ok: false,
@@ -296,9 +304,17 @@ export async function POST(request: NextRequest) {
       );
       
       if (!derivedOrgId) {
-        console.info("[TOOL][CREATE_TICKET][ERROR]", {
+        logEvent({
+          tag: "[TOOL][ERROR]",
+          ts: Date.now(),
+          stage: "TOOL",
+          source: "tool_create_ticket",
           call_id: callId,
-          error: "Cannot derive org_id from contact info",
+          severity: "error",
+          details: {
+            code: "ORG_ID_REQUIRED",
+            message: "Cannot derive org_id from contact info",
+          },
         });
         return NextResponse.json({
           ok: false,
@@ -314,26 +330,57 @@ export async function POST(request: NextRequest) {
       
       orgId = derivedOrgId;
       
+      // Log auth success now that we have org_id
+      logEvent({
+        tag: "[TOOL][AUTH_OK]",
+        ts: Date.now(),
+        stage: "TOOL",
+        source: "tool_create_ticket",
+        org_id: derivedOrgId,
+        call_id: callId,
+      });
+      
       // Attempt to create call stub (best effort)
       const stub = await ensureCallStub(callId, derivedOrgId);
       if (stub) {
-        // Logging is done inside ensureCallStub
+        logEvent({
+          tag: "[TOOL][CALL_STUB_UPSERTED]",
+          ts: Date.now(),
+          stage: "TOOL",
+          source: "tool_create_ticket",
+          org_id: derivedOrgId,
+          call_id: callId,
+          vapi_call_id: `tool:${callId}`,
+        });
         callData = stub;
       } else {
         // Stub creation failed, but we have org_id - proceed with ticket creation anyway
         callStubFailed = true;
-        console.info("[TOOL][CREATE_TICKET][CALL_STUB_FAILED_FALLBACK_TICKET]", {
-          call_id: callId,
+        logEvent({
+          tag: "[TOOL][CALL_STUB_FAILED_FALLBACK_TICKET]",
+          ts: Date.now(),
+          stage: "TOOL",
+          source: "tool_create_ticket",
           org_id: derivedOrgId,
+          call_id: callId,
+          severity: "warn",
         });
         warning = { code: "CALL_MISSING_TICKET_CREATED" };
       }
     }
 
     if (!orgId) {
-      console.info("[TOOL][CREATE_TICKET][ERROR]", {
+      logEvent({
+        tag: "[TOOL][ERROR]",
+        ts: Date.now(),
+        stage: "TOOL",
+        source: "tool_create_ticket",
         call_id: callId,
-        error: "No org_id available",
+        severity: "error",
+        details: {
+          code: "ORG_ID_REQUIRED",
+          message: "No org_id available",
+        },
       });
       return NextResponse.json({
         ok: false,
@@ -406,9 +453,18 @@ export async function POST(request: NextRequest) {
       .single<{ id: string }>();
 
     if (insertErr || !ticket) {
-      console.info("[TOOL][CREATE_TICKET][ERROR]", {
+      logEvent({
+        tag: "[TOOL][ERROR]",
+        ts: Date.now(),
+        stage: "TOOL",
+        source: "tool_create_ticket",
+        org_id: orgId,
         call_id: callId,
-        error: insertErr?.message || "Insert failed",
+        severity: "error",
+        details: {
+          code: "INSERT_FAILED",
+          message: insertErr?.message || "Insert failed",
+        },
       });
       return NextResponse.json({
         ok: false,
@@ -420,10 +476,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.info("[TOOL][CREATE_TICKET][UPSERT_OK]", {
+    logEvent({
+      tag: "[TOOL][UPSERT_OK]",
+      ts: Date.now(),
+      stage: "TOOL",
+      source: "tool_create_ticket",
+      org_id: orgId,
       call_id: callId,
-      ticket_id: ticket.id,
-      action: "created",
+      details: {
+        artifact_type: "ticket",
+        artifact_id: ticket.id,
+        action: "created",
+      },
     });
 
     return NextResponse.json({

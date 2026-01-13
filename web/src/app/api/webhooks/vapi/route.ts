@@ -9,6 +9,7 @@ import {
   releaseExpiredLeases,
 } from "@/lib/concurrency/leases";
 import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
+import { logEvent } from "@/lib/observability/logEvent";
 
 const VapiWebhookSchema = z
   .object({
@@ -1047,20 +1048,7 @@ async function ensureTicketForCall(
     if (existingTicket) {
       console.log("[DETERMINISTIC] Ticket ensured for call", { callId, ticketId: existingTicket.id });
       
-      // Canonical event: ARTIFACT_CREATED (existing)
-      try {
-        console.info(JSON.stringify({
-          tag: "[ARTIFACT_CREATED]",
-          ts: Date.now(),
-          call_id: callId,
-          org_id: orgId ?? null,
-          source: "vapi_webhook",
-          artifact_id: existingTicket.id,
-          artifact_type: "ticket",
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
+      // Artifact already exists - no log needed (idempotent)
       
       return; // Already have ticket, nothing to do
     }
@@ -1111,20 +1099,7 @@ async function ensureAppointmentForCall(
         appointmentId: existingAppointment.id,
       });
       
-      // Canonical event: ARTIFACT_CREATED (existing)
-      try {
-        console.info(JSON.stringify({
-          tag: "[ARTIFACT_CREATED]",
-          ts: Date.now(),
-          call_id: callId,
-          org_id: orgId ?? null,
-          source: "vapi_webhook",
-          artifact_id: existingAppointment.id,
-          artifact_type: "appointment",
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
+      // Artifact already exists - no log needed (idempotent)
       
       return; // Already have appointment, nothing to do
     }
@@ -1177,20 +1152,7 @@ async function ensureAppointmentForCall(
       orgId,
     });
     
-    // Canonical event: ARTIFACT_CREATED
-    try {
-      console.info(JSON.stringify({
-        tag: "[ARTIFACT_CREATED]",
-        ts: Date.now(),
-        call_id: callId,
-        org_id: orgId ?? null,
-        source: "vapi_webhook",
-        artifact_id: appointment.id,
-        artifact_type: "appointment",
-      }));
-    } catch (logErr) {
-      // Never throw from logging
-    }
+    // Artifact created - logged via tool call or fallback
   } catch (err) {
     console.error("[DETERMINISTIC] Exception ensuring appointment for call:", {
       callId,
@@ -1476,20 +1438,7 @@ async function createTicketForCall(
       hasLeadId: !!leadId,
     });
     
-    // Canonical event: ARTIFACT_CREATED
-    try {
-      console.info(JSON.stringify({
-        tag: "[ARTIFACT_CREATED]",
-        ts: Date.now(),
-        call_id: callId,
-        org_id: orgId ?? null,
-        source: "vapi_webhook",
-        artifact_id: ticket.id,
-        artifact_type: "ticket",
-      }));
-    } catch (logErr) {
-      // Never throw from logging
-    }
+    // Artifact created - logged via tool call or fallback
   } catch (insertErr) {
     console.error("[ARTIFACT] DB insert exception:", {
       callId,
@@ -1814,11 +1763,20 @@ export async function POST(req: NextRequest) {
       // Always returns a safe fallback (support_en) - never throws or returns null
       personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId, vapiCallId);
       
-      console.log("[WEBHOOK] Intent and persona selected for inbound call:", {
-        vapiCallId,
-        agentId,
-        intent,
-        personaKey,
+      // Emit INTENT_DETECTED when intent/persona is decided
+      logEvent({
+        tag: "[INTENT_DETECTED]",
+        ts: Date.now(),
+        stage: "INTENT",
+        source: "vapi_webhook",
+        org_id: orgId,
+        call_id: null, // Not available yet at this point
+        vapi_call_id: vapiCallId,
+        details: {
+          intent,
+          intent_confidence: intent === "appointment" || intent === "support" ? 0.70 : 0.40,
+          persona_key: personaKey,
+        },
       });
     } else if (!isNewCall) {
       // For existing calls, fetch intent and persona_key from existing call record
@@ -1996,29 +1954,9 @@ export async function POST(req: NextRequest) {
       upsertErr = updateError;
 
       if (!upsertErr) {
-        console.info("[CALL][MERGED]", {
-          vapiCallId,
-          orgId,
-          operation: "updated_existing",
-          call_id: existingCallId,
-        });
-        
-        // Canonical log for webhook normalization (once per finalize)
-        if (isWebcall) {
-          try {
-            console.info(JSON.stringify({
-              tag: "[CALL][WEBHOOK_NORMALIZE_OK]",
-              ts: Date.now(),
-              vapi_call_id: vapiCallId,
-              call_id: existingCallId,
-              call_type: "webcall",
-              channel: "web",
-              org_id: orgId,
-            }));
-          } catch (logErr) {
-            // Never throw from logging
-          }
-        }
+        // Emit CALL_START if this is the first time we see this call in webhook
+        // (existing call means it was created by webcall/event, so we already logged CALL_START)
+        // For now, we don't re-emit CALL_START on updates
       }
     } else {
       // INSERT new row (call doesn't exist yet)
@@ -2035,29 +1973,21 @@ export async function POST(req: NextRequest) {
       upsertErr = upsertError;
 
       if (!upsertErr && !wasExisting) {
-        console.info("[CALL][MISSING_PRECALL_ROW]", {
-          vapiCallId,
-          orgId,
-          operation: "created_new",
-          note: "No pre-existing row found from webcall/event",
+        // Emit CALL_START for new calls
+        logEvent({
+          tag: "[CALL_START]",
+          ts: Date.now(),
+          stage: "CALL",
+          source: "vapi_webhook",
+          org_id: orgId,
+          call_id: upsertedCall?.id ?? null,
+          vapi_call_id: vapiCallId,
+          details: {
+            operation: "created_new",
+            direction,
+            call_type: isWebcall ? "webcall" : null,
+          },
         });
-        
-        // Canonical log for webhook normalization (once per finalize) - even for new rows
-        if (isWebcall) {
-          try {
-            console.info(JSON.stringify({
-              tag: "[CALL][WEBHOOK_NORMALIZE_OK]",
-              ts: Date.now(),
-              vapi_call_id: vapiCallId,
-              call_id: upsertedCall?.id ?? null,
-              call_type: "webcall",
-              channel: "web",
-              org_id: orgId,
-            }));
-          } catch (logErr) {
-            // Never throw from logging
-          }
-        }
       }
     }
 
@@ -2151,24 +2081,7 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Canonical event: INTENT_DETECTED (when intent/persona is decided for new inbound calls)
-    if (isNewCall && upsertedCall?.id && direction !== "outbound" && intent) {
-      try {
-        console.info(JSON.stringify({
-          tag: "[INTENT_DETECTED]",
-          ts: Date.now(),
-          call_id: upsertedCall.id,
-          org_id: actualOrgId ?? null,
-          source: "vapi_webhook",
-          vapi_call_id: vapiCallId,
-          intent: intent ?? null,
-          persona_key: personaKey ?? null,
-          intent_confidence: null, // Will be computed later
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
-    }
+    // INTENT_DETECTED already logged earlier when intent/persona was decided
 
     // PHASE 4: Acquire lease on NEW call (when call row is created for first time)
     if (isNewCall && startedAt && !actualEndedAt) {
@@ -2484,18 +2397,20 @@ export async function POST(req: NextRequest) {
       }
       
       // Proof log once per finalize
-      try {
-        console.info(JSON.stringify({
-          tag: "[CALL][RAW_PAYLOAD_MERGED]",
-          ts: Date.now(),
-          vapi_call_id: vapiCallId,
+      logEvent({
+        tag: "[CALL][RAW_PAYLOAD_MERGED]",
+        ts: Date.now(),
+        stage: "CALL",
+        source: "vapi_webhook",
+        org_id: actualOrgId,
+        call_id: null, // Not resolved yet at this point
+        vapi_call_id: vapiCallId,
+        details: {
           has_meta: 'meta' in finalRawPayload,
-          meta: finalRawPayload.meta,
-          is_webcall: isWebcallFinal,
-        }));
-      } catch (logErr) {
-        // Never throw from logging
-      }
+          channel: finalRawPayload.meta?.channel ?? null,
+          report_type: finalRawPayload.message?.type ?? null,
+        },
+      });
       
       // Normalize intent: default to 'other' if missing (idempotent - only set if missing)
       if (!finalIntent && direction !== "outbound") {
@@ -2666,19 +2581,20 @@ export async function POST(req: NextRequest) {
             
             // Canonical event: FALLBACK_TRIGGERED
             if (guardrailResult?.forceTicket) {
-              try {
-                console.info(JSON.stringify({
-                  tag: "[FALLBACK_TRIGGERED]",
-                  ts: Date.now(),
-                  call_id: callRowForGuardrails.id,
-                  org_id: callRowForGuardrails.org_id ?? null,
-                  source: "vapi_webhook",
+              logEvent({
+                tag: "[FALLBACK_TRIGGERED]",
+                ts: Date.now(),
+                stage: "FALLBACK",
+                source: "vapi_webhook",
+                org_id: callRowForGuardrails.org_id,
+                call_id: callRowForGuardrails.id,
+                vapi_call_id: vapiCallId,
+                severity: "warn",
+                details: {
                   reason: guardrailResult.reason ?? "guardrail",
                   slot: guardrailResult.reason?.includes("REPEAT_SLOT") ? (guardrailResult.reason.includes("phone") ? "phone" : "email") : null,
-                }));
-              } catch (logErr) {
-                // Never throw from logging
-              }
+                },
+              });
             }
           }
         } catch (guardrailErr) {
@@ -2736,18 +2652,19 @@ export async function POST(req: NextRequest) {
             } else {
               // Support/other intent → create ticket
               // Canonical event: FALLBACK_TRIGGERED (platform guarantee fallback)
-              try {
-                console.info(JSON.stringify({
-                  tag: "[FALLBACK_TRIGGERED]",
-                  ts: Date.now(),
-                  call_id: callRow.id,
-                  org_id: callRow.org_id ?? null,
-                  source: "vapi_webhook",
+              logEvent({
+                tag: "[FALLBACK_TRIGGERED]",
+                ts: Date.now(),
+                stage: "FALLBACK",
+                source: "vapi_webhook",
+                org_id: callRow.org_id,
+                call_id: callRow.id,
+                vapi_call_id: vapiCallId,
+                severity: "warn",
+                details: {
                   reason: "platform_guarantee",
-                }));
-              } catch (logErr) {
-                // Never throw from logging
-              }
+                },
+              });
               
               await ensureTicketForCall(
                 callRow.id,
@@ -2884,8 +2801,15 @@ export async function POST(req: NextRequest) {
                     const hasPhone = !!ticket.requester_phone && ticket.requester_phone.trim().length > 0;
                     const hasEmail = !!ticket.requester_email && ticket.requester_email.trim().length > 0;
                     if (!hasPhone && !hasEmail) {
-                      console.info("[GUARDRAIL][MISSING_CONTACT]", {
+                      logEvent({
+                        tag: "[GUARDRAIL][MISSING_CONTACT]",
+                        ts: Date.now(),
+                        stage: "GUARDRAIL",
+                        source: "vapi_webhook",
+                        org_id: callRowForScoring.org_id,
                         call_id: callRowForScoring.id,
+                        vapi_call_id: vapiCallId,
+                        severity: "warn",
                       });
                       finalGuardrailPartial = true;
                     }
@@ -2918,19 +2842,21 @@ export async function POST(req: NextRequest) {
             // Invariant enforcement: partial requires artifact (ticket/appointment)
             // If completion_state would be "partial" but NO artifact exists, set to "abandoned"
             if (completionState === "partial" && !ticketCreated && !appointmentCreated) {
-              try {
-                console.info(JSON.stringify({
-                  tag: "[CALL_COMPLETED][INVARIANT_CORRECTION]",
-                  ts: Date.now(),
-                  call_id: callRowForScoring.id,
-                  org_id: callRowForScoring.org_id ?? null,
+              logEvent({
+                tag: "[CALL_COMPLETED][INVARIANT_CORRECTION]",
+                ts: Date.now(),
+                stage: "CALL",
+                source: "vapi_webhook",
+                org_id: callRowForScoring.org_id,
+                call_id: callRowForScoring.id,
+                vapi_call_id: vapiCallId,
+                severity: "warn",
+                details: {
                   from: "partial",
                   to: "abandoned",
                   reason: "NO_ARTIFACT",
-                }));
-              } catch (logErr) {
-                // Never throw from logging
-              }
+                },
+              });
               completionState = "abandoned";
             }
 
@@ -2970,22 +2896,21 @@ export async function POST(req: NextRequest) {
               });
               
               // Canonical event: CALL_COMPLETED
-              try {
-                console.info(JSON.stringify({
-                  tag: "[CALL_COMPLETED]",
-                  ts: Date.now(),
-                  call_id: callRowForScoring.id,
-                  org_id: callRowForScoring.org_id ?? null,
-                  source: "vapi_webhook",
-                  vapi_call_id: vapiCallId,
+              logEvent({
+                tag: "[CALL_COMPLETED]",
+                ts: Date.now(),
+                stage: "CALL",
+                source: "vapi_webhook",
+                org_id: callRowForScoring.org_id,
+                call_id: callRowForScoring.id,
+                vapi_call_id: vapiCallId,
+                details: {
                   completion_state: completionState,
+                  duration_seconds: computedDuration,
                   intent: intent ?? null,
                   intent_confidence: intentConfidence,
-                  duration_seconds: computedDuration,
-                }));
-              } catch (logErr) {
-                // Never throw from logging
-              }
+                },
+              });
             }
           }
         } catch (scoringErr) {
