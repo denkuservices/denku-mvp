@@ -81,6 +81,42 @@ function compact<T extends Record<string, any>>(obj: T): Partial<T> {
 }
 
 /**
+ * Deep merge two objects recursively.
+ * - Objects merge recursively
+ * - Arrays: prefer incoming (keep incoming as-is)
+ * - Primitives: incoming overwrites base
+ */
+function deepMerge(base: any, incoming: any): any {
+  // If either is null/undefined, return the other (or empty object)
+  if (!base || typeof base !== 'object' || Array.isArray(base)) {
+    return incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : {};
+  }
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+    return base;
+  }
+
+  // Both are objects - merge recursively
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value === null || value === undefined) {
+      // Skip null/undefined values (don't overwrite)
+      continue;
+    }
+    if (Array.isArray(value)) {
+      // Arrays: prefer incoming
+      merged[key] = value;
+    } else if (typeof value === 'object' && typeof base[key] === 'object' && !Array.isArray(base[key])) {
+      // Both are objects - merge recursively
+      merged[key] = deepMerge(base[key], value);
+    } else {
+      // Primitives or object overwriting non-object: incoming overwrites base
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+/**
  * Cost extraction
  * - cost yoksa null (0 yazma)
  */
@@ -2390,24 +2426,75 @@ export async function POST(req: NextRequest) {
         finalLeadId = await resolveLeadId(orgId, from_phone);
       }
 
-      // Ensure persona_key and intent exist before allowing call to complete
+      // Fetch existing call row to get raw_payload and call_type for deep merge
+      let existingRawPayload: any = null;
+      let existingCallType: string | null = null;
+      let existingIntent: "support" | "appointment" | "other" | null = null;
       let finalPersonaKey = personaKey;
       let finalIntent = intent;
       
-      // Fetch existing persona_key and intent from call record
-      let existingIntent: "support" | "appointment" | "other" | null = null;
       try {
         const { data: existing } = await supabaseAdmin
           .from("calls")
-          .select("persona_key, intent")
+          .select("raw_payload, call_type, persona_key, intent")
           .eq("vapi_call_id", vapiCallId)
-          .maybeSingle<{ persona_key: string | null; intent: string | null }>();
+          .eq("org_id", actualOrgId)
+          .maybeSingle<{ 
+            raw_payload: any; 
+            call_type: string | null; 
+            persona_key: string | null; 
+            intent: string | null;
+          }>();
         
+        existingRawPayload = existing?.raw_payload ?? null;
+        existingCallType = existing?.call_type ?? null;
         finalPersonaKey = existing?.persona_key ?? finalPersonaKey;
         existingIntent = (existing?.intent as "support" | "appointment" | "other") || null;
         finalIntent = existingIntent || finalIntent;
       } catch (fetchErr) {
-        console.error("[WEBHOOK] Failed to fetch existing persona_key/intent:", fetchErr);
+        console.error("[WEBHOOK] Failed to fetch existing call data:", fetchErr);
+      }
+      
+      // Detect webcall deterministically from incoming payload or existing call_type
+      const isWebcallFinal = 
+        msg?.call?.type === "webCall" ||
+        msg?.call?.webCallUrl !== undefined ||
+        existingCallType === 'webcall' ||
+        (from_phone === null && to_phone === null);
+      
+      // Deep merge raw_payload: base = existing, incoming = webhook body
+      // This ensures existing meta survives (since incoming has no meta)
+      const baseRawPayload = existingRawPayload && typeof existingRawPayload === 'object' && !Array.isArray(existingRawPayload)
+        ? existingRawPayload
+        : {};
+      const incomingRawPayload = body && typeof body === 'object' && !Array.isArray(body)
+        ? body
+        : {};
+      
+      // Deep merge: existing keys preserved, incoming overlays
+      let finalRawPayload = deepMerge(baseRawPayload, incomingRawPayload);
+      
+      // Normalize meta at the very end: ensure meta is object and channel='web' for webcalls
+      if (isWebcallFinal) {
+        // Treat null/undefined/non-object as missing
+        const m = finalRawPayload.meta;
+        const metaObj = (m && typeof m === 'object' && !Array.isArray(m)) ? m : {};
+        // Force channel='web' last (overwrites any existing channel value)
+        finalRawPayload.meta = { ...metaObj, channel: 'web' };
+      }
+      
+      // Proof log once per finalize
+      try {
+        console.info(JSON.stringify({
+          tag: "[CALL][RAW_PAYLOAD_MERGED]",
+          ts: Date.now(),
+          vapi_call_id: vapiCallId,
+          has_meta: 'meta' in finalRawPayload,
+          meta: finalRawPayload.meta,
+          is_webcall: isWebcallFinal,
+        }));
+      } catch (logErr) {
+        // Never throw from logging
       }
       
       // Normalize intent: default to 'other' if missing (idempotent - only set if missing)
@@ -2433,6 +2520,7 @@ export async function POST(req: NextRequest) {
       // Only update cost_usd if valid (do NOT overwrite with null or 0)
       // Only update transcript if present (do not wipe existing transcript)
       // Ensure intent and persona_key are set (idempotent - only set if we have values)
+      // Use merged raw_payload (NOT incoming body) to preserve existing meta
       const finalUpdate = compact({
         ended_at: finalEndedAt,
         outcome: "completed",
@@ -2442,7 +2530,8 @@ export async function POST(req: NextRequest) {
         vapi_assistant_id,
         vapi_phone_number_id,
         lead_id: finalLeadId ?? undefined,
-        raw_payload: body,
+        raw_payload: finalRawPayload, // Deep-merged payload (preserves existing meta)
+        call_type: isWebcallFinal ? 'webcall' : undefined, // Set call_type='webcall' for webcalls
         intent: finalIntent ?? undefined, // Set intent if we normalized it
         persona_key: finalPersonaKey ?? undefined, // Set persona_key if we reselected it
       });
