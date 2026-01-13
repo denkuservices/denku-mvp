@@ -1816,6 +1816,53 @@ export async function POST(req: NextRequest) {
       safeNumber(msg?.durationSeconds) ??
       null;
 
+    // Check if call exists by (org_id + vapi_call_id) for deterministic correlation
+    // This ensures webcall/event and vapi webhook update the SAME row
+    // Also fetch call_type and raw_payload for deep-merge
+    let wasExisting = false;
+    let existingCallId: string | null = null;
+    let existingCallType: string | null = null;
+    let existingRawPayload: any = null;
+    try {
+      const { data: existingCheck } = await supabaseAdmin
+        .from("calls")
+        .select("id, call_type, raw_payload")
+        .eq("org_id", orgId)
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle<{ id: string; call_type: string | null; raw_payload: any }>();
+      wasExisting = !!existingCheck;
+      existingCallId = existingCheck?.id ?? null;
+      existingCallType = existingCheck?.call_type ?? null;
+      existingRawPayload = existingCheck?.raw_payload ?? null;
+    } catch {
+      // Ignore check errors, proceed with upsert
+    }
+
+    // Detect if this is a webcall:
+    // 1. Existing call has call_type='webcall'
+    // 2. OR no phone numbers (from_phone and to_phone are both null)
+    const isWebcall = existingCallType === 'webcall' || (from_phone === null && to_phone === null);
+
+    // Deep-merge raw_payload: preserve existing meta, ensure channel='web' for webcalls
+    // Attach webhook payload under raw_payload.vapi_webhook
+    const mergedRawPayload = (() => {
+      const existing = existingRawPayload && typeof existingRawPayload === 'object' ? existingRawPayload : {};
+      const existingMeta = existing.meta && typeof existing.meta === 'object' ? existing.meta : {};
+      
+      // Ensure meta.channel='web' for webcalls
+      const mergedMeta = { ...existingMeta };
+      if (isWebcall) {
+        mergedMeta.channel = 'web';
+      }
+      
+      // Deep-merge: preserve existing fields, add vapi_webhook with current payload
+      return {
+        ...existing,
+        meta: mergedMeta,
+        vapi_webhook: body, // Attach webhook payload without clobbering meta
+      };
+    })();
+
     // 1) Her eventte row'u var etmek için UPSERT (cost_usd yazmıyoruz)
     const baseUpsert = {
       vapi_call_id: vapiCallId,
@@ -1830,7 +1877,8 @@ export async function POST(req: NextRequest) {
       vapi_assistant_id,
       vapi_phone_number_id,
       lead_id: leadId ?? undefined,
-      raw_payload: body,
+      raw_payload: mergedRawPayload, // Deep-merged, preserves existing meta
+      call_type: isWebcall ? 'webcall' : undefined, // Set call_type='webcall' for webcalls
       outcome: asString(call?.status) ?? asString(msg?.status) ?? undefined,
       transcript: undefined, // transcript'i final eventte daha iyi yaz
       intent: intent ?? undefined,
@@ -1852,23 +1900,6 @@ export async function POST(req: NextRequest) {
     });
 
     console.log("### BEFORE CALL UPSERT ###", { eventType, status, vapiCallId });
-
-    // Check if call exists by (org_id + vapi_call_id) for deterministic correlation
-    // This ensures webcall/event and vapi webhook update the SAME row
-    let wasExisting = false;
-    let existingCallId: string | null = null;
-    try {
-      const { data: existingCheck } = await supabaseAdmin
-        .from("calls")
-        .select("id")
-        .eq("org_id", orgId)
-        .eq("vapi_call_id", vapiCallId)
-        .maybeSingle<{ id: string }>();
-      wasExisting = !!existingCheck;
-      existingCallId = existingCheck?.id ?? null;
-    } catch {
-      // Ignore check errors, proceed with upsert
-    }
 
     // If call exists, UPDATE it instead of creating a new row
     // This unifies webcall/event and vapi webhook to use the same row
@@ -1898,6 +1929,22 @@ export async function POST(req: NextRequest) {
           operation: "updated_existing",
           call_id: existingCallId,
         });
+        
+        // Canonical log for webhook merge (once per finalize)
+        if (isWebcall) {
+          try {
+            console.info(JSON.stringify({
+              tag: "[CALL][WEBHOOK_MERGE_OK]",
+              ts: Date.now(),
+              vapi_call_id: vapiCallId,
+              call_id: existingCallId,
+              call_type: "webcall",
+              org_id: orgId,
+            }));
+          } catch (logErr) {
+            // Never throw from logging
+          }
+        }
       }
     } else {
       // INSERT new row (call doesn't exist yet)
