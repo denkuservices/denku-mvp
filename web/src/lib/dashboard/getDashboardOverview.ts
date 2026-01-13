@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCalls, computeSummary } from "@/lib/analytics/queries";
 
@@ -557,26 +557,33 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       supportTickets: supportTicketsWeekly[idx],
     }));
 
-    // Today range
-    const todayStart = new Date(now);
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
-    todayEnd.setUTCMilliseconds(-1);
+    // Today range (LOCAL timezone)
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23, 59, 59, 999
+    );
 
-    // Yesterday range
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
-    const yesterdayEnd = new Date(todayStart);
-    yesterdayEnd.setUTCMilliseconds(-1);
+    // Yesterday range (LOCAL timezone)
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const endOfYesterday = new Date(startOfToday);
+    endOfYesterday.setMilliseconds(-1);
 
     // Total calls today
     const { count: todayCount } = await supabase
       .from("calls")
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
-      .gte("started_at", todayStart.toISOString())
-      .lt("started_at", todayEnd.toISOString());
+      .gte("started_at", startOfToday.toISOString())
+      .lte("started_at", endOfToday.toISOString());
 
     totalCallsToday = typeof todayCount === "number" ? todayCount : 0;
 
@@ -585,63 +592,39 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       .from("calls")
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
-      .gte("started_at", yesterdayStart.toISOString())
-      .lt("started_at", yesterdayEnd.toISOString());
+      .gte("started_at", startOfYesterday.toISOString())
+      .lte("started_at", endOfYesterday.toISOString());
 
     totalCallsYesterday = typeof yesterdayCount === "number" ? yesterdayCount : 0;
 
-    // Hourly buckets for today: ['00', '04', '08', '12', '14', '16', '18']
-    const hourlyLabels = ['00', '04', '08', '12', '14', '16', '18'];
-    const hourlyBuckets: Array<{ start: Date; end: Date }> = [];
-    
-    for (let i = 0; i < hourlyLabels.length; i++) {
-      const hour = parseInt(hourlyLabels[i], 10);
-      const bucketStart = new Date(todayStart);
-      bucketStart.setUTCHours(hour, 0, 0, 0);
-      
-      const nextHour = i < hourlyLabels.length - 1 ? parseInt(hourlyLabels[i + 1], 10) : 24;
-      const bucketEnd = new Date(todayStart);
-      if (nextHour === 24) {
-        bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 1);
-        bucketEnd.setUTCHours(0, 0, 0, 0);
-        bucketEnd.setUTCMilliseconds(-1);
-      } else {
-        bucketEnd.setUTCHours(nextHour, 0, 0, 0);
-        bucketEnd.setUTCMilliseconds(-1);
-      }
-      
-      hourlyBuckets.push({ start: bucketStart, end: bucketEnd });
-    }
-
-    // Fetch calls for today
+    // Hourly aggregation for today: use LOCAL timezone, sparse buckets (only hours with data)
     const { data: todayCallsData } = await supabase
       .from("calls")
       .select("started_at")
       .eq("org_id", orgId)
-      .gte("started_at", todayStart.toISOString())
-      .lt("started_at", todayEnd.toISOString());
+      .gte("started_at", startOfToday.toISOString())
+      .lte("started_at", endOfToday.toISOString());
 
-    const hourlyBucketsCount = new Array(7).fill(0);
+    // Use Map to track counts by local hour (only hours with data)
+    const hourlyCountsMap = new Map<number, number>();
 
     if (todayCallsData) {
       for (const call of todayCallsData) {
         if (!call.started_at) continue;
         const callDate = new Date(call.started_at);
-        
-        for (let idx = 0; idx < hourlyBuckets.length; idx++) {
-          const range = hourlyBuckets[idx];
-          if (callDate >= range.start && callDate <= range.end) {
-            hourlyBucketsCount[idx]++;
-            break;
-          }
-        }
+        // Extract LOCAL hour (0-23)
+        const hour = callDate.getHours();
+        hourlyCountsMap.set(hour, (hourlyCountsMap.get(hour) || 0) + 1);
       }
     }
 
-    hourlyCallsSeries = hourlyLabels.map((label, idx) => ({
-      label,
-      value: hourlyBucketsCount[idx],
-    }));
+    // Convert to array format, sorted ascending, only hours that exist
+    hourlyCallsSeries = Array.from(hourlyCountsMap.entries())
+      .sort((a, b) => a[0] - b[0]) // Sort by hour ascending
+      .map(([hour, count]) => ({
+        label: String(hour).padStart(2, '0'),
+        value: count,
+      }));
 
     // Agent performance for this month
     const { data: agentsData } = await supabase

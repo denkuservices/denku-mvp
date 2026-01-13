@@ -8,6 +8,7 @@ import {
   releaseOrgConcurrencyLease,
   releaseExpiredLeases,
 } from "@/lib/concurrency/leases";
+import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
 
 const VapiWebhookSchema = z
   .object({
@@ -1009,6 +1010,22 @@ async function ensureTicketForCall(
 
     if (existingTicket) {
       console.log("[DETERMINISTIC] Ticket ensured for call", { callId, ticketId: existingTicket.id });
+      
+      // Canonical event: ARTIFACT_CREATED (existing)
+      try {
+        console.info(JSON.stringify({
+          tag: "[ARTIFACT_CREATED]",
+          ts: Date.now(),
+          call_id: callId,
+          org_id: orgId ?? null,
+          source: "vapi_webhook",
+          artifact_id: existingTicket.id,
+          artifact_type: "ticket",
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+      
       return; // Already have ticket, nothing to do
     }
 
@@ -1057,6 +1074,22 @@ async function ensureAppointmentForCall(
         callId,
         appointmentId: existingAppointment.id,
       });
+      
+      // Canonical event: ARTIFACT_CREATED (existing)
+      try {
+        console.info(JSON.stringify({
+          tag: "[ARTIFACT_CREATED]",
+          ts: Date.now(),
+          call_id: callId,
+          org_id: orgId ?? null,
+          source: "vapi_webhook",
+          artifact_id: existingAppointment.id,
+          artifact_type: "appointment",
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+      
       return; // Already have appointment, nothing to do
     }
 
@@ -1107,6 +1140,21 @@ async function ensureAppointmentForCall(
       appointmentId: appointment.id,
       orgId,
     });
+    
+    // Canonical event: ARTIFACT_CREATED
+    try {
+      console.info(JSON.stringify({
+        tag: "[ARTIFACT_CREATED]",
+        ts: Date.now(),
+        call_id: callId,
+        org_id: orgId ?? null,
+        source: "vapi_webhook",
+        artifact_id: appointment.id,
+        artifact_type: "appointment",
+      }));
+    } catch (logErr) {
+      // Never throw from logging
+    }
   } catch (err) {
     console.error("[DETERMINISTIC] Exception ensuring appointment for call:", {
       callId,
@@ -1198,6 +1246,20 @@ async function createTicketForCall(
         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
       const toolSecret = process.env.DENKU_TOOL_SECRET || "";
 
+      // Canonical event: TOOL_CALLED
+      try {
+        console.info(JSON.stringify({
+          tag: "[TOOL_CALLED]",
+          ts: Date.now(),
+          call_id: callId,
+          org_id: orgId ?? null,
+          source: "vapi_webhook",
+          tool: "create-ticket",
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+
       const response = await fetch(`${baseUrl}/api/tools/create-ticket`, {
         method: "POST",
         headers: {
@@ -1220,17 +1282,61 @@ async function createTicketForCall(
           callId,
           ticketId: result.ticket?.id,
         });
+        
+        // Canonical event: TOOL_RESULT
+        try {
+          console.info(JSON.stringify({
+            tag: "[TOOL_RESULT]",
+            ts: Date.now(),
+            call_id: callId,
+            org_id: orgId ?? null,
+            source: "vapi_webhook",
+            tool: "create-ticket",
+            ok: result.ok ?? true,
+            error: result.error?.code ?? null,
+            artifact_id: result.artifact?.id ?? result.ticket_id ?? null,
+            artifact_type: result.artifact?.type ?? "ticket",
+          }));
+        } catch (logErr) {
+          // Never throw from logging
+        }
+        
         return; // Success
       }
 
       // Tool route failed, log and fall back
       const errorText = await response.text().catch(() => "unknown error");
+      
+      // Canonical event: TOOL_RESULT (failure)
+      try {
+        let errorData: any = { error: { code: "TOOL_ROUTE_FAILED" } };
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          // Use default error
+        }
+        console.info(JSON.stringify({
+          tag: "[TOOL_RESULT]",
+          ts: Date.now(),
+          call_id: callId,
+          org_id: orgId ?? null,
+          source: "vapi_webhook",
+          tool: "create-ticket",
+          ok: false,
+          error: errorData?.error?.code ?? "TOOL_ROUTE_FAILED",
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+      
       console.log("[ARTIFACT] tool route failed, falling back to DB insert", {
         callId,
         orgId,
         status: response.status,
         error: errorText,
       });
+      
+      // Note: TOOL_RESULT error already logged above
     } catch (fetchErr) {
       console.log("[ARTIFACT] tool route failed, falling back to DB insert", {
         callId,
@@ -1333,6 +1439,21 @@ async function createTicketForCall(
       isWebCallType,
       hasLeadId: !!leadId,
     });
+    
+    // Canonical event: ARTIFACT_CREATED
+    try {
+      console.info(JSON.stringify({
+        tag: "[ARTIFACT_CREATED]",
+        ts: Date.now(),
+        call_id: callId,
+        org_id: orgId ?? null,
+        source: "vapi_webhook",
+        artifact_id: ticket.id,
+        artifact_type: "ticket",
+      }));
+    } catch (logErr) {
+      // Never throw from logging
+    }
   } catch (insertErr) {
     console.error("[ARTIFACT] DB insert exception:", {
       callId,
@@ -1382,6 +1503,8 @@ async function resolveLeadId(orgId: string, phone: string | null) {
    POST
 ----------------------------- */
 export async function POST(req: NextRequest) {
+  console.info("[VAPI_WEBHOOK_HIT]", { ts: Date.now() });
+  
   console.log("### VAPI ROUTE TOP HIT ###");
   
   const routeMarker = "### HIT ROUTE: /api/webhooks/vapi ###";
@@ -1832,6 +1955,42 @@ export async function POST(req: NextRequest) {
     const actualOrgId = upsertedCall?.org_id ?? orgId;
     const actualAgentId = upsertedCall?.agent_id ?? agentId;
     const actualEndedAt = upsertedCall?.ended_at;
+    
+    // Canonical event: CALL_START (when call is first seen/upserted)
+    if (isNewCall && upsertedCall?.id) {
+      try {
+        console.info(JSON.stringify({
+          tag: "[CALL_START]",
+          ts: Date.now(),
+          call_id: upsertedCall.id,
+          org_id: actualOrgId ?? null,
+          source: "vapi_webhook",
+          vapi_call_id: vapiCallId,
+          direction: direction ?? null,
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+    }
+    
+    // Canonical event: INTENT_DETECTED (when intent/persona is decided for new inbound calls)
+    if (isNewCall && upsertedCall?.id && direction !== "outbound" && intent) {
+      try {
+        console.info(JSON.stringify({
+          tag: "[INTENT_DETECTED]",
+          ts: Date.now(),
+          call_id: upsertedCall.id,
+          org_id: actualOrgId ?? null,
+          source: "vapi_webhook",
+          vapi_call_id: vapiCallId,
+          intent: intent ?? null,
+          persona_key: personaKey ?? null,
+          intent_confidence: null, // Will be computed later
+        }));
+      } catch (logErr) {
+        // Never throw from logging
+      }
+    }
 
     // PHASE 4: Acquire lease on NEW call (when call row is created for first time)
     if (isNewCall && startedAt && !actualEndedAt) {
@@ -2243,6 +2402,64 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // TASK 3: Check guardrails BEFORE artifact routing
+      let guardrailResult: { forceTicket: boolean; setPartial: boolean; reason?: string } | null = null;
+      if (updated?.[0]?.id && actualOrgId && (direction !== "outbound" || isWebCall(body))) {
+        try {
+          // Load call row for guardrail check
+          const { data: callRowForGuardrails } = await supabaseAdmin
+            .from("calls")
+            .select("id, org_id, from_phone, to_phone, transcript, raw_payload")
+            .eq("id", updated[0].id)
+            .maybeSingle<{
+              id: string;
+              org_id: string | null;
+              from_phone: string | null;
+              to_phone: string | null;
+              transcript: string | null;
+              raw_payload: any;
+            }>();
+
+          if (callRowForGuardrails?.id && callRowForGuardrails.org_id) {
+            const userTurnCount = countUserTurns(callRowForGuardrails.transcript || transcript);
+            
+            guardrailResult = await checkCallGuardrails({
+              callId: callRowForGuardrails.id,
+              orgId: callRowForGuardrails.org_id,
+              transcript: callRowForGuardrails.transcript || transcript,
+              fromPhone: callRowForGuardrails.from_phone,
+              toPhone: callRowForGuardrails.to_phone,
+              rawPayload: callRowForGuardrails.raw_payload || body,
+              userTurnCount,
+            });
+            
+            // Canonical event: FALLBACK_TRIGGERED
+            if (guardrailResult?.forceTicket) {
+              try {
+                console.info(JSON.stringify({
+                  tag: "[FALLBACK_TRIGGERED]",
+                  ts: Date.now(),
+                  call_id: callRowForGuardrails.id,
+                  org_id: callRowForGuardrails.org_id ?? null,
+                  source: "vapi_webhook",
+                  reason: guardrailResult.reason ?? "guardrail",
+                  slot: guardrailResult.reason?.includes("REPEAT_SLOT") ? (guardrailResult.reason.includes("phone") ? "phone" : "email") : null,
+                }));
+              } catch (logErr) {
+                // Never throw from logging
+              }
+            }
+          }
+        } catch (guardrailErr) {
+          console.error("[GUARDRAIL] Exception in guardrail check:", {
+            callId: updated?.[0]?.id,
+            orgId: actualOrgId,
+            error: guardrailErr,
+          });
+          // Never throw - continue with normal artifact routing
+        }
+      }
+
       // TASK 3: Ensure artifact (ticket/appointment) exists for inbound calls and web calls
       // Treat webCall as inbound-equivalent for routing (direction may be 'unknown' for web calls)
       const shouldRunArtifactRouting = (direction !== "outbound" || isWebCall(body)) && updated?.[0]?.id && actualOrgId;
@@ -2287,6 +2504,20 @@ export async function POST(req: NextRequest) {
               );
             } else {
               // Support/other intent → create ticket
+              // Canonical event: FALLBACK_TRIGGERED (platform guarantee fallback)
+              try {
+                console.info(JSON.stringify({
+                  tag: "[FALLBACK_TRIGGERED]",
+                  ts: Date.now(),
+                  call_id: callRow.id,
+                  org_id: callRow.org_id ?? null,
+                  source: "vapi_webhook",
+                  reason: "platform_guarantee",
+                }));
+              } catch (logErr) {
+                // Never throw from logging
+              }
+              
               await ensureTicketForCall(
                 callRow.id,
                 callRow.org_id,
@@ -2403,8 +2634,39 @@ export async function POST(req: NextRequest) {
             const toolUsed = detectToolUsed(callRowForScoring.raw_payload || body);
             const truncatedAgentLastLine = detectTruncatedAgentLastLine(callRowForScoring.transcript || transcript);
 
+            // Check guardrail result for missing contact at finalization (GR-2)
+            let finalGuardrailPartial = false;
+            if (guardrailResult?.setPartial) {
+              finalGuardrailPartial = true;
+            } else {
+              // GR-2: Missing contact check at finalization
+              // Check if ticket exists but has no requester_phone or requester_email
+              if (ticketCreated) {
+                try {
+                  const { data: ticket } = await supabaseAdmin
+                    .from("tickets")
+                    .select("requester_phone, requester_email")
+                    .eq("call_id", callRowForScoring.id)
+                    .maybeSingle<{ requester_phone: string | null; requester_email: string | null }>();
+                  
+                  if (ticket) {
+                    const hasPhone = !!ticket.requester_phone && ticket.requester_phone.trim().length > 0;
+                    const hasEmail = !!ticket.requester_email && ticket.requester_email.trim().length > 0;
+                    if (!hasPhone && !hasEmail) {
+                      console.info("[GUARDRAIL][MISSING_CONTACT]", {
+                        call_id: callRowForScoring.id,
+                      });
+                      finalGuardrailPartial = true;
+                    }
+                  }
+                } catch (ticketCheckErr) {
+                  // Ignore - continue with normal completion_state
+                }
+              }
+            }
+
             // Infer completion_state using new helper
-            const completionState = inferCompletionState(
+            let completionState = inferCompletionState(
               intent,
               computedDuration,
               callRowForScoring.transcript || transcript,
@@ -2416,6 +2678,30 @@ export async function POST(req: NextRequest) {
               ticketCreated,
               appointmentCreated
             );
+
+            // Override completion_state to "partial" if guardrail triggered
+            if (finalGuardrailPartial) {
+              completionState = "partial";
+            }
+
+            // Invariant enforcement: partial requires artifact (ticket/appointment)
+            // If completion_state would be "partial" but NO artifact exists, set to "abandoned"
+            if (completionState === "partial" && !ticketCreated && !appointmentCreated) {
+              try {
+                console.info(JSON.stringify({
+                  tag: "[CALL_COMPLETED][INVARIANT_CORRECTION]",
+                  ts: Date.now(),
+                  call_id: callRowForScoring.id,
+                  org_id: callRowForScoring.org_id ?? null,
+                  from: "partial",
+                  to: "abandoned",
+                  reason: "NO_ARTIFACT",
+                }));
+              } catch (logErr) {
+                // Never throw from logging
+              }
+              completionState = "abandoned";
+            }
 
             // Update calls row with intent_confidence and completion_state
             const { error: scoringErr } = await supabaseAdmin
@@ -2451,6 +2737,24 @@ export async function POST(req: NextRequest) {
                 durationSeconds: computedDuration,
                 userTurnCount: userTurnCount,
               });
+              
+              // Canonical event: CALL_COMPLETED
+              try {
+                console.info(JSON.stringify({
+                  tag: "[CALL_COMPLETED]",
+                  ts: Date.now(),
+                  call_id: callRowForScoring.id,
+                  org_id: callRowForScoring.org_id ?? null,
+                  source: "vapi_webhook",
+                  vapi_call_id: vapiCallId,
+                  completion_state: completionState,
+                  intent: intent ?? null,
+                  intent_confidence: intentConfidence,
+                  duration_seconds: computedDuration,
+                }));
+              } catch (logErr) {
+                // Never throw from logging
+              }
             }
           }
         } catch (scoringErr) {
