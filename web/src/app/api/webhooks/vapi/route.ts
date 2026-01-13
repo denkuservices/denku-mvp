@@ -1863,7 +1863,8 @@ export async function POST(req: NextRequest) {
       const currentMeta = 
         currentPayload.meta !== null && 
         currentPayload.meta !== undefined && 
-        typeof currentPayload.meta === 'object'
+        typeof currentPayload.meta === 'object' &&
+        !Array.isArray(currentPayload.meta)
           ? currentPayload.meta
           : {};
       
@@ -1871,23 +1872,32 @@ export async function POST(req: NextRequest) {
       const existingMeta = 
         existing.meta !== null && 
         existing.meta !== undefined && 
-        typeof existing.meta === 'object'
+        typeof existing.meta === 'object' &&
+        !Array.isArray(existing.meta)
           ? existing.meta
           : {};
       
       // Merge both metas (existing takes precedence for non-channel fields)
       const mergedMeta = { ...currentMeta, ...existingMeta };
       
-      // Ensure meta.channel='web' for webcalls (always set, even if both were null)
+      // Merge: use current payload (full report) as base, but ensure meta is an object
+      const merged = {
+        ...currentPayload, // Full Vapi report
+        meta: mergedMeta, // Merged meta object
+      };
+      
+      // FINAL normalization step: MUST run after all merging
+      // This ensures meta is always an object with channel='web' for webcalls
+      // Even if Vapi webhook body had meta: null
       if (isWebcall) {
-        mergedMeta.channel = 'web';
+        // Treat null/undefined/non-object as missing
+        const m = merged.meta;
+        const metaObj = (m && typeof m === 'object' && !Array.isArray(m)) ? m : {};
+        // Force channel='web' last (overwrites any existing channel value)
+        merged.meta = { ...metaObj, channel: 'web' };
       }
       
-      // Merge: use current payload (full report) as base, but ensure meta is an object
-      return {
-        ...currentPayload, // Full Vapi report
-        meta: mergedMeta, // Always an object, channel='web' for webcalls
-      };
+      return merged;
     })();
 
     // 1) Her eventte row'u var etmek için UPSERT (cost_usd yazmıyoruz)
