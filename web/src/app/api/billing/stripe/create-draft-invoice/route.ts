@@ -3,6 +3,8 @@ import { z } from "zod";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isAdminOrOwner } from "@/lib/analytics/params";
 
 const RequestSchema = z.object({
   org_id: z.string().uuid(),
@@ -106,8 +108,116 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { org_id, month, force_recompute } = parseResult.data;
+    const { org_id, month, force_recompute: requestedForceRecompute } = parseResult.data;
     const invoiceMonth = month || getCurrentMonthStart();
+
+    // 0) Authorization check for force_recompute
+    let force_recompute = requestedForceRecompute ?? false;
+    if (force_recompute) {
+      try {
+        // Get authenticated user
+        const supabase = await createSupabaseServerClient();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          // Not authenticated - deny force_recompute
+          force_recompute = false;
+          logEvent({
+            tag: "[BILLING][FORCE_RECOMPUTE_DENIED]",
+            ts: Date.now(),
+            stage: "COST",
+            source: "system",
+            org_id: org_id,
+            severity: "warn",
+            details: {
+              month: invoiceMonth,
+              reason: "not_authenticated",
+            },
+          });
+        } else {
+          // Get profile and org_id
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, org_id")
+            .eq("auth_user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          const profile = profiles && profiles.length > 0 ? profiles[0] : null;
+          const profileId = profile?.id ?? null;
+          const userOrgId = profile?.org_id ?? null;
+
+          // Verify org_id matches and user is admin/owner
+          if (!profileId || userOrgId !== org_id) {
+            force_recompute = false;
+            logEvent({
+              tag: "[BILLING][FORCE_RECOMPUTE_DENIED]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "system",
+              org_id: org_id,
+              severity: "warn",
+              details: {
+                month: invoiceMonth,
+                reason: "org_mismatch_or_no_profile",
+                user_org_id: userOrgId,
+              },
+            });
+          } else {
+            const isAuthorized = await isAdminOrOwner(org_id, profileId);
+            if (!isAuthorized) {
+              force_recompute = false;
+              logEvent({
+                tag: "[BILLING][FORCE_RECOMPUTE_DENIED]",
+                ts: Date.now(),
+                stage: "COST",
+                source: "system",
+                org_id: org_id,
+                severity: "warn",
+                details: {
+                  month: invoiceMonth,
+                  reason: "not_admin_or_owner",
+                  profile_id: profileId,
+                },
+              });
+            } else {
+              logEvent({
+                tag: "[BILLING][FORCE_RECOMPUTE_OK]",
+                ts: Date.now(),
+                stage: "COST",
+                source: "system",
+                org_id: org_id,
+                severity: "info",
+                details: {
+                  month: invoiceMonth,
+                  profile_id: profileId,
+                },
+              });
+            }
+          }
+        }
+      } catch (authErr) {
+        // Non-blocking: if auth check fails, deny force_recompute
+        force_recompute = false;
+        logEvent({
+          tag: "[BILLING][FORCE_RECOMPUTE_DENIED]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "warn",
+          details: {
+            month: invoiceMonth,
+            reason: "auth_check_error",
+            error: authErr instanceof Error ? authErr.message : String(authErr),
+          },
+        });
+      }
+    }
 
     // 1) Check idempotency: if billing_invoice_runs exists with stripe_invoice_id AND status='draft', return it
     // BUT if force_recompute=true OR status is 'stale'/'blocked' OR stripe_invoice_id is null, proceed to recompute
@@ -268,21 +378,37 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4) Hard cap enforcement (blocking) - MUST execute BEFORE Stripe invoice creation
-    // Coerce all values to numbers safely
-    const billableMinutes = Number(preview?.billable_minutes ?? 0);
-    const estDue = Number(preview?.estimated_total_due_usd ?? 0);
-    // Use normalized guardrails values (already numbers, never null)
-    const capMinutes = guardrails ? guardrails.max_billable_minutes_per_month : 0;
-    const capAmount = guardrails ? guardrails.max_estimated_total_due_usd_per_month : 0;
+    // 4) Guardrails check - if missing, log and skip blocking (allow invoice creation)
+    if (!guardrails) {
+      logEvent({
+        tag: "[BILLING][GUARDRAIL_MISSING]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "info",
+        details: {
+          month: invoiceMonth,
+          org_id: org_id,
+        },
+      });
+      // Skip hard-cap checks entirely and proceed to invoice creation
+    } else {
+      // 4a) Hard cap enforcement (blocking) - MUST execute BEFORE Stripe invoice creation
+      // Coerce all values to numbers safely
+      const billableMinutes = Number(preview?.billable_minutes ?? 0);
+      const estDue = Number(preview?.estimated_total_due_usd ?? 0);
+      // Use normalized guardrails values (already numbers, never null)
+      const capMinutes = guardrails.max_billable_minutes_per_month;
+      const capAmount = guardrails.max_estimated_total_due_usd_per_month;
 
-    // Check for NaN and log parse errors (guardrails values are already normalized)
-    if (
-      !Number.isFinite(billableMinutes) ||
-      !Number.isFinite(estDue) ||
-      (guardrails && !Number.isFinite(capMinutes)) ||
-      (guardrails && !Number.isFinite(capAmount))
-    ) {
+      // Check for NaN and log parse errors (guardrails values are already normalized)
+      if (
+        !Number.isFinite(billableMinutes) ||
+        !Number.isFinite(estDue) ||
+        !Number.isFinite(capMinutes) ||
+        !Number.isFinite(capAmount)
+      ) {
       logEvent({
         tag: "[BILLING][GUARDRAIL][PARSE_ERROR]",
         ts: Date.now(),
@@ -294,24 +420,24 @@ export async function POST(req: NextRequest) {
           month: invoiceMonth,
           raw_billable_minutes: preview?.billable_minutes,
           raw_estimated_total_due_usd: preview?.estimated_total_due_usd,
-          normalized_cap_minutes: guardrails?.max_billable_minutes_per_month,
-          normalized_cap_amount: guardrails?.max_estimated_total_due_usd_per_month,
+          normalized_cap_minutes: guardrails.max_billable_minutes_per_month,
+          normalized_cap_amount: guardrails.max_estimated_total_due_usd_per_month,
           billableMinutes: Number.isFinite(billableMinutes) ? billableMinutes : 0,
           estDue: Number.isFinite(estDue) ? estDue : 0,
           capMinutes: Number.isFinite(capMinutes) ? capMinutes : 0,
           capAmount: Number.isFinite(capAmount) ? capAmount : 0,
         },
       });
-    }
+      }
 
-    // Use safe coerced values (treat NaN as 0)
-    const safeBillableMinutes = Number.isFinite(billableMinutes) ? billableMinutes : 0;
-    const safeEstDue = Number.isFinite(estDue) ? estDue : 0;
-    const safeCapMinutes = Number.isFinite(capMinutes) ? capMinutes : 0;
-    const safeCapAmount = Number.isFinite(capAmount) ? capAmount : 0;
+      // Use safe coerced values (treat NaN as 0)
+      const safeBillableMinutes = Number.isFinite(billableMinutes) ? billableMinutes : 0;
+      const safeEstDue = Number.isFinite(estDue) ? estDue : 0;
+      const safeCapMinutes = Number.isFinite(capMinutes) ? capMinutes : 0;
+      const safeCapAmount = Number.isFinite(capAmount) ? capAmount : 0;
 
-    // Check billable_minutes cap (blocking)
-    if (guardrails && safeBillableMinutes > capMinutes) {
+      // Check billable_minutes cap (blocking)
+      if (safeBillableMinutes > capMinutes) {
         // Insert anomaly event (use normalized guardrails value, never 0 fallback)
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
@@ -370,8 +496,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-    // Check estimated_total_due_usd cap (blocking)
-    if (guardrails && safeEstDue > capAmount) {
+      // Check estimated_total_due_usd cap (blocking)
+      if (safeEstDue > capAmount) {
         // Insert anomaly event (use normalized guardrails value, never 0 fallback)
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
@@ -419,19 +545,18 @@ export async function POST(req: NextRequest) {
           )
           .select();
 
-      return NextResponse.json(
-        {
-          status: "blocked",
-          reason: "amount_cap",
-          cap: guardrails.max_estimated_total_due_usd_per_month,
-          value: safeEstDue,
-        },
-        { status: 200 }
-      );
-    }
+        return NextResponse.json(
+          {
+            status: "blocked",
+            reason: "amount_cap",
+            cap: guardrails.max_estimated_total_due_usd_per_month,
+            value: safeEstDue,
+          },
+          { status: 200 }
+        );
+      }
 
-    // Log guardrail OK if we passed all checks (BEFORE Stripe invoice creation)
-    if (guardrails) {
+      // Log guardrail OK if we passed all checks (BEFORE Stripe invoice creation)
       logEvent({
         tag: "[BILLING][GUARDRAIL_OK]",
         ts: Date.now(),
