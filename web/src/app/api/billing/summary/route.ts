@@ -105,7 +105,59 @@ export async function GET(req: NextRequest) {
       pricing = pricingRow;
     }
 
-    // 8) Query recent invoice history (last 6 months)
+    // 8) Query plan_pricing for all plans (starter, growth, scale)
+    const { data: plansData, error: plansError } = await supabaseAdmin
+      .from("plan_pricing")
+      .select("plan_code, monthly_fee_usd, concurrency_limit, included_minutes, overage_rate_usd_per_min, phone_numbers_included")
+      .in("plan_code", ["starter", "growth", "scale"]);
+
+    let plans: Array<{
+      plan_code: string;
+      monthly_fee_usd: number | null;
+      concurrency_limit: number | null;
+      included_minutes: number | null;
+      overage_rate_usd_per_min: number | null;
+      phone_numbers_included?: number | null;
+    }> = [];
+
+    if (plansError) {
+      logEvent({
+        tag: "[BILLING][PLANS_MISSING]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "warn",
+        details: {
+          month: month,
+          error: plansError.message,
+        },
+      });
+    } else if (!plansData || plansData.length === 0) {
+      logEvent({
+        tag: "[BILLING][PLANS_MISSING]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "info",
+        details: {
+          month: month,
+          reason: "no_rows_found",
+        },
+      });
+    } else {
+      plans = plansData.map((row) => ({
+        plan_code: row.plan_code,
+        monthly_fee_usd: row.monthly_fee_usd,
+        concurrency_limit: row.concurrency_limit ?? null,
+        included_minutes: row.included_minutes,
+        overage_rate_usd_per_min: row.overage_rate_usd_per_min,
+        ...(row.phone_numbers_included !== undefined && { phone_numbers_included: row.phone_numbers_included }),
+      }));
+    }
+
+    // 9) Query recent invoice history (last 6 months)
     const { data: history } = await supabaseAdmin
       .from("billing_invoice_runs")
       .select("month, status, stripe_invoice_id, estimated_total_due_usd")
@@ -113,7 +165,7 @@ export async function GET(req: NextRequest) {
       .order("month", { ascending: false })
       .limit(6);
 
-    // 9) Log event
+    // 10) Log event
     logEvent({
       tag: "[BILLING][SUMMARY]",
       ts: Date.now(),
@@ -128,7 +180,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // 10) Return response
+    // 11) Return response
     return NextResponse.json({
       ok: true,
       org_id,
@@ -141,6 +193,7 @@ export async function GET(req: NextRequest) {
         included_minutes: null,
         overage_rate_usd_per_min: null,
       },
+      plans: plans,
       history: (history || []).map((h) => ({
         month: h.month,
         status: h.status,

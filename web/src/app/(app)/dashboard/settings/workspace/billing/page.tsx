@@ -34,6 +34,14 @@ type BillingSummary = {
     included_minutes: number | null;
     overage_rate_usd_per_min: number | null;
   };
+  plans: Array<{
+    plan_code: string;
+    monthly_fee_usd: number | null;
+    concurrency_limit: number | null;
+    included_minutes: number | null;
+    overage_rate_usd_per_min: number | null;
+    phone_numbers_included?: number | null;
+  }>;
   history: Array<{
     month: string;
     status: string | null;
@@ -42,12 +50,22 @@ type BillingSummary = {
   }>;
 };
 
-// Plan display data (for UI only, not used for billing computation)
-const PLAN_DISPLAY: Record<string, { name: string; monthly_fee: number; concurrency: number; included_minutes: number }> = {
-  starter: { name: "Starter", monthly_fee: 149, concurrency: 2, included_minutes: 600 },
-  growth: { name: "Growth", monthly_fee: 399, concurrency: 5, included_minutes: 1500 },
-  scale: { name: "Scale", monthly_fee: 899, concurrency: 20, included_minutes: 4000 },
+// Plan order map for comparison
+const PLAN_ORDER: Record<string, number> = {
+  starter: 1,
+  growth: 2,
+  scale: 3,
 };
+
+// Get plan display name from plan_code
+function getPlanName(planCode: string): string {
+  const names: Record<string, string> = {
+    starter: "Starter",
+    growth: "Growth",
+    scale: "Scale",
+  };
+  return names[planCode] || planCode.charAt(0).toUpperCase() + planCode.slice(1);
+}
 
 // Utility function for className merging
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -201,7 +219,7 @@ export default function WorkspaceBillingPage() {
   }, [fetchSummary]);
 
   // Handle plan change
-  const handlePlanChange = async (planCode: "starter" | "growth" | "scale") => {
+  const handlePlanChange = async (planCode: string) => {
     try {
       setChangingPlan(true);
       const res = await fetch("/api/billing/plan/change", {
@@ -223,10 +241,14 @@ export default function WorkspaceBillingPage() {
     }
   };
 
-  // Get current plan display data
-  const currentPlanCode = summary?.preview?.plan_code || summary?.plan_limits?.plan_code || "starter";
-  const currentPlanDisplay = PLAN_DISPLAY[currentPlanCode] || PLAN_DISPLAY.starter;
-  const currentPricing = summary?.pricing || { monthly_fee_usd: null, included_minutes: null, overage_rate_usd_per_min: null };
+  // Get current plan code (from preview, fallback to 'starter')
+  const currentPlanCode = summary?.preview?.plan_code || "starter";
+  
+  // Find current plan object from summary.plans
+  const currentPlan = summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null;
+  
+  // Get current plan order
+  const currentPlanOrder = PLAN_ORDER[currentPlanCode] || 0;
 
   // Error state
   if (error && !summary) {
@@ -278,6 +300,32 @@ export default function WorkspaceBillingPage() {
   const preview = summary?.preview;
   const invoiceRun = summary?.invoice_run;
   const planLimits = summary?.plan_limits;
+  const plans = summary?.plans || [];
+
+  // If plans array is empty, show empty state
+  if (plans.length === 0) {
+    return (
+      <SettingsShell
+        title="Billing"
+        subtitle="Plan, payment method, and invoices."
+        crumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Settings", href: "/dashboard/settings" },
+          { label: "Workspace" },
+          { label: "Billing" },
+        ]}
+      >
+        <Card>
+          <div className="text-center py-12">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">No plans available</p>
+            <Button variant="primary" onClick={fetchSummary}>
+              Retry
+            </Button>
+          </div>
+        </Card>
+      </SettingsShell>
+    );
+  }
 
   return (
     <SettingsShell
@@ -299,86 +347,115 @@ export default function WorkspaceBillingPage() {
             <Card>
               <SectionTitle title="Current plan" subtitle="Your subscription and plan settings." />
 
-              <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-white/10 dark:bg-white/5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                        {currentPlanDisplay.name}
-                      </h3>
-                      <Badge variant="success">Active</Badge>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-semibold text-zinc-900 dark:text-white">
-                        {formatUsd(currentPricing.monthly_fee_usd || currentPlanDisplay.monthly_fee)}
-                      </span>
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
+              {currentPlan ? (
+                <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                          {getPlanName(currentPlan.plan_code)}
+                        </h3>
+                        <Badge variant="success">Active</Badge>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-semibold text-zinc-900 dark:text-white">
+                          {formatUsd(currentPlan.monthly_fee_usd)}
+                        </span>
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Plan features */}
-                <div className="mt-6 space-y-2">
-                  <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                    Plan includes:
-                  </p>
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                      <svg
-                        className="h-4 w-4 text-zinc-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      {planLimits?.concurrency_limit || currentPlanDisplay.concurrency} concurrent calls
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                      <svg
-                        className="h-4 w-4 text-zinc-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      {(currentPricing.included_minutes || currentPlanDisplay.included_minutes).toLocaleString()} minutes included
-                    </li>
-                    {currentPricing.overage_rate_usd_per_min && (
-                      <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                        <svg
-                          className="h-4 w-4 text-zinc-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        {formatUsd(currentPricing.overage_rate_usd_per_min)}/min overage
-                      </li>
-                    )}
-                  </ul>
+                  {/* Plan features */}
+                  <div className="mt-6 space-y-2">
+                    <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                      Plan includes:
+                    </p>
+                    <ul className="space-y-1.5">
+                      {currentPlan.concurrency_limit !== null && (
+                        <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                          <svg
+                            className="h-4 w-4 text-zinc-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {currentPlan.concurrency_limit} concurrent calls
+                        </li>
+                      )}
+                      {currentPlan.included_minutes !== null && (
+                        <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                          <svg
+                            className="h-4 w-4 text-zinc-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {currentPlan.included_minutes.toLocaleString()} minutes included
+                        </li>
+                      )}
+                      {currentPlan.overage_rate_usd_per_min !== null && (
+                        <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                          <svg
+                            className="h-4 w-4 text-zinc-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {formatUsd(currentPlan.overage_rate_usd_per_min)}/min overage
+                        </li>
+                      )}
+                      {currentPlan.phone_numbers_included !== null && currentPlan.phone_numbers_included !== undefined && (
+                        <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                          <svg
+                            className="h-4 w-4 text-zinc-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {currentPlan.phone_numbers_included} phone number{currentPlan.phone_numbers_included !== 1 ? "s" : ""} included
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
+                  Plan information not available
+                </div>
+              )}
             </Card>
 
             {/* Usage card */}
@@ -394,12 +471,12 @@ export default function WorkspaceBillingPage() {
                 <UsageStat
                   label="Billable minutes"
                   value={(preview?.billable_minutes || 0).toLocaleString()}
-                  hint={`Included: ${(currentPricing.included_minutes || currentPlanDisplay.included_minutes).toLocaleString()}`}
+                  hint={currentPlan?.included_minutes !== null && currentPlan?.included_minutes !== undefined ? `Included: ${currentPlan.included_minutes.toLocaleString()}` : undefined}
                 />
                 <UsageStat
                   label="Peak concurrent"
                   value={(preview?.peak_concurrent_calls || 0).toString()}
-                  hint={`Limit: ${planLimits?.concurrency_limit || currentPlanDisplay.concurrency}`}
+                  hint={currentPlan?.concurrency_limit !== null && currentPlan?.concurrency_limit !== undefined ? `Limit: ${currentPlan.concurrency_limit}` : planLimits?.concurrency_limit ? `Limit: ${planLimits.concurrency_limit}` : undefined}
                 />
               </div>
             </Card>
@@ -415,7 +492,7 @@ export default function WorkspaceBillingPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-zinc-600 dark:text-zinc-400">Monthly fee</span>
                   <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-                    {formatUsd(preview?.monthly_fee_usd || currentPricing.monthly_fee_usd || currentPlanDisplay.monthly_fee)}
+                    {formatUsd(preview?.monthly_fee_usd ?? currentPlan?.monthly_fee_usd ?? null)}
                   </span>
                 </div>
                 {preview?.estimated_overage_cost_usd && preview.estimated_overage_cost_usd > 0 && (
@@ -432,7 +509,7 @@ export default function WorkspaceBillingPage() {
                       Total due
                     </span>
                     <span className="text-lg font-semibold text-zinc-900 dark:text-white">
-                      {formatUsd(preview?.estimated_total_due_usd || preview?.monthly_fee_usd || currentPricing.monthly_fee_usd || currentPlanDisplay.monthly_fee)}
+                      {formatUsd(preview?.estimated_total_due_usd ?? preview?.monthly_fee_usd ?? currentPlan?.monthly_fee_usd ?? null)}
                     </span>
                   </div>
                   {invoiceRun?.stripe_invoice_id && (
@@ -454,28 +531,23 @@ export default function WorkspaceBillingPage() {
               <SectionTitle title="Upgrade plan" subtitle="Change your plan at any time." />
 
               <div className="mt-6 space-y-3">
-                {(["starter", "growth", "scale"] as const).map((planCode) => {
-                  const planDisplay = PLAN_DISPLAY[planCode];
-                  const isCurrent = planCode === currentPlanCode;
+                {plans.map((plan) => {
+                  const isCurrent = plan.plan_code === currentPlanCode;
+                  const targetPlanOrder = PLAN_ORDER[plan.plan_code] || 0;
                   
-                  // Determine button label based on price comparison
-                  const currentMonthlyFee = currentPricing.monthly_fee_usd ?? currentPlanDisplay.monthly_fee;
-                  const targetMonthlyFee = planDisplay.monthly_fee;
+                  // Determine button label based on plan order
                   let buttonLabel = "Current";
-                  
                   if (!isCurrent) {
-                    if (targetMonthlyFee > currentMonthlyFee) {
+                    if (targetPlanOrder > currentPlanOrder) {
                       buttonLabel = "Upgrade";
-                    } else if (targetMonthlyFee < currentMonthlyFee) {
-                      buttonLabel = "Switch plan";
-                    } else {
-                      buttonLabel = "Current";
+                    } else if (targetPlanOrder < currentPlanOrder) {
+                      buttonLabel = "Downgrade";
                     }
                   }
                   
                   return (
                     <div
-                      key={planCode}
+                      key={plan.plan_code}
                       className={cn(
                         "rounded-xl border p-4",
                         isCurrent
@@ -486,19 +558,21 @@ export default function WorkspaceBillingPage() {
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                            {planDisplay.name}
+                            {getPlanName(plan.plan_code)}
                           </h4>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {planDisplay.concurrency} concurrent • {planDisplay.included_minutes.toLocaleString()} min
+                            {plan.concurrency_limit !== null ? `${plan.concurrency_limit} concurrent` : ""}
+                            {plan.concurrency_limit !== null && plan.included_minutes !== null ? " • " : ""}
+                            {plan.included_minutes !== null ? `${plan.included_minutes.toLocaleString()} min` : ""}
                           </p>
                           <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                            {formatUsd(planDisplay.monthly_fee)}/month
+                            {formatUsd(plan.monthly_fee_usd)}/month
                           </p>
                         </div>
                         <Button
                           variant={isCurrent ? "secondary" : "primary"}
                           disabled={isCurrent || changingPlan}
-                          onClick={() => handlePlanChange(planCode)}
+                          onClick={() => handlePlanChange(plan.plan_code)}
                           className="ml-4"
                         >
                           {buttonLabel}
