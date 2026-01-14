@@ -286,7 +286,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5) Fetch Stripe monthly price ID from billing_stripe_prices
+    // 5) Fetch Stripe monthly price ID from billing_stripe_prices (for future use, not used in invoice items)
+    // Note: Recurring prices cannot be used in invoice items, so we use custom amounts instead
     let stripePriceId: string | null = null;
     if (preview.plan_code) {
       const { data: priceRow } = await supabaseAdmin
@@ -314,22 +315,15 @@ export async function POST(req: NextRequest) {
 
       stripeInvoiceId = invoice.id;
 
-      // Add invoice item for monthly fee (if price ID exists)
-      if (stripePriceId) {
-        await stripe.invoiceItems.create({
-          customer: stripeCustomerId,
-          invoice: invoice.id,
-          price: stripePriceId,
-          quantity: 1,
-        });
-      } else if (preview.monthly_fee_usd && preview.monthly_fee_usd > 0) {
-        // Fallback: add custom amount if no price ID
+      // Add invoice item for monthly fee (always use custom amount, not recurring price)
+      if (preview.monthly_fee_usd && preview.monthly_fee_usd > 0) {
+        const planCodeUpper = preview.plan_code?.toUpperCase() || "PLAN";
         await stripe.invoiceItems.create({
           customer: stripeCustomerId,
           invoice: invoice.id,
           amount: Math.round(preview.monthly_fee_usd * 100), // Convert to cents
           currency: "usd",
-          description: "Monthly plan fee",
+          description: `${planCodeUpper} Plan – Monthly fee`,
         });
       }
 
