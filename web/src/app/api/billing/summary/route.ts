@@ -105,17 +105,20 @@ export async function GET(req: NextRequest) {
       pricing = pricingRow;
     }
 
-    // 8) Fetch plan catalog using supabaseAdmin (service role) - plan_pricing is a VIEW (no RLS)
+    // 8) Fetch plan catalog from billing_plan_catalog table (canonical source)
     const { data: plansData, error: plansError } = await supabaseAdmin
-      .from("plan_pricing")
-      .select("plan_code, monthly_fee_usd, included_minutes, overage_rate_usd_per_min")
+      .from("billing_plan_catalog")
+      .select("plan_code, display_name, monthly_fee_usd, included_minutes, overage_rate_usd_per_min, concurrency_limit, included_phone_numbers")
       .order("plan_code");
 
     let plans: Array<{
       plan_code: string;
-      monthly_fee_usd: number | null;
-      included_minutes: number | null;
-      overage_rate_usd_per_min: number | null;
+      display_name: string;
+      monthly_fee_usd: number;
+      included_minutes: number;
+      overage_rate_usd_per_min: number;
+      concurrency_limit: number;
+      included_phone_numbers: number;
     }> = [];
 
     if (plansError) {
@@ -145,12 +148,23 @@ export async function GET(req: NextRequest) {
         },
       });
     } else {
-      plans = plansData.map((row) => ({
-        plan_code: row.plan_code,
-        monthly_fee_usd: row.monthly_fee_usd,
-        included_minutes: row.included_minutes,
-        overage_rate_usd_per_min: row.overage_rate_usd_per_min,
-      }));
+      // Sort server-side: starter, growth, scale (correct order)
+      const orderMap: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
+      plans = plansData
+        .map((row) => ({
+          plan_code: row.plan_code,
+          display_name: row.display_name,
+          monthly_fee_usd: Number(row.monthly_fee_usd),
+          included_minutes: Number(row.included_minutes),
+          overage_rate_usd_per_min: Number(row.overage_rate_usd_per_min),
+          concurrency_limit: Number(row.concurrency_limit),
+          included_phone_numbers: Number(row.included_phone_numbers),
+        }))
+        .sort((a, b) => {
+          const orderA = orderMap[a.plan_code] || 999;
+          const orderB = orderMap[b.plan_code] || 999;
+          return orderA - orderB;
+        });
     }
 
     // 8a) Optionally fetch billing_stripe_prices via supabaseAdmin (same pattern)
