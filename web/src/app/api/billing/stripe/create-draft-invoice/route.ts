@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     const { data: preview, error: previewError } = await supabaseAdmin
       .from("org_monthly_invoice_preview")
       .select(
-        "plan_code, monthly_fee_usd, estimated_overage_cost_usd, overage_minutes, overage_rate_usd_per_min, estimated_total_due_usd"
+        "plan_code, monthly_fee_usd, estimated_overage_cost_usd, overage_minutes, overage_rate_usd_per_min, estimated_total_due_usd, billable_minutes, concurrency_limit"
       )
       .eq("org_id", org_id)
       .eq("month", invoiceMonth)
@@ -155,6 +155,8 @@ export async function POST(req: NextRequest) {
         overage_minutes: number | null;
         overage_rate_usd_per_min: number | null;
         estimated_total_due_usd: number | null;
+        billable_minutes: number | null;
+        concurrency_limit: number | null;
       }>();
 
     if (previewError || !preview) {
@@ -196,7 +198,358 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3) Initialize Stripe client
+    // 3) Fetch billing guardrails via RPC
+    type Guardrails = {
+      max_billable_minutes_per_month: number | null;
+      max_estimated_total_due_usd_per_month: number | null;
+      spike_multiplier: number | null;
+    };
+
+    let guardrails: Guardrails | null = null;
+
+    try {
+      const { data: guardrailsData, error: guardrailsError } = await supabaseAdmin.rpc(
+        "get_billing_guardrails",
+        { p_org_id: org_id }
+      );
+
+      if (!guardrailsError && guardrailsData) {
+        guardrails = guardrailsData as Guardrails;
+      }
+    } catch (guardrailsErr) {
+      // Non-blocking: log but continue
+      logEvent({
+        tag: "[BILLING][GUARDRAIL][FETCH_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "warn",
+        details: {
+          month: invoiceMonth,
+          error: guardrailsErr instanceof Error ? guardrailsErr.message : String(guardrailsErr),
+        },
+      });
+    }
+
+    // 4) Hard cap enforcement (blocking)
+    if (guardrails) {
+      // Check billable_minutes cap
+      if (
+        guardrails.max_billable_minutes_per_month !== null &&
+        preview.billable_minutes !== null &&
+        preview.billable_minutes > guardrails.max_billable_minutes_per_month
+      ) {
+        // Insert anomaly event
+        try {
+          await supabaseAdmin.from("billing_anomaly_events").insert({
+            org_id: org_id,
+            month: invoiceMonth,
+            severity: "block",
+            type: "minutes_cap",
+            details: {
+              billable_minutes: preview.billable_minutes,
+              cap: guardrails.max_billable_minutes_per_month,
+            },
+          });
+        } catch (anomalyErr) {
+          // Non-blocking: log but continue
+          console.error("[BILLING] Failed to insert anomaly event:", anomalyErr);
+        }
+
+        logEvent({
+          tag: "[BILLING][GUARDRAIL_BLOCKED]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "warn",
+          details: {
+            month: invoiceMonth,
+            type: "minutes_cap",
+            billable_minutes: preview.billable_minutes,
+            cap: guardrails.max_billable_minutes_per_month,
+          },
+        });
+
+        // Upsert blocked state
+        await supabaseAdmin
+          .from("billing_invoice_runs")
+          .upsert(
+            {
+              org_id: org_id,
+              month: invoiceMonth,
+              estimated_total_due_usd: preview.estimated_total_due_usd ?? null,
+              stripe_invoice_id: null,
+              status: "blocked",
+            },
+            { onConflict: "org_id,month" }
+          )
+          .select();
+
+        return NextResponse.json(
+          {
+            status: "blocked",
+            reason: "minutes_cap",
+            cap: guardrails.max_billable_minutes_per_month,
+            value: preview.billable_minutes,
+          },
+          { status: 200 }
+        );
+      }
+
+      // Check estimated_total_due_usd cap
+      if (
+        guardrails.max_estimated_total_due_usd_per_month !== null &&
+        preview.estimated_total_due_usd !== null &&
+        preview.estimated_total_due_usd > guardrails.max_estimated_total_due_usd_per_month
+      ) {
+        // Insert anomaly event
+        try {
+          await supabaseAdmin.from("billing_anomaly_events").insert({
+            org_id: org_id,
+            month: invoiceMonth,
+            severity: "block",
+            type: "amount_cap",
+            details: {
+              estimated_total_due_usd: preview.estimated_total_due_usd,
+              cap: guardrails.max_estimated_total_due_usd_per_month,
+            },
+          });
+        } catch (anomalyErr) {
+          // Non-blocking: log but continue
+          console.error("[BILLING] Failed to insert anomaly event:", anomalyErr);
+        }
+
+        logEvent({
+          tag: "[BILLING][GUARDRAIL_BLOCKED]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "warn",
+          details: {
+            month: invoiceMonth,
+            type: "amount_cap",
+            estimated_total_due_usd: preview.estimated_total_due_usd,
+            cap: guardrails.max_estimated_total_due_usd_per_month,
+          },
+        });
+
+        // Upsert blocked state
+        await supabaseAdmin
+          .from("billing_invoice_runs")
+          .upsert(
+            {
+              org_id: org_id,
+              month: invoiceMonth,
+              estimated_total_due_usd: preview.estimated_total_due_usd,
+              stripe_invoice_id: null,
+              status: "blocked",
+            },
+            { onConflict: "org_id,month" }
+          )
+          .select();
+
+        return NextResponse.json(
+          {
+            status: "blocked",
+            reason: "amount_cap",
+            cap: guardrails.max_estimated_total_due_usd_per_month,
+            value: preview.estimated_total_due_usd,
+          },
+          { status: 200 }
+        );
+      }
+    }
+
+    // 5) Anomaly detection (non-blocking, log-only)
+    if (guardrails && guardrails.spike_multiplier !== null) {
+      try {
+        // Get today's date (UTC)
+        const today = new Date();
+        const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
+
+        // Get date 7 days ago (excluding today)
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+
+        // Fetch org_daily_usage for last 7 days (excluding today) and today
+        const { data: dailyUsage } = await supabaseAdmin
+          .from("org_daily_usage")
+          .select("date, billable_minutes, total_cost_usd, peak_concurrent_calls")
+          .eq("org_id", org_id)
+          .gte("date", sevenDaysAgoStr)
+          .lte("date", todayStr)
+          .order("date", { ascending: true });
+
+        if (dailyUsage && dailyUsage.length > 0) {
+          // Separate today from last 7 days
+          const todayUsage = dailyUsage.find((u) => u.date === todayStr);
+          const last7Days = dailyUsage.filter((u) => u.date !== todayStr);
+
+          if (last7Days.length > 0 && todayUsage) {
+            // Compute averages over last 7 days
+            const avgBillableMinutes =
+              last7Days.reduce((sum, u) => sum + (u.billable_minutes || 0), 0) / last7Days.length;
+            const avgTotalCostUsd =
+              last7Days.reduce((sum, u) => sum + (u.total_cost_usd || 0), 0) / last7Days.length;
+
+            const spikeThreshold = guardrails.spike_multiplier;
+
+            // Check for sudden spike in billable_minutes
+            if (
+              todayUsage.billable_minutes &&
+              todayUsage.billable_minutes > avgBillableMinutes * spikeThreshold &&
+              todayUsage.billable_minutes >= 30
+            ) {
+              try {
+                await supabaseAdmin.from("billing_anomaly_events").insert({
+                  org_id: org_id,
+                  month: invoiceMonth,
+                  severity: "warn",
+                  type: "sudden_spike",
+                  details: {
+                    billable_minutes: todayUsage.billable_minutes,
+                    avg_billable_minutes: avgBillableMinutes,
+                    multiplier: spikeThreshold,
+                  },
+                });
+
+                logEvent({
+                  tag: "[BILLING][ANOMALY]",
+                  ts: Date.now(),
+                  stage: "COST",
+                  source: "system",
+                  org_id: org_id,
+                  severity: "warn",
+                  details: {
+                    month: invoiceMonth,
+                    type: "sudden_spike",
+                    billable_minutes: todayUsage.billable_minutes,
+                    avg_billable_minutes: avgBillableMinutes,
+                  },
+                });
+              } catch (anomalyErr) {
+                // Non-blocking: log but continue
+                console.error("[BILLING] Failed to insert anomaly event:", anomalyErr);
+              }
+            }
+
+            // Check for cost spike
+            if (
+              todayUsage.total_cost_usd &&
+              todayUsage.total_cost_usd > avgTotalCostUsd * spikeThreshold &&
+              todayUsage.total_cost_usd >= 10
+            ) {
+              try {
+                await supabaseAdmin.from("billing_anomaly_events").insert({
+                  org_id: org_id,
+                  month: invoiceMonth,
+                  severity: "warn",
+                  type: "cost_spike",
+                  details: {
+                    total_cost_usd: todayUsage.total_cost_usd,
+                    avg_total_cost_usd: avgTotalCostUsd,
+                    multiplier: spikeThreshold,
+                  },
+                });
+
+                logEvent({
+                  tag: "[BILLING][ANOMALY]",
+                  ts: Date.now(),
+                  stage: "COST",
+                  source: "system",
+                  org_id: org_id,
+                  severity: "warn",
+                  details: {
+                    month: invoiceMonth,
+                    type: "cost_spike",
+                    total_cost_usd: todayUsage.total_cost_usd,
+                    avg_total_cost_usd: avgTotalCostUsd,
+                  },
+                });
+              } catch (anomalyErr) {
+                // Non-blocking: log but continue
+                console.error("[BILLING] Failed to insert anomaly event:", anomalyErr);
+              }
+            }
+
+            // Check for concurrency spike
+            if (
+              preview.concurrency_limit !== null &&
+              todayUsage.peak_concurrent_calls !== null &&
+              todayUsage.peak_concurrent_calls > preview.concurrency_limit
+            ) {
+              try {
+                await supabaseAdmin.from("billing_anomaly_events").insert({
+                  org_id: org_id,
+                  month: invoiceMonth,
+                  severity: "warn",
+                  type: "concurrency_spike",
+                  details: {
+                    peak_concurrent_calls: todayUsage.peak_concurrent_calls,
+                    concurrency_limit: preview.concurrency_limit,
+                  },
+                });
+
+                logEvent({
+                  tag: "[BILLING][ANOMALY]",
+                  ts: Date.now(),
+                  stage: "COST",
+                  source: "system",
+                  org_id: org_id,
+                  severity: "warn",
+                  details: {
+                    month: invoiceMonth,
+                    type: "concurrency_spike",
+                    peak_concurrent_calls: todayUsage.peak_concurrent_calls,
+                    concurrency_limit: preview.concurrency_limit,
+                  },
+                });
+              } catch (anomalyErr) {
+                // Non-blocking: log but continue
+                console.error("[BILLING] Failed to insert anomaly event:", anomalyErr);
+              }
+            }
+          }
+        }
+      } catch (anomalyErr) {
+        // Non-blocking: log but continue
+        logEvent({
+          tag: "[BILLING][ANOMALY][ERROR]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "error",
+          details: {
+            month: invoiceMonth,
+            error: anomalyErr instanceof Error ? anomalyErr.message : String(anomalyErr),
+          },
+        });
+      }
+    }
+
+    // Log guardrail OK if we passed all checks
+    if (guardrails) {
+      logEvent({
+        tag: "[BILLING][GUARDRAIL_OK]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "info",
+        details: {
+          month: invoiceMonth,
+          billable_minutes: preview.billable_minutes ?? null,
+          estimated_total_due_usd: preview.estimated_total_due_usd ?? null,
+        },
+      });
+    }
+
+    // 6) Initialize Stripe client
     let stripe: Stripe;
     try {
       stripe = getStripeClient();
@@ -241,7 +594,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4) Ensure Stripe customer exists
+    // 7) Ensure Stripe customer exists
     let stripeCustomerId: string;
     try {
       stripeCustomerId = await ensureStripeCustomer(stripe, org_id);
@@ -286,7 +639,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5) Fetch Stripe monthly price ID from billing_stripe_prices (for future use, not used in invoice items)
+    // 8) Fetch Stripe monthly price ID from billing_stripe_prices (for future use, not used in invoice items)
     // Note: Recurring prices cannot be used in invoice items, so we use custom amounts instead
     let stripePriceId: string | null = null;
     if (preview.plan_code) {
@@ -299,7 +652,7 @@ export async function POST(req: NextRequest) {
       stripePriceId = priceRow?.stripe_monthly_price_id ?? null;
     }
 
-    // 6) Create draft invoice
+    // 9) Create draft invoice
     let stripeInvoiceId: string | null = null;
     try {
       // Create invoice with auto_advance=false (draft)
@@ -390,7 +743,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7) Persist run in billing_invoice_runs (composite key: org_id, month)
+    // 10) Persist run in billing_invoice_runs (composite key: org_id, month)
     await supabaseAdmin
       .from("billing_invoice_runs")
       .upsert(
@@ -419,7 +772,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 8) Return success response
+    // 11) Return success response
     return NextResponse.json({
       status: "draft",
       stripe_invoice_id: stripeInvoiceId,

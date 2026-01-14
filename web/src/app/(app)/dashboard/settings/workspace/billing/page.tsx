@@ -145,6 +145,32 @@ function formatMonth(monthStr: string): string {
   }
 }
 
+// Map invoice status to user-friendly label
+function formatInvoiceStatus(status: string | null): string {
+  if (!status) return "—";
+  
+  const statusMap: Record<string, string> = {
+    draft: "Draft",
+    stale: "Replaced",
+    paid: "Paid",
+    open: "Open",
+    void: "Void",
+    uncollectible: "Uncollectible",
+    error: "Needs review",
+  };
+  
+  const normalized = status.toLowerCase();
+  if (statusMap[normalized]) {
+    return statusMap[normalized];
+  }
+  
+  // Default: Title Case
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function WorkspaceBillingPage() {
   const [summary, setSummary] = React.useState<BillingSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -431,6 +457,22 @@ export default function WorkspaceBillingPage() {
                 {(["starter", "growth", "scale"] as const).map((planCode) => {
                   const planDisplay = PLAN_DISPLAY[planCode];
                   const isCurrent = planCode === currentPlanCode;
+                  
+                  // Determine button label based on price comparison
+                  const currentMonthlyFee = currentPricing.monthly_fee_usd ?? currentPlanDisplay.monthly_fee;
+                  const targetMonthlyFee = planDisplay.monthly_fee;
+                  let buttonLabel = "Current";
+                  
+                  if (!isCurrent) {
+                    if (targetMonthlyFee > currentMonthlyFee) {
+                      buttonLabel = "Upgrade";
+                    } else if (targetMonthlyFee < currentMonthlyFee) {
+                      buttonLabel = "Switch plan";
+                    } else {
+                      buttonLabel = "Current";
+                    }
+                  }
+                  
                   return (
                     <div
                       key={planCode}
@@ -459,7 +501,7 @@ export default function WorkspaceBillingPage() {
                           onClick={() => handlePlanChange(planCode)}
                           className="ml-4"
                         >
-                          {isCurrent ? "Current" : "Upgrade"}
+                          {buttonLabel}
                         </Button>
                       </div>
                     </div>
@@ -501,12 +543,14 @@ export default function WorkspaceBillingPage() {
                         variant={
                           invoice.status === "draft"
                             ? "warning"
-                            : invoice.status === "error"
+                            : invoice.status === "error" || invoice.status === "stale"
                             ? "neutral"
-                            : "success"
+                            : invoice.status === "paid"
+                            ? "success"
+                            : "neutral"
                         }
                       >
-                        {invoice.status || "—"}
+                        {formatInvoiceStatus(invoice.status)}
                       </Badge>
                     </div>
                     <div className="col-span-2 text-sm font-semibold text-zinc-900 dark:text-white">
