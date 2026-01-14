@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isAdminOrOwner } from "@/lib/analytics/params";
+import { getStripeClient, ensureStripeCustomer } from "../create-draft-invoice-helpers";
 
 const RequestSchema = z.object({
   org_id: z.string().uuid(),
@@ -22,59 +23,7 @@ function getCurrentMonthStart(): string {
   return `${year}-${month}-01`;
 }
 
-/**
- * Initialize Stripe client (throws if STRIPE_SECRET_KEY missing).
- */
-function getStripeClient(): Stripe {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error("STRIPE_SECRET_KEY environment variable is required");
-  }
-  return new Stripe(secretKey, { apiVersion: "2025-02-24.acacia" });
-}
-
-/**
- * Ensure Stripe customer exists for org_id.
- * Creates customer if missing and stores mapping in billing_stripe_customers.
- */
-async function ensureStripeCustomer(
-  stripe: Stripe,
-  orgId: string
-): Promise<string> {
-  // Check existing mapping
-  const { data: existing } = await supabaseAdmin
-    .from("billing_stripe_customers")
-    .select("stripe_customer_id")
-    .eq("org_id", orgId)
-    .maybeSingle<{ stripe_customer_id: string }>();
-
-  if (existing?.stripe_customer_id) {
-    return existing.stripe_customer_id;
-  }
-
-  // Create new Stripe customer
-  const customer = await stripe.customers.create({
-    name: orgId, // Use org_id as name (no email required)
-    metadata: {
-      org_id: orgId,
-    },
-  });
-
-  // Store mapping
-  await supabaseAdmin
-    .from("billing_stripe_customers")
-    .upsert(
-      {
-        org_id: orgId,
-        stripe_customer_id: customer.id,
-      },
-      {
-        onConflict: "org_id",
-      }
-    );
-
-  return customer.id;
-}
+// Helpers moved to create-draft-invoice-helpers.ts for reuse
 
 /**
  * POST /api/billing/stripe/create-draft-invoice
@@ -344,22 +293,24 @@ export async function POST(req: NextRequest) {
             spike_multiplier: Number((row as any).spike_multiplier ?? 0),
           };
 
-          // Log raw guardrails for debugging
-          logEvent({
-            tag: "[BILLING][GUARDRAIL][RAW]",
-            ts: Date.now(),
-            stage: "COST",
-            source: "system",
-            org_id: org_id,
-            severity: "info",
-            details: {
-              month: invoiceMonth,
-              raw_type: typeof raw,
-              is_array: Array.isArray(raw),
-              raw_keys: row ? Object.keys(row) : [],
-              normalized: guardrails,
-            },
-          });
+          // Log raw guardrails for debugging (only in non-production or when BILLING_DEBUG is enabled)
+          if (process.env.NODE_ENV !== "production" || process.env.BILLING_DEBUG === "true") {
+            logEvent({
+              tag: "[BILLING][GUARDRAIL][RAW]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "system",
+              org_id: org_id,
+              severity: "info",
+              details: {
+                month: invoiceMonth,
+                raw_type: typeof raw,
+                is_array: Array.isArray(raw),
+                raw_keys: row ? Object.keys(row) : [],
+                normalized: guardrails,
+              },
+            });
+          }
         }
       }
     } catch (guardrailsErr) {

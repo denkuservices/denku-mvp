@@ -185,6 +185,8 @@ export default function WorkspaceBillingPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [changingPlan, setChangingPlan] = React.useState(false);
+  const [portalLoading, setPortalLoading] = React.useState(false);
+  const [portalError, setPortalError] = React.useState<string | null>(null);
 
   // Fetch billing summary
   const fetchSummary = React.useCallback(async () => {
@@ -208,6 +210,36 @@ export default function WorkspaceBillingPage() {
   React.useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  // Handle portal redirect
+  const handlePortalRedirect = React.useCallback(async () => {
+    try {
+      setPortalLoading(true);
+      setPortalError(null);
+      const res = await fetch("/api/billing/stripe/portal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Failed to create portal session" }));
+        throw new Error(data.error || "Failed to create portal session");
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL returned");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      setPortalError(errorMsg);
+      setPortalLoading(false);
+    }
+  }, []);
 
   // Handle plan change
   const handlePlanChange = async (planCode: string) => {
@@ -337,6 +369,26 @@ export default function WorkspaceBillingPage() {
       ]}
     >
       <div className="space-y-6">
+        {/* Portal CTA */}
+        <div className="flex items-center justify-end">
+          <Button
+            variant="primary"
+            onClick={handlePortalRedirect}
+            disabled={portalLoading}
+          >
+            {portalLoading ? "Loading..." : "Manage payment & invoices"}
+          </Button>
+        </div>
+
+        {/* Portal error alert */}
+        {portalError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/50">
+            <p className="text-sm text-red-700 dark:text-red-400">
+              {portalError}
+            </p>
+          </div>
+        )}
+
         {/* Main grid: 2/3 left, 1/3 right */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Left column: Current plan + Usage + Estimated invoice (spans 2 columns) */}
@@ -533,7 +585,7 @@ export default function WorkspaceBillingPage() {
                     if (targetPlanOrder > currentPlanOrder) {
                       buttonLabel = "Upgrade";
                     } else if (targetPlanOrder < currentPlanOrder) {
-                      buttonLabel = "Downgrade";
+                      buttonLabel = "Switch plan";
                     }
                   }
                   

@@ -209,20 +209,22 @@ export async function GET(req: NextRequest) {
       .order("month", { ascending: false })
       .limit(6);
 
-    // 10) Log event
-    logEvent({
-      tag: "[BILLING][SUMMARY]",
-      ts: Date.now(),
-      stage: "COST",
-      source: "system",
-      org_id: org_id,
-      severity: "info",
-      details: {
-        month: month,
-        has_preview: !!preview,
-        has_invoice_run: !!invoiceRun,
-      },
-    });
+    // 10) Log event (only in non-production or when BILLING_DEBUG is enabled)
+    if (process.env.NODE_ENV !== "production" || process.env.BILLING_DEBUG === "true") {
+      logEvent({
+        tag: "[BILLING][SUMMARY]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "info",
+        details: {
+          month: month,
+          has_preview: !!preview,
+          has_invoice_run: !!invoiceRun,
+        },
+      });
+    }
 
     // 11) Return response
     return NextResponse.json({
