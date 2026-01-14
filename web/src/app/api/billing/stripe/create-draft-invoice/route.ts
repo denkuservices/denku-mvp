@@ -209,21 +209,48 @@ export async function POST(req: NextRequest) {
 
     // 3) Fetch billing guardrails via RPC
     type Guardrails = {
-      max_billable_minutes_per_month: number | null;
-      max_estimated_total_due_usd_per_month: number | null;
-      spike_multiplier: number | null;
+      max_billable_minutes_per_month: number;
+      max_estimated_total_due_usd_per_month: number;
+      spike_multiplier: number;
     };
 
     let guardrails: Guardrails | null = null;
 
     try {
-      const { data: guardrailsData, error: guardrailsError } = await supabaseAdmin.rpc(
+      const { data, error: guardrailsError } = await supabaseAdmin.rpc(
         "get_billing_guardrails",
         { p_org_id: org_id }
       );
 
-      if (!guardrailsError && guardrailsData) {
-        guardrails = guardrailsData as Guardrails;
+      if (!guardrailsError && data) {
+        // Normalize RPC response (handle array or object)
+        const raw = data;
+        const row = Array.isArray(raw) ? raw[0] : raw;
+        
+        if (row) {
+          guardrails = {
+            max_billable_minutes_per_month: Number((row as any).max_billable_minutes_per_month ?? 0),
+            max_estimated_total_due_usd_per_month: Number((row as any).max_estimated_total_due_usd_per_month ?? 0),
+            spike_multiplier: Number((row as any).spike_multiplier ?? 0),
+          };
+
+          // Log raw guardrails for debugging
+          logEvent({
+            tag: "[BILLING][GUARDRAIL][RAW]",
+            ts: Date.now(),
+            stage: "COST",
+            source: "system",
+            org_id: org_id,
+            severity: "info",
+            details: {
+              month: invoiceMonth,
+              raw_type: typeof raw,
+              is_array: Array.isArray(raw),
+              raw_keys: row ? Object.keys(row) : [],
+              normalized: guardrails,
+            },
+          });
+        }
       }
     } catch (guardrailsErr) {
       // Non-blocking: log but continue
@@ -245,10 +272,11 @@ export async function POST(req: NextRequest) {
     // Coerce all values to numbers safely
     const billableMinutes = Number(preview?.billable_minutes ?? 0);
     const estDue = Number(preview?.estimated_total_due_usd ?? 0);
-    const capMinutes = Number(guardrails?.max_billable_minutes_per_month ?? 0);
-    const capAmount = Number(guardrails?.max_estimated_total_due_usd_per_month ?? 0);
+    // Use normalized guardrails values (already numbers, never null)
+    const capMinutes = guardrails ? guardrails.max_billable_minutes_per_month : 0;
+    const capAmount = guardrails ? guardrails.max_estimated_total_due_usd_per_month : 0;
 
-    // Check for NaN and log parse errors
+    // Check for NaN and log parse errors (guardrails values are already normalized)
     if (
       !Number.isFinite(billableMinutes) ||
       !Number.isFinite(estDue) ||
@@ -266,8 +294,8 @@ export async function POST(req: NextRequest) {
           month: invoiceMonth,
           raw_billable_minutes: preview?.billable_minutes,
           raw_estimated_total_due_usd: preview?.estimated_total_due_usd,
-          raw_cap_minutes: guardrails?.max_billable_minutes_per_month,
-          raw_cap_amount: guardrails?.max_estimated_total_due_usd_per_month,
+          normalized_cap_minutes: guardrails?.max_billable_minutes_per_month,
+          normalized_cap_amount: guardrails?.max_estimated_total_due_usd_per_month,
           billableMinutes: Number.isFinite(billableMinutes) ? billableMinutes : 0,
           estDue: Number.isFinite(estDue) ? estDue : 0,
           capMinutes: Number.isFinite(capMinutes) ? capMinutes : 0,
@@ -283,8 +311,8 @@ export async function POST(req: NextRequest) {
     const safeCapAmount = Number.isFinite(capAmount) ? capAmount : 0;
 
     // Check billable_minutes cap (blocking)
-    if (guardrails && safeBillableMinutes > safeCapMinutes) {
-        // Insert anomaly event
+    if (guardrails && safeBillableMinutes > capMinutes) {
+        // Insert anomaly event (use normalized guardrails value, never 0 fallback)
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
             org_id: org_id,
@@ -293,7 +321,7 @@ export async function POST(req: NextRequest) {
             type: "minutes_cap",
             details: {
               billable_minutes: safeBillableMinutes,
-              cap: safeCapMinutes,
+              cap: guardrails.max_billable_minutes_per_month,
             },
           });
         } catch (anomalyErr) {
@@ -312,7 +340,7 @@ export async function POST(req: NextRequest) {
             month: invoiceMonth,
             type: "minutes_cap",
             billable_minutes: safeBillableMinutes,
-            cap: safeCapMinutes,
+            cap: guardrails.max_billable_minutes_per_month,
           },
         });
 
@@ -335,7 +363,7 @@ export async function POST(req: NextRequest) {
           {
             status: "blocked",
             reason: "minutes_cap",
-            cap: safeCapMinutes,
+            cap: guardrails.max_billable_minutes_per_month,
             value: safeBillableMinutes,
           },
           { status: 200 }
@@ -343,8 +371,8 @@ export async function POST(req: NextRequest) {
       }
 
     // Check estimated_total_due_usd cap (blocking)
-    if (guardrails && safeEstDue > safeCapAmount) {
-        // Insert anomaly event
+    if (guardrails && safeEstDue > capAmount) {
+        // Insert anomaly event (use normalized guardrails value, never 0 fallback)
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
             org_id: org_id,
@@ -353,7 +381,7 @@ export async function POST(req: NextRequest) {
             type: "amount_cap",
             details: {
               estimated_total_due_usd: safeEstDue,
-              cap: safeCapAmount,
+              cap: guardrails.max_estimated_total_due_usd_per_month,
             },
           });
         } catch (anomalyErr) {
@@ -372,7 +400,7 @@ export async function POST(req: NextRequest) {
             month: invoiceMonth,
             type: "amount_cap",
             estimated_total_due_usd: safeEstDue,
-            cap: safeCapAmount,
+            cap: guardrails.max_estimated_total_due_usd_per_month,
           },
         });
 
@@ -395,7 +423,7 @@ export async function POST(req: NextRequest) {
         {
           status: "blocked",
           reason: "amount_cap",
-          cap: safeCapAmount,
+          cap: guardrails.max_estimated_total_due_usd_per_month,
           value: safeEstDue,
         },
         { status: 200 }
@@ -414,9 +442,9 @@ export async function POST(req: NextRequest) {
         details: {
           month: invoiceMonth,
           billableMinutes: safeBillableMinutes,
-          capMinutes: safeCapMinutes,
+          capMinutes: guardrails.max_billable_minutes_per_month,
           estDue: safeEstDue,
-          capAmount: safeCapAmount,
+          capAmount: guardrails.max_estimated_total_due_usd_per_month,
           hasGuardrails: true,
         },
       });
