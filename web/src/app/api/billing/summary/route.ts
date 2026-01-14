@@ -108,16 +108,14 @@ export async function GET(req: NextRequest) {
     // 8) Fetch plan catalog using supabaseAdmin (service role) - plan_pricing is a VIEW (no RLS)
     const { data: plansData, error: plansError } = await supabaseAdmin
       .from("plan_pricing")
-      .select("plan_code, monthly_fee_usd, concurrency_limit, included_minutes, overage_rate_usd_per_min, phone_numbers_included")
+      .select("plan_code, monthly_fee_usd, included_minutes, overage_rate_usd_per_min")
       .order("plan_code");
 
     let plans: Array<{
       plan_code: string;
       monthly_fee_usd: number | null;
-      concurrency_limit: number | null;
       included_minutes: number | null;
       overage_rate_usd_per_min: number | null;
-      phone_numbers_included?: number | null;
     }> = [];
 
     if (plansError) {
@@ -150,23 +148,21 @@ export async function GET(req: NextRequest) {
       plans = plansData.map((row) => ({
         plan_code: row.plan_code,
         monthly_fee_usd: row.monthly_fee_usd,
-        concurrency_limit: row.concurrency_limit ?? null,
         included_minutes: row.included_minutes,
         overage_rate_usd_per_min: row.overage_rate_usd_per_min,
-        ...(row.phone_numbers_included !== undefined && { phone_numbers_included: row.phone_numbers_included }),
       }));
     }
 
     // 8a) Optionally fetch billing_stripe_prices via supabaseAdmin (same pattern)
     const { data: stripePricesData, error: stripePricesError } = await supabaseAdmin
       .from("billing_stripe_prices")
-      .select("plan_code, stripe_monthly_price_id, stripe_annual_price_id")
+      .select("plan_code, stripe_monthly_price_id, stripe_overage_price_id")
       .order("plan_code");
 
     let stripe_prices: Array<{
       plan_code: string;
       stripe_monthly_price_id: string | null;
-      stripe_annual_price_id: string | null;
+      stripe_overage_price_id: string | null;
     }> = [];
 
     if (stripePricesError) {
@@ -187,7 +183,7 @@ export async function GET(req: NextRequest) {
       stripe_prices = stripePricesData.map((row) => ({
         plan_code: row.plan_code,
         stripe_monthly_price_id: row.stripe_monthly_price_id,
-        stripe_annual_price_id: row.stripe_annual_price_id,
+        stripe_overage_price_id: row.stripe_overage_price_id,
       }));
     }
 

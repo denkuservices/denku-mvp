@@ -37,10 +37,8 @@ type BillingSummary = {
   plans: Array<{
     plan_code: string;
     monthly_fee_usd: number | null;
-    concurrency_limit: number | null;
     included_minutes: number | null;
     overage_rate_usd_per_min: number | null;
-    phone_numbers_included?: number | null;
   }>;
   history: Array<{
     month: string;
@@ -372,7 +370,7 @@ export default function WorkspaceBillingPage() {
                       Plan includes:
                     </p>
                     <ul className="space-y-1.5">
-                      {currentPlan.concurrency_limit !== null && (
+                      {planLimits?.concurrency_limit !== null && planLimits?.concurrency_limit !== undefined && (
                         <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                           <svg
                             className="h-4 w-4 text-zinc-400"
@@ -388,7 +386,7 @@ export default function WorkspaceBillingPage() {
                               d="M5 13l4 4L19 7"
                             />
                           </svg>
-                          {currentPlan.concurrency_limit} concurrent calls
+                          {planLimits.concurrency_limit} concurrent calls
                         </li>
                       )}
                       {currentPlan.included_minutes !== null && (
@@ -429,25 +427,6 @@ export default function WorkspaceBillingPage() {
                           {formatUsd(currentPlan.overage_rate_usd_per_min)}/min overage
                         </li>
                       )}
-                      {currentPlan.phone_numbers_included !== null && currentPlan.phone_numbers_included !== undefined && (
-                        <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                          <svg
-                            className="h-4 w-4 text-zinc-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          {currentPlan.phone_numbers_included} phone number{currentPlan.phone_numbers_included !== 1 ? "s" : ""} included
-                        </li>
-                      )}
                     </ul>
                   </div>
                 </div>
@@ -476,7 +455,7 @@ export default function WorkspaceBillingPage() {
                 <UsageStat
                   label="Peak concurrent"
                   value={(preview?.peak_concurrent_calls || 0).toString()}
-                  hint={currentPlan?.concurrency_limit !== null && currentPlan?.concurrency_limit !== undefined ? `Limit: ${currentPlan.concurrency_limit}` : planLimits?.concurrency_limit ? `Limit: ${planLimits.concurrency_limit}` : undefined}
+                  hint={planLimits?.concurrency_limit ? `Limit: ${planLimits.concurrency_limit}` : undefined}
                 />
               </div>
             </Card>
@@ -561,9 +540,7 @@ export default function WorkspaceBillingPage() {
                             {getPlanName(plan.plan_code)}
                           </h4>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {plan.concurrency_limit !== null ? `${plan.concurrency_limit} concurrent` : ""}
-                            {plan.concurrency_limit !== null && plan.included_minutes !== null ? " • " : ""}
-                            {plan.included_minutes !== null ? `${plan.included_minutes.toLocaleString()} min` : ""}
+                            {plan.included_minutes !== null ? `${plan.included_minutes.toLocaleString()} min included` : ""}
                           </p>
                           <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                             {formatUsd(plan.monthly_fee_usd)}/month
