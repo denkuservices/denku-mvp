@@ -105,11 +105,11 @@ export async function GET(req: NextRequest) {
       pricing = pricingRow;
     }
 
-    // 8) Query plan_pricing for all plans (starter, growth, scale)
+    // 8) Fetch plan catalog using supabaseAdmin (service role) - plan_pricing is a VIEW (no RLS)
     const { data: plansData, error: plansError } = await supabaseAdmin
       .from("plan_pricing")
       .select("plan_code, monthly_fee_usd, concurrency_limit, included_minutes, overage_rate_usd_per_min, phone_numbers_included")
-      .in("plan_code", ["starter", "growth", "scale"]);
+      .order("plan_code");
 
     let plans: Array<{
       plan_code: string;
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
 
     if (plansError) {
       logEvent({
-        tag: "[BILLING][PLANS_MISSING]",
+        tag: "[BILLING][PLANS][FETCH_ERROR]",
         ts: Date.now(),
         stage: "COST",
         source: "system",
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
       });
     } else if (!plansData || plansData.length === 0) {
       logEvent({
-        tag: "[BILLING][PLANS_MISSING]",
+        tag: "[BILLING][PLANS][EMPTY]",
         ts: Date.now(),
         stage: "COST",
         source: "system",
@@ -154,6 +154,40 @@ export async function GET(req: NextRequest) {
         included_minutes: row.included_minutes,
         overage_rate_usd_per_min: row.overage_rate_usd_per_min,
         ...(row.phone_numbers_included !== undefined && { phone_numbers_included: row.phone_numbers_included }),
+      }));
+    }
+
+    // 8a) Optionally fetch billing_stripe_prices via supabaseAdmin (same pattern)
+    const { data: stripePricesData, error: stripePricesError } = await supabaseAdmin
+      .from("billing_stripe_prices")
+      .select("plan_code, stripe_monthly_price_id, stripe_annual_price_id")
+      .order("plan_code");
+
+    let stripe_prices: Array<{
+      plan_code: string;
+      stripe_monthly_price_id: string | null;
+      stripe_annual_price_id: string | null;
+    }> = [];
+
+    if (stripePricesError) {
+      // Non-blocking: log but continue
+      logEvent({
+        tag: "[BILLING][STRIPE_PRICES][FETCH_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "warn",
+        details: {
+          month: month,
+          error: stripePricesError.message,
+        },
+      });
+    } else if (stripePricesData && stripePricesData.length > 0) {
+      stripe_prices = stripePricesData.map((row) => ({
+        plan_code: row.plan_code,
+        stripe_monthly_price_id: row.stripe_monthly_price_id,
+        stripe_annual_price_id: row.stripe_annual_price_id,
       }));
     }
 
@@ -194,6 +228,7 @@ export async function GET(req: NextRequest) {
         overage_rate_usd_per_min: null,
       },
       plans: plans,
+      stripe_prices: stripe_prices,
       history: (history || []).map((h) => ({
         month: h.month,
         status: h.status,
