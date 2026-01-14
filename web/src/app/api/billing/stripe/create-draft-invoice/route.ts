@@ -7,6 +7,7 @@ import { logEvent } from "@/lib/observability/logEvent";
 const RequestSchema = z.object({
   org_id: z.string().uuid(),
   month: z.string().regex(/^\d{4}-\d{2}-01$/).optional(), // YYYY-MM-01 format
+  force_recompute: z.boolean().optional(), // Admin testing knob
 });
 
 /**
@@ -105,39 +106,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { org_id, month } = parseResult.data;
+    const { org_id, month, force_recompute } = parseResult.data;
     const invoiceMonth = month || getCurrentMonthStart();
 
-    // 1) Check idempotency: if billing_invoice_runs exists with stripe_invoice_id, return it
-    const { data: existingRun } = await supabaseAdmin
-      .from("billing_invoice_runs")
-      .select("stripe_invoice_id, estimated_total_due_usd")
-      .eq("org_id", org_id)
-      .eq("month", invoiceMonth)
-      .maybeSingle<{
-        stripe_invoice_id: string | null;
-        estimated_total_due_usd: number | null;
-      }>();
+    // 1) Check idempotency: if billing_invoice_runs exists with stripe_invoice_id AND status='draft', return it
+    // BUT if force_recompute=true OR status is 'stale'/'blocked' OR stripe_invoice_id is null, proceed to recompute
+    if (!force_recompute) {
+      const { data: existingRun } = await supabaseAdmin
+        .from("billing_invoice_runs")
+        .select("stripe_invoice_id, estimated_total_due_usd, status")
+        .eq("org_id", org_id)
+        .eq("month", invoiceMonth)
+        .maybeSingle<{
+          stripe_invoice_id: string | null;
+          estimated_total_due_usd: number | null;
+          status: string | null;
+        }>();
 
-    if (existingRun?.stripe_invoice_id) {
-      logEvent({
-        tag: "[BILLING][INVOICE][IDEMPOTENT_HIT]",
-        ts: Date.now(),
-        stage: "COST",
-        source: "system",
-        org_id: org_id,
-        severity: "info",
-        details: {
-          month: invoiceMonth,
+      // Only return early if we have a valid draft invoice
+      if (
+        existingRun?.stripe_invoice_id &&
+        existingRun.status === "draft"
+      ) {
+        logEvent({
+          tag: "[BILLING][INVOICE][IDEMPOTENT_HIT]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "info",
+          details: {
+            month: invoiceMonth,
+            stripe_invoice_id: existingRun.stripe_invoice_id,
+          },
+        });
+
+        return NextResponse.json({
+          status: "draft",
           stripe_invoice_id: existingRun.stripe_invoice_id,
-        },
-      });
-
-      return NextResponse.json({
-        status: "draft",
-        stripe_invoice_id: existingRun.stripe_invoice_id,
-        estimated_total_due_usd: existingRun.estimated_total_due_usd ?? 0,
-      });
+          estimated_total_due_usd: existingRun.estimated_total_due_usd ?? 0,
+        });
+      }
     }
 
     // 2) Read billing truth from org_monthly_invoice_preview
@@ -232,14 +241,49 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4) Hard cap enforcement (blocking)
-    if (guardrails) {
-      // Check billable_minutes cap
-      if (
-        guardrails.max_billable_minutes_per_month !== null &&
-        preview.billable_minutes !== null &&
-        preview.billable_minutes > guardrails.max_billable_minutes_per_month
-      ) {
+    // 4) Hard cap enforcement (blocking) - MUST execute BEFORE Stripe invoice creation
+    // Coerce all values to numbers safely
+    const billableMinutes = Number(preview?.billable_minutes ?? 0);
+    const estDue = Number(preview?.estimated_total_due_usd ?? 0);
+    const capMinutes = Number(guardrails?.max_billable_minutes_per_month ?? 0);
+    const capAmount = Number(guardrails?.max_estimated_total_due_usd_per_month ?? 0);
+
+    // Check for NaN and log parse errors
+    if (
+      !Number.isFinite(billableMinutes) ||
+      !Number.isFinite(estDue) ||
+      (guardrails && !Number.isFinite(capMinutes)) ||
+      (guardrails && !Number.isFinite(capAmount))
+    ) {
+      logEvent({
+        tag: "[BILLING][GUARDRAIL][PARSE_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "warn",
+        details: {
+          month: invoiceMonth,
+          raw_billable_minutes: preview?.billable_minutes,
+          raw_estimated_total_due_usd: preview?.estimated_total_due_usd,
+          raw_cap_minutes: guardrails?.max_billable_minutes_per_month,
+          raw_cap_amount: guardrails?.max_estimated_total_due_usd_per_month,
+          billableMinutes: Number.isFinite(billableMinutes) ? billableMinutes : 0,
+          estDue: Number.isFinite(estDue) ? estDue : 0,
+          capMinutes: Number.isFinite(capMinutes) ? capMinutes : 0,
+          capAmount: Number.isFinite(capAmount) ? capAmount : 0,
+        },
+      });
+    }
+
+    // Use safe coerced values (treat NaN as 0)
+    const safeBillableMinutes = Number.isFinite(billableMinutes) ? billableMinutes : 0;
+    const safeEstDue = Number.isFinite(estDue) ? estDue : 0;
+    const safeCapMinutes = Number.isFinite(capMinutes) ? capMinutes : 0;
+    const safeCapAmount = Number.isFinite(capAmount) ? capAmount : 0;
+
+    // Check billable_minutes cap (blocking)
+    if (guardrails && safeBillableMinutes > safeCapMinutes) {
         // Insert anomaly event
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
@@ -248,8 +292,8 @@ export async function POST(req: NextRequest) {
             severity: "block",
             type: "minutes_cap",
             details: {
-              billable_minutes: preview.billable_minutes,
-              cap: guardrails.max_billable_minutes_per_month,
+              billable_minutes: safeBillableMinutes,
+              cap: safeCapMinutes,
             },
           });
         } catch (anomalyErr) {
@@ -267,8 +311,8 @@ export async function POST(req: NextRequest) {
           details: {
             month: invoiceMonth,
             type: "minutes_cap",
-            billable_minutes: preview.billable_minutes,
-            cap: guardrails.max_billable_minutes_per_month,
+            billable_minutes: safeBillableMinutes,
+            cap: safeCapMinutes,
           },
         });
 
@@ -279,7 +323,7 @@ export async function POST(req: NextRequest) {
             {
               org_id: org_id,
               month: invoiceMonth,
-              estimated_total_due_usd: preview.estimated_total_due_usd ?? null,
+              estimated_total_due_usd: safeEstDue > 0 ? safeEstDue : null,
               stripe_invoice_id: null,
               status: "blocked",
             },
@@ -291,19 +335,15 @@ export async function POST(req: NextRequest) {
           {
             status: "blocked",
             reason: "minutes_cap",
-            cap: guardrails.max_billable_minutes_per_month,
-            value: preview.billable_minutes,
+            cap: safeCapMinutes,
+            value: safeBillableMinutes,
           },
           { status: 200 }
         );
       }
 
-      // Check estimated_total_due_usd cap
-      if (
-        guardrails.max_estimated_total_due_usd_per_month !== null &&
-        preview.estimated_total_due_usd !== null &&
-        preview.estimated_total_due_usd > guardrails.max_estimated_total_due_usd_per_month
-      ) {
+    // Check estimated_total_due_usd cap (blocking)
+    if (guardrails && safeEstDue > safeCapAmount) {
         // Insert anomaly event
         try {
           await supabaseAdmin.from("billing_anomaly_events").insert({
@@ -312,8 +352,8 @@ export async function POST(req: NextRequest) {
             severity: "block",
             type: "amount_cap",
             details: {
-              estimated_total_due_usd: preview.estimated_total_due_usd,
-              cap: guardrails.max_estimated_total_due_usd_per_month,
+              estimated_total_due_usd: safeEstDue,
+              cap: safeCapAmount,
             },
           });
         } catch (anomalyErr) {
@@ -331,8 +371,8 @@ export async function POST(req: NextRequest) {
           details: {
             month: invoiceMonth,
             type: "amount_cap",
-            estimated_total_due_usd: preview.estimated_total_due_usd,
-            cap: guardrails.max_estimated_total_due_usd_per_month,
+            estimated_total_due_usd: safeEstDue,
+            cap: safeCapAmount,
           },
         });
 
@@ -343,7 +383,7 @@ export async function POST(req: NextRequest) {
             {
               org_id: org_id,
               month: invoiceMonth,
-              estimated_total_due_usd: preview.estimated_total_due_usd,
+              estimated_total_due_usd: safeEstDue > 0 ? safeEstDue : null,
               stripe_invoice_id: null,
               status: "blocked",
             },
@@ -351,16 +391,35 @@ export async function POST(req: NextRequest) {
           )
           .select();
 
-        return NextResponse.json(
-          {
-            status: "blocked",
-            reason: "amount_cap",
-            cap: guardrails.max_estimated_total_due_usd_per_month,
-            value: preview.estimated_total_due_usd,
-          },
-          { status: 200 }
-        );
-      }
+      return NextResponse.json(
+        {
+          status: "blocked",
+          reason: "amount_cap",
+          cap: safeCapAmount,
+          value: safeEstDue,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Log guardrail OK if we passed all checks (BEFORE Stripe invoice creation)
+    if (guardrails) {
+      logEvent({
+        tag: "[BILLING][GUARDRAIL_OK]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "info",
+        details: {
+          month: invoiceMonth,
+          billableMinutes: safeBillableMinutes,
+          capMinutes: safeCapMinutes,
+          estDue: safeEstDue,
+          capAmount: safeCapAmount,
+          hasGuardrails: true,
+        },
+      });
     }
 
     // 5) Anomaly detection (non-blocking, log-only)
@@ -532,22 +591,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Log guardrail OK if we passed all checks
-    if (guardrails) {
-      logEvent({
-        tag: "[BILLING][GUARDRAIL_OK]",
-        ts: Date.now(),
-        stage: "COST",
-        source: "system",
-        org_id: org_id,
-        severity: "info",
-        details: {
-          month: invoiceMonth,
-          billable_minutes: preview.billable_minutes ?? null,
-          estimated_total_due_usd: preview.estimated_total_due_usd ?? null,
-        },
-      });
-    }
 
     // 6) Initialize Stripe client
     let stripe: Stripe;
