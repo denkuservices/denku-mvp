@@ -1,0 +1,15 @@
+name: Close Month Billing
+
+on:
+  schedule:
+    - cron: "10 0 1 * *" # Monthly at 00:10 UTC
+  workflow_dispatch:
+
+jobs:
+  close_month:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call close-month endpoint
+        run: |
+          curl -sS -X GET "https://denku-mvp.vercel.app/api/billing/cron/close-month" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
