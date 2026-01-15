@@ -10,12 +10,13 @@ const BodySchema = z.object({
 });
 
 /**
- * POST /api/internal/enforce-pause
+ * POST /api/internal/enforce-billing-pause
  * 
  * Internal repair endpoint to enforce telephony pause for already-paused orgs.
  * If org is billing-paused (workspace_status='paused' and paused_reason in 'hard_cap','past_due'),
  * unbinds phone numbers from assistants.
  * 
+ * Purpose: Fix already-paused orgs deterministically (enforce VAPI phone number unbind).
  * Protected with Basic Auth (ADMIN_USER/ADMIN_PASS).
  */
 export async function POST(req: NextRequest) {
