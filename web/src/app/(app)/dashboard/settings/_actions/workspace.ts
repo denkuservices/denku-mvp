@@ -7,10 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
 import { logEvent } from "@/lib/observability/logEvent";
-import {
-  unbindOrgPhoneNumbers,
-  rebindOrgPhoneNumbers,
-} from "@/lib/vapi/phoneNumberBinding";
+import { pauseWorkspace, resumeWorkspace } from "@/lib/workspace/pause";
 
 // Get valid language and timezone values for validation
 const VALID_LANGUAGE_VALUES = LANGUAGE_OPTIONS.map((opt) => opt.value);
@@ -425,61 +422,17 @@ export async function toggleWorkspaceStatus(
   const newPausedAt = action === "pause" ? new Date().toISOString() : null;
   const newPausedReason = action === "pause" ? "manual" : null;
 
-  // 4a) Backend enforcement: Block resume if paused_reason is billing-related
-  // Only allow resume if paused_reason is null or 'manual'
-  if (newStatus === "active" && oldStatus === "paused") {
-    const pausedReason = existingSettings?.paused_reason;
-    if (pausedReason === "hard_cap" || pausedReason === "past_due") {
-      // Billing issue - cannot resume manually
-      logEvent({
-        tag: "[WORKSPACE][RESUME_BLOCKED]",
-        ts: Date.now(),
-        stage: "CALL",
-        source: "system",
-        org_id: orgId,
-        severity: "warn",
-        details: {
-          paused_reason: pausedReason,
-          user_id: user.id,
-          attempted_action: "resume",
-        },
-      });
-
-      return {
-        ok: false,
-        error: "Billing issue. Update payment method to resume.",
-      };
-    }
-  }
-
-  // 5) Upsert organization_settings with new status
-  // Use supabaseAdmin for service role access
-  const { data: updated, error: upsertErr } = await supabaseAdmin
-    .from("organization_settings")
-    .upsert(
-      {
-        org_id: orgId,
-        workspace_status: newStatus,
-        paused_at: newPausedAt,
-        paused_reason: newPausedReason,
-      },
-      {
-        onConflict: "org_id",
-      }
-    )
-    .select()
-    .single<OrganizationSettings>();
-
-  if (upsertErr) {
-    return { ok: false, error: `Failed to update workspace status: ${upsertErr.message}` };
-  }
-
-  // 6) Handle Vapi assistants (CRITICAL: Stop all calls)
+  // 5) Call unified pause/resume implementation
+  // ⚠️ CRITICAL: ALL pause/resume operations use the same code path for identical telephony behavior
+  // This ensures UI pause and billing pause produce IDENTICAL results
   if (oldStatus !== newStatus) {
     try {
       if (action === "pause") {
-        // Pause: Unbind phone numbers from assistants (prevents calls)
-        await unbindOrgPhoneNumbers(orgId, "manual");
+        // Pause: Call unified pauseWorkspace (same code path as billing pause)
+        await pauseWorkspace(orgId, "manual", {
+          user_id: user.id,
+          source: "ui",
+        });
 
         // Log audit event for manual pause
         try {
@@ -512,9 +465,12 @@ export async function toggleWorkspaceStatus(
           console.error("[WORKSPACE STATUS] Audit logging failed:", auditErr);
         }
       } else {
-        // Resume: Re-bind phone numbers to assistants
-        // rebindOrgPhoneNumbers has guard - will not rebind if billing-paused
-        await rebindOrgPhoneNumbers(orgId);
+        // Resume: Call unified resumeWorkspace (same code path as billing resume)
+        // resumeWorkspace has guard - will block if paused_reason is billing-related
+        await resumeWorkspace(orgId, {
+          user_id: user.id,
+          source: "ui",
+        });
 
         // Log audit event for manual resume
         try {
@@ -547,11 +503,22 @@ export async function toggleWorkspaceStatus(
           console.error("[WORKSPACE STATUS] Audit logging failed:", auditErr);
         }
       }
-    } catch (vapiErr) {
-      console.error("[WORKSPACE STATUS] Vapi assistant update failed:", vapiErr);
-      // Don't fail the entire operation if Vapi update fails
-      // The workspace status is already updated in DB
+    } catch (pauseResumeErr) {
+      // Unified functions throw on failure - return error to UI
+      const errorMsg = pauseResumeErr instanceof Error ? pauseResumeErr.message : String(pauseResumeErr);
+      return { ok: false, error: errorMsg };
     }
+  }
+
+  // 6) Fetch updated settings to return
+  const { data: updated, error: fetchErr } = await supabaseAdmin
+    .from("organization_settings")
+    .select()
+    .eq("org_id", orgId)
+    .single<OrganizationSettings>();
+
+  if (fetchErr) {
+    return { ok: false, error: `Failed to fetch updated workspace status: ${fetchErr.message}` };
   }
 
   // 7) Log audit event for workspace status change
