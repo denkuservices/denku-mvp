@@ -84,13 +84,13 @@ export async function GET(req: NextRequest) {
       .eq("org_id", org_id)
       .maybeSingle<{ plan_code: string | null; concurrency_limit: number | null }>();
 
-    // 6a) Query organization_settings for billing_status
+    // 6a) Query organization_settings for workspace status
     const { data: orgSettings } = await supabaseAdmin
       .from("organization_settings")
-      .select("billing_status, paused_reason, paused_at")
+      .select("workspace_status, paused_reason, paused_at")
       .eq("org_id", org_id)
       .maybeSingle<{
-        billing_status: string | null;
+        workspace_status: "active" | "paused" | null;
         paused_reason: string | null;
         paused_at: string | null;
       }>();
@@ -258,7 +258,9 @@ export async function GET(req: NextRequest) {
         stripe_invoice_id: h.stripe_invoice_id,
         estimated_total_due_usd: h.estimated_total_due_usd,
       })),
-      billing_status: orgSettings?.billing_status || "active",
+      billing_status: orgSettings?.workspace_status === "paused" && (orgSettings?.paused_reason === "past_due" || orgSettings?.paused_reason === "hard_cap")
+        ? (orgSettings.paused_reason === "past_due" ? "past_due" : "paused")
+        : "active",
       paused_reason: orgSettings?.paused_reason || null,
       paused_at: orgSettings?.paused_at || null,
     });

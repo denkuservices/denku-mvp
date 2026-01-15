@@ -23,7 +23,8 @@ const DEFAULT_CONCURRENCY_LIMIT = 1;
  * Returns { plan: string, status: string } or null if not found.
  * 
  * Status is derived from:
- * 1. billing_status (if not 'active', blocks calls)
+ * 1. organization_settings.workspace_status and paused_reason (via getOrgBillingStatus)
+ *    - If workspace_status='paused' and paused_reason in ('hard_cap','past_due'), blocks calls
  * 2. organizations.status (if column exists)
  * 3. organization_settings.workspace_status (fallback)
  * 4. Defaults to "active"
@@ -35,10 +36,11 @@ const DEFAULT_CONCURRENCY_LIMIT = 1;
  */
 export async function getOrgPlan(orgId: string): Promise<{ plan: string; status: string } | null> {
   try {
-    // Check billing_status first (blocks if past_due or paused)
+    // Check billing status (derived from workspace_status and paused_reason)
+    // Blocks if workspace_status='paused' and paused_reason in ('hard_cap','past_due')
     const billingStatus = await getOrgBillingStatus(orgId);
     if (billingStatus && billingStatus !== "active") {
-      // Billing status blocks calls
+      // Billing status blocks calls (org is billing-paused)
       return { plan: "mvp", status: "paused" }; // Return paused to block
     }
 

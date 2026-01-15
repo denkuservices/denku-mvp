@@ -180,9 +180,13 @@ export async function resumeWorkspace(
   const pausedReason = orgSettings?.paused_reason;
   const currentStatus = orgSettings?.workspace_status ?? "active";
 
-  // Step 1a: Block resume if billing-related pause (hard_cap/past_due)
-  // Only allow resume if paused_reason is null or 'manual'
+  // Step 1a: Runtime guard for resume
+  // Rules:
+  // - If paused_reason == 'manual' -> allow resume
+  // - If paused_reason in ('hard_cap','past_due') -> deny resume (403)
+  // - If paused_reason is null -> allow resume
   if (currentStatus === "paused" && (pausedReason === "hard_cap" || pausedReason === "past_due")) {
+    // Billing issue - cannot resume manually
     const errorMsg = "Billing issue. Update payment method to resume.";
     logEvent({
       tag: "[WORKSPACE][RESUME][BLOCKED]",
@@ -201,6 +205,7 @@ export async function resumeWorkspace(
     });
     throw new Error(errorMsg);
   }
+  // If paused_reason is 'manual' or null, proceed with resume
 
   // Step 2: Update organization_settings
   const { error: dbError } = await supabaseAdmin
@@ -209,7 +214,6 @@ export async function resumeWorkspace(
       {
         org_id: orgId,
         workspace_status: "active",
-        billing_status: "active",
         paused_reason: null,
         paused_at: null,
       },

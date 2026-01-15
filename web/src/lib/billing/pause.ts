@@ -165,25 +165,46 @@ export async function resumeOrgBilling(
 }
 
 /**
- * Get organization billing status.
+ * Get organization billing status based on workspace_status and paused_reason.
+ * 
+ * Uses existing fields only (no billing_status column):
+ * - workspace_status='active' && paused_reason is null -> 'active'
+ * - workspace_status='paused' && paused_reason='past_due' -> 'past_due'
+ * - workspace_status='paused' && paused_reason='hard_cap' -> 'paused'
+ * - workspace_status='paused' && paused_reason='manual' -> 'active' (manual pause, not billing)
  */
 export async function getOrgBillingStatus(
   orgId: string
 ): Promise<"active" | "past_due" | "paused" | null> {
   const { data } = await supabaseAdmin
     .from("organization_settings")
-    .select("billing_status")
+    .select("workspace_status, paused_reason")
     .eq("org_id", orgId)
-    .maybeSingle<{ billing_status: string | null }>();
+    .maybeSingle<{
+      workspace_status: "active" | "paused" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+    }>();
 
   if (!data) {
     return null;
   }
 
-  const status = data.billing_status;
-  if (status === "active" || status === "past_due" || status === "paused") {
-    return status;
+  const workspaceStatus = data.workspace_status ?? "active";
+  const pausedReason = data.paused_reason;
+
+  // If active, return active
+  if (workspaceStatus === "active") {
+    return "active";
   }
 
-  return "active"; // Default to active if invalid
+  // If paused, map paused_reason to billing status
+  if (pausedReason === "past_due") {
+    return "past_due";
+  }
+  if (pausedReason === "hard_cap") {
+    return "paused";
+  }
+
+  // Manual pause or null - treat as active (not a billing issue)
+  return "active";
 }
