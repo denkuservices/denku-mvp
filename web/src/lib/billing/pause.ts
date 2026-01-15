@@ -10,12 +10,16 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { pauseWorkspace, resumeWorkspace } from "@/lib/workspace/pause";
+import { enforceTelephonyPause } from "@/lib/workspace/enforcePause";
 
 /**
  * Pause workspace due to billing issue (hard_cap or payment_failed).
  * 
  * This is a wrapper around the unified pauseWorkspace() function.
  * ALL pause operations use the same code path for identical telephony behavior.
+ * 
+ * CRITICAL: After pauseWorkspace(), we also call enforceTelephonyPause() to ensure
+ * VAPI state matches DB state even if pauseWorkspace() unbind had any issues.
  */
 export async function pauseOrgBilling(
   orgId: string,
@@ -41,11 +45,51 @@ export async function pauseOrgBilling(
   });
 
   // Call unified pause implementation - same code path as UI pause
+  // This updates DB and calls VAPI to unbind phone numbers
   await pauseWorkspace(orgId, pausedReason, {
     ...details,
     source: "billing",
     billing_reason: reason,
   });
+
+  // CRITICAL: Auto-enforce telephony pause state
+  // This ensures VAPI unbind even if pauseWorkspace() had any issues
+  // It reads DB state and enforces VAPI state to match
+  try {
+    await enforceTelephonyPause(orgId);
+    logEvent({
+      tag: "[BILLING][PAUSE][ENFORCE_OK]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "info",
+      details: {
+        reason: reason,
+        paused_reason: pausedReason,
+        message: "Telephony pause enforced successfully",
+        ...details,
+      },
+    });
+  } catch (enforceErr) {
+    // Log but don't throw - pauseWorkspace() already succeeded
+    // The enforcement failure is logged within enforceTelephonyPause()
+    logEvent({
+      tag: "[BILLING][PAUSE][ENFORCE_WARN]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        reason: reason,
+        paused_reason: pausedReason,
+        error: enforceErr instanceof Error ? enforceErr.message : String(enforceErr),
+        message: "Telephony pause enforcement failed (pauseWorkspace already succeeded)",
+        ...details,
+      },
+    });
+  }
 }
 
 /**
