@@ -3,6 +3,7 @@ import { logEvent } from "@/lib/observability/logEvent";
 
 /**
  * Set organization billing status to paused or past_due.
+ * Also pauses the workspace by setting workspace_status = 'paused'.
  * Updates organization_settings table.
  */
 export async function pauseOrgBilling(
@@ -12,6 +13,7 @@ export async function pauseOrgBilling(
 ): Promise<void> {
   const billingStatus = reason === "hard_cap" ? "paused" : "past_due";
   const pausedReason = reason === "hard_cap" ? "Usage cap reached" : "Payment failed";
+  const pausedAt = new Date().toISOString();
 
   await supabaseAdmin
     .from("organization_settings")
@@ -19,8 +21,9 @@ export async function pauseOrgBilling(
       {
         org_id: orgId,
         billing_status: billingStatus,
+        workspace_status: "paused",
         paused_reason: pausedReason,
-        paused_at: new Date().toISOString(),
+        paused_at: pausedAt,
       },
       { onConflict: "org_id" }
     );
@@ -34,8 +37,10 @@ export async function pauseOrgBilling(
     severity: "warn",
     details: {
       billing_status: billingStatus,
+      workspace_status: "paused",
       reason: reason,
       paused_reason: pausedReason,
+      paused_at: pausedAt,
       ...details,
     },
   });
