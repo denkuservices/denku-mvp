@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
+import { getOrgBillingStatus } from "@/lib/billing/pause";
 
 /**
  * Plan-to-concurrency limit mapping.
@@ -22,9 +23,10 @@ const DEFAULT_CONCURRENCY_LIMIT = 1;
  * Returns { plan: string, status: string } or null if not found.
  * 
  * Status is derived from:
- * 1. organizations.status (if column exists)
- * 2. organization_settings.workspace_status (fallback)
- * 3. Defaults to "active"
+ * 1. billing_status (if not 'active', blocks calls)
+ * 2. organizations.status (if column exists)
+ * 3. organization_settings.workspace_status (fallback)
+ * 4. Defaults to "active"
  * 
  * Plan is read from organizations.plan (defaults to "mvp" if missing/unknown).
  * 
@@ -33,6 +35,13 @@ const DEFAULT_CONCURRENCY_LIMIT = 1;
  */
 export async function getOrgPlan(orgId: string): Promise<{ plan: string; status: string } | null> {
   try {
+    // Check billing_status first (blocks if past_due or paused)
+    const billingStatus = await getOrgBillingStatus(orgId);
+    if (billingStatus && billingStatus !== "active") {
+      // Billing status blocks calls
+      return { plan: "mvp", status: "paused" }; // Return paused to block
+    }
+
     // TODO: Plan will move to dedicated model. For now, using organizations VIEW (maps to orgs with defaults)
     const { data: org, error: orgError } = await supabaseAdmin
       .from("organizations")

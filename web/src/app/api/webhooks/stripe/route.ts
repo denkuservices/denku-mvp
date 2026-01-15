@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { pauseOrgBilling, resumeOrgBilling } from "@/lib/billing/pause";
 
 /**
  * Verify Stripe webhook signature.
@@ -265,40 +266,165 @@ export async function POST(req: NextRequest) {
         invoiceId = invoice.id;
       }
 
-      // Use full invoice object for reconciliation
-      switch (event.type) {
-        case "invoice.finalized":
-          await updateInvoiceRunStatus(invoice, "invoice.finalized");
-          break;
+      // Check if this is an overage_threshold invoice
+      const metadata = invoice.metadata || {};
+      const isOverageInvoice = metadata.kind === "overage_threshold";
+      const orgIdFromMetadata = metadata.org_id as string | undefined;
+      const monthFromMetadata = metadata.month as string | undefined;
 
-        case "invoice.payment_succeeded":
-          await updateInvoiceRunStatus(invoice, "invoice.payment_succeeded");
-          break;
+      if (isOverageInvoice && orgIdFromMetadata && monthFromMetadata) {
+        // Handle overage threshold invoice reconciliation
+        switch (event.type) {
+          case "invoice.payment_succeeded":
+          case "invoice.paid":
+            // Payment succeeded - update overage state and resume if paused
+            const overageUsdSnapshot = metadata.overage_usd_snapshot
+              ? Number(metadata.overage_usd_snapshot)
+              : null;
+            const thresholdUsd = metadata.threshold_usd
+              ? Number(metadata.threshold_usd)
+              : 100;
 
-        case "invoice.payment_failed":
-          await updateInvoiceRunStatus(invoice, "invoice.payment_failed");
-          break;
+            if (overageUsdSnapshot !== null) {
+              // Update billing_overage_state
+              const { data: currentState } = await supabaseAdmin
+                .from("billing_overage_state")
+                .select("threshold_usd")
+                .eq("org_id", orgIdFromMetadata)
+                .eq("month", monthFromMetadata)
+                .maybeSingle<{ threshold_usd: number }>();
 
-        case "invoice.voided":
-          await updateInvoiceRunStatus(invoice, "invoice.voided");
-          break;
+              const currentThreshold = currentState?.threshold_usd
+                ? Number(currentState.threshold_usd)
+                : thresholdUsd;
 
-        case "invoice.marked_uncollectible":
-          await updateInvoiceRunStatus(invoice, "invoice.marked_uncollectible");
-          break;
+              await supabaseAdmin
+                .from("billing_overage_state")
+                .upsert(
+                  {
+                    org_id: orgIdFromMetadata,
+                    month: monthFromMetadata,
+                    last_collect_status: "succeeded",
+                    last_collected_overage_usd: overageUsdSnapshot,
+                    next_collect_at_overage_usd: overageUsdSnapshot + currentThreshold,
+                  },
+                  { onConflict: "org_id,month" }
+                );
 
-        default:
-          logEvent({
-            tag: "[BILLING][WEBHOOK][UNHANDLED_EVENT]",
-            ts: Date.now(),
-            stage: "COST",
-            source: "system",
-            severity: "info",
-            details: {
-              event_type: event.type,
+              // Resume org if it was paused/past_due due to payment failure
+              const { data: orgSettings } = await supabaseAdmin
+                .from("organization_settings")
+                .select("billing_status")
+                .eq("org_id", orgIdFromMetadata)
+                .maybeSingle<{ billing_status: string | null }>();
+
+              if (orgSettings?.billing_status === "past_due" || orgSettings?.billing_status === "paused") {
+                await resumeOrgBilling(orgIdFromMetadata, {
+                  month: monthFromMetadata,
+                  stripe_invoice_id: invoiceId,
+                });
+              }
+
+              logEvent({
+                tag: "[BILLING][WEBHOOK][OVERAGE_PAID]",
+                ts: Date.now(),
+                stage: "COST",
+                source: "system",
+                org_id: orgIdFromMetadata,
+                severity: "info",
+                details: {
+                  month: monthFromMetadata,
+                  stripe_invoice_id: invoiceId,
+                  overage_usd_snapshot: overageUsdSnapshot,
+                },
+              });
+            }
+            break;
+
+          case "invoice.payment_failed":
+            // Payment failed - update state and pause org
+            await supabaseAdmin
+              .from("billing_overage_state")
+              .upsert(
+                {
+                  org_id: orgIdFromMetadata,
+                  month: monthFromMetadata,
+                  last_collect_status: "failed",
+                },
+                { onConflict: "org_id,month" }
+              );
+
+            await pauseOrgBilling(orgIdFromMetadata, "payment_failed", {
+              month: monthFromMetadata,
               stripe_invoice_id: invoiceId,
-            },
-          });
+            });
+
+            logEvent({
+              tag: "[BILLING][WEBHOOK][OVERAGE_PAYMENT_FAILED]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "system",
+              org_id: orgIdFromMetadata,
+              severity: "warn",
+              details: {
+                month: monthFromMetadata,
+                stripe_invoice_id: invoiceId,
+              },
+            });
+            break;
+
+          default:
+            // Other events for overage invoices (finalized, voided, etc.) - just log
+            logEvent({
+              tag: "[BILLING][WEBHOOK][OVERAGE_EVENT]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "system",
+              org_id: orgIdFromMetadata,
+              severity: "info",
+              details: {
+                month: monthFromMetadata,
+                event_type: event.type,
+                stripe_invoice_id: invoiceId,
+              },
+            });
+        }
+      } else {
+        // Regular invoice (monthly billing) - use existing reconciliation
+        switch (event.type) {
+          case "invoice.finalized":
+            await updateInvoiceRunStatus(invoice, "invoice.finalized");
+            break;
+
+          case "invoice.payment_succeeded":
+            await updateInvoiceRunStatus(invoice, "invoice.payment_succeeded");
+            break;
+
+          case "invoice.payment_failed":
+            await updateInvoiceRunStatus(invoice, "invoice.payment_failed");
+            break;
+
+          case "invoice.voided":
+            await updateInvoiceRunStatus(invoice, "invoice.voided");
+            break;
+
+          case "invoice.marked_uncollectible":
+            await updateInvoiceRunStatus(invoice, "invoice.marked_uncollectible");
+            break;
+
+          default:
+            logEvent({
+              tag: "[BILLING][WEBHOOK][UNHANDLED_EVENT]",
+              ts: Date.now(),
+              stage: "COST",
+              source: "system",
+              severity: "info",
+              details: {
+                event_type: event.type,
+                stripe_invoice_id: invoiceId,
+              },
+            });
+        }
       }
     } else {
       // Log unhandled event types (non-invoice events)

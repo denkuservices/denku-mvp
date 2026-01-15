@@ -84,6 +84,17 @@ export async function GET(req: NextRequest) {
       .eq("org_id", org_id)
       .maybeSingle<{ plan_code: string | null; concurrency_limit: number | null }>();
 
+    // 6a) Query organization_settings for billing_status
+    const { data: orgSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("billing_status, paused_reason, paused_at")
+      .eq("org_id", org_id)
+      .maybeSingle<{
+        billing_status: string | null;
+        paused_reason: string | null;
+        paused_at: string | null;
+      }>();
+
     // 7) Query plan_pricing if plan_code exists
     let pricing: {
       monthly_fee_usd: number | null;
@@ -247,6 +258,9 @@ export async function GET(req: NextRequest) {
         stripe_invoice_id: h.stripe_invoice_id,
         estimated_total_due_usd: h.estimated_total_due_usd,
       })),
+      billing_status: orgSettings?.billing_status || "active",
+      paused_reason: orgSettings?.paused_reason || null,
+      paused_at: orgSettings?.paused_at || null,
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
