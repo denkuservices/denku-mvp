@@ -72,27 +72,33 @@ export async function pauseOrgBilling(
     },
   });
 
-  // Unbind phone numbers from assistants to prevent inbound calls
-  // This ensures calls cannot route even if VAPI webhook receives events
+  // CRITICAL: Unbind phone numbers from assistants to prevent inbound calls
+  // This MUST succeed - VAPI routing is controlled by phone number assistantId
+  // If unbind fails, the org is paused in DB but calls will still ring (CRITICAL BUG)
   try {
     await unbindOrgPhoneNumbers(orgId, pausedReason);
   } catch (unbindErr) {
-    // Log error but don't throw - DB update already succeeded
-    // Phone number unbind failures are logged within the helper
+    // CRITICAL ERROR: Unbind failed - org is paused in DB but telephony is NOT stopped
+    const errorMsg = unbindErr instanceof Error ? unbindErr.message : String(unbindErr);
     logEvent({
-      tag: "[BILLING][PAUSE][UNBIND_ERROR]",
+      tag: "[BILLING][PAUSE][UNBIND_CRITICAL_ERROR]",
       ts: Date.now(),
       stage: "COST",
       source: "system",
       org_id: orgId,
-      severity: "warn",
+      severity: "error",
       details: {
         reason: reason,
         paused_reason: pausedReason,
-        error: unbindErr instanceof Error ? unbindErr.message : String(unbindErr),
+        error: errorMsg,
+        critical: true,
+        message: "Org paused in DB but phone numbers NOT unbound - calls will still ring",
         ...details,
       },
     });
+    // Re-throw to ensure caller knows unbind failed
+    // DB update succeeded, but telephony is NOT stopped
+    throw new Error(`Failed to unbind phone numbers: ${errorMsg}. Org is paused in DB but calls may still ring.`);
   }
 }
 
@@ -130,24 +136,31 @@ export async function resumeOrgBilling(
     },
   });
 
-  // Rebind phone numbers to assistants to allow inbound calls again
+  // CRITICAL: Rebind phone numbers to assistants to allow inbound calls again
   // rebindOrgPhoneNumbers has guard - will not rebind if still billing-paused
+  // If rebind fails, the org is active in DB but calls will NOT ring (CRITICAL BUG)
   try {
     await rebindOrgPhoneNumbers(orgId);
   } catch (rebindErr) {
-    // Log error but don't throw - DB update already succeeded
+    // CRITICAL ERROR: Rebind failed - org is active in DB but telephony is NOT restored
+    const errorMsg = rebindErr instanceof Error ? rebindErr.message : String(rebindErr);
     logEvent({
-      tag: "[BILLING][RESUME][REBIND_ERROR]",
+      tag: "[BILLING][RESUME][REBIND_CRITICAL_ERROR]",
       ts: Date.now(),
       stage: "COST",
       source: "system",
       org_id: orgId,
-      severity: "warn",
+      severity: "error",
       details: {
-        error: rebindErr instanceof Error ? rebindErr.message : String(rebindErr),
+        error: errorMsg,
+        critical: true,
+        message: "Org active in DB but phone numbers NOT rebound - calls will NOT ring",
         ...details,
       },
     });
+    // Re-throw to ensure caller knows rebind failed
+    // DB update succeeded, but telephony is NOT restored
+    throw new Error(`Failed to rebind phone numbers: ${errorMsg}. Org is active in DB but calls may not ring.`);
   }
 }
 
