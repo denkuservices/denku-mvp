@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
+import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 
 // Get valid language and timezone values for validation
@@ -405,32 +406,48 @@ export async function toggleWorkspaceStatus(
   }
 
   // 4) Fetch existing settings for audit diff and resume validation
-  const { data: existingSettings } = await supabase
+  // Use supabaseAdmin (service role) to ensure RLS doesn't block the fetch
+  const { data: existingSettings } = await supabaseAdmin
     .from("organization_settings")
     .select("workspace_status, paused_at, paused_reason")
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused";
       paused_at: string | null;
-      paused_reason: string | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | null;
     }>();
 
-  // 4a) If resuming, check if paused_reason allows manual resume
-  if (action === "resume") {
+  const oldStatus = existingSettings?.workspace_status ?? "active";
+  const newStatus = action === "pause" ? "paused" : "active";
+  const newPausedAt = action === "pause" ? new Date().toISOString() : null;
+  const newPausedReason = action === "pause" ? "manual" : null;
+
+  // 4a) Backend enforcement: Block resume if paused_reason is billing-related
+  // Only allow resume if paused_reason is null or 'manual'
+  if (newStatus === "active" && oldStatus === "paused") {
     const pausedReason = existingSettings?.paused_reason;
-    if (pausedReason && pausedReason !== "manual") {
+    if (pausedReason === "hard_cap" || pausedReason === "past_due") {
       // Billing issue - cannot resume manually
+      logEvent({
+        tag: "[WORKSPACE][RESUME_BLOCKED]",
+        ts: Date.now(),
+        stage: "CALL",
+        source: "system",
+        org_id: orgId,
+        severity: "warn",
+        details: {
+          paused_reason: pausedReason,
+          user_id: user.id,
+          attempted_action: "resume",
+        },
+      });
+
       return {
         ok: false,
         error: "Billing issue. Update payment method to resume.",
       };
     }
   }
-
-  const oldStatus = existingSettings?.workspace_status ?? "active";
-  const newStatus = action === "pause" ? "paused" : "active";
-  const newPausedAt = action === "pause" ? new Date().toISOString() : null;
-  const newPausedReason = action === "pause" ? "manual" : null;
 
   // 5) Upsert organization_settings with new status
   // Use supabaseAdmin for service role access
