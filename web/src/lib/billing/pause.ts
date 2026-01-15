@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 
 /**
- * Pause the workspace by setting workspace_status = 'paused' and paused_at = now().
+ * Pause the workspace by setting workspace_status = 'paused', paused_at = now(), and paused_reason.
  * Updates organization_settings table.
  * Uses supabaseAdmin (service role) to bypass RLS.
  */
@@ -12,6 +12,7 @@ export async function pauseOrgBilling(
   details?: Record<string, unknown>
 ): Promise<void> {
   const pausedAt = new Date().toISOString();
+  const pausedReason = reason === "hard_cap" ? "hard_cap" : "past_due";
 
   const { error } = await supabaseAdmin
     .from("organization_settings")
@@ -20,6 +21,7 @@ export async function pauseOrgBilling(
         org_id: orgId,
         workspace_status: "paused",
         paused_at: pausedAt,
+        paused_reason: pausedReason,
       },
       { onConflict: "org_id" }
     );
@@ -35,6 +37,7 @@ export async function pauseOrgBilling(
       severity: "error",
       details: {
         reason: reason,
+        paused_reason: pausedReason,
         error: error.message,
         error_code: error.code,
         ...details,
@@ -53,6 +56,7 @@ export async function pauseOrgBilling(
     details: {
       workspace_status: "paused",
       reason: reason,
+      paused_reason: pausedReason,
       paused_at: pausedAt,
       ...details,
     },

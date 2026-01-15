@@ -403,28 +403,44 @@ export async function toggleWorkspaceStatus(
     return { ok: false, error: "Forbidden: Only owners and admins can pause/resume workspace." };
   }
 
-  // 4) Fetch existing settings for audit diff
+  // 4) Fetch existing settings for audit diff and resume validation
   const { data: existingSettings } = await supabase
     .from("organization_settings")
-    .select("workspace_status, paused_at")
+    .select("workspace_status, paused_at, paused_reason")
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused";
       paused_at: string | null;
+      paused_reason: string | null;
     }>();
+
+  // 4a) If resuming, check if paused_reason allows manual resume
+  if (action === "resume") {
+    const pausedReason = existingSettings?.paused_reason;
+    if (pausedReason && pausedReason !== "manual") {
+      // Billing issue - cannot resume manually
+      return {
+        ok: false,
+        error: "Billing issue. Update payment method to resume.",
+      };
+    }
+  }
 
   const oldStatus = existingSettings?.workspace_status ?? "active";
   const newStatus = action === "pause" ? "paused" : "active";
   const newPausedAt = action === "pause" ? new Date().toISOString() : null;
+  const newPausedReason = action === "pause" ? "manual" : null;
 
   // 5) Upsert organization_settings with new status
-  const { data: updated, error: upsertErr } = await supabase
+  // Use supabaseAdmin for service role access
+  const { data: updated, error: upsertErr } = await supabaseAdmin
     .from("organization_settings")
     .upsert(
       {
         org_id: orgId,
         workspace_status: newStatus,
         paused_at: newPausedAt,
+        paused_reason: newPausedReason,
       },
       {
         onConflict: "org_id",

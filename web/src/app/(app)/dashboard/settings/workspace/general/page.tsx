@@ -32,6 +32,7 @@ export default async function WorkspaceGeneralPage() {
 
   // Get workspace status (default to 'active' if not set)
   const workspaceStatus = (settings?.workspace_status as "active" | "paused") || "active";
+  const pausedReason = settings?.paused_reason as "manual" | "hard_cap" | "past_due" | null | undefined;
 
   return (
     <SettingsShell
@@ -64,7 +65,7 @@ export default async function WorkspaceGeneralPage() {
       <WebhooksCard webhookUrl={webhookUrl} events={webhookEvents} />
 
       {/* Workspace controls */}
-      <WorkspaceControlsCard role={role} workspaceStatus={workspaceStatus} />
+      <WorkspaceControlsCard role={role} workspaceStatus={workspaceStatus} pausedReason={pausedReason} />
     </SettingsShell>
   );
 }

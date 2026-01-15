@@ -16,11 +16,13 @@ import { toggleWorkspaceStatus } from "@/app/(app)/dashboard/settings/_actions/w
 type WorkspaceControlsCardProps = {
   role: "owner" | "admin" | "viewer";
   workspaceStatus: "active" | "paused";
+  pausedReason?: "manual" | "hard_cap" | "past_due" | null;
 };
 
 export function WorkspaceControlsCard({
   role,
   workspaceStatus,
+  pausedReason,
 }: WorkspaceControlsCardProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -30,6 +32,8 @@ export function WorkspaceControlsCard({
 
   const canControl = role === "owner" || role === "admin";
   const isPaused = workspaceStatus === "paused";
+  const isBillingPaused = isPaused && (pausedReason === "hard_cap" || pausedReason === "past_due");
+  const canResume = isPaused && !isBillingPaused; // Only allow resume if paused_reason is 'manual' or null
   const action = isPaused ? "resume" : "pause";
   const confirmWord = isPaused ? "RESUME" : "PAUSE";
   const isConfirmed = confirmText === confirmWord;
@@ -82,12 +86,17 @@ export function WorkspaceControlsCard({
                 ? "Resume webhook processing and agent sync."
                 : "Pausing stops processing webhooks and disables agent sync. Calls may still reach your phone provider unless you disable the phone number routing."}
             </p>
+            {isBillingPaused && (
+              <p className="mt-2 text-sm font-medium text-amber-700">
+                Billing issue. Update payment method to resume.
+              </p>
+            )}
           </div>
           <Button
             type="button"
             variant="outline"
             onClick={() => canControl && setOpen(true)}
-            disabled={!canControl}
+            disabled={!canControl || (isPaused && !canResume)}
             className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPaused ? "Resume workspace" : "Pause workspace"}

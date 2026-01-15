@@ -1649,9 +1649,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ignored: "agent_not_found" });
     }
 
+    // Determine direction early for logging
+    const { from_phone, to_phone } = extractPhones(body);
+    const direction =
+      (call?.type ?? msg?.summary_table?.type) === "inboundPhoneCall"
+        ? "inbound"
+        : (call?.type ?? msg?.summary_table?.type) === "outboundPhoneCall"
+        ? "outbound"
+        : "unknown";
+
     // CRITICAL: Check if workspace is paused - return 200 but do NOT process
-    const isPaused = await isWorkspacePaused(orgId);
+    // Read workspace_status and paused_reason using service role
+    const { data: orgSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("workspace_status, paused_reason")
+      .eq("org_id", orgId)
+      .maybeSingle<{
+        workspace_status: "active" | "paused" | null;
+        paused_reason: string | null;
+      }>();
+
+    const workspaceStatus = orgSettings?.workspace_status ?? "active";
+    const pausedReason = orgSettings?.paused_reason ?? null;
+    const isPaused = workspaceStatus !== "active";
+
     if (isPaused) {
+      // Log enforcement event
+      logEvent({
+        tag: "[WORKSPACE][PAUSE_ENFORCE]",
+        ts: Date.now(),
+        stage: "CALL",
+        source: "vapi_webhook",
+        org_id: orgId,
+        vapi_call_id: vapiCallId,
+        severity: "warn",
+        details: {
+          workspace_status: workspaceStatus,
+          paused_reason: pausedReason,
+          event_type: eventType,
+          direction: direction,
+        },
+      });
+
       // Log audit entry for ignored webhook
       try {
         await logAuditEvent({
@@ -1671,19 +1710,11 @@ export async function POST(req: NextRequest) {
         console.error("[WEBHOOK] Audit log failed:", auditErr);
       }
 
-      console.log("[WEBHOOK] Workspace paused - ignoring webhook", { orgId, vapiCallId });
+      console.log("[WEBHOOK] Workspace paused - ignoring webhook", { orgId, vapiCallId, workspaceStatus, pausedReason });
       return NextResponse.json({ ok: true, ignored: "workspace_paused" });
     }
 
     const { startedAt, endedAt } = extractStartedEnded(body);
-    const { from_phone, to_phone } = extractPhones(body);
-
-    const direction =
-      (call?.type ?? msg?.summary_table?.type) === "inboundPhoneCall"
-        ? "inbound"
-        : (call?.type ?? msg?.summary_table?.type) === "outboundPhoneCall"
-        ? "outbound"
-        : "unknown";
 
     // Normalize direction: treat "unknown" as inbound-like (not outbound)
     if (direction === "unknown") {
