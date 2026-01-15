@@ -7,7 +7,10 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
 import { logEvent } from "@/lib/observability/logEvent";
-import { vapiFetch } from "@/lib/vapi/server";
+import {
+  unbindOrgPhoneNumbersFromAssistants,
+  rebindOrgPhoneNumbersToAssistants,
+} from "@/lib/vapi/phoneNumberBinding";
 
 // Get valid language and timezone values for validation
 const VALID_LANGUAGE_VALUES = LANGUAGE_OPTIONS.map((opt) => opt.value);
@@ -474,40 +477,21 @@ export async function toggleWorkspaceStatus(
   // 6) Handle Vapi assistants (CRITICAL: Stop all calls)
   if (oldStatus !== newStatus) {
     try {
-      // Fetch all agents with vapi_assistant_id and vapi_phone_number_id for this org
-      const { data: agents, error: agentsErr } = await supabaseAdmin
-        .from("agents")
-        .select("id, name, vapi_assistant_id, vapi_phone_number_id")
-        .eq("org_id", orgId)
-        .not("vapi_assistant_id", "is", null)
-        .not("vapi_phone_number_id", "is", null);
+      if (action === "pause") {
+        // Pause: Unbind phone numbers from assistants (prevents calls)
+        await unbindOrgPhoneNumbersFromAssistants(orgId);
 
-      if (!agentsErr && agents && agents.length > 0) {
-        const now = new Date().toISOString();
+        // Log audit event for manual pause
+        try {
+          const { data: agents } = await supabaseAdmin
+            .from("agents")
+            .select("id")
+            .eq("org_id", orgId)
+            .not("vapi_assistant_id", "is", null)
+            .not("vapi_phone_number_id", "is", null);
 
-        if (action === "pause") {
-          // Pause: Unbind phone numbers from assistants (prevents calls)
-          for (const agent of agents) {
-            if (!agent.vapi_assistant_id || !agent.vapi_phone_number_id) continue;
-
-            try {
-              // Unbind phone number from assistant (set assistantId to null)
-              // This prevents calls from being routed to the assistant
-              await vapiFetch(`/phone-number/${agent.vapi_phone_number_id}`, {
-                method: "PATCH",
-                body: JSON.stringify({ assistantId: null }),
-              });
-
-              // Update agent sync status
-              await supabaseAdmin
-                .from("agents")
-                .update({
-                  vapi_sync_status: "paused",
-                  vapi_synced_at: now,
-                })
-                .eq("id", agent.id);
-
-              // Log audit
+          if (agents && agents.length > 0) {
+            for (const agent of agents) {
               await logAuditEvent({
                 org_id: orgId,
                 actor_user_id: user.id,
@@ -521,36 +505,27 @@ export async function toggleWorkspaceStatus(
                   },
                 },
               });
-            } catch (vapiErr) {
-              console.error(
-                `[PAUSE] Failed to unbind phone number ${agent.vapi_phone_number_id} from assistant ${agent.vapi_assistant_id}:`,
-                vapiErr
-              );
-              // Continue with other agents even if one fails
             }
           }
-        } else {
-          // Resume: Re-bind phone numbers to assistants
-          for (const agent of agents) {
-            if (!agent.vapi_assistant_id || !agent.vapi_phone_number_id) continue;
+        } catch (auditErr) {
+          // Don't fail if audit logging fails
+          console.error("[WORKSPACE STATUS] Audit logging failed:", auditErr);
+        }
+      } else {
+        // Resume: Re-bind phone numbers to assistants
+        await rebindOrgPhoneNumbersToAssistants(orgId);
 
-            try {
-              // Re-bind phone number to assistant
-              await vapiFetch(`/phone-number/${agent.vapi_phone_number_id}`, {
-                method: "PATCH",
-                body: JSON.stringify({ assistantId: agent.vapi_assistant_id }),
-              });
+        // Log audit event for manual resume
+        try {
+          const { data: agents } = await supabaseAdmin
+            .from("agents")
+            .select("id")
+            .eq("org_id", orgId)
+            .not("vapi_assistant_id", "is", null)
+            .not("vapi_phone_number_id", "is", null);
 
-              // Update agent sync status
-              await supabaseAdmin
-                .from("agents")
-                .update({
-                  vapi_sync_status: "success",
-                  vapi_synced_at: now,
-                })
-                .eq("id", agent.id);
-
-              // Log audit
+          if (agents && agents.length > 0) {
+            for (const agent of agents) {
               await logAuditEvent({
                 org_id: orgId,
                 actor_user_id: user.id,
@@ -564,14 +539,11 @@ export async function toggleWorkspaceStatus(
                   },
                 },
               });
-            } catch (vapiErr) {
-              console.error(
-                `[RESUME] Failed to rebind phone number ${agent.vapi_phone_number_id} to assistant ${agent.vapi_assistant_id}:`,
-                vapiErr
-              );
-              // Continue with other agents even if one fails
             }
           }
+        } catch (auditErr) {
+          // Don't fail if audit logging fails
+          console.error("[WORKSPACE STATUS] Audit logging failed:", auditErr);
         }
       }
     } catch (vapiErr) {

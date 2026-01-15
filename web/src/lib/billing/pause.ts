@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { unbindOrgPhoneNumbersFromAssistants } from "@/lib/vapi/phoneNumberBinding";
 
 /**
  * Pause the workspace by setting workspace_status = 'paused', paused_at = now(), and paused_reason.
@@ -70,6 +71,29 @@ export async function pauseOrgBilling(
       ...details,
     },
   });
+
+  // Unbind phone numbers from assistants to prevent inbound calls
+  // This ensures calls cannot route even if VAPI webhook receives events
+  try {
+    await unbindOrgPhoneNumbersFromAssistants(orgId);
+  } catch (unbindErr) {
+    // Log error but don't throw - DB update already succeeded
+    // Phone number unbind failures are logged within the helper
+    logEvent({
+      tag: "[BILLING][PAUSE][UNBIND_ERROR]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        reason: reason,
+        paused_reason: pausedReason,
+        error: unbindErr instanceof Error ? unbindErr.message : String(unbindErr),
+        ...details,
+      },
+    });
+  }
 }
 
 /**
