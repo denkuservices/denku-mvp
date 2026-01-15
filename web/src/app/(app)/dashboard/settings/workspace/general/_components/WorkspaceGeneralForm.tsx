@@ -15,6 +15,9 @@ type OrganizationSettings = {
   default_timezone: string | null;
   default_language: string | null;
   billing_email: string | null;
+  workspace_status: "active" | "paused";
+  paused_at: string | null;
+  paused_reason: "manual" | "hard_cap" | "past_due" | null;
   created_at: string;
   updated_at: string;
 };
