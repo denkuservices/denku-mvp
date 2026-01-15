@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
-import { unbindOrgPhoneNumbersFromAssistants } from "@/lib/vapi/phoneNumberBinding";
+import { unbindOrgPhoneNumbers, rebindOrgPhoneNumbers } from "@/lib/vapi/phoneNumberBinding";
 
 /**
  * Pause the workspace by setting workspace_status = 'paused', paused_at = now(), and paused_reason.
@@ -75,7 +75,7 @@ export async function pauseOrgBilling(
   // Unbind phone numbers from assistants to prevent inbound calls
   // This ensures calls cannot route even if VAPI webhook receives events
   try {
-    await unbindOrgPhoneNumbersFromAssistants(orgId);
+    await unbindOrgPhoneNumbers(orgId, pausedReason);
   } catch (unbindErr) {
     // Log error but don't throw - DB update already succeeded
     // Phone number unbind failures are logged within the helper
@@ -99,6 +99,7 @@ export async function pauseOrgBilling(
 /**
  * Resume organization billing (set back to active).
  * Updates organization_settings table.
+ * Rebinds phone numbers to assistants if org was paused.
  */
 export async function resumeOrgBilling(
   orgId: string,
@@ -109,6 +110,7 @@ export async function resumeOrgBilling(
     .upsert(
       {
         org_id: orgId,
+        workspace_status: "active",
         billing_status: "active",
         paused_reason: null,
         paused_at: null,
@@ -127,6 +129,26 @@ export async function resumeOrgBilling(
       ...details,
     },
   });
+
+  // Rebind phone numbers to assistants to allow inbound calls again
+  // rebindOrgPhoneNumbers has guard - will not rebind if still billing-paused
+  try {
+    await rebindOrgPhoneNumbers(orgId);
+  } catch (rebindErr) {
+    // Log error but don't throw - DB update already succeeded
+    logEvent({
+      tag: "[BILLING][RESUME][REBIND_ERROR]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        error: rebindErr instanceof Error ? rebindErr.message : String(rebindErr),
+        ...details,
+      },
+    });
+  }
 }
 
 /**

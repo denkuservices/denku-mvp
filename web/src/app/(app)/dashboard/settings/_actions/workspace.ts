@@ -8,8 +8,8 @@ import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
 import { logEvent } from "@/lib/observability/logEvent";
 import {
-  unbindOrgPhoneNumbersFromAssistants,
-  rebindOrgPhoneNumbersToAssistants,
+  unbindOrgPhoneNumbers,
+  rebindOrgPhoneNumbers,
 } from "@/lib/vapi/phoneNumberBinding";
 
 // Get valid language and timezone values for validation
@@ -479,7 +479,7 @@ export async function toggleWorkspaceStatus(
     try {
       if (action === "pause") {
         // Pause: Unbind phone numbers from assistants (prevents calls)
-        await unbindOrgPhoneNumbersFromAssistants(orgId);
+        await unbindOrgPhoneNumbers(orgId, "manual");
 
         // Log audit event for manual pause
         try {
@@ -513,7 +513,8 @@ export async function toggleWorkspaceStatus(
         }
       } else {
         // Resume: Re-bind phone numbers to assistants
-        await rebindOrgPhoneNumbersToAssistants(orgId);
+        // rebindOrgPhoneNumbers has guard - will not rebind if billing-paused
+        await rebindOrgPhoneNumbers(orgId);
 
         // Log audit event for manual resume
         try {

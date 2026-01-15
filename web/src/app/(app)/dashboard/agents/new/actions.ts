@@ -36,6 +36,24 @@ export async function createAgentAction(formData: FormData) {
 
   const orgId = profile.org_id;
 
+  // GUARD: Check if org is billing-paused - do not bind if so
+  const { data: orgSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("workspace_status, paused_reason")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      workspace_status: "active" | "paused" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+    }>();
+
+  const pausedReason = orgSettings?.paused_reason;
+  if (
+    orgSettings?.workspace_status === "paused" &&
+    (pausedReason === "hard_cap" || pausedReason === "past_due")
+  ) {
+    throw new Error("Cannot create agent: Billing issue. Update payment method to resume.");
+  }
+
   // 1) Vapi: phone number create (tenant-specific)
   const phone = await vapiFetch<VapiCreatePhoneNumberResponse>("/phone-number", {
     method: "POST",

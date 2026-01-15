@@ -314,11 +314,18 @@ export async function POST(req: NextRequest) {
               // Resume org if it was paused/past_due due to payment failure
               const { data: orgSettings } = await supabaseAdmin
                 .from("organization_settings")
-                .select("billing_status")
+                .select("workspace_status, paused_reason")
                 .eq("org_id", orgIdFromMetadata)
-                .maybeSingle<{ billing_status: string | null }>();
+                .maybeSingle<{
+                  workspace_status: "active" | "paused" | null;
+                  paused_reason: "manual" | "hard_cap" | "past_due" | null;
+                }>();
 
-              if (orgSettings?.billing_status === "past_due" || orgSettings?.billing_status === "paused") {
+              const pausedReason = orgSettings?.paused_reason;
+              if (
+                orgSettings?.workspace_status === "paused" &&
+                (pausedReason === "past_due" || pausedReason === "hard_cap")
+              ) {
                 await resumeOrgBilling(orgIdFromMetadata, {
                   month: monthFromMetadata,
                   stripe_invoice_id: invoiceId,
