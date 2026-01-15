@@ -187,8 +187,8 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({
-        ok: true,
         skipped: true,
+        month: month,
         overage_usd: overageUsd,
         next_collect_at_overage_usd: nextCollectAtOverageUsd,
       });
