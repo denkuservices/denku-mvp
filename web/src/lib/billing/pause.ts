@@ -2,31 +2,46 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 
 /**
- * Set organization billing status to paused or past_due.
- * Also pauses the workspace by setting workspace_status = 'paused'.
+ * Pause the workspace by setting workspace_status = 'paused' and paused_at = now().
  * Updates organization_settings table.
+ * Uses supabaseAdmin (service role) to bypass RLS.
  */
 export async function pauseOrgBilling(
   orgId: string,
   reason: "hard_cap" | "payment_failed",
   details?: Record<string, unknown>
 ): Promise<void> {
-  const billingStatus = reason === "hard_cap" ? "paused" : "past_due";
-  const pausedReason = reason === "hard_cap" ? "Usage cap reached" : "Payment failed";
   const pausedAt = new Date().toISOString();
 
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("organization_settings")
     .upsert(
       {
         org_id: orgId,
-        billing_status: billingStatus,
         workspace_status: "paused",
-        paused_reason: pausedReason,
         paused_at: pausedAt,
       },
       { onConflict: "org_id" }
     );
+
+  if (error) {
+    const errorMsg = `Failed to pause workspace: ${error.message}`;
+    logEvent({
+      tag: "[BILLING][PAUSE][ERROR]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "error",
+      details: {
+        reason: reason,
+        error: error.message,
+        error_code: error.code,
+        ...details,
+      },
+    });
+    throw new Error(errorMsg);
+  }
 
   logEvent({
     tag: "[BILLING][PAUSE]",
@@ -36,10 +51,8 @@ export async function pauseOrgBilling(
     org_id: orgId,
     severity: "warn",
     details: {
-      billing_status: billingStatus,
       workspace_status: "paused",
       reason: reason,
-      paused_reason: pausedReason,
       paused_at: pausedAt,
       ...details,
     },
