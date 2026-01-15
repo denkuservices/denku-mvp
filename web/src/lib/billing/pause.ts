@@ -10,6 +10,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { pauseWorkspace, resumeWorkspace } from "@/lib/workspace/pause";
+import { enforceTelephonyResume } from "@/lib/workspace/enforcePause";
 import { enforceTelephonyPause } from "@/lib/workspace/enforcePause";
 
 /**
@@ -97,6 +98,9 @@ export async function pauseOrgBilling(
  * 
  * This is a wrapper around the unified resumeWorkspace() function.
  * ALL resume operations use the same code path for identical telephony behavior.
+ * 
+ * CRITICAL: After resumeWorkspace(), we also call enforceTelephonyResume() to ensure
+ * VAPI state matches DB state even if resumeWorkspace() rebind had any issues.
  */
 export async function resumeOrgBilling(
   orgId: string,
@@ -116,10 +120,48 @@ export async function resumeOrgBilling(
   });
 
   // Call unified resume implementation - same code path as UI resume
+  // This updates DB and calls VAPI to rebind phone numbers
   await resumeWorkspace(orgId, {
     ...details,
     source: "billing",
   });
+
+  // CRITICAL: Auto-enforce telephony resume state
+  // This ensures VAPI rebind even if resumeWorkspace() had any issues
+  // It reads DB state and enforces VAPI state to match
+  try {
+    const result = await enforceTelephonyResume(orgId);
+    logEvent({
+      tag: "[BILLING][RESUME]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "info",
+      details: {
+        result: result.message,
+        numbersRebound: result.numbersRebound ?? 0,
+        message: "Telephony resume enforced successfully",
+        ...details,
+      },
+    });
+  } catch (enforceErr) {
+    // Log but don't throw - resumeWorkspace() already succeeded
+    // The enforcement failure is logged within enforceTelephonyResume()
+    logEvent({
+      tag: "[BILLING][RESUME][ENFORCE_WARN]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        error: enforceErr instanceof Error ? enforceErr.message : String(enforceErr),
+        message: "Telephony resume enforcement failed (resumeWorkspace already succeeded)",
+        ...details,
+      },
+    });
+  }
 }
 
 /**

@@ -405,6 +405,32 @@ export async function POST(req: NextRequest) {
 
           case "invoice.payment_succeeded":
             await updateInvoiceRunStatus(invoice, "invoice.payment_succeeded");
+
+            // Auto-resume org if it was billing-paused due to payment failure
+            // Extract org_id from invoice metadata if available
+            const orgIdFromInvoiceMetadata = invoice.metadata?.org_id;
+            if (orgIdFromInvoiceMetadata) {
+              const { data: orgSettings } = await supabaseAdmin
+                .from("organization_settings")
+                .select("workspace_status, paused_reason")
+                .eq("org_id", orgIdFromInvoiceMetadata)
+                .maybeSingle<{
+                  workspace_status: "active" | "paused" | null;
+                  paused_reason: "manual" | "hard_cap" | "past_due" | null;
+                }>();
+
+              const pausedReason = orgSettings?.paused_reason;
+              if (
+                orgSettings?.workspace_status === "paused" &&
+                (pausedReason === "past_due" || pausedReason === "hard_cap")
+              ) {
+                // Org is billing-paused - auto-resume on payment success
+                await resumeOrgBilling(orgIdFromInvoiceMetadata, {
+                  stripe_invoice_id: invoice.id,
+                  invoice_type: "regular_monthly",
+                });
+              }
+            }
             break;
 
           case "invoice.payment_failed":
