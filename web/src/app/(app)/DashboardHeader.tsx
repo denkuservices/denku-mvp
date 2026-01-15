@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AccountMenu } from "./AccountMenu";
 import { DashboardNav } from "./_components/DashboardNav";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { WorkspaceStatusBadgeClient } from "@/components/workspace/WorkspaceStatusBadgeClient";
 
 export default async function DashboardHeader() {
   // Fetch user data for AccountMenu (minimal query)
@@ -37,7 +38,7 @@ export default async function DashboardHeader() {
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        {/* Left: Brand */}
+        {/* Left: Brand + Status */}
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -48,6 +49,8 @@ export default async function DashboardHeader() {
           <span className="hidden text-xs text-muted-foreground sm:inline">
             Sovereign AI Console
           </span>
+          {/* Workspace status badge - only shows when paused */}
+          <WorkspaceStatusBadgeClient className="hidden sm:inline-flex" />
         </div>
 
         {/* Right: Nav + Account */}

@@ -212,7 +212,129 @@ export async function GET(req: NextRequest) {
       }));
     }
 
-    // 9) Query recent invoice history (last 6 months)
+    // 9) Query billing_overage_state for current month
+    const { data: overageState } = await supabaseAdmin
+      .from("billing_overage_state")
+      .select("threshold_usd, hard_cap_usd, next_collect_at_overage_usd, last_collect_attempt_at")
+      .eq("org_id", org_id)
+      .eq("month", month)
+      .maybeSingle<{
+        threshold_usd: number | null;
+        hard_cap_usd: number | null;
+        next_collect_at_overage_usd: number | null;
+        last_collect_attempt_at: string | null;
+      }>();
+
+    // 10) Compute overage data
+    const currentOverageUsd = Number(preview?.estimated_overage_cost_usd || 0);
+    
+    // Plan-based defaults for hard cap (from collect-now logic)
+    function getPlanDefaults(planCode: string | null): { threshold: number; hardcap: number } {
+      switch (planCode) {
+        case "starter":
+          return { threshold: 100, hardcap: 250 };
+        case "growth":
+          return { threshold: 100, hardcap: 750 };
+        case "scale":
+          return { threshold: 250, hardcap: 2000 };
+        default:
+          return { threshold: 100, hardcap: 250 };
+      }
+    }
+
+    const planDefaults = getPlanDefaults(preview?.plan_code || planLimits?.plan_code || null);
+    const thresholdStepUsd = 100;
+    const hardCapUsd = overageState?.hard_cap_usd 
+      ? Number(overageState.hard_cap_usd) 
+      : planDefaults.hardcap;
+    
+    // Compute next_collect_at_usd: next multiple of thresholdStepUsd (100) above current
+    // If current is 0 → next is 100; if current is 120 → next is 200
+    // Use overageState.next_collect_at_overage_usd if available, otherwise compute
+    let nextCollectAtUsd: number;
+    if (overageState?.next_collect_at_overage_usd) {
+      nextCollectAtUsd = Number(overageState.next_collect_at_overage_usd);
+    } else if (currentOverageUsd < hardCapUsd) {
+      // Compute: next multiple of 100 above current
+      // Math.floor(current / 100 + 1) * 100 ensures:
+      // - current = 0 → next = 100
+      // - current = 120 → next = 200
+      const currentMultiple = Math.floor(currentOverageUsd / thresholdStepUsd);
+      nextCollectAtUsd = Math.min((currentMultiple + 1) * thresholdStepUsd, hardCapUsd);
+    } else {
+      nextCollectAtUsd = hardCapUsd;
+    }
+    
+    const remainingToCapUsd = Math.max(hardCapUsd - currentOverageUsd, 0);
+    const isAtOrOverCap = currentOverageUsd >= hardCapUsd;
+
+    // Determine status based on workspace_status and paused_reason
+    const workspaceStatus = orgSettings?.workspace_status ?? "active";
+    const pausedReason = orgSettings?.paused_reason;
+    let overageStatus: "ok" | "collecting" | "paused_hard_cap" | "paused_past_due";
+    if (workspaceStatus === "paused" && pausedReason === "hard_cap") {
+      overageStatus = "paused_hard_cap";
+    } else if (workspaceStatus === "paused" && pausedReason === "past_due") {
+      overageStatus = "paused_past_due";
+    } else if (currentOverageUsd >= (overageState?.next_collect_at_overage_usd ? Number(overageState.next_collect_at_overage_usd) : thresholdStepUsd)) {
+      overageStatus = "collecting";
+    } else {
+      overageStatus = "ok";
+    }
+
+    // 11) Query billing_addon_catalog for available addons
+    const { data: addonCatalog } = await supabaseAdmin
+      .from("billing_addon_catalog")
+      .select("addon_key, label, unit, price_usd_month, step, is_active")
+      .eq("is_active", true)
+      .order("addon_key");
+
+    const availableAddons: Array<{
+      key: string;
+      label: string;
+      unit: string;
+      price_usd_month: number;
+      step: number;
+    }> = (addonCatalog || []).map((row) => ({
+      key: row.addon_key,
+      label: row.label,
+      unit: row.unit,
+      price_usd_month: Number(row.price_usd_month || 0),
+      step: Number(row.step || 1),
+    }));
+
+    // 12) Query billing_org_addons for active quantities
+    const { data: orgAddons } = await supabaseAdmin
+      .from("billing_org_addons")
+      .select("addon_key, qty, status")
+      .eq("org_id", org_id)
+      .eq("status", "active");
+
+    const activeAddons: Record<string, number> = {};
+    for (const row of orgAddons || []) {
+      if (row.status === "active") {
+        activeAddons[row.addon_key] = Number(row.qty || 0);
+      }
+    }
+
+    // Ensure all addon keys have a quantity (default 0)
+    for (const addon of availableAddons) {
+      if (!(addon.key in activeAddons)) {
+        activeAddons[addon.key] = 0;
+      }
+    }
+
+    // 13) Compute effective limits (plan base + addons)
+    const planConcurrency = planLimits?.concurrency_limit || 0;
+    const extraConcurrency = activeAddons["extra_concurrency"] || 0;
+    const maxConcurrentCalls = planConcurrency + extraConcurrency;
+
+    const currentPlan = plans.find((p) => p.plan_code === (preview?.plan_code || planLimits?.plan_code || "starter"));
+    const planPhones = currentPlan?.included_phone_numbers || 0;
+    const extraPhones = activeAddons["extra_phone"] || 0;
+    const includedPhones = planPhones + extraPhones;
+
+    // 14) Query recent invoice history (last 6 months)
     const { data: history } = await supabaseAdmin
       .from("billing_invoice_runs")
       .select("month, status, stripe_invoice_id, estimated_total_due_usd")
@@ -220,7 +342,7 @@ export async function GET(req: NextRequest) {
       .order("month", { ascending: false })
       .limit(6);
 
-    // 10) Log event (only in non-production or when BILLING_DEBUG is enabled)
+    // 15) Log event (only in non-production or when BILLING_DEBUG is enabled)
     if (process.env.NODE_ENV !== "production" || process.env.BILLING_DEBUG === "true") {
       logEvent({
         tag: "[BILLING][SUMMARY]",
@@ -263,6 +385,28 @@ export async function GET(req: NextRequest) {
         : "active",
       paused_reason: orgSettings?.paused_reason || null,
       paused_at: orgSettings?.paused_at || null,
+      workspace_status: orgSettings?.workspace_status || "active",
+      overage: {
+        current_overage_usd: currentOverageUsd,
+        threshold_step_usd: thresholdStepUsd,
+        next_collect_at_usd: nextCollectAtUsd,
+        hard_cap_usd: hardCapUsd,
+        remaining_to_cap_usd: remainingToCapUsd,
+        is_at_or_over_cap: isAtOrOverCap,
+        last_collect_attempt_at: overageState?.last_collect_attempt_at || null,
+        status: overageStatus,
+      },
+      addons: {
+        available: availableAddons,
+        active: {
+          extra_concurrency: activeAddons["extra_concurrency"] || 0,
+          extra_phone: activeAddons["extra_phone"] || 0,
+        },
+        effective_limits: {
+          max_concurrent_calls: maxConcurrentCalls,
+          included_phones: includedPhones,
+        },
+      },
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";

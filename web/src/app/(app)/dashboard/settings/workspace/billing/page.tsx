@@ -52,6 +52,34 @@ type BillingSummary = {
   billing_status: string;
   paused_reason: string | null;
   paused_at: string | null;
+  workspace_status?: string;
+  overage?: {
+    current_overage_usd: number;
+    threshold_step_usd: number;
+    next_collect_at_usd: number;
+    hard_cap_usd: number;
+    remaining_to_cap_usd: number;
+    is_at_or_over_cap: boolean;
+    last_collect_attempt_at: string | null;
+    status: "ok" | "collecting" | "paused_hard_cap" | "paused_past_due";
+  };
+  addons?: {
+    available: Array<{
+      key: string;
+      label: string;
+      unit: string;
+      price_usd_month: number;
+      step: number;
+    }>;
+    active: {
+      extra_concurrency: number;
+      extra_phone: number;
+    };
+    effective_limits: {
+      max_concurrent_calls: number;
+      included_phones: number;
+    };
+  };
 };
 
 // Plan order map for comparison
@@ -190,6 +218,7 @@ export default function WorkspaceBillingPage() {
   const [changingPlan, setChangingPlan] = React.useState(false);
   const [portalLoading, setPortalLoading] = React.useState(false);
   const [portalError, setPortalError] = React.useState<string | null>(null);
+  const [updatingAddon, setUpdatingAddon] = React.useState<string | null>(null);
 
   // Fetch billing summary
   const fetchSummary = React.useCallback(async () => {
@@ -264,6 +293,29 @@ export default function WorkspaceBillingPage() {
       alert(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setChangingPlan(false);
+    }
+  };
+
+  // Handle addon update
+  const handleAddonUpdate = async (addonKey: string, newQty: number) => {
+    try {
+      setUpdatingAddon(addonKey);
+      const res = await fetch("/api/billing/addons/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addon_key: addonKey, qty: newQty }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // Refetch summary to refresh UI
+        await fetchSummary();
+      } else {
+        alert(data.error || "Failed to update add-on");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setUpdatingAddon(null);
     }
   };
 
@@ -438,6 +490,87 @@ export default function WorkspaceBillingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Left column: Current plan + Usage + Estimated invoice (spans 2 columns) */}
           <div className="space-y-6 lg:col-span-2">
+            {/* Overage card */}
+            {summary?.overage && (
+              <Card>
+                <SectionTitle title="Overage" subtitle="Current month usage overage." />
+                <div className="mt-6 space-y-6">
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <UsageStat
+                      label="Current overage"
+                      value={formatUsd(summary.overage.current_overage_usd)}
+                    />
+                    <UsageStat
+                      label="Next auto-collect at"
+                      value={formatUsd(summary.overage.next_collect_at_usd)}
+                    />
+                    <UsageStat
+                      label="Hard cap"
+                      value={formatUsd(summary.overage.hard_cap_usd)}
+                    />
+                    <UsageStat
+                      label="Remaining to cap"
+                      value={formatUsd(summary.overage.remaining_to_cap_usd)}
+                    />
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                      <span>Progress to cap</span>
+                      <span>
+                        {summary.overage.hard_cap_usd > 0
+                          ? `${Math.min(
+                              Math.round(
+                                (summary.overage.current_overage_usd /
+                                  summary.overage.hard_cap_usd) *
+                                  100
+                              ),
+                              100
+                            )}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                      <div
+                        className="h-full bg-brand-500 transition-all"
+                        style={{
+                          width: `${
+                            summary.overage.hard_cap_usd > 0
+                              ? `${Math.min(
+                                  Math.round(
+                                    (summary.overage.current_overage_usd /
+                                      summary.overage.hard_cap_usd) *
+                                      100
+                                  ),
+                                  100
+                                )}%`
+                              : "0%"
+                          }`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status message */}
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                      {summary.overage.status === "ok"
+                        ? "Auto-collect triggers every $100 of overage."
+                        : summary.overage.status === "paused_hard_cap"
+                        ? "Service paused due to hard cap. Payment required to resume."
+                        : summary.overage.status === "paused_past_due"
+                        ? "Service paused due to payment failure. Payment required to resume."
+                        : summary.overage.status === "collecting"
+                        ? "Overage threshold reached. Collection in progress."
+                        : "Auto-collect triggers every $100 of overage."}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Current plan card */}
             <Card>
               <SectionTitle title="Current plan" subtitle="Your subscription and plan settings." />
@@ -565,10 +698,81 @@ export default function WorkspaceBillingPage() {
                 <UsageStat
                   label="Peak concurrent"
                   value={(preview?.peak_concurrent_calls || 0).toString()}
-                  hint={planLimits?.concurrency_limit ? `Limit: ${planLimits.concurrency_limit}` : undefined}
+                  hint={summary?.addons?.effective_limits?.max_concurrent_calls ? `Limit: ${summary.addons.effective_limits.max_concurrent_calls}` : planLimits?.concurrency_limit ? `Limit: ${planLimits.concurrency_limit}` : undefined}
                 />
               </div>
             </Card>
+
+            {/* Add-ons card */}
+            {summary?.addons && (
+              <Card>
+                <SectionTitle title="Add-ons" subtitle="Extra capacity beyond your plan." />
+                <div className="mt-6 space-y-4">
+                  {summary.addons.available
+                    .filter((addon) => addon.key === "extra_concurrency" || addon.key === "extra_phone")
+                    .map((addon) => {
+                      const currentQty = summary.addons?.active[addon.key as "extra_concurrency" | "extra_phone"] || 0;
+                      const monthlyPrice = currentQty * addon.price_usd_month;
+                      const isBillingPaused = summary.billing_status !== "active";
+                      const isUpdating = updatingAddon === addon.key;
+
+                      return (
+                        <div
+                          key={addon.key}
+                          className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-white/5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                                {addon.label}
+                              </p>
+                              {monthlyPrice > 0 && (
+                                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                  +{formatUsd(monthlyPrice)}/mo
+                                </p>
+                              )}
+                              {isBillingPaused && (
+                                <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                  Payment required to modify add-ons.
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  if (!isBillingPaused && currentQty > 0) {
+                                    handleAddonUpdate(addon.key, Math.max(0, currentQty - addon.step));
+                                  }
+                                }}
+                                disabled={isBillingPaused || currentQty === 0 || isUpdating}
+                                className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
+                              >
+                                −
+                              </Button>
+                              <span className="min-w-[3rem] text-center text-sm font-semibold text-zinc-900 dark:text-white">
+                                {currentQty}
+                              </span>
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  if (!isBillingPaused) {
+                                    handleAddonUpdate(addon.key, currentQty + addon.step);
+                                  }
+                                }}
+                                disabled={isBillingPaused || isUpdating}
+                                className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
+                              >
+                                +
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </Card>
+            )}
 
             {/* Estimated invoice card */}
             <Card>
