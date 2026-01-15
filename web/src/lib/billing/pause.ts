@@ -3,8 +3,11 @@ import { logEvent } from "@/lib/observability/logEvent";
 
 /**
  * Pause the workspace by setting workspace_status = 'paused', paused_at = now(), and paused_reason.
- * Updates organization_settings table.
- * Uses supabaseAdmin (service role) to bypass RLS.
+ * ALWAYS sets paused_reason:
+ *   - 'hard_cap' for hard_cap reason
+ *   - 'past_due' for payment_failed reason
+ * Updates public.organization_settings table using supabaseAdmin (service role) to bypass RLS.
+ * Throws error if update fails (does not swallow errors).
  */
 export async function pauseOrgBilling(
   orgId: string,
@@ -12,7 +15,8 @@ export async function pauseOrgBilling(
   details?: Record<string, unknown>
 ): Promise<void> {
   const pausedAt = new Date().toISOString();
-  const pausedReason = reason === "hard_cap" ? "hard_cap" : "past_due";
+  // Always set paused_reason based on reason parameter
+  const pausedReason: "hard_cap" | "past_due" = reason === "hard_cap" ? "hard_cap" : "past_due";
 
   const { error } = await supabaseAdmin
     .from("organization_settings")
@@ -21,13 +25,14 @@ export async function pauseOrgBilling(
         org_id: orgId,
         workspace_status: "paused",
         paused_at: pausedAt,
-        paused_reason: pausedReason,
+        paused_reason: pausedReason, // Always set paused_reason
       },
       { onConflict: "org_id" }
     );
 
   if (error) {
     const errorMsg = `Failed to pause workspace: ${error.message}`;
+    // Log error before throwing (do not swallow errors)
     logEvent({
       tag: "[BILLING][PAUSE][ERROR]",
       ts: Date.now(),
@@ -40,6 +45,9 @@ export async function pauseOrgBilling(
         paused_reason: pausedReason,
         error: error.message,
         error_code: error.code,
+        error_hint: error.hint,
+        table: "public.organization_settings",
+        column: "paused_reason",
         ...details,
       },
     });
@@ -56,8 +64,9 @@ export async function pauseOrgBilling(
     details: {
       workspace_status: "paused",
       reason: reason,
-      paused_reason: pausedReason,
+      paused_reason: pausedReason, // Always set
       paused_at: pausedAt,
+      table: "public.organization_settings",
       ...details,
     },
   });
