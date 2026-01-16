@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 
 /**
  * Get onboarding state for current user's org.
@@ -16,27 +17,29 @@ export async function getOnboardingState() {
     redirect("/login");
   }
 
-  // 2) Get profile with org_id
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, org_id, role")
-    .eq("auth_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(1);
-
-  if (!profiles || profiles.length === 0 || !profiles[0].org_id) {
+  // 2) Get org_id using helper
+  const orgId = await getActiveOrgId();
+  if (!orgId) {
     throw new Error("No organization found for this user.");
   }
 
-  const orgId = profiles[0].org_id;
-  const role = profiles[0].role;
+  // 3) Get profile role
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .eq("org_id", orgId)
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
-  // 3) Get organization name
-  const { data: org } = await supabase
-    .from("orgs")
+  const role = profiles?.[0]?.role || null;
+
+  // 4) Get organization name from organizations_legacy
+  const { data: org } = await supabaseAdmin
+    .from("organizations_legacy")
     .select("id, name")
     .eq("id", orgId)
-    .single();
+    .maybeSingle();
 
   const orgName = org?.name || "";
 
@@ -112,15 +115,37 @@ export async function saveOnboardingPreferences(
   }
 
   // Verify user has access to this org
-  const { data: profile } = await supabase
-    .from("profiles")
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Ensure FK parent exists in organizations_legacy
+  // Check if exists first, then insert if missing
+  const { data: existingOrg } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrg) {
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name: null, created_at: new Date().toISOString() });
+  }
+
+  // Ensure settings row exists
+  // Check if exists first, then insert if missing
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
     .select("org_id")
-    .eq("auth_user_id", user.id)
     .eq("org_id", orgId)
     .maybeSingle();
-
-  if (!profile) {
-    return { ok: false, error: "Unauthorized" };
+  
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
   }
 
   // Update organization_settings with preferences
@@ -128,14 +153,12 @@ export async function saveOnboardingPreferences(
   // After saving goal, move to step 1 (number selection)
   const { error } = await supabaseAdmin
     .from("organization_settings")
-    .upsert({
-      org_id: orgId,
+    .update({
       onboarding_step: 1, // Move to step 1 (number selection)
       onboarding_goal: preferences.goal,
       onboarding_language: preferences.language,
-    }, {
-      onConflict: "org_id",
-    });
+    })
+    .eq("org_id", orgId);
 
   if (error) {
     console.error("[saveOnboardingPreferences] Error:", error);
@@ -156,27 +179,43 @@ export async function saveWorkspaceName(orgId: string, name: string) {
   }
 
   // Verify user has access to this org
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("auth_user_id", user.id)
-    .eq("org_id", orgId)
-    .maybeSingle();
-
-  if (!profile) {
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
     return { ok: false, error: "Unauthorized" };
   }
 
-  // Update org name
-  const { error } = await supabaseAdmin
-    .from("orgs")
-    .update({ name })
-    .eq("id", orgId);
-
-  if (error) {
-    console.error("[saveWorkspaceName] Error:", error);
-    return { ok: false, error: error.message };
+  // Ensure FK parent exists in organizations_legacy
+  // Check if exists first, then insert if missing
+  const { data: existingOrg } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrg) {
+    // Insert new org with name
+    const { error: insertError } = await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name, created_at: new Date().toISOString() });
+    
+    if (insertError) {
+      console.error("[saveWorkspaceName] Error creating org:", insertError);
+      return { ok: false, error: insertError.message };
+    }
+  } else {
+    // Update org name in organizations_legacy
+    const { error: updateError } = await supabaseAdmin
+      .from("organizations_legacy")
+      .update({ name })
+      .eq("id", orgId);
+    
+    if (updateError) {
+      console.error("[saveWorkspaceName] Error updating org name:", updateError);
+      return { ok: false, error: updateError.message };
+    }
   }
+  
+  return { ok: true };
 
   return { ok: true };
 }
@@ -232,19 +271,31 @@ export async function activatePhoneNumber(
     return { ok: false, error: "NO_PLAN" };
   }
 
+  // Ensure settings row exists
+  // Check if exists first, then insert if missing
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+  }
+
   // TODO: Wire actual phone number provisioning here
   // For now, this is a placeholder that marks onboarding as complete
   // Step mapping: 0 = goal, 1 = number, 2 = go-live
   // After activation, move to step 2 (go-live) and mark as completed
   const { error: updateError } = await supabaseAdmin
     .from("organization_settings")
-    .upsert({
-      org_id: orgId,
+    .update({
       onboarding_step: 2, // Step 2 = go-live
       onboarding_completed_at: new Date().toISOString(),
-    }, {
-      onConflict: "org_id",
-    });
+    })
+    .eq("org_id", orgId);
 
   if (updateError) {
     console.error("[activatePhoneNumber] Error updating settings:", updateError);
@@ -265,27 +316,47 @@ export async function completeOnboarding(orgId: string) {
   }
 
   // Verify user has access to this org
-  const { data: profile } = await supabase
-    .from("profiles")
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Ensure FK parent exists in organizations_legacy
+  // Check if exists first, then insert if missing
+  const { data: existingOrgForComplete } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrgForComplete) {
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name: null, created_at: new Date().toISOString() });
+  }
+
+  // Ensure settings row exists
+  // Check if exists first, then insert if missing
+  const { data: existingSettingsForComplete } = await supabaseAdmin
+    .from("organization_settings")
     .select("org_id")
-    .eq("auth_user_id", user.id)
     .eq("org_id", orgId)
     .maybeSingle();
-
-  if (!profile) {
-    return { ok: false, error: "Unauthorized" };
+  
+  if (!existingSettingsForComplete) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
   }
 
   // Step mapping: 0 = goal, 1 = number, 2 = go-live
   const { error } = await supabaseAdmin
     .from("organization_settings")
-    .upsert({
-      org_id: orgId,
+    .update({
       onboarding_step: 2, // Step 2 = go-live
       onboarding_completed_at: new Date().toISOString(),
-    }, {
-      onConflict: "org_id",
-    });
+    })
+    .eq("org_id", orgId);
 
   if (error) {
     console.error("[completeOnboarding] Error:", error);

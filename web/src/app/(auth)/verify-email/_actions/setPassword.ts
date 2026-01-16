@@ -61,11 +61,46 @@ export async function setPasswordAction(
 
   if (existingProfile?.org_id) {
     orgId = existingProfile.org_id;
+    
+    // Ensure org exists in organizations_legacy (FK parent)
+    // Upsert: insert (id, name, created_at) on conflict update name
+    const now = new Date().toISOString();
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: orgName,
+          created_at: now,
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    // Explicitly update name to ensure it's set (upsert may not update on conflict)
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .update({ name: orgName })
+      .eq("id", orgId);
   } else {
-    // Create org
+    // Create org in organizations_legacy (FK parent for organization_settings)
+    // Generate orgId first, then upsert
+    orgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
     const { data: org, error: orgErr } = await supabaseAdmin
-      .from("orgs")
-      .insert({ name: orgName, created_by: user.id })
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: orgName,
+          created_at: now,
+        },
+        {
+          onConflict: "id",
+        }
+      )
       .select("id")
       .single();
 
@@ -73,7 +108,18 @@ export async function setPasswordAction(
       return { ok: false, error: `Failed to create workspace: ${orgErr.message}` };
     }
 
+    if (!org?.id) {
+      return { ok: false, error: "Failed to create workspace: No organization ID returned" };
+    }
+
+    // Use the returned ID (should match our generated UUID)
     orgId = org.id;
+
+    // Explicitly update name to ensure it's set
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .update({ name: orgName })
+      .eq("id", orgId);
   }
 
   // 5) Ensure profile exists with correct mapping

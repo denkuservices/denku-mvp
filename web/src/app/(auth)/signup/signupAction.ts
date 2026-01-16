@@ -86,17 +86,32 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     };
   }
 
-  // 2) Create org/workspace (use "orgs" table as per existing codebase)
+  // 2) Create org/workspace in organizations_legacy (FK parent for organization_settings)
+  // Generate orgId first, then upsert
   let orgId: string;
   try {
+    // Generate UUID for org_id
+    orgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    // Upsert into organizations_legacy: insert (id, name, created_at) on conflict update name
     const { data: org, error: orgErr } = await supabaseAdmin
-      .from("orgs")
-      .insert({ name: org_name, created_by: user.id })
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: org_name,
+          created_at: now,
+        },
+        {
+          onConflict: "id",
+        }
+      )
       .select("id")
       .single();
 
     if (orgErr) {
-      console.error("[signupAction] Failed to create org:", orgErr.message, orgErr.code);
+      console.error("[signupAction] Failed to upsert org:", orgErr.message, orgErr.code);
       return {
         ok: false,
         code: "UNKNOWN",
@@ -105,7 +120,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     }
 
     if (!org?.id) {
-      console.error("[signupAction] Org created but no id returned");
+      console.error("[signupAction] Org upserted but no id returned");
       return {
         ok: false,
         code: "UNKNOWN",
@@ -113,7 +128,15 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
       };
     }
 
+    // Use the returned ID (should match our generated UUID)
     orgId = org.id;
+
+    // Ensure name is updated (upsert with onConflict may not update existing rows)
+    // Explicitly update name to handle case where org already existed
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .update({ name: org_name })
+      .eq("id", orgId);
   } catch (err) {
     console.error("[signupAction] Org creation exception:", err);
     return {
