@@ -38,8 +38,11 @@ export function SignupForm() {
 
       if (result.ok) {
         // Redirect based on next step
+        // Note: signupAction always returns "verify-email" in production
+        // After email verification, user will be redirected to /onboarding
         if (result.next === "dashboard") {
-          router.push("/dashboard");
+          // This path is not currently used, but if it were, redirect to onboarding
+          router.push("/onboarding");
         } else {
           router.push(`/verify-email?email=${encodeURIComponent(result.email)}`);
         }

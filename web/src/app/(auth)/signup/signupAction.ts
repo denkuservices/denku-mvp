@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getBaseUrl } from "@/lib/utils/url";
+import { sendVerifyEmail } from "@/lib/email/sendVerifyEmail";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -161,7 +162,65 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     };
   }
 
-  // 4) Always require email verification before dashboard access
+  // 4) Send verification email via Resend
+  // Use Supabase admin client to generate confirmation link with token
+  try {
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "signup",
+      email: user.email!,
+      password: password, // Required for signup type
+      options: {
+        redirectTo: emailRedirectTo,
+      },
+    });
+
+    if (linkError || !linkData) {
+      console.error("[signupAction] Failed to generate confirmation link:", linkError);
+    } else {
+      // Extract token from the confirmation URL or use hashed_token
+      // Supabase's generateLink returns properties with action_link and hashed_token
+      const token = linkData.properties?.hashed_token || linkData.properties?.email_otp || "";
+      console.log("[Resend] key present:", !!process.env.RESEND_API_KEY);
+
+      if (token) {
+        try {
+          await sendVerifyEmail(user.email!, token);
+        } catch (resendErr) {
+          // Don't fail signup if Resend fails - Supabase email is the source of truth
+          console.error("[signupAction] Resend email failed (non-blocking):", resendErr);
+        }
+      } else {
+        // Fallback: try to extract from action_link URL
+        const confirmationUrl = linkData.properties?.action_link || "";
+        if (confirmationUrl) {
+          try {
+            const urlObj = new URL(confirmationUrl);
+            const urlToken = urlObj.searchParams.get("token") || urlObj.searchParams.get("token_hash") || urlObj.searchParams.get("code") || "";
+            if (urlToken) {
+              try {
+                await sendVerifyEmail(user.email!, urlToken);
+              } catch (resendErr) {
+                // Don't fail signup if Resend fails - Supabase email is the source of truth
+                console.error("[signupAction] Resend email failed (non-blocking):", resendErr);
+              }
+            } else {
+              console.error("[signupAction] Could not extract token from confirmation link");
+            }
+          } catch (urlErr) {
+            console.error("[signupAction] Error parsing confirmation URL:", urlErr);
+          }
+        } else {
+          console.error("[signupAction] No token or action_link found in generateLink response");
+        }
+      }
+    }
+  } catch (err) {
+    // Log error but don't fail signup
+    console.error("[signupAction] Failed to send Resend email:", err);
+    // Continue with signup flow even if Resend email fails
+  }
+
+  // 5) Always require email verification before dashboard access
   // In production, email confirmation is required, so always redirect to verify-email
   // Even if session exists, do NOT trust it as confirmed (Supabase may return session before email is confirmed)
   const next: "dashboard" | "verify-email" = "verify-email";

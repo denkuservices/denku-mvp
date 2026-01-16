@@ -16,6 +16,8 @@ type OnboardingState = {
   orgName: string;
   role: string;
   onboardingStep: number;
+  onboardingGoal: string | null;
+  onboardingLanguage: string | null;
   workspaceStatus: "active" | "paused";
   pausedReason: "manual" | "hard_cap" | "past_due" | null;
   planCode: string | null;
@@ -27,53 +29,37 @@ type OnboardingClientProps = {
   initialState: OnboardingState;
 };
 
+// Step mapping: 0 = goal, 1 = number, 2 = go-live
 const STEPS = [
-  { id: 0, label: "Workspace" },
-  { id: 1, label: "Goal" },
-  { id: 2, label: "Number" },
-  { id: 3, label: "Go live" },
+  { id: 0, label: "Goal" },
+  { id: 1, label: "Number" },
+  { id: 2, label: "Go live" },
 ];
 
 export function OnboardingClient({ initialState }: OnboardingClientProps) {
   const router = useRouter();
   const [state, setState] = useState(initialState);
-  const [currentStep, setCurrentStep] = useState(state.onboardingStep || 0);
+  // Step mapping: 0 = goal, 1 = number, 2 = go-live
+  // Skip workspace step if orgName exists
+  const initialStep = state.onboardingStep ?? 0;
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Step 0: Workspace name
-  const [workspaceName, setWorkspaceName] = useState(state.orgName || "");
+  // Step 0: Goal + Language (load from state if available)
+  const [goal, setGoal] = useState<"support" | "sales">(
+    (state.onboardingGoal as "support" | "sales") || "support"
+  );
+  const [language, setLanguage] = useState(state.onboardingLanguage || "auto");
 
-  // Step 1: Goal + Language
-  const [goal, setGoal] = useState<"support" | "sales">("support");
-  const [language, setLanguage] = useState("auto");
-
-  // Step 2: Phone number
+  // Step 1: Phone number
   const [country, setCountry] = useState("US");
   const [areaCode, setAreaCode] = useState("");
 
-  // Step 3: Activation
+  // Step 2: Activation
   const [isActivating, setIsActivating] = useState(false);
   const [activationComplete, setActivationComplete] = useState(false);
   const [provisionedPhoneNumber, setProvisionedPhoneNumber] = useState<string | null>(null);
-
-  const handleSaveWorkspaceName = () => {
-    if (!workspaceName.trim()) {
-      setError("Workspace name is required");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await saveWorkspaceName(state.orgId, workspaceName.trim());
-      if (result.ok) {
-        setState((s) => ({ ...s, orgName: workspaceName.trim() }));
-        setCurrentStep(1);
-        setError(null);
-      } else {
-        setError(result.error || "Failed to save workspace name");
-      }
-    });
-  };
 
   const handleSavePreferences = () => {
     startTransition(async () => {
@@ -82,7 +68,15 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
         language,
       });
       if (result.ok) {
-        setCurrentStep(2);
+        // Step mapping: 0 = goal, 1 = number, 2 = go-live
+        // After saving goal, move to step 1 (number selection)
+        setCurrentStep(1);
+        setState((s) => ({
+          ...s,
+          onboardingStep: 1,
+          onboardingGoal: goal,
+          onboardingLanguage: language,
+        }));
         setError(null);
       } else {
         setError(result.error || "Failed to save preferences");
@@ -114,7 +108,10 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
       if (result.ok) {
         setProvisionedPhoneNumber(result.phoneNumber || null);
         setActivationComplete(true);
-        setCurrentStep(3);
+        // Step mapping: 0 = goal, 1 = number, 2 = go-live
+        // After activation, move to step 2 (go-live)
+        setCurrentStep(2);
+        setState((s) => ({ ...s, onboardingStep: 2 }));
         setIsActivating(false);
       } else {
         if (result.error === "BILLING_PAUSED") {
@@ -203,46 +200,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
             </div>
           )}
 
-          {/* Step 0: Workspace Name */}
+          {/* Step 0: Goal + Language */}
           {currentStep === 0 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Workspace name</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Give your workspace a name. You can change this later.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Workspace name
-                </label>
-                <input
-                  type="text"
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSaveWorkspaceName();
-                    }
-                  }}
-                  className="mt-2 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                  placeholder="My Company"
-                  disabled={isPending}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Button onClick={handleSaveWorkspaceName} disabled={isPending || !workspaceName.trim()}>
-                  Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Goal + Language */}
-          {currentStep === 1 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">What do you want your line to handle?</h2>
@@ -334,8 +293,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
             </div>
           )}
 
-          {/* Step 2: Get Phone Number */}
-          {currentStep === 2 && (
+          {/* Step 1: Get Phone Number */}
+          {currentStep === 1 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Get a phone number</h2>
@@ -461,8 +420,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
             </div>
           )}
 
-          {/* Step 3: Activation Complete */}
-          {currentStep === 3 && (
+          {/* Step 2: Activation Complete */}
+          {currentStep === 2 && (
             <div className="space-y-6 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500">
                 <CheckCircle2 className="h-8 w-8 text-white" />

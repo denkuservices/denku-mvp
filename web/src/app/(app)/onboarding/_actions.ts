@@ -66,10 +66,15 @@ export async function getOnboardingState() {
 
   const planCode = planOverride?.plan_code || null;
 
-  // 8) Get onboarding step (safe fallback if column doesn't exist)
-  const onboardingStep = (settings as any)?.onboarding_step || 0;
+  // 8) Get onboarding step (safe fallback if column doesn't exist or is null)
+  // Step mapping: 0 = goal, 1 = number, 2 = go-live
+  const onboardingStep = (settings as any)?.onboarding_step ?? 0;
 
-  // 9) Check if phone number exists (check agents table)
+  // 9) Get saved onboarding preferences (goal and language)
+  const onboardingGoal = (settings as any)?.onboarding_goal || null;
+  const onboardingLanguage = (settings as any)?.onboarding_language || null;
+
+  // 10) Check if phone number exists (check agents table)
   const { data: agents } = await supabaseAdmin
     .from("agents")
     .select("id, vapi_phone_number_id, phone_number")
@@ -83,6 +88,8 @@ export async function getOnboardingState() {
     orgName,
     role,
     onboardingStep: onboardingStep as number,
+    onboardingGoal: onboardingGoal as string | null,
+    onboardingLanguage: onboardingLanguage as string | null,
     workspaceStatus: workspaceStatus as "active" | "paused",
     pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | null,
     planCode,
@@ -117,16 +124,15 @@ export async function saveOnboardingPreferences(
   }
 
   // Update organization_settings with preferences
-  // TODO: Add onboarding_goal and onboarding_language columns if needed
-  // For now, we'll store in a JSON field or skip if columns don't exist
+  // Step mapping: 0 = goal, 1 = number, 2 = go-live
+  // After saving goal, move to step 1 (number selection)
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .upsert({
       org_id: orgId,
-      onboarding_step: 1, // Move to step 1 (goal selected)
-      // TODO: Add onboarding_goal and onboarding_language columns
-      // onboarding_goal: preferences.goal,
-      // onboarding_language: preferences.language,
+      onboarding_step: 1, // Move to step 1 (number selection)
+      onboarding_goal: preferences.goal,
+      onboarding_language: preferences.language,
     }, {
       onConflict: "org_id",
     });
@@ -228,11 +234,13 @@ export async function activatePhoneNumber(
 
   // TODO: Wire actual phone number provisioning here
   // For now, this is a placeholder that marks onboarding as complete
+  // Step mapping: 0 = goal, 1 = number, 2 = go-live
+  // After activation, move to step 2 (go-live) and mark as completed
   const { error: updateError } = await supabaseAdmin
     .from("organization_settings")
     .upsert({
       org_id: orgId,
-      onboarding_step: 3,
+      onboarding_step: 2, // Step 2 = go-live
       onboarding_completed_at: new Date().toISOString(),
     }, {
       onConflict: "org_id",
@@ -268,11 +276,12 @@ export async function completeOnboarding(orgId: string) {
     return { ok: false, error: "Unauthorized" };
   }
 
+  // Step mapping: 0 = goal, 1 = number, 2 = go-live
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .upsert({
       org_id: orgId,
-      onboarding_step: 3,
+      onboarding_step: 2, // Step 2 = go-live
       onboarding_completed_at: new Date().toISOString(),
     }, {
       onConflict: "org_id",
