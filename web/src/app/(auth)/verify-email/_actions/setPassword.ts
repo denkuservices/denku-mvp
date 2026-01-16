@@ -111,7 +111,7 @@ export async function setPasswordAction(
   const emailConfirmed = updatedUser ? ((updatedUser as any).email_confirmed_at || (updatedUser as any).confirmed_at) : false;
 
   if (emailConfirmed) {
-    redirect("/dashboard");
+    redirect("/onboarding");
   } else {
     // Email not confirmed yet, redirect back to verify-email
     redirect(`/verify-email?email=${encodeURIComponent(updatedUser?.email || "")}`);

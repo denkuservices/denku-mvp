@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
       // Check if email is confirmed
       const emailConfirmed = (currentUser as any).email_confirmed_at || (currentUser as any).confirmed_at;
 
-      // If email is confirmed, redirect to dashboard
+      // If email is confirmed, redirect to onboarding
       if (emailConfirmed) {
-        return NextResponse.redirect(new URL("/dashboard", baseUrl));
+        return NextResponse.redirect(new URL("/onboarding", baseUrl));
       }
 
       // If email not confirmed, redirect to verify-email

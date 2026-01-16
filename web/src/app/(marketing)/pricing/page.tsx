@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
@@ -8,6 +8,7 @@ import { Button } from '@/components/marketing/Button';
 import { Check, ArrowRight, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import React from 'react';
 import { pricingPlans } from '@/components/marketing/pricing-data';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const plans = pricingPlans.map(plan => ({
   name: plan.name,
@@ -95,6 +96,20 @@ function renderCellValue(value: string) {
 
 export default function PricingPage() {
   const [compareExpanded, setCompareExpanded] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        setIsLoggedIn(!!user);
+      } catch (error) {
+        setIsLoggedIn(false);
+      }
+    }
+    checkAuth();
+  }, []);
 
   return (
     <>
@@ -144,8 +159,17 @@ export default function PricingPage() {
                   <p className="text-sm text-[#64748B]">{plan.subtitle}</p>
                 </div>
 
+                {/* Concurrency line - hero metric */}
+                {plan.concurrencyLine && (
+                  <div className="mb-4">
+                    <p className="text-2xl font-bold text-[#0F172A]">
+                      {plan.concurrencyLine}
+                    </p>
+                  </div>
+                )}
+
                 {/* Price */}
-                <div className="mb-4">
+                <div className="mb-6">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-bold text-[#0F172A]">{plan.price}</span>
                     {plan.priceUnit && (
@@ -154,19 +178,12 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                {/* Concurrency line - prominent but secondary to price */}
-                {plan.concurrencyLine && (
-                  <p className="mb-4 text-base font-medium text-[#0F172A]">
-                    {plan.concurrencyLine}
-                  </p>
-                )}
-
                 {/* Bullets */}
                 <ul className="flex-1 space-y-3 mb-6">
                   {plan.bullets.map((bullet, index) => {
                     // Handle minutes line with explanation
-                    if (bullet.includes('included minutes')) {
-                      const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+included minutes/);
+                    if (bullet.includes('minutes (capacity bonus)') || bullet.includes('minutes included')) {
+                      const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+minutes/);
                       if (minutesMatch) {
                         const minutes = minutesMatch[1];
                         return (
@@ -176,8 +193,8 @@ export default function PricingPage() {
                                 <Check className="h-3.5 w-3.5 text-[#2563EB]" />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes included</span>
-                                <span className="text-xs text-[#64748B]">Minutes are a usage allowance for smoother onboarding — overage is pay-as-you-go.</span>
+                                <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes (capacity bonus)</span>
+                                <span className="text-xs text-[#64748B] mt-0.5">Minutes are a usage allowance for smoother onboarding — overage is pay-as-you-go.</span>
                               </div>
                             </div>
                           </li>
@@ -205,8 +222,8 @@ export default function PricingPage() {
                   variant={plan.highlight ? 'default' : 'secondary'}
                   className="w-full"
                 >
-                  <Link href={plan.cta.href}>
-                    {plan.cta.label}
+                  <Link href={isLoggedIn ? '/dashboard/settings/workspace/billing' : plan.cta.href}>
+                    {isLoggedIn ? 'Choose plan' : plan.cta.label}
                   </Link>
                 </Button>
               </div>
@@ -321,18 +338,21 @@ export default function PricingPage() {
 
           {/* Add-ons Section */}
           <div className="mt-12 rounded-2xl border border-[#CBD5E1] bg-white p-6 md:p-8 shadow-sm max-w-4xl mx-auto">
-            <h3 className="text-xl font-bold text-[#0F172A] mb-4">Add-ons</h3>
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold text-[#0F172A] mb-2">Add-ons</h3>
+              <p className="text-sm text-[#64748B]">Optional capacity extensions for all plans</p>
+            </div>
             {/* TODO: Fetch addon prices from /api/billing/summary or a public pricing endpoint for server truth */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
               <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra concurrent calls</div>
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra concurrent call</div>
                 <div className="text-lg font-bold text-[#0F172A] mb-2">+$99 / month per 1</div>
-                <p className="text-xs text-[#64748B]">Adds 1 concurrent call to your plan</p>
+                <p className="text-xs text-[#64748B]">Add 1 concurrent call to your plan</p>
               </div>
               <div className="rounded-lg border border-[#CBD5E1] p-4">
                 <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra phone number</div>
                 <div className="text-lg font-bold text-[#0F172A] mb-2">+$10 / month per 1</div>
-                <p className="text-xs text-[#64748B]">Additional phone number for your account</p>
+                <p className="text-xs text-[#64748B]">Add 1 phone number to your account</p>
               </div>
             </div>
           </div>

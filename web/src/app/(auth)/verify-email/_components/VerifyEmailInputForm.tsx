@@ -44,9 +44,9 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="text-sm font-medium">Email address</label>
+        <label className="block text-sm font-medium text-slate-900 mb-1.5">Email address</label>
         <input
           type="email"
           value={email}
@@ -56,13 +56,14 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
           }}
           disabled={isPending}
           required
-          className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
+          autoComplete="email"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
           placeholder="you@company.com"
         />
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
@@ -70,14 +71,14 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
       <button
         type="submit"
         disabled={isPending || !email.trim()}
-        className="w-full rounded-md bg-black text-white py-2 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Sending..." : "Send verification email"}
       </button>
 
       <div className="text-center">
         <Link
-          className="text-sm text-muted-foreground hover:text-foreground underline"
+          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
           href="/signup"
         >
           Go to signup

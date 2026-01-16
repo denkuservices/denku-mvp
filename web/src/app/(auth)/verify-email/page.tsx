@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { VerifyEmailPageClient } from "./_components/VerifyEmailPageClient";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 interface VerifyEmailPageProps {
   searchParams: Promise<{ email?: string }>;
@@ -25,17 +26,16 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
   const emailParam = resolvedSearchParams.email || "";
 
   return (
-    <div className="rounded-2xl border p-6 shadow-sm bg-white">
-      <h1 className="text-2xl font-semibold">Verify your email</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {emailParam
-          ? "Check your inbox and click the confirmation link to continue."
-          : "Enter your email address to receive a confirmation link."}
-      </p>
-
-      <div className="mt-6">
-        <VerifyEmailPageClient initialEmail={emailParam} />
-      </div>
-    </div>
+    <AuthShell
+      title="Verify your email"
+      subtitle={
+        emailParam
+          ? "Enter the code we sent to your email to continue."
+          : "Enter your email address to receive a confirmation link."
+      }
+      showBackLink
+    >
+      <VerifyEmailPageClient initialEmail={emailParam} />
+    </AuthShell>
   );
 }

@@ -52,9 +52,9 @@ export function SignupForm() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="org_name" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="org_name" className="block text-sm font-medium text-slate-900 mb-1.5">
             Business name
           </label>
           <input
@@ -62,13 +62,13 @@ export function SignupForm() {
             name="org_name"
             required
             disabled={isPending}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="Acme Inc."
           />
         </div>
 
         <div>
-          <label htmlFor="full_name" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="full_name" className="block text-sm font-medium text-slate-900 mb-1.5">
             Full name
           </label>
           <input
@@ -77,13 +77,13 @@ export function SignupForm() {
             required
             disabled={isPending}
             autoComplete="name"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="Alex Johnson"
           />
         </div>
 
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="phone" className="block text-sm font-medium text-slate-900 mb-1.5">
             Phone number
           </label>
           <input
@@ -92,7 +92,7 @@ export function SignupForm() {
             type="tel"
             disabled={isPending}
             autoComplete="tel"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="+1 (555) 123-4567"
           />
           <p className="mt-1 text-xs text-slate-500">
@@ -101,7 +101,7 @@ export function SignupForm() {
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="email" className="block text-sm font-medium text-slate-900 mb-1.5">
             Email
           </label>
           <input
@@ -111,13 +111,13 @@ export function SignupForm() {
             required
             disabled={isPending}
             autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="you@company.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="password" className="block text-sm font-medium text-slate-900 mb-1.5">
             Password
           </label>
           <input
@@ -128,13 +128,13 @@ export function SignupForm() {
             minLength={8}
             disabled={isPending}
             autoComplete="new-password"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="Minimum 8 characters"
           />
         </div>
 
         <div>
-          <label htmlFor="confirm_password" className="block text-sm font-medium text-slate-900">
+          <label htmlFor="confirm_password" className="block text-sm font-medium text-slate-900 mb-1.5">
             Confirm password
           </label>
           <input
@@ -145,13 +145,13 @@ export function SignupForm() {
             minLength={8}
             disabled={isPending}
             autoComplete="new-password"
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
             placeholder="Confirm your password"
           />
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
             {error.code === "USER_EXISTS" ? (
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-red-800">Account already exists</p>
@@ -182,20 +182,11 @@ export function SignupForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-lg bg-black text-white py-2.5 font-medium hover:bg-slate-900 active:bg-black focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {isPending ? "Creating account..." : "Create account"}
         </button>
       </form>
-
-      <div className="mt-6 pt-6 border-t border-slate-200">
-        <p className="text-sm text-slate-600">
-          Already have an account?{" "}
-          <Link className="underline hover:text-slate-900 transition-colors" href="/login">
-            Sign in
-          </Link>
-        </p>
-      </div>
     </>
   );
 }

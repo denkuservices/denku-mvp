@@ -61,13 +61,13 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <p className="text-sm text-slate-600">
         Create a password for your account.
       </p>
 
       <div>
-        <label className="text-sm font-medium">Password</label>
+        <label className="block text-sm font-medium text-slate-900 mb-1.5">Password</label>
         <input
           type="password"
           value={password}
@@ -78,13 +78,14 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           disabled={isPending}
           minLength={8}
           required
-          className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
+          autoComplete="new-password"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
           placeholder="Minimum 8 characters"
         />
       </div>
 
       <div>
-        <label className="text-sm font-medium">Confirm password</label>
+        <label className="block text-sm font-medium text-slate-900 mb-1.5">Confirm password</label>
         <input
           type="password"
           value={confirmPassword}
@@ -95,13 +96,14 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           disabled={isPending}
           minLength={8}
           required
-          className="mt-1 w-full rounded-md border px-3 py-2 disabled:opacity-60"
+          autoComplete="new-password"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
           placeholder="Confirm your password"
         />
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
@@ -109,7 +111,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-black text-white py-2 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Setting password..." : "Set password and continue"}
       </button>

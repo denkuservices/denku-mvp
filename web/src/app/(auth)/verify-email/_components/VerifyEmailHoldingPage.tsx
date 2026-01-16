@@ -65,8 +65,8 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3">
+    <div className="space-y-5">
+      <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
         <p className="text-sm text-blue-800">
           We sent a confirmation email to{" "}
           <span className="font-medium">{email}</span>. Open your inbox and click the confirmation link.
@@ -74,13 +74,13 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
       </div>
 
       {message && (
-        <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
+        <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3">
           <p className="text-sm text-green-800">{message}</p>
         </div>
       )}
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
@@ -90,7 +90,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
           type="button"
           onClick={handleResend}
           disabled={resendCooldown > 0 || isPending}
-          className="w-full rounded-md bg-black text-white py-2 px-4 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full rounded-xl bg-indigo-600 text-white py-3.5 px-4 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {resendCooldown > 0
             ? `Resend email in ${resendCooldown}s`
@@ -101,7 +101,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
           type="button"
           onClick={handleCheckConfirmed}
           disabled={isCheckingConfirmed || isPending}
-          className="w-full rounded-md border border-gray-300 bg-white text-gray-700 py-2 px-4 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {isCheckingConfirmed ? "Checking..." : "I already confirmed"}
         </button>
@@ -113,22 +113,22 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
             setError(null);
             window.location.href = "/verify-email";
           }}
-          className="w-full rounded-md border border-gray-300 bg-white text-gray-700 py-2 px-4 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           Change email
         </button>
       </div>
 
-      <div className="pt-4 border-t flex gap-3 justify-center">
+      <div className="pt-4 border-t border-slate-200 flex gap-3 justify-center">
         <Link
-          className="text-sm text-muted-foreground hover:text-foreground underline"
+          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
           href="/login"
         >
           Go to login
         </Link>
-        <span className="text-sm text-muted-foreground">•</span>
+        <span className="text-sm text-slate-400">•</span>
         <Link
-          className="text-sm text-muted-foreground hover:text-foreground underline"
+          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
           href="/signup"
         >
           Use a different email

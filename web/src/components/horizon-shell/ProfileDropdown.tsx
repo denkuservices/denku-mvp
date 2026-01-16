@@ -112,7 +112,7 @@ export default function ProfileDropdown({ avatarSrc = '/horizon/img/avatars/avat
   };
 
   return (
-    <div className="flex h-auto w-56 flex-col justify-start rounded-[20px] bg-white bg-cover bg-no-repeat shadow-xl shadow-shadow-500 dark:!bg-navy-700 dark:text-white dark:shadow-none pb-3">
+    <div className="relative z-[9999] flex h-auto w-56 flex-col justify-start rounded-[20px] bg-white bg-cover bg-no-repeat shadow-xl shadow-shadow-500 dark:!bg-navy-700 dark:text-white dark:shadow-none pb-3">
       {/* Greeting - non-clickable */}
       <div className="ml-4 mt-3">
         <div className="flex items-center gap-2">

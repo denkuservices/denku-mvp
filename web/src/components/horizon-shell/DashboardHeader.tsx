@@ -93,7 +93,7 @@ export default function DashboardHeader({ breadcrumb = 'Pages / Main Dashboard',
   };
 
   return (
-    <div className="mb-5 mt-3 flex flex-col gap-1 md:flex-row md:items-start md:justify-between md:gap-6">
+    <div className="relative z-50 mb-5 mt-3 flex flex-col gap-1 md:flex-row md:items-start md:justify-between md:gap-6">
       {/* Left: Breadcrumb + Title */}
       <div className="min-w-0 flex-1">
         {/* Breadcrumb */}
@@ -155,10 +155,10 @@ export default function DashboardHeader({ breadcrumb = 'Pages / Main Dashboard',
             </button>
 
             {/* Avatar Dropdown */}
-            <div className="relative ml-2 h-10 w-10 overflow-hidden rounded-full ring-2 ring-white dark:ring-navy-700" ref={profileDropdownRef}>
+            <div className="relative ml-2" ref={profileDropdownRef}>
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="h-full w-full"
+                className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-white dark:ring-navy-700"
                 aria-label="Profile menu"
               >
                 <img
@@ -172,7 +172,7 @@ export default function DashboardHeader({ breadcrumb = 'Pages / Main Dashboard',
                 />
               </button>
               {showProfileDropdown && (
-                <div className="absolute right-0 top-12 z-50">
+                <div className="absolute right-0 top-12 z-[9999]">
                   <ProfileDropdown avatarSrc={avatarSrc} />
                 </div>
               )}

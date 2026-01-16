@@ -47,7 +47,7 @@ export default function HorizonShell({ children }: HorizonShellProps) {
       {/* Main Content Column - This is the scroll container */}
       <div className="flex min-h-screen flex-1 flex-col min-w-0 h-full w-full font-dm dark:bg-navy-900">
         {/* Scrollable main content area - matches Horizon layout structure */}
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px]">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative">
           {/* Routes wrapper - matches Horizon structure */}
           <div>
             {/* Minimal top bar for mobile menu only */}
