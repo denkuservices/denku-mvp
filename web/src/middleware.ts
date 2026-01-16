@@ -121,7 +121,18 @@ export async function middleware(request: NextRequest) {
 
       if (profiles && profiles.length > 0 && profiles[0].org_id) {
         const orgId = profiles[0].org_id;
-        // Check onboarding completion
+        
+        // Allowlist: Billing page is accessible even if onboarding is incomplete
+        // This allows users to purchase a plan during the onboarding flow
+        const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
+        
+        if (isBillingPath) {
+          // Allow access to billing page even if onboarding incomplete
+          // This enables the "Choose a plan" flow during onboarding
+          return response;
+        }
+        
+        // Check onboarding completion for all other /dashboard paths
         const { data: settings } = await supabaseAdmin
           .from("organization_settings")
           .select("onboarding_completed_at")
@@ -131,15 +142,21 @@ export async function middleware(request: NextRequest) {
         const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
         if (!onboardingCompletedAt) {
           // Onboarding not completed → redirect to onboarding
+          // Preserve query params if present
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";
+          // Keep existing query params (like return_to) in case user was redirected from billing
           return NextResponse.redirect(url);
         }
       } else {
         // No org yet → redirect to onboarding
-        const url = request.nextUrl.clone();
-        url.pathname = "/onboarding";
-        return NextResponse.redirect(url);
+        // Exception: allow billing page for users who might be creating org during signup
+        const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
+        if (!isBillingPath) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/onboarding";
+          return NextResponse.redirect(url);
+        }
       }
 
       // User authenticated, email confirmed, and onboarding completed → allow access
