@@ -5,21 +5,31 @@ import { OnboardingClient } from "./OnboardingClient";
 // Force dynamic rendering to always load fresh org state (disable caching)
 export const dynamic = "force-dynamic";
 
-export default async function OnboardingPage(props: { searchParams?: { checkout?: string } }) {
+type OnboardingPageProps = {
+  searchParams?: Promise<{ checkout?: string }> | { checkout?: string };
+};
+
+export default async function OnboardingPage(props: OnboardingPageProps) {
   try {
+    // Handle both Promise and direct object for searchParams (Next.js compatibility)
+    const searchParams = props.searchParams instanceof Promise ? await props.searchParams : props.searchParams;
+    const checkoutParam = searchParams?.checkout;
+    
     const state = await getOnboardingState();
     
-    // Handle checkout success: if checkout=success and plan is active, advance to activation step
-    const checkoutSuccess = props.searchParams?.checkout === "success";
-    if (checkoutSuccess && state.isPlanActive && state.onboardingStep === 2) {
-      // Plan is active after checkout - advance to activation step (step 3)
-      // This will be handled by getOnboardingState auto-advance logic
-      // Just refresh to get updated state
-      const updatedState = await getOnboardingState();
-      return <OnboardingClient initialState={updatedState} />;
+    // If plan is active, redirect to dashboard (paid org should not be in onboarding)
+    if (state.isPlanActive) {
+      redirect("/dashboard");
     }
     
-    return <OnboardingClient initialState={state} />;
+    // If checkout success and plan is active, auto-advance to activation step
+    if (checkoutParam === "success" && state.isPlanActive && state.onboardingStep === 2) {
+      // Update onboarding_step to 3 (activate)
+      // This will be handled by client-side state refresh
+    }
+    
+    // Pass checkout param to client for handling
+    return <OnboardingClient initialState={state} checkoutParam={checkoutParam} />;
   } catch (error) {
     // If error is redirect, re-throw it
     if (error && typeof error === "object" && "digest" in error) {

@@ -35,15 +35,15 @@ export async function loginAction(formData: FormData) {
   let redirectTo = "/dashboard";
   if (profiles && profiles.length > 0 && profiles[0].org_id) {
     const orgId = profiles[0].org_id;
-    // Check onboarding completion
-    const { data: settings } = await supabaseAdmin
-      .from("organization_settings")
-      .select("onboarding_completed_at")
+    // Check plan active status (plan is active if org_plan_limits.plan_code exists)
+    const { data: planLimits } = await supabaseAdmin
+      .from("org_plan_limits")
+      .select("plan_code")
       .eq("org_id", orgId)
-      .maybeSingle();
+      .maybeSingle<{ plan_code: string | null }>();
 
-    const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
-    if (!onboardingCompletedAt) {
+    const planActive = !!planLimits?.plan_code;
+    if (!planActive) {
       redirectTo = "/onboarding";
     }
   }

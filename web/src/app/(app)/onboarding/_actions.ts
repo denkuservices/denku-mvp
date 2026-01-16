@@ -50,11 +50,9 @@ export async function getOnboardingState() {
     .eq("org_id", orgId)
     .maybeSingle();
 
-  // 5) Check if onboarding is completed
-  const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
-  if (onboardingCompletedAt) {
-    redirect("/dashboard");
-  }
+  // 5) Check if plan is active - if active, redirect to dashboard (paid org should not be in onboarding)
+  // Plan check happens below, but we'll use it to decide redirect here
+  // This check is moved after plan check to use isPlanActive
 
   // 6) Get workspace status and paused_reason
   const workspaceStatus = (settings as any)?.workspace_status || "active";
@@ -70,6 +68,11 @@ export async function getOnboardingState() {
 
   const planCode = planLimits?.plan_code || null;
   const isPlanActive = !!planCode;
+
+  // 5b) If plan is active, redirect to dashboard (paid org should not be in onboarding)
+  if (isPlanActive) {
+    redirect("/dashboard");
+  }
 
   // 8) Fetch plans catalog for inline plan selection
   const { data: plansData } = await supabaseAdmin
@@ -287,14 +290,15 @@ export async function activatePhoneNumber(
     return { ok: false, error: "BILLING_PAUSED" };
   }
 
-  // Check if plan exists
-  const { data: planOverride } = await supabaseAdmin
-    .from("org_plan_overrides")
+  // Strict plan check: plan is active only if org_plan_limits.plan_code exists
+  // Do NOT check org_plan_overrides - that's just a preference, not active plan
+  const { data: planLimits } = await supabaseAdmin
+    .from("org_plan_limits")
     .select("plan_code")
     .eq("org_id", orgId)
-    .maybeSingle();
+    .maybeSingle<{ plan_code: string | null }>();
 
-  if (!planOverride?.plan_code) {
+  if (!planLimits?.plan_code) {
     return { ok: false, error: "NO_PLAN" };
   }
 
@@ -313,13 +317,12 @@ export async function activatePhoneNumber(
   }
 
   // TODO: Wire actual phone number provisioning here
-  // For now, this is a placeholder that marks onboarding as complete
-  // Step mapping: 0 = goal, 1 = number, 2 = go-live
-  // After activation, move to step 2 (go-live) and mark as completed
+  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
+  // After activation, move to step 4 (live) and mark as completed
   const { error: updateError } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 2, // Step 2 = go-live
+      onboarding_step: 4, // Step 4 = live
       onboarding_completed_at: new Date().toISOString(),
     })
     .eq("org_id", orgId);
@@ -330,6 +333,119 @@ export async function activatePhoneNumber(
   }
 
   return { ok: true, phoneNumber: "+1234567890" }; // Placeholder
+}
+
+/**
+ * Start Stripe checkout for plan purchase during onboarding.
+ * Returns checkout session URL for redirect.
+ */
+export async function startPlanCheckout(planCode: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Verify user has access to this org
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId) {
+    return { ok: false, error: "No organization found" };
+  }
+
+  // Call checkout API
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/billing/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ plan_code: planCode }),
+    });
+
+    const data = await response.json();
+
+    if (data.ok && data.url) {
+      return { ok: true, url: data.url };
+    } else {
+      return { ok: false, error: data.error || "Failed to create checkout session" };
+    }
+  } catch (err) {
+    console.error("[startPlanCheckout] Error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Handle checkout success - set plan if checkout completed successfully.
+ * Called after redirect from Stripe checkout.
+ * NOTE: Actual plan setting should be done via Stripe webhook (checkout.session.completed),
+ * but this provides optimistic UI update.
+ */
+export async function handleCheckoutSuccess(checkoutSessionId?: string) {
+  // This is a placeholder - actual plan setting happens via Stripe webhook
+  // We just refresh the state to check if plan is active
+  const state = await getOnboardingState();
+  return { ok: true, isPlanActive: state.isPlanActive };
+}
+
+/**
+ * Set onboarding step to plan selection (step 2).
+ * Used when user needs to select a plan before activation.
+ */
+export async function setOnboardingStepToPlan(orgId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Verify user has access to this org
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Ensure FK parent exists in organizations_legacy
+  const { data: existingOrg } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrg) {
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name: null, created_at: new Date().toISOString() });
+  }
+
+  // Ensure settings row exists
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+  }
+
+  // Set step to 2 (choose plan)
+  const { error } = await supabaseAdmin
+    .from("organization_settings")
+    .update({
+      onboarding_step: 2, // Step 2 = choose plan
+    })
+    .eq("org_id", orgId);
+
+  if (error) {
+    console.error("[setOnboardingStepToPlan] Error:", error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -376,11 +492,11 @@ export async function completeOnboarding(orgId: string) {
       .insert({ org_id: orgId });
   }
 
-  // Step mapping: 0 = goal, 1 = number, 2 = go-live
+  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 2, // Step 2 = go-live
+      onboarding_step: 4, // Step 4 = live
       onboarding_completed_at: new Date().toISOString(),
     })
     .eq("org_id", orgId);

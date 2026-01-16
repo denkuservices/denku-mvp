@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      // User authenticated and email confirmed → check onboarding
+      // User authenticated and email confirmed → check plan active status
       // Get org_id
       const { data: profiles } = await supabase
         .from("profiles")
@@ -122,26 +122,26 @@ export async function middleware(request: NextRequest) {
       if (profiles && profiles.length > 0 && profiles[0].org_id) {
         const orgId = profiles[0].org_id;
         
-        // Allowlist: Billing page is accessible even if onboarding is incomplete
+        // Allowlist: Billing page is accessible even if plan not active
         // This allows users to purchase a plan during the onboarding flow
         const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
         
         if (isBillingPath) {
-          // Allow access to billing page even if onboarding incomplete
+          // Allow access to billing page even if plan not active
           // This enables the "Choose a plan" flow during onboarding
           return response;
         }
         
-        // Check onboarding completion for all other /dashboard paths
-        const { data: settings } = await supabaseAdmin
-          .from("organization_settings")
-          .select("onboarding_completed_at")
+        // Check plan active status for all other /dashboard paths
+        const { data: planLimits } = await supabaseAdmin
+          .from("org_plan_limits")
+          .select("plan_code")
           .eq("org_id", orgId)
-          .maybeSingle();
+          .maybeSingle<{ plan_code: string | null }>();
 
-        const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
-        if (!onboardingCompletedAt) {
-          // Onboarding not completed → redirect to onboarding
+        const planActive = !!planLimits?.plan_code;
+        if (!planActive) {
+          // Plan not active → redirect to onboarding
           // Preserve query params if present
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";
@@ -159,7 +159,7 @@ export async function middleware(request: NextRequest) {
         }
       }
 
-      // User authenticated, email confirmed, and onboarding completed → allow access
+      // User authenticated, email confirmed, and plan active → allow access
       return response;
     } catch (err) {
       // Error creating Supabase client or fetching user

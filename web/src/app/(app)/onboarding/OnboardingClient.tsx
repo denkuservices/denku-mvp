@@ -1,7 +1,8 @@
 "use client";
 
+import * as React from "react";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Phone, Globe, ArrowRight, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +10,10 @@ import {
   saveWorkspaceName,
   activatePhoneNumber,
   completeOnboarding,
+  setOnboardingStepToPlan,
+  startPlanCheckout,
 } from "./_actions";
+import { formatUsd } from "@/lib/utils";
 
 type OnboardingState = {
   orgId: string;
@@ -21,31 +25,74 @@ type OnboardingState = {
   workspaceStatus: "active" | "paused";
   pausedReason: "manual" | "hard_cap" | "past_due" | null;
   planCode: string | null;
+  isPlanActive: boolean;
+  plans: Array<{
+    plan_code: string;
+    display_name: string;
+    monthly_fee_usd: number;
+    included_minutes: number;
+    overage_rate_usd_per_min: number;
+    concurrency_limit: number;
+    included_phone_numbers: number;
+  }>;
   hasPhoneNumber: boolean;
   phoneNumber: string | null;
 };
 
 type OnboardingClientProps = {
   initialState: OnboardingState;
+  checkoutParam?: string;
 };
 
-// Step mapping: 0 = goal, 1 = number, 2 = go-live
+// Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
 const STEPS = [
   { id: 0, label: "Goal" },
   { id: 1, label: "Number" },
-  { id: 2, label: "Go live" },
+  { id: 2, label: "Plan" },
+  { id: 3, label: "Activate" },
+  { id: 4, label: "Go live" },
 ];
 
-export function OnboardingClient({ initialState }: OnboardingClientProps) {
+export function OnboardingClient({ initialState, checkoutParam }: OnboardingClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState(initialState);
-  // Step mapping: 0 = goal, 1 = number, 2 = go-live
-  // Skip workspace step if orgName exists
+  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
   const initialStep = state.onboardingStep ?? 0;
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [navigatingToBilling, setNavigatingToBilling] = useState(false);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // plan_code being checked out
+  
+  // Handle checkout return (success or cancel) from URL params
+  React.useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (checkout === "success" && currentStep === 2) {
+      // On success, check if plan is active (webhook should have set it)
+      setCheckoutMessage("Payment successful! Activating plan...");
+      // Refresh after a short delay to allow webhook to process
+      const timer = setTimeout(() => {
+        // Reload page to get fresh state (plan should be active now)
+        window.location.href = "/onboarding";
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else if (checkout === "cancel") {
+      setCheckoutMessage("Payment was cancelled. You can try again when ready.");
+      // Clear query param
+      const timer = setTimeout(() => {
+        router.replace("/onboarding");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, currentStep, router]);
+  
+  // Also handle checkoutParam prop for server-side pass-through
+  React.useEffect(() => {
+    if (checkoutParam === "cancel" && !checkoutMessage) {
+      setCheckoutMessage("Payment was cancelled. You can try again when ready.");
+    }
+  }, [checkoutParam, checkoutMessage]);
 
   // Step 0: Goal + Language (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales">(
@@ -92,12 +139,23 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
       return;
     }
 
-    if (!state.planCode) {
-      // Navigate to billing with query params for onboarding flow
-      router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
+    // If plan is not active, advance to inline plan selection (step 2) instead of redirecting
+    if (!state.isPlanActive) {
+      startTransition(async () => {
+        const result = await setOnboardingStepToPlan(state.orgId);
+        if (result.ok) {
+          // Advance to step 2 (choose plan) - stay on onboarding page
+          setCurrentStep(2);
+          setState((s) => ({ ...s, onboardingStep: 2 }));
+          setError(null);
+        } else {
+          setError(result.error || "Failed to advance to plan selection");
+        }
+      });
       return;
     }
 
+    // Plan is active - proceed with activation
     setIsActivating(true);
     setError(null);
 
@@ -106,17 +164,23 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
       if (result.ok) {
         setProvisionedPhoneNumber(result.phoneNumber || null);
         setActivationComplete(true);
-        // Step mapping: 0 = goal, 1 = number, 2 = go-live
-        // After activation, move to step 2 (go-live)
-        setCurrentStep(2);
-        setState((s) => ({ ...s, onboardingStep: 2 }));
+        // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
+        // After activation, move to step 4 (live)
+        setCurrentStep(4);
+        setState((s) => ({ ...s, onboardingStep: 4 }));
         setIsActivating(false);
       } else {
         if (result.error === "BILLING_PAUSED") {
           setError("BILLING_PAUSED");
         } else if (result.error === "NO_PLAN") {
-          // Navigate to billing with query params for onboarding flow
-          router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
+          // Plan became inactive - advance to plan selection
+          const stepResult = await setOnboardingStepToPlan(state.orgId);
+          if (stepResult.ok) {
+            setCurrentStep(2);
+            setState((s) => ({ ...s, onboardingStep: 2 }));
+          } else {
+            setError(stepResult.error || "Plan required. Please select a plan.");
+          }
         } else {
           setError(result.error || "Failed to activate number");
         }
@@ -317,7 +381,7 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
               )}
 
               {/* No Plan Checkpoint */}
-              {!state.planCode && state.workspaceStatus !== "paused" && (
+              {!state.isPlanActive && state.workspaceStatus !== "paused" && (
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
                   <p className="text-sm font-medium text-zinc-900 dark:text-white mb-2">
                     To activate your number, choose a plan.
@@ -330,13 +394,21 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setNavigatingToBilling(true);
-                      // Navigate to billing with query params for onboarding flow
-                      router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
+                      // Advance to inline plan selection (step 2) - stay on onboarding
+                      startTransition(async () => {
+                        const result = await setOnboardingStepToPlan(state.orgId);
+                        if (result.ok) {
+                          setCurrentStep(2);
+                          setState((s) => ({ ...s, onboardingStep: 2 }));
+                          setError(null);
+                        } else {
+                          setError(result.error || "Failed to advance to plan selection");
+                        }
+                      });
                     }}
-                    disabled={navigatingToBilling}
+                    disabled={isPending}
                   >
-                    {navigatingToBilling ? "Navigating..." : "Choose a plan"}
+                    Choose a plan
                   </Button>
                 </div>
               )}
@@ -418,8 +490,122 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
             </div>
           )}
 
-          {/* Step 2: Activation Complete */}
+          {/* Step 2: Choose Plan (if no plan active) */}
           {currentStep === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Choose a plan</h2>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Select a plan to activate your phone line. You'll be charged now. You can change your plan anytime later.
+                </p>
+              </div>
+
+              {/* Billing Paused Block */}
+              {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-2">
+                    Billing pause is active
+                  </p>
+                  <p className="text-sm text-amber-800 dark:text-amber-300 mb-4">
+                    Resolve billing to activate your line.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/dashboard/settings/workspace/billing")}
+                  >
+                    Go to billing settings
+                  </Button>
+                </div>
+              )}
+
+              {/* Checkout messages */}
+              {checkoutMessage && (
+                <div className={`rounded-xl border p-6 ${
+                  checkoutMessage.includes("successful") || checkoutMessage.includes("Processing")
+                    ? "border-brand-200 bg-brand-50 dark:border-brand-900 dark:bg-brand-950"
+                    : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
+                }`}>
+                  <p className="text-sm text-zinc-900 dark:text-zinc-100">{checkoutMessage}</p>
+                </div>
+              )}
+
+              {/* Plan cards */}
+              {state.workspaceStatus !== "paused" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {state.plans.map((plan) => (
+                    <div
+                      key={plan.plan_code}
+                      className={`rounded-xl border p-6 transition-all ${
+                        state.planCode === plan.plan_code
+                          ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950"
+                          : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
+                      }`}
+                    >
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                            {plan.display_name}
+                          </h3>
+                          <div className="mt-2">
+                            <span className="text-3xl font-bold text-zinc-900 dark:text-white">
+                              {formatUsd(plan.monthly_fee_usd)}
+                            </span>
+                            <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                          <p>{plan.concurrency_limit} capacity (simultaneous calls)</p>
+                          <p>{plan.included_minutes.toLocaleString()} minutes included</p>
+                          <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
+                          <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
+                        </div>
+                        <Button
+                          className="w-full"
+                          variant={state.planCode === plan.plan_code ? "outline" : "default"}
+                          disabled={checkoutLoading === plan.plan_code || isPending || state.workspaceStatus === "paused"}
+                          onClick={() => {
+                            setCheckoutLoading(plan.plan_code);
+                            setError(null);
+                            setCheckoutMessage(null);
+                            startTransition(async () => {
+                              const result = await startPlanCheckout(plan.plan_code);
+                              if (result.ok && result.url) {
+                                // Redirect to Stripe Checkout
+                                window.location.href = result.url;
+                              } else {
+                                setCheckoutLoading(null);
+                                if (result.error === "BILLING_PAUSED") {
+                                  setError("BILLING_PAUSED");
+                                } else {
+                                  setError(result.error || "Failed to start checkout");
+                                }
+                              }
+                            });
+                          }}
+                        >
+                          {checkoutLoading === plan.plan_code
+                            ? "Starting checkout..."
+                            : state.planCode === plan.plan_code
+                            ? "Current plan"
+                            : "Continue to payment"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Error message */}
+              {error && error !== "BILLING_PAUSED" && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
+                  <p className="text-sm text-red-900 dark:text-red-200">{error}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Activation Complete / You're live */}
+          {currentStep === 4 && (
             <div className="space-y-6 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500">
                 <CheckCircle2 className="h-8 w-8 text-white" />
