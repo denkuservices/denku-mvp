@@ -45,6 +45,7 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [navigatingToBilling, setNavigatingToBilling] = useState(false);
 
   // Step 0: Goal + Language (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales">(
@@ -92,11 +93,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
     }
 
     if (!state.planCode) {
-      // Store return flag and redirect to billing
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("onboarding_return_to", "/onboarding");
-      }
-      router.push("/dashboard/settings/workspace/billing");
+      // Navigate to billing with query params for onboarding flow
+      router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
       return;
     }
 
@@ -117,11 +115,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
         if (result.error === "BILLING_PAUSED") {
           setError("BILLING_PAUSED");
         } else if (result.error === "NO_PLAN") {
-          // Redirect to billing
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("onboarding_return_to", "/onboarding");
-          }
-          router.push("/dashboard/settings/workspace/billing");
+          // Navigate to billing with query params for onboarding flow
+          router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
         } else {
           setError(result.error || "Failed to activate number");
         }
@@ -331,12 +326,17 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
                     Select a plan to get started with your phone line.
                   </p>
                   <Button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setNavigatingToBilling(true);
                       // Navigate to billing with query params for onboarding flow
-                      router.push("/dashboard/settings/workspace/billing?intent=choose_plan&return_to=/onboarding");
+                      router.push(`/dashboard/settings/workspace/billing?intent=choose_plan&return_to=${encodeURIComponent("/onboarding")}`);
                     }}
+                    disabled={navigatingToBilling}
                   >
-                    Choose a plan
+                    {navigatingToBilling ? "Navigating..." : "Choose a plan"}
                   </Button>
                 </div>
               )}
