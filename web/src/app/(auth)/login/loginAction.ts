@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -17,5 +18,35 @@ export async function loginAction(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
 
-  redirect("/dashboard");
+  // Check onboarding completion status
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Get org_id
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  let redirectTo = "/dashboard";
+  if (profiles && profiles.length > 0 && profiles[0].org_id) {
+    const orgId = profiles[0].org_id;
+    // Check onboarding completion
+    const { data: settings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("onboarding_completed_at")
+      .eq("org_id", orgId)
+      .maybeSingle();
+
+    const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
+    if (!onboardingCompletedAt) {
+      redirectTo = "/onboarding";
+    }
+  }
+
+  redirect(redirectTo);
 }

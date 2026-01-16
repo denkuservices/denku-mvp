@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function isAuthorizedBasic(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -109,7 +110,39 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      // User authenticated and email confirmed → allow access
+      // User authenticated and email confirmed → check onboarding
+      // Get org_id
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("auth_user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (profiles && profiles.length > 0 && profiles[0].org_id) {
+        const orgId = profiles[0].org_id;
+        // Check onboarding completion
+        const { data: settings } = await supabaseAdmin
+          .from("organization_settings")
+          .select("onboarding_completed_at")
+          .eq("org_id", orgId)
+          .maybeSingle();
+
+        const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
+        if (!onboardingCompletedAt) {
+          // Onboarding not completed → redirect to onboarding
+          const url = request.nextUrl.clone();
+          url.pathname = "/onboarding";
+          return NextResponse.redirect(url);
+        }
+      } else {
+        // No org yet → redirect to onboarding
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
+
+      // User authenticated, email confirmed, and onboarding completed → allow access
       return response;
     } catch (err) {
       // Error creating Supabase client or fetching user

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/utils/url";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -36,9 +37,36 @@ export async function GET(request: NextRequest) {
       // Check if email is confirmed
       const emailConfirmed = (currentUser as any).email_confirmed_at || (currentUser as any).confirmed_at;
 
-      // If email is confirmed, redirect to onboarding
+      // If email is confirmed, check onboarding status and redirect accordingly
       if (emailConfirmed) {
-        return NextResponse.redirect(new URL("/onboarding", baseUrl));
+        // Get org_id for onboarding check
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("org_id")
+          .eq("auth_user_id", currentUser.id)
+          .order("updated_at", { ascending: false })
+          .limit(1);
+
+        let redirectTo = "/dashboard";
+        if (profiles && profiles.length > 0 && profiles[0].org_id) {
+          const orgId = profiles[0].org_id;
+          // Check onboarding completion
+          const { data: settings } = await supabaseAdmin
+            .from("organization_settings")
+            .select("onboarding_completed_at")
+            .eq("org_id", orgId)
+            .maybeSingle();
+
+          const onboardingCompletedAt = (settings as any)?.onboarding_completed_at;
+          if (!onboardingCompletedAt) {
+            redirectTo = "/onboarding";
+          }
+        } else {
+          // No org yet, go to onboarding (will be created during onboarding)
+          redirectTo = "/onboarding";
+        }
+
+        return NextResponse.redirect(new URL(redirectTo, baseUrl));
       }
 
       // If email not confirmed, redirect to verify-email
