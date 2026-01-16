@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
 import { formatUsd } from "@/lib/utils";
 import Widget from "@/components/dashboard/Widget";
-import { Phone, Clock, Users, Timer } from "lucide-react";
+import { Phone, Clock, Users, Timer, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -231,6 +232,12 @@ function formatInvoiceStatus(status: string | null): string {
 }
 
 export default function WorkspaceBillingPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const intent = searchParams.get("intent");
+  const returnTo = searchParams.get("return_to");
+  const isOnboardingFlow = intent === "choose_plan" && returnTo === "/onboarding";
+
   const [summary, setSummary] = React.useState<BillingSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -238,6 +245,9 @@ export default function WorkspaceBillingPage() {
   const [portalLoading, setPortalLoading] = React.useState(false);
   const [portalError, setPortalError] = React.useState<string | null>(null);
   const [updatingAddon, setUpdatingAddon] = React.useState<string | null>(null);
+  
+  // Ref for upgrade plan section scroll/focus
+  const upgradePlanRef = React.useRef<HTMLDivElement>(null);
 
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
@@ -290,6 +300,16 @@ export default function WorkspaceBillingPage() {
   React.useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  // Scroll to upgrade plan section if intent=choose_plan
+  React.useEffect(() => {
+    if (isOnboardingFlow && upgradePlanRef.current && !loading && summary) {
+      // Small delay to ensure page is rendered
+      setTimeout(() => {
+        upgradePlanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [isOnboardingFlow, loading, summary]);
 
   // Handle portal redirect
   const handlePortalRedirect = React.useCallback(async () => {
@@ -499,6 +519,27 @@ export default function WorkspaceBillingPage() {
       ]}
     >
       <div className="space-y-6">
+        {/* Onboarding flow banner */}
+        {isOnboardingFlow && (
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-900/30 dark:bg-brand-950/50">
+            <div className="flex items-start gap-3">
+              <ArrowLeft className="h-5 w-5 text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
+                  Complete your plan purchase, then return to finish setup.
+                </p>
+              </div>
+              <UIButton
+                variant="outline"
+                onClick={() => router.push(returnTo || "/onboarding")}
+                className="flex-shrink-0"
+              >
+                Return to setup
+              </UIButton>
+            </div>
+          </div>
+        )}
+
         {/* Billing status banner */}
         {summary && summary.billing_status !== "active" && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/50">
@@ -694,8 +735,9 @@ export default function WorkspaceBillingPage() {
 
           <div className="col-span-12 lg:col-span-4 min-w-0 max-w-full overflow-hidden">
             {/* Upgrade plan card */}
-            <Card>
-              <SectionTitle title="Upgrade plan" subtitle="Change your plan at any time." />
+            <div ref={upgradePlanRef}>
+              <Card>
+                <SectionTitle title="Upgrade plan" subtitle="Change your plan at any time." />
 
               <div className="mt-6 space-y-3">
                 {plans.map((plan) => {
@@ -750,7 +792,8 @@ export default function WorkspaceBillingPage() {
                   );
                 })}
               </div>
-            </Card>
+              </Card>
+            </div>
           </div>
         </div>
 

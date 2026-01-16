@@ -332,10 +332,8 @@ export function OnboardingClient({ initialState }: OnboardingClientProps) {
                   </p>
                   <Button
                     onClick={() => {
-                      if (typeof window !== "undefined") {
-                        sessionStorage.setItem("onboarding_return_to", "/onboarding");
-                      }
-                      router.push("/dashboard/settings/workspace/billing");
+                      // Navigate to billing with query params for onboarding flow
+                      router.push("/dashboard/settings/workspace/billing?intent=choose_plan&return_to=/onboarding");
                     }}
                   >
                     Choose a plan
