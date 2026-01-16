@@ -60,18 +60,35 @@ export async function getOnboardingState() {
   const workspaceStatus = (settings as any)?.workspace_status || "active";
   const pausedReason = (settings as any)?.paused_reason || null;
 
-  // 7) Get current plan (check org_plan_overrides or default)
-  const { data: planOverride } = await supabaseAdmin
-    .from("org_plan_overrides")
+  // 7) Get current plan (check org_plan_limits - canonical source for active plan)
+  // Plan is active if org_plan_limits.plan_code exists
+  const { data: planLimits } = await supabaseAdmin
+    .from("org_plan_limits")
     .select("plan_code")
     .eq("org_id", orgId)
-    .maybeSingle();
+    .maybeSingle<{ plan_code: string | null }>();
 
-  const planCode = planOverride?.plan_code || null;
+  const planCode = planLimits?.plan_code || null;
+  const isPlanActive = !!planCode;
 
-  // 8) Get onboarding step (safe fallback if column doesn't exist or is null)
-  // Step mapping: 0 = goal, 1 = number, 2 = go-live
-  const onboardingStep = (settings as any)?.onboarding_step ?? 0;
+  // 8) Fetch plans catalog for inline plan selection
+  const { data: plansData } = await supabaseAdmin
+    .from("billing_plan_catalog")
+    .select("plan_code, display_name, monthly_fee_usd, included_minutes, overage_rate_usd_per_min, concurrency_limit, included_phone_numbers")
+    .in("plan_code", ["starter", "growth", "scale"])
+    .order("plan_code");
+
+  const plans = plansData || [];
+
+  // 9) Get onboarding step (safe fallback if column doesn't exist or is null)
+  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
+  const rawStep = (settings as any)?.onboarding_step ?? 0;
+  
+  // Auto-advance: If plan is active and we're at step 2 (choose plan), advance to step 3 (activate)
+  let onboardingStep = rawStep;
+  if (isPlanActive && rawStep === 2) {
+    onboardingStep = 3; // Skip plan selection if plan already active
+  }
 
   // 9) Get saved onboarding preferences (goal and language)
   const onboardingGoal = (settings as any)?.onboarding_goal || null;
@@ -96,6 +113,16 @@ export async function getOnboardingState() {
     workspaceStatus: workspaceStatus as "active" | "paused",
     pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | null,
     planCode,
+    isPlanActive,
+    plans: plans.map((p) => ({
+      plan_code: p.plan_code,
+      display_name: p.display_name,
+      monthly_fee_usd: p.monthly_fee_usd,
+      included_minutes: p.included_minutes,
+      overage_rate_usd_per_min: p.overage_rate_usd_per_min,
+      concurrency_limit: p.concurrency_limit,
+      included_phone_numbers: p.included_phone_numbers,
+    })),
     hasPhoneNumber: !!hasPhoneNumber,
     phoneNumber: agents?.[0]?.phone_number || null,
   };
