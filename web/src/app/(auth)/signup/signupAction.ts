@@ -86,7 +86,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     };
   }
 
-  // 2) Create org/workspace in organizations_legacy (FK parent for organization_settings)
+  // 2) Create org/workspace in public.orgs (canonical org table) and organizations_legacy (FK parent)
   // Generate orgId first, then upsert
   let orgId: string;
   try {
@@ -94,9 +94,9 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     orgId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    // Upsert into organizations_legacy: insert (id, name, created_at) on conflict update name
+    // Write to public.orgs (canonical org table - no phone_number column)
     const { data: org, error: orgErr } = await supabaseAdmin
-      .from("organizations_legacy")
+      .from("orgs")
       .upsert(
         {
           id: orgId,
@@ -111,7 +111,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
       .single();
 
     if (orgErr) {
-      console.error("[signupAction] Failed to upsert org:", orgErr.message, orgErr.code);
+      console.error("[signupAction] Failed to upsert orgs:", orgErr.message, orgErr.code);
       return {
         ok: false,
         code: "UNKNOWN",
@@ -131,8 +131,28 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     // Use the returned ID (should match our generated UUID)
     orgId = org.id;
 
-    // Ensure name is updated (upsert with onConflict may not update existing rows)
-    // Explicitly update name to handle case where org already existed
+    // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
+    // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: org_name,
+          created_at: now,
+          phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    // Ensure name is updated in both tables (upsert with onConflict may not update existing rows)
+    await supabaseAdmin
+      .from("orgs")
+      .update({ name: org_name })
+      .eq("id", orgId);
+    
     await supabaseAdmin
       .from("organizations_legacy")
       .update({ name: org_name })

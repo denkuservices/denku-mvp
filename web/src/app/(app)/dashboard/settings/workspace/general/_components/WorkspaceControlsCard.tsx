@@ -176,7 +176,7 @@ export function WorkspaceControlsCard({
               type="button"
               onClick={handleAction}
               disabled={!isConfirmed || isPending}
-              className="rounded-xl border border-zinc-200 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-zinc-200 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white text-slate-900 shadow-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending
                 ? isPaused

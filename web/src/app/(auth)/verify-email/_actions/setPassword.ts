@@ -62,11 +62,12 @@ export async function setPasswordAction(
   if (existingProfile?.org_id) {
     orgId = existingProfile.org_id;
     
-    // Ensure org exists in organizations_legacy (FK parent)
-    // Upsert: insert (id, name, created_at) on conflict update name
+    // Ensure org exists in public.orgs (canonical org table) and organizations_legacy (FK parent)
     const now = new Date().toISOString();
+    
+    // Write to public.orgs (canonical org table - no phone_number column)
     await supabaseAdmin
-      .from("organizations_legacy")
+      .from("orgs")
       .upsert(
         {
           id: orgId,
@@ -78,7 +79,28 @@ export async function setPasswordAction(
         }
       );
 
-    // Explicitly update name to ensure it's set (upsert may not update on conflict)
+    // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
+    // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: orgName,
+          created_at: now,
+          phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    // Explicitly update name in both tables to ensure it's set (upsert may not update on conflict)
+    await supabaseAdmin
+      .from("orgs")
+      .update({ name: orgName })
+      .eq("id", orgId);
+    
     await supabaseAdmin
       .from("organizations_legacy")
       .update({ name: orgName })
