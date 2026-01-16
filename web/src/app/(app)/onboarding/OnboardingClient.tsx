@@ -63,7 +63,8 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // plan_code being checked out
+  const [checkoutLoading, setCheckoutLoading] = useState(false); // true when starting checkout
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
   
   // Handle checkout return (success or cancel) from URL params
   React.useEffect(() => {
@@ -531,68 +532,105 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
 
               {/* Plan cards */}
               {state.workspaceStatus !== "paused" && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {state.plans.map((plan) => (
-                    <div
-                      key={plan.plan_code}
-                      className={`rounded-xl border p-6 transition-all ${
-                        state.planCode === plan.plan_code
-                          ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950"
-                          : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
-                      }`}
-                    >
-                      <div className="space-y-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                            {plan.display_name}
-                          </h3>
-                          <div className="mt-2">
-                            <span className="text-3xl font-bold text-zinc-900 dark:text-white">
-                              {formatUsd(plan.monthly_fee_usd)}
-                            </span>
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Sort plans: Starter → Growth → Scale */}
+                    {state.plans
+                      .sort((a, b) => {
+                        const order: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
+                        return (order[a.plan_code] || 999) - (order[b.plan_code] || 999);
+                      })
+                      .map((plan) => {
+                        const isSelected = selectedPlan === plan.plan_code;
+                        const isGrowth = plan.plan_code === "growth";
+                        return (
+                          <div
+                            key={plan.plan_code}
+                            className={`rounded-xl border p-6 transition-all flex flex-col h-full ${
+                              isSelected
+                                ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950"
+                                : isGrowth
+                                ? "border-brand-300 bg-brand-50/50 dark:border-brand-600 dark:bg-brand-950/50"
+                                : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
+                            }`}
+                          >
+                            {/* Growth badge */}
+                            {isGrowth && (
+                              <div className="mb-2">
+                                <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800 dark:bg-brand-900 dark:text-brand-200">
+                                  Recommended
+                                </span>
+                              </div>
+                            )}
+                            <div className="space-y-4 flex-1 flex flex-col">
+                              <div>
+                                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                                  {plan.display_name}
+                                </h3>
+                                <div className="mt-2">
+                                  <span className="text-3xl font-bold text-zinc-900 dark:text-white">
+                                    {formatUsd(plan.monthly_fee_usd)}
+                                  </span>
+                                  <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
+                                </div>
+                              </div>
+                              <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400 flex-1">
+                                <p>{plan.concurrency_limit} capacity (simultaneous calls)</p>
+                                <p>{plan.included_minutes.toLocaleString()} minutes included</p>
+                                <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
+                                <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
+                              </div>
+                              <Button
+                                className="w-full"
+                                variant={isSelected ? "default" : "outline"}
+                                disabled={isPending}
+                                onClick={() => {
+                                  setSelectedPlan(plan.plan_code);
+                                  setError(null);
+                                  setCheckoutMessage(null);
+                                }}
+                              >
+                                {isSelected ? "Selected" : "Select plan"}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-                          <p>{plan.concurrency_limit} capacity (simultaneous calls)</p>
-                          <p>{plan.included_minutes.toLocaleString()} minutes included</p>
-                          <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
-                          <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
-                        </div>
-                        <Button
-                          className="w-full"
-                          variant={state.planCode === plan.plan_code ? "outline" : "default"}
-                          disabled={checkoutLoading === plan.plan_code || isPending || state.workspaceStatus === "paused"}
-                          onClick={() => {
-                            setCheckoutLoading(plan.plan_code);
-                            setError(null);
-                            setCheckoutMessage(null);
-                            startTransition(async () => {
-                              const result = await startPlanCheckout(plan.plan_code);
-                              if (result.ok && result.url) {
-                                // Redirect to Stripe Checkout
-                                window.location.href = result.url;
+                        );
+                      })}
+                  </div>
+
+                  {/* Proceed to checkout button */}
+                  {selectedPlan && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        className="min-w-[200px]"
+                        variant="default"
+                        disabled={checkoutLoading || isPending}
+                        onClick={() => {
+                          if (!selectedPlan) return;
+                          setCheckoutLoading(true);
+                          setError(null);
+                          setCheckoutMessage(null);
+                          startTransition(async () => {
+                            const result = await startPlanCheckout(selectedPlan);
+                            if (result.ok && result.url) {
+                              // Redirect to Stripe Checkout
+                              window.location.href = result.url;
+                            } else {
+                              setCheckoutLoading(false);
+                              if (result.error === "BILLING_PAUSED") {
+                                setError("BILLING_PAUSED");
                               } else {
-                                setCheckoutLoading(null);
-                                if (result.error === "BILLING_PAUSED") {
-                                  setError("BILLING_PAUSED");
-                                } else {
-                                  setError(result.error || "Failed to start checkout");
-                                }
+                                setError(result.error || "Failed to start checkout");
                               }
-                            });
-                          }}
-                        >
-                          {checkoutLoading === plan.plan_code
-                            ? "Starting checkout..."
-                            : state.planCode === plan.plan_code
-                            ? "Current plan"
-                            : "Continue to payment"}
-                        </Button>
-                      </div>
+                            }
+                          });
+                        }}
+                      >
+                        {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                      </Button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
 
               {/* Error message */}
