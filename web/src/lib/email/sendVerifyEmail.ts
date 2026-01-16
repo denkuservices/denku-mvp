@@ -1,14 +1,20 @@
-import { resend } from "./resend";
+import { resend, SENDER } from "./resend";
 
 const APP_URL = "https://denku-mvp.vercel.app";
 
 export async function sendVerifyEmail(email: string, token: string) {
+  // Skip if Resend is not configured (domainless beta)
+  if (!resend) {
+    console.log("[Resend] sendVerifyEmail skipped - RESEND_API_KEY not configured");
+    return { skipped: true };
+  }
+
   // In non-production, Resend is in testing mode and can only send to denkuservices@gmail.com
   if (process.env.NODE_ENV !== "production") {
     const allowedEmail = "denkuservices@gmail.com";
     if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
       // Skip sending silently to avoid breaking UX
-      return;
+      return { skipped: true };
     }
   }
 
@@ -18,7 +24,7 @@ export async function sendVerifyEmail(email: string, token: string) {
 
   try {
     const result = await resend.emails.send({
-      from: "Denku AI <onboarding@resend.dev>",
+      from: SENDER,
       to: email,
       subject: "Verify your email – Denku AI",
       html: `
@@ -41,6 +47,7 @@ export async function sendVerifyEmail(email: string, token: string) {
     return result;
   } catch (err) {
     console.error("[Resend] sendVerifyEmail FAILED ->", err);
-    throw err;
+    // Don't throw - allow Supabase emails to be the source of truth
+    return { skipped: true, error: err };
   }
 }

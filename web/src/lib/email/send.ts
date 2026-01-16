@@ -8,6 +8,12 @@ import type { VerificationEmailParams, PasswordResetEmailParams } from "./templa
  * Send email verification email after signup
  */
 export async function sendVerificationEmail(params: VerificationEmailParams & { redirectTo?: string }) {
+  // Skip if Resend is not configured (domainless beta)
+  if (!resend) {
+    console.log("[sendVerificationEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: true, skipped: true };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: SENDER,
@@ -18,13 +24,15 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
 
     if (error) {
       console.error("[sendVerificationEmail] Resend error:", error);
-      throw new Error("Failed to send verification email");
+      // Don't throw - allow Supabase emails to be the source of truth
+      return { ok: true, skipped: true, error };
     }
 
     return { ok: true, data };
   } catch (err) {
     console.error("[sendVerificationEmail] Exception:", err);
-    throw err;
+    // Don't throw - allow Supabase emails to be the source of truth
+    return { ok: true, skipped: true, error: err };
   }
 }
 
@@ -32,6 +40,12 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
  * Send OTP code email (for resend verification)
  */
 export async function sendOtpEmail(params: VerificationEmailParams) {
+  // Skip if Resend is not configured (domainless beta)
+  if (!resend) {
+    console.log("[sendOtpEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: true, skipped: true };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: SENDER,
@@ -42,13 +56,15 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
 
     if (error) {
       console.error("[sendOtpEmail] Resend error:", error);
-      throw new Error("Failed to send verification code");
+      // Don't throw - allow Supabase emails to be the source of truth
+      return { ok: true, skipped: true, error };
     }
 
     return { ok: true, data };
   } catch (err) {
     console.error("[sendOtpEmail] Exception:", err);
-    throw err;
+    // Don't throw - allow Supabase emails to be the source of truth
+    return { ok: true, skipped: true, error: err };
   }
 }
 
@@ -56,6 +72,12 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
  * Send password reset email
  */
 export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
+  // Skip if Resend is not configured (domainless beta)
+  if (!resend) {
+    console.log("[sendPasswordResetEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: true, skipped: true };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: SENDER,
@@ -66,12 +88,14 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
 
     if (error) {
       console.error("[sendPasswordResetEmail] Resend error:", error);
-      throw new Error("Failed to send password reset email");
+      // Don't throw - allow Supabase emails to be the source of truth
+      return { ok: true, skipped: true, error };
     }
 
     return { ok: true, data };
   } catch (err) {
     console.error("[sendPasswordResetEmail] Exception:", err);
-    throw err;
+    // Don't throw - allow Supabase emails to be the source of truth
+    return { ok: true, skipped: true, error: err };
   }
 }
