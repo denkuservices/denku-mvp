@@ -66,6 +66,7 @@ export async function setPasswordAction(
     const now = new Date().toISOString();
     
     // Write to public.orgs (canonical org table - no phone_number column)
+    // created_by is NOT NULL - set it to the authenticated user's id
     await supabaseAdmin
       .from("orgs")
       .upsert(
@@ -73,6 +74,7 @@ export async function setPasswordAction(
           id: orgId,
           name: orgName,
           created_at: now,
+          created_by: user.id, // NOT NULL - set to authenticated user's id
         },
         {
           onConflict: "id",
@@ -106,18 +108,21 @@ export async function setPasswordAction(
       .update({ name: orgName })
       .eq("id", orgId);
   } else {
-    // Create org in organizations_legacy (FK parent for organization_settings)
+    // Create org in public.orgs (canonical org table) and organizations_legacy (FK parent)
     // Generate orgId first, then upsert
     orgId = crypto.randomUUID();
     const now = new Date().toISOString();
     
+    // Write to public.orgs (canonical org table - no phone_number column)
+    // created_by is NOT NULL - set it to the authenticated user's id
     const { data: org, error: orgErr } = await supabaseAdmin
-      .from("organizations_legacy")
+      .from("orgs")
       .upsert(
         {
           id: orgId,
           name: orgName,
           created_at: now,
+          created_by: user.id, // NOT NULL - set to authenticated user's id
         },
         {
           onConflict: "id",
@@ -137,7 +142,28 @@ export async function setPasswordAction(
     // Use the returned ID (should match our generated UUID)
     orgId = org.id;
 
-    // Explicitly update name to ensure it's set
+    // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
+    // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId,
+          name: orgName,
+          created_at: now,
+          phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    // Explicitly update name in both tables to ensure it's set (upsert may not update on conflict)
+    await supabaseAdmin
+      .from("orgs")
+      .update({ name: orgName })
+      .eq("id", orgId);
+    
     await supabaseAdmin
       .from("organizations_legacy")
       .update({ name: orgName })

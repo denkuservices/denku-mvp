@@ -86,6 +86,18 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     };
   }
 
+  // IMPORTANT: Even if session is null (email confirmation flow), data.user.id should exist
+  // Use user.id for created_by (do NOT rely on auth.uid() defaults for admin contexts)
+  const userId = user.id;
+  if (!userId) {
+    console.error("[signupAction] Signup succeeded but user.id is missing");
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "Signup failed: No user id returned from signUp. Please try again.",
+    };
+  }
+
   // 2) Create org/workspace in public.orgs (canonical org table) and organizations_legacy (FK parent)
   // Generate orgId first, then upsert
   let orgId: string;
@@ -95,6 +107,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     const now = new Date().toISOString();
 
     // Write to public.orgs (canonical org table - no phone_number column)
+    // created_by is NOT NULL - set it to the authenticated user's id
     const { data: org, error: orgErr } = await supabaseAdmin
       .from("orgs")
       .upsert(
@@ -102,6 +115,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
           id: orgId,
           name: org_name,
           created_at: now,
+          created_by: userId, // NOT NULL - set to authenticated user's id
         },
         {
           onConflict: "id",
@@ -112,6 +126,22 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
 
     if (orgErr) {
       console.error("[signupAction] Failed to upsert orgs:", orgErr.message, orgErr.code);
+      const { logEvent } = await import("@/lib/observability/logEvent");
+      await logEvent({
+        tag: "[SIGNUP][ORG_CREATE]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        severity: "error",
+        details: {
+          hasUserId: !!userId,
+          userId: userId?.slice(0, 8), // Masked
+          orgName: org_name,
+          orgId: orgId?.slice(0, 8), // Masked
+          error: orgErr.message,
+          code: orgErr.code,
+        },
+      });
       return {
         ok: false,
         code: "UNKNOWN",
@@ -121,6 +151,20 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
 
     if (!org?.id) {
       console.error("[signupAction] Org upserted but no id returned");
+      const { logEvent } = await import("@/lib/observability/logEvent");
+      await logEvent({
+        tag: "[SIGNUP][ORG_CREATE]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        severity: "error",
+        details: {
+          hasUserId: !!userId,
+          userId: userId?.slice(0, 8), // Masked
+          orgName: org_name,
+          error: "Org upserted but no id returned",
+        },
+      });
       return {
         ok: false,
         code: "UNKNOWN",
@@ -130,6 +174,24 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
 
     // Use the returned ID (should match our generated UUID)
     orgId = org.id;
+
+    // Log successful org creation
+    const { logEvent } = await import("@/lib/observability/logEvent");
+    await logEvent({
+      tag: "[SIGNUP][ORG_CREATE]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      severity: "info",
+      org_id: orgId,
+      details: {
+        hasUserId: !!userId,
+        userId: userId?.slice(0, 8), // Masked
+        orgName: org_name,
+        orgId: orgId?.slice(0, 8), // Masked
+        status: "success",
+      },
+    });
 
     // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
     // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
