@@ -12,7 +12,6 @@ import {
   completeOnboarding,
   setOnboardingStepToPlan,
   startPlanCheckout,
-  updateOnboardingStep,
   getOnboardingState,
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
@@ -43,7 +42,7 @@ type OnboardingState = {
 
 type OnboardingClientProps = {
   initialState: OnboardingState;
-  checkoutParam?: string;
+  checkoutStatus?: "success" | "cancel" | null;
 };
 
 // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
@@ -55,7 +54,7 @@ const STEPS = [
   { id: 4, label: "Go live" },
 ];
 
-export function OnboardingClient({ initialState, checkoutParam }: OnboardingClientProps) {
+export function OnboardingClient({ initialState, checkoutStatus }: OnboardingClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState(initialState);
@@ -67,61 +66,116 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false); // true when starting checkout
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
+  const [isConfirming, setIsConfirming] = useState(false); // true when polling for plan activation
+  const [paramsCleared, setParamsCleared] = useState(false); // track if query params have been cleared
   
-  // Handle checkout return (success or cancel) from URL params
+  // Handle checkout return (success or cancel) - deterministic polling without writes
   React.useEffect(() => {
-    const checkout = searchParams.get("checkout");
-    if (checkout === "success") {
-      // On success, check if plan is active (webhook should have set it)
-      // Poll up to 10 times every 1s to wait for webhook to process
-      let pollCount = 0;
-      const maxPolls = 10;
-      
+    // Only process if checkoutStatus is set and params not yet cleared
+    if (!checkoutStatus || paramsCleared) return;
+
+    if (checkoutStatus === "success") {
+      // Show confirming UI immediately
+      setIsConfirming(true);
       setCheckoutMessage("Confirming your plan…");
       
-      const pollInterval = setInterval(async () => {
+      // Poll for plan activation (read-only, no writes)
+      let pollCount = 0;
+      const maxPolls = 60; // 60 seconds timeout (1s intervals)
+      let pollInterval: NodeJS.Timeout | null = null;
+      
+      const pollForPlanActivation = async () => {
         pollCount++;
         try {
+          // Call getOnboardingState() which performs self-heal (writes step=3 if plan active)
+          // We only read the result, never write onboarding_step here
           const updatedState = await getOnboardingState();
+          
+          // Sync state from server (single source of truth)
+          setState(updatedState);
+          setCurrentStep(updatedState.onboardingStep);
+          
           if (updatedState.isPlanActive) {
-            // Plan is active - update step to 3 and refresh
-            await updateOnboardingStep(state.orgId, 3);
-            setState(updatedState);
-            setCurrentStep(3);
+            // Plan is active - getOnboardingState() already self-healed step to 3
+            setIsConfirming(false);
             setCheckoutMessage(null);
-            // Clear query param
-            router.replace("/onboarding");
-            clearInterval(pollInterval);
+            
+            // Clear query params (only once)
+            if (!paramsCleared) {
+              router.replace("/onboarding");
+              setParamsCleared(true);
+            }
+            
+            if (pollInterval) {
+              clearInterval(pollInterval);
+            }
           } else if (pollCount >= maxPolls) {
-            // Still not active after retries - show error
-            setCheckoutMessage("Plan activation is taking longer than expected. Please refresh the page or contact support.");
-            clearInterval(pollInterval);
+            // Timeout - show calm error
+            setIsConfirming(false);
+            setCheckoutMessage("We're still confirming. Refresh this page, or check again in a moment.");
+            
+            // Clear query params even on timeout
+            if (!paramsCleared) {
+              router.replace("/onboarding");
+              setParamsCleared(true);
+            }
+            
+            if (pollInterval) {
+              clearInterval(pollInterval);
+            }
           }
         } catch (err) {
           if (pollCount >= maxPolls) {
+            setIsConfirming(false);
             setCheckoutMessage("Failed to confirm plan. Please refresh the page or try again.");
-            clearInterval(pollInterval);
+            
+            // Clear query params on error
+            if (!paramsCleared) {
+              router.replace("/onboarding");
+              setParamsCleared(true);
+            }
+            
+            if (pollInterval) {
+              clearInterval(pollInterval);
+            }
           }
         }
-      }, 1000);
+      };
       
-      return () => clearInterval(pollInterval);
-    } else if (checkout === "cancel") {
-      setCheckoutMessage("Payment was cancelled. You can try again when ready.");
-      // Clear query param
-      const timer = setTimeout(() => {
+      // Start polling immediately, then every 1 second
+      pollForPlanActivation();
+      pollInterval = setInterval(pollForPlanActivation, 1000);
+      
+      return () => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+        }
+      };
+    } else if (checkoutStatus === "cancel") {
+      // Cancel flow - show message and clear params
+      setCheckoutMessage("Checkout canceled.");
+      
+      // Clear query params
+      if (!paramsCleared) {
         router.replace("/onboarding");
-      }, 100);
-      return () => clearTimeout(timer);
+        setParamsCleared(true);
+      }
     }
-  }, [searchParams, router, state.orgId]);
+  }, [checkoutStatus, router, paramsCleared]);
   
-  // Also handle checkoutParam prop for server-side pass-through
+  // Also handle query params from URL (fallback for direct navigation)
   React.useEffect(() => {
-    if (checkoutParam === "cancel" && !checkoutMessage) {
-      setCheckoutMessage("Payment was cancelled. You can try again when ready.");
+    const checkout = searchParams.get("checkout");
+    if (checkout && !checkoutStatus) {
+      // If checkoutStatus prop not set but URL has param, use it
+      if (checkout === "success" && !isConfirming) {
+        setIsConfirming(true);
+        setCheckoutMessage("Confirming your plan…");
+      } else if (checkout === "cancel" && !checkoutMessage) {
+        setCheckoutMessage("Checkout canceled.");
+      }
     }
-  }, [checkoutParam, checkoutMessage]);
+  }, [searchParams, checkoutStatus, isConfirming, checkoutMessage]);
 
   // Step 0: Goal + Language (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales">(
@@ -532,6 +586,18 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
                 </p>
               </div>
 
+              {/* Confirming Plan UI - shows when checkout=success and plan not active yet */}
+              {isConfirming && !state.isPlanActive && (
+                <div className="rounded-xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-950">
+                  <h3 className="text-base font-semibold text-brand-900 dark:text-brand-200 mb-2">
+                    Confirming your plan…
+                  </h3>
+                  <p className="text-sm text-brand-800 dark:text-brand-300">
+                    This usually takes a few seconds.
+                  </p>
+                </div>
+              )}
+
               {/* Billing Paused Block */}
               {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">
@@ -550,11 +616,23 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
                 </div>
               )}
 
-              {/* Checkout messages */}
-              {checkoutMessage && (
+              {/* Confirming Plan UI - shows when checkout=success and plan not active yet */}
+              {isConfirming && !state.isPlanActive && (
+                <div className="rounded-xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-950">
+                  <h3 className="text-base font-semibold text-brand-900 dark:text-brand-200 mb-2">
+                    Confirming your plan…
+                  </h3>
+                  <p className="text-sm text-brand-800 dark:text-brand-300">
+                    This usually takes a few seconds.
+                  </p>
+                </div>
+              )}
+
+              {/* Checkout messages (for cancel or other states) */}
+              {checkoutMessage && !isConfirming && (
                 <div className={`rounded-xl border p-6 ${
-                  checkoutMessage.includes("successful") || checkoutMessage.includes("Processing")
-                    ? "border-brand-200 bg-brand-50 dark:border-brand-900 dark:bg-brand-950"
+                  checkoutMessage.includes("canceled") || checkoutMessage.includes("cancelled")
+                    ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
                     : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
                 }`}>
                   <p className="text-sm text-zinc-900 dark:text-zinc-100">{checkoutMessage}</p>
@@ -635,7 +713,7 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
                       <Button
                         className="min-w-[200px]"
                         variant="default"
-                        disabled={checkoutLoading || isPending}
+                        disabled={checkoutLoading || isPending || isConfirming}
                         onClick={() => {
                           if (!selectedPlan) return;
                           setCheckoutLoading(true);

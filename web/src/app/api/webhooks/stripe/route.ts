@@ -202,7 +202,119 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 4) Handle invoice events
+    // 4) Handle checkout.session.completed for plan activation
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      
+      // Validate session mode (should be "subscription" for plan purchases)
+      if (session.mode !== "subscription") {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][CHECKOUT_NON_SUBSCRIPTION]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          severity: "info",
+          details: {
+            event_type: event.type,
+            session_id: session.id,
+            mode: session.mode,
+          },
+        });
+        // Return 200 - not an error, just not a plan purchase
+        return NextResponse.json({ received: true });
+      }
+
+      // Extract metadata
+      const orgId = session.metadata?.org_id;
+      const planCode = session.metadata?.plan_code?.toLowerCase();
+
+      if (!orgId || !planCode) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][CHECKOUT_MISSING_METADATA]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          severity: "warn",
+          details: {
+            event_type: event.type,
+            session_id: session.id,
+            has_org_id: !!orgId,
+            has_plan_code: !!planCode,
+          },
+        });
+        // Return 200 - do not cause retries
+        return NextResponse.json({ received: true });
+      }
+
+      // Validate plan_code
+      if (!["starter", "growth", "scale"].includes(planCode)) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][CHECKOUT_INVALID_PLAN]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          severity: "warn",
+          details: {
+            event_type: event.type,
+            session_id: session.id,
+            org_id: orgId,
+            plan_code: planCode,
+          },
+        });
+        // Return 200 - do not cause retries
+        return NextResponse.json({ received: true });
+      }
+
+      // Write to org_plan_overrides (idempotent upsert)
+      const { error: overrideError } = await supabaseAdmin
+        .from("org_plan_overrides")
+        .upsert(
+          {
+            org_id: orgId,
+            plan_code: planCode,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "org_id" }
+        );
+
+      if (overrideError) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][CHECKOUT_OVERRIDE_ERROR]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: orgId,
+          severity: "error",
+          details: {
+            event_type: event.type,
+            session_id: session.id,
+            plan_code: planCode,
+            error: overrideError.message,
+          },
+        });
+        // Still return 200 - we'll retry on next webhook if needed
+        return NextResponse.json({ received: true });
+      }
+
+      logEvent({
+        tag: "[BILLING][WEBHOOK][CHECKOUT_PLAN_ACTIVATED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "info",
+        details: {
+          event_type: event.type,
+          session_id: session.id,
+          plan_code: planCode,
+        },
+      });
+
+      // Return 200 OK
+      return NextResponse.json({ received: true });
+    }
+
+    // 5) Handle invoice events
     if (event.type.startsWith("invoice.")) {
       let invoice: Stripe.Invoice;
       let invoiceId: string;

@@ -17,15 +17,9 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     
     const state = await getOnboardingState();
     
-    // If checkout=success: set step=3 and persist (idempotent)
-    // This handles Stripe success redirect
-    if (checkoutParam === "success") {
-      const { updateOnboardingStep } = await import("./_actions");
-      // Always set step=3 on checkout success (idempotent)
-      await updateOnboardingStep(state.orgId, 3);
-      // Update state with step=3
-      state.onboardingStep = 3;
-    }
+    // getOnboardingState() already performs self-heal: if plan is active and step < 3,
+    // it sets step=3 in DB. We rely on that deterministic behavior.
+    // Do NOT write onboarding_step here to avoid race with client polling.
     
     // If plan is active and step >= 4, redirect to dashboard (onboarding complete)
     // But allow step 3 to proceed (activation)
@@ -33,8 +27,9 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
       redirect("/dashboard");
     }
     
-    // Pass checkout param to client for handling
-    return <OnboardingClient initialState={state} checkoutParam={checkoutParam} />;
+    // Pass checkout status to client for UI handling (no server-side writes)
+    const checkoutStatus = checkoutParam === "success" ? "success" : checkoutParam === "cancel" ? "cancel" : null;
+    return <OnboardingClient initialState={state} checkoutStatus={checkoutStatus} />;
   } catch (error) {
     // If error is redirect, re-throw it
     if (error && typeof error === "object" && "digest" in error) {
