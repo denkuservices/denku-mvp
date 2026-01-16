@@ -611,13 +611,16 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
                           setError(null);
                           setCheckoutMessage(null);
                           startTransition(async () => {
-                            const result = await startPlanCheckout(selectedPlan);
+                            const result = await startPlanCheckout(selectedPlan as "starter" | "growth" | "scale");
                             if (result.ok && result.url) {
                               // Redirect to Stripe Checkout
                               window.location.href = result.url;
                             } else {
                               setCheckoutLoading(false);
-                              if (result.error === "BILLING_PAUSED") {
+                              if (result.error === "UNAUTH") {
+                                // Not authenticated - redirect to login
+                                router.push("/login");
+                              } else if (result.error === "BILLING_PAUSED") {
                                 setError("BILLING_PAUSED");
                               } else {
                                 setError(result.error || "Failed to start checkout");

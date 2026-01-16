@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
+import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
+import { getBaseUrl } from "@/lib/utils/url";
+import { logEvent } from "@/lib/observability/logEvent";
+import Stripe from "stripe";
 
 /**
  * Get onboarding state for current user's org.
@@ -337,42 +341,249 @@ export async function activatePhoneNumber(
 
 /**
  * Start Stripe checkout for plan purchase during onboarding.
+ * Server action that creates Stripe checkout session directly (no API route).
  * Returns checkout session URL for redirect.
  */
-export async function startPlanCheckout(planCode: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return { ok: false, error: "Not authenticated" };
-  }
-
-  // Verify user has access to this org
-  const resolvedOrgId = await getActiveOrgId();
-  if (!resolvedOrgId) {
-    return { ok: false, error: "No organization found" };
-  }
-
-  // Call checkout API
+export async function startPlanCheckout(planCode: "starter" | "growth" | "scale") {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const response = await fetch(`${baseUrl}/api/billing/stripe/checkout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    // 1) Authenticate user with Supabase server client (cookies-based)
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    const hasUser = !!user;
+    const userId = user?.id ? `${user.id.substring(0, 8)}...` : null;
+
+    if (authError || !user) {
+      logEvent({
+        tag: "[ONBOARDING][CHECKOUT_START]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        severity: "warn",
+        details: {
+          hasUser: false,
+          userId: null,
+          orgId: null,
+          planCode: planCode,
+          error: authError?.message || "No user",
+        },
+      });
+      return { ok: false, error: "UNAUTH" };
+    }
+
+    // 2) Resolve orgId from profiles using authenticated user id
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("org_id")
+      .eq("auth_user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    const orgId = profiles && profiles.length > 0 ? profiles[0].org_id : null;
+    const orgIdMasked = orgId ? `${orgId.substring(0, 8)}...` : null;
+
+    if (!orgId) {
+      logEvent({
+        tag: "[ONBOARDING][CHECKOUT_START]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        severity: "warn",
+        details: {
+          hasUser: true,
+          userId: userId,
+          orgId: null,
+          planCode: planCode,
+          error: "NO_ORG",
+        },
+      });
+      return { ok: false, error: "NO_ORG" };
+    }
+
+    // 3) Validate plan_code
+    if (!["starter", "growth", "scale"].includes(planCode)) {
+      return { ok: false, error: "Invalid plan_code" };
+    }
+
+    // 4) Check workspace status - block if billing paused
+    const { data: orgSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("workspace_status, paused_reason")
+      .eq("org_id", orgId)
+      .maybeSingle<{
+        workspace_status: "active" | "paused" | null;
+        paused_reason: string | null;
+      }>();
+
+    const workspaceStatus = orgSettings?.workspace_status || "active";
+    const pausedReason = orgSettings?.paused_reason || null;
+
+    if (workspaceStatus === "paused" && (pausedReason === "hard_cap" || pausedReason === "past_due")) {
+      return { ok: false, error: "BILLING_PAUSED", reason: pausedReason };
+    }
+
+    // 5) Get plan details from billing_plan_catalog
+    const { data: planData } = await supabaseAdmin
+      .from("billing_plan_catalog")
+      .select("plan_code, display_name, monthly_fee_usd")
+      .eq("plan_code", planCode)
+      .maybeSingle<{
+        plan_code: string;
+        display_name: string;
+        monthly_fee_usd: number;
+      }>();
+
+    if (!planData) {
+      return { ok: false, error: "Plan not found" };
+    }
+
+    // 6) Initialize Stripe client
+    let stripe: Stripe;
+    try {
+      stripe = getStripeClient();
+    } catch (stripeErr) {
+      const errorMsg = stripeErr instanceof Error ? stripeErr.message : "Stripe initialization failed";
+      logEvent({
+        tag: "[ONBOARDING][CHECKOUT_START]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "error",
+        details: {
+          hasUser: true,
+          userId: userId,
+          orgId: orgIdMasked,
+          planCode: planCode,
+          error: errorMsg,
+        },
+      });
+      return { ok: false, error: "Payment service unavailable" };
+    }
+
+    // 7) Ensure Stripe customer exists
+    let stripeCustomerId: string;
+    try {
+      stripeCustomerId = await ensureStripeCustomer(stripe, orgId);
+    } catch (customerErr) {
+      const errorMsg = customerErr instanceof Error ? customerErr.message : "Customer creation failed";
+      logEvent({
+        tag: "[ONBOARDING][CHECKOUT_START]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "error",
+        details: {
+          hasUser: true,
+          userId: userId,
+          orgId: orgIdMasked,
+          planCode: planCode,
+          error: errorMsg,
+        },
+      });
+      return { ok: false, error: "Failed to setup customer account" };
+    }
+
+    // 8) Get APP_URL for return URLs
+    const appUrl = getBaseUrl();
+    const successUrl = `${appUrl}/onboarding?checkout=success`;
+    const cancelUrl = `${appUrl}/onboarding?checkout=cancel`;
+
+    // 9) Create Stripe Checkout Session
+    let checkoutSession: Stripe.Checkout.Session;
+    try {
+      checkoutSession = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        payment_method_types: ["card"],
+        mode: "subscription", // Recurring subscription
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `${planData.display_name} Plan`,
+                description: `Monthly subscription for ${planData.display_name} plan`,
+              },
+              unit_amount: Math.round(planData.monthly_fee_usd * 100), // Convert to cents
+              recurring: {
+                interval: "month",
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          org_id: orgId,
+          plan_code: planCode,
+          kind: "onboarding_plan_purchase",
+        },
+        allow_promotion_codes: true,
+      });
+    } catch (checkoutErr) {
+      const errorMsg = checkoutErr instanceof Error ? checkoutErr.message : "Checkout session creation failed";
+      logEvent({
+        tag: "[ONBOARDING][CHECKOUT_START]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "error",
+        details: {
+          hasUser: true,
+          userId: userId,
+          orgId: orgIdMasked,
+          planCode: planCode,
+          error: errorMsg,
+          stripe_customer_id: stripeCustomerId,
+        },
+      });
+      return { ok: false, error: "Failed to create checkout session" };
+    }
+
+    // 10) Log success
+    logEvent({
+      tag: "[ONBOARDING][CHECKOUT_START]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "info",
+      details: {
+        hasUser: true,
+        userId: userId,
+        orgId: orgIdMasked,
+        planCode: planCode,
+        checkout_session_id: checkoutSession.id,
+        amount: planData.monthly_fee_usd,
       },
-      body: JSON.stringify({ plan_code: planCode }),
     });
 
-    const data = await response.json();
-
-    if (data.ok && data.url) {
-      return { ok: true, url: data.url };
-    } else {
-      return { ok: false, error: data.error || "Failed to create checkout session" };
+    // 11) Return checkout URL
+    if (!checkoutSession.url) {
+      return { ok: false, error: "Checkout session created but no URL returned" };
     }
+
+    return { ok: true, url: checkoutSession.url };
   } catch (err) {
-    console.error("[startPlanCheckout] Error:", err);
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    logEvent({
+      tag: "[ONBOARDING][CHECKOUT_START]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      severity: "error",
+      details: {
+        hasUser: false,
+        userId: null,
+        orgId: null,
+        planCode: planCode,
+        error: errorMsg,
+      },
+    });
+    return { ok: false, error: errorMsg };
   }
 }
 
