@@ -342,6 +342,42 @@ export async function GET(req: NextRequest) {
       .order("month", { ascending: false })
       .limit(6);
 
+    // 14a) Compute pricing_preview
+    const pricingPlan = plans.find((p) => p.plan_code === (preview?.plan_code || planLimits?.plan_code || "starter"));
+    const planBaseUsd = pricingPlan?.monthly_fee_usd || 0;
+
+    // Calculate addons_monthly_usd: sum(qty * price_usd_month) for active addons
+    let addonsMonthlyUsd = 0;
+    for (const addon of availableAddons) {
+      const qty = activeAddons[addon.key] || 0;
+      addonsMonthlyUsd += qty * addon.price_usd_month;
+    }
+
+    // Usage/overage so far: use overage.current_overage_usd or preview.estimated_overage_cost_usd
+    const usageOverageSoFarUsd = currentOverageUsd || Number(preview?.estimated_overage_cost_usd || 0);
+
+    // Estimated monthly total
+    const estimatedMonthlyTotalUsd = planBaseUsd + addonsMonthlyUsd + usageOverageSoFarUsd;
+
+    // Determine invoice_state: 'fresh'|'stale'|'none'
+    let invoiceState: "fresh" | "stale" | "none";
+    if (!invoiceRun) {
+      invoiceState = "none";
+    } else if (invoiceRun.status === "stale") {
+      invoiceState = "stale";
+    } else {
+      invoiceState = "fresh";
+    }
+
+    const pricingPreview = {
+      plan_base_usd: planBaseUsd,
+      addons_monthly_usd: addonsMonthlyUsd,
+      usage_overage_so_far_usd: usageOverageSoFarUsd,
+      estimated_monthly_total_usd: estimatedMonthlyTotalUsd,
+      is_preview: true,
+      invoice_state: invoiceState,
+    };
+
     // 15) Log event (only in non-production or when BILLING_DEBUG is enabled)
     if (process.env.NODE_ENV !== "production" || process.env.BILLING_DEBUG === "true") {
       logEvent({
@@ -407,6 +443,7 @@ export async function GET(req: NextRequest) {
           included_phones: includedPhones,
         },
       },
+      pricing_preview: pricingPreview,
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";

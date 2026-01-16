@@ -80,6 +80,14 @@ type BillingSummary = {
       included_phones: number;
     };
   };
+  pricing_preview?: {
+    plan_base_usd: number;
+    addons_monthly_usd: number;
+    usage_overage_so_far_usd: number;
+    estimated_monthly_total_usd: number;
+    is_preview: boolean;
+    invoice_state: "fresh" | "stale" | "none";
+  };
 };
 
 // Plan order map for comparison
@@ -733,7 +741,7 @@ export default function WorkspaceBillingPage() {
                               )}
                               {isBillingPaused && (
                                 <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                                  Payment required to modify add-ons.
+                                  Billing pause active — increase disabled until payment is resolved.
                                 </p>
                               )}
                             </div>
@@ -741,11 +749,11 @@ export default function WorkspaceBillingPage() {
                               <Button
                                 variant="secondary"
                                 onClick={() => {
-                                  if (!isBillingPaused && currentQty > 0) {
+                                  if (currentQty > 0) {
                                     handleAddonUpdate(addon.key, Math.max(0, currentQty - addon.step));
                                   }
                                 }}
-                                disabled={isBillingPaused || currentQty === 0 || isUpdating}
+                                disabled={currentQty === 0 || isUpdating}
                                 className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
                               >
                                 −
@@ -770,6 +778,55 @@ export default function WorkspaceBillingPage() {
                         </div>
                       );
                     })}
+                </div>
+              </Card>
+            )}
+
+            {/* Estimated Monthly Total (Preview) card */}
+            {summary?.pricing_preview && (
+              <Card>
+                <div className="flex items-start justify-between">
+                  <SectionTitle
+                    title="Estimated monthly total"
+                    subtitle="Preview — final invoice is calculated at month close."
+                  />
+                  {summary.pricing_preview.invoice_state === "stale" && (
+                    <Badge variant="warning">Updating</Badge>
+                  )}
+                </div>
+                <div className="mt-6 space-y-4">
+                  {/* Big total */}
+                  <div>
+                    <div className="text-3xl font-bold text-zinc-900 dark:text-white">
+                      {formatUsd(summary.pricing_preview.estimated_monthly_total_usd)}
+                    </div>
+                  </div>
+                  
+                  {/* Breakdown */}
+                  <div className="space-y-2 border-t border-zinc-200 pt-4 dark:border-white/10">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-zinc-600 dark:text-zinc-400">Plan</span>
+                      <span className="font-medium text-zinc-900 dark:text-white">
+                        {formatUsd(summary.pricing_preview.plan_base_usd)}
+                      </span>
+                    </div>
+                    {summary.pricing_preview.addons_monthly_usd > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-600 dark:text-zinc-400">Add-ons</span>
+                        <span className="font-medium text-zinc-900 dark:text-white">
+                          +{formatUsd(summary.pricing_preview.addons_monthly_usd)}/mo
+                        </span>
+                      </div>
+                    )}
+                    {summary.pricing_preview.usage_overage_so_far_usd > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-600 dark:text-zinc-400">Usage so far</span>
+                        <span className="font-medium text-zinc-900 dark:text-white">
+                          +{formatUsd(summary.pricing_preview.usage_overage_so_far_usd)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Card>
             )}

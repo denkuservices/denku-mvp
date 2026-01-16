@@ -36,7 +36,7 @@ export async function createAgentAction(formData: FormData) {
 
   const orgId = profile.org_id;
 
-  // GUARD: Check if org is billing-paused - do not bind if so
+  // D) Billing pause overrides everything - deny agent creation if workspace is paused
   const { data: orgSettings } = await supabaseAdmin
     .from("organization_settings")
     .select("workspace_status, paused_reason")
@@ -46,12 +46,34 @@ export async function createAgentAction(formData: FormData) {
       paused_reason: "manual" | "hard_cap" | "past_due" | null;
     }>();
 
-  const pausedReason = orgSettings?.paused_reason;
-  if (
-    orgSettings?.workspace_status === "paused" &&
-    (pausedReason === "hard_cap" || pausedReason === "past_due")
-  ) {
-    throw new Error("Cannot create agent: Billing issue. Update payment method to resume.");
+  if (orgSettings?.workspace_status === "paused") {
+    const pausedReason = orgSettings.paused_reason;
+    const errorMsg = pausedReason === "hard_cap" || pausedReason === "past_due"
+      ? "Cannot create agent: Billing issue. Update payment method to resume."
+      : "Cannot create agent: Workspace is paused.";
+    throw new Error(errorMsg);
+  }
+
+  // B) Enforce phone number limit before creating/binding
+  const { getEffectiveLimits } = await import("@/lib/billing/limits");
+  const effectiveLimits = await getEffectiveLimits(orgId);
+  const includedPhones = effectiveLimits.included_phones;
+
+  // Count currently bound phone numbers (agents with both vapi_phone_number_id AND vapi_assistant_id)
+  const { count: boundCount, error: countErr } = await supabaseAdmin
+    .from("agents")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .not("vapi_phone_number_id", "is", null)
+    .not("vapi_assistant_id", "is", null);
+
+  if (countErr) {
+    throw new Error(`Failed to check phone number limit: ${countErr.message}`);
+  }
+
+  const currentBoundCount = boundCount ?? 0;
+  if (currentBoundCount >= includedPhones) {
+    throw new Error(`Phone number limit reached (${currentBoundCount}/${includedPhones}). Increase plan or add Extra phone numbers.`);
   }
 
   // 1) Vapi: phone number create (tenant-specific)

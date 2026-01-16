@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json(
-        { ok: false, error: "Cannot increase add-ons while billing is paused. Update payment method to resume." },
+        { ok: false, error: "Billing paused; cannot increase add-ons" },
         { status: 409 }
       );
     }
@@ -183,7 +183,22 @@ export async function POST(req: NextRequest) {
       .eq("org_id", org_id)
       .eq("month", currentMonth);
 
-    // 9) Log event
+    // 9) Log draft invoice invalidation
+    logEvent({
+      tag: "[BILLING][DRAFT_INVALIDATED][ADDON_CHANGE]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: org_id,
+      severity: "info",
+      details: {
+        addon_key: addon_key,
+        qty: qty,
+        month: currentMonth,
+      },
+    });
+
+    // 10) Log addon update event
     logEvent({
       tag: "[BILLING][ADDON_UPDATE]",
       ts: Date.now(),
@@ -199,7 +214,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 10) Return success
+    // 11) Return success
     return NextResponse.json({
       ok: true,
       addon_key: addon_key,

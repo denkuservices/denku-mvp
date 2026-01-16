@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOrgPlan, getOrgConcurrencyLimit } from "@/lib/organizations/plans";
+import { getEffectiveLimits, isWorkspacePaused } from "@/lib/billing/limits";
 
 /**
  * Get count of active leases for an organization.
@@ -45,11 +46,11 @@ export async function acquireOrgConcurrencyLease(params: {
   const { orgId, agentId, vapiCallId, ttlMinutes = 15 } = params;
 
   try {
-    // Check org plan/status first
-    const orgPlan = await getOrgPlan(orgId);
-    if (!orgPlan || orgPlan.status !== "active") {
-      const errorMsg = `Org plan check failed: ${!orgPlan ? "not found" : `status=${orgPlan.status}`}`;
-      console.warn("[CONCURRENCY] acquireOrgConcurrencyLease - org_inactive", {
+    // D) Billing pause overrides everything - deny concurrency acquisition if workspace is paused
+    const workspacePaused = await isWorkspacePaused(orgId);
+    if (workspacePaused) {
+      const errorMsg = "Workspace is paused (billing or manual)";
+      console.warn("[CONCURRENCY] acquireOrgConcurrencyLease - org_inactive (workspace paused)", {
         orgId,
         agentId,
         vapiCallId,
@@ -58,15 +59,19 @@ export async function acquireOrgConcurrencyLease(params: {
       return { ok: false, reason: "org_inactive", error: errorMsg };
     }
 
-    // Get org-level limit
-    const orgLimit = await getOrgConcurrencyLimit(orgId);
+    // Get effective limits (plan base + add-ons)
+    const effectiveLimits = await getEffectiveLimits(orgId);
+    const orgLimit = effectiveLimits.max_concurrent_calls;
+
     if (orgLimit <= 0) {
-      const errorMsg = `Org limit is ${orgLimit} (must be > 0)`;
+      const errorMsg = `Effective concurrency limit is ${orgLimit} (must be > 0)`;
       console.warn("[CONCURRENCY] acquireOrgConcurrencyLease - org_inactive (limit <= 0)", {
         orgId,
         agentId,
         vapiCallId,
         orgLimit,
+        plan_key: effectiveLimits.plan_key,
+        addons: effectiveLimits.addons,
       });
       return { ok: false, reason: "org_inactive", error: errorMsg };
     }

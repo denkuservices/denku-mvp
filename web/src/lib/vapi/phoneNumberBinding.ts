@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { logEvent } from "@/lib/observability/logEvent";
+import { getEffectiveLimits, isWorkspacePaused } from "@/lib/billing/limits";
 
 /**
  * Unbind all phone numbers from assistants for an organization.
@@ -182,27 +183,21 @@ export async function unbindOrgPhoneNumbersFromAssistants(orgId: string): Promis
  * Rebind all phone numbers to assistants for an organization.
  * This allows inbound calls to route to agents again.
  * Uses supabaseAdmin (service role) to bypass RLS.
- * GUARD: Will NOT rebind if org is billing-paused (paused_reason in 'hard_cap','past_due').
+ * 
+ * B) Phone numbers enforcement:
+ * - Counts currently bound phone numbers (agents with vapi_phone_number_id AND vapi_assistant_id)
+ * - If count >= included_phones -> blocks binding with error
+ * 
+ * D) Billing pause overrides everything:
+ * - If workspace_status='paused' (any reason) -> denies binding
+ * 
  * CRITICAL: Calls VAPI API directly to update phone number assistantId.
  * Throws on failure - does NOT swallow errors.
  */
 export async function rebindOrgPhoneNumbers(orgId: string): Promise<void> {
-  // GUARD: Check if org is billing-paused - do not rebind if so
-  const { data: orgSettings } = await supabaseAdmin
-    .from("organization_settings")
-    .select("workspace_status, paused_reason")
-    .eq("org_id", orgId)
-    .maybeSingle<{
-      workspace_status: "active" | "paused" | null;
-      paused_reason: "manual" | "hard_cap" | "past_due" | null;
-    }>();
-
-  const pausedReason = orgSettings?.paused_reason;
-  if (
-    orgSettings?.workspace_status === "paused" &&
-    (pausedReason === "hard_cap" || pausedReason === "past_due")
-  ) {
-    // Org is billing-paused - do not rebind
+  // D) Billing pause overrides everything - deny binding if workspace is paused
+  const workspacePaused = await isWorkspacePaused(orgId);
+  if (workspacePaused) {
     logEvent({
       tag: "[VAPI][BINDING][REBIND][BLOCKED]",
       ts: Date.now(),
@@ -211,13 +206,41 @@ export async function rebindOrgPhoneNumbers(orgId: string): Promise<void> {
       org_id: orgId,
       severity: "warn",
       details: {
-        workspace_status: orgSettings.workspace_status,
-        paused_reason: pausedReason,
-        reason: "billing_paused",
+        reason: "workspace_paused",
       },
     });
-    throw new Error(`Cannot rebind: Organization is billing-paused (${pausedReason})`);
+    throw new Error("Cannot rebind: Workspace is paused");
   }
+
+  // B) Get effective limits to enforce phone number limit
+  const effectiveLimits = await getEffectiveLimits(orgId);
+  const includedPhones = effectiveLimits.included_phones;
+
+  // Count currently bound phone numbers (agents with both vapi_phone_number_id AND vapi_assistant_id)
+  const { count: boundCount, error: countErr } = await supabaseAdmin
+    .from("agents")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .not("vapi_phone_number_id", "is", null)
+    .not("vapi_assistant_id", "is", null);
+
+  if (countErr) {
+    const errorMsg = `Failed to count bound phone numbers: ${countErr.message}`;
+    logEvent({
+      tag: "[VAPI][BINDING][REBIND][COUNT_ERROR]",
+      ts: Date.now(),
+      stage: "CALL",
+      source: "system",
+      org_id: orgId,
+      severity: "error",
+      details: {
+        error: countErr.message,
+      },
+    });
+    throw new Error(errorMsg);
+  }
+
+  const currentBoundCount = boundCount ?? 0;
 
   // Fetch all agents with vapi_assistant_id and vapi_phone_number_id for this org
   const { data: agents, error: agentsErr } = await supabaseAdmin
@@ -258,6 +281,30 @@ export async function rebindOrgPhoneNumbers(orgId: string): Promise<void> {
       },
     });
     return;
+  }
+
+  // B) Enforce phone number limit before rebinding
+  // The agents array contains all agents we want to rebind (they have both IDs in DB)
+  // If rebinding all of them would exceed the limit, block the rebind
+  const agentsToRebindCount = agents.length;
+  if (agentsToRebindCount > includedPhones) {
+    const errorMsg = `Phone number limit reached (${agentsToRebindCount}/${includedPhones}). Increase plan or add Extra phone numbers.`;
+    logEvent({
+      tag: "[VAPI][BINDING][REBIND][LIMIT_BLOCKED]",
+      ts: Date.now(),
+      stage: "CALL",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        agents_to_rebind_count: agentsToRebindCount,
+        current_bound_count: currentBoundCount,
+        included_phones: includedPhones,
+        plan_key: effectiveLimits.plan_key,
+        addons: effectiveLimits.addons,
+      },
+    });
+    throw new Error(errorMsg);
   }
 
   const now = new Date().toISOString();

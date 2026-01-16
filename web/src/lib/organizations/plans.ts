@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
 import { getOrgBillingStatus } from "@/lib/billing/pause";
+import { getEffectiveLimits } from "@/lib/billing/limits";
 
 /**
  * Plan-to-concurrency limit mapping.
@@ -84,16 +85,14 @@ export async function getOrgPlan(orgId: string): Promise<{ plan: string; status:
 /**
  * Get concurrency limit for an organization based on plan and status.
  * 
+ * DEPRECATED: Use getEffectiveLimits() from @/lib/billing/limits instead.
+ * This function is kept for backward compatibility but now delegates to getEffectiveLimits.
+ * 
  * Rules:
  * - If status != "active" => 0 (blocked/paused)
- * - Map plan to limit:
- *   - "mvp" => 2
- *   - "starter" => 1
- *   - "growth" => 4
- *   - "scale" => 10
- * - Unknown plan => 1 (safe fallback) + TODO
+ * - Effective limit = plan base + add-ons (from billing_org_addons)
  * 
- * Returns the concurrency limit (number).
+ * Returns the effective concurrency limit (number).
  */
 export async function getOrgConcurrencyLimit(orgId: string): Promise<number> {
   const orgPlan = await getOrgPlan(orgId);
@@ -108,14 +107,17 @@ export async function getOrgConcurrencyLimit(orgId: string): Promise<number> {
     return 0;
   }
 
-  // Map plan to limit
-  const limit = PLAN_CONCURRENCY_LIMITS[orgPlan.plan.toLowerCase()];
-
-  if (limit === undefined) {
-    // TODO: Log unknown plan for monitoring
-    console.warn(`[CONCURRENCY] Unknown plan "${orgPlan.plan}" for org ${orgId}, using fallback limit`);
-    return DEFAULT_CONCURRENCY_LIMIT;
+  // Use effective limits (plan base + add-ons) as single source of truth
+  try {
+    const effectiveLimits = await getEffectiveLimits(orgId);
+    return effectiveLimits.max_concurrent_calls;
+  } catch (err) {
+    // Fallback to legacy mapping if effective limits fetch fails
+    console.warn(`[CONCURRENCY] Failed to get effective limits for org ${orgId}, using legacy mapping:`, err);
+    const limit = PLAN_CONCURRENCY_LIMITS[orgPlan.plan.toLowerCase()];
+    if (limit === undefined) {
+      return DEFAULT_CONCURRENCY_LIMIT;
+    }
+    return limit;
   }
-
-  return limit;
 }

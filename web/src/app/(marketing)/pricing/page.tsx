@@ -25,9 +25,9 @@ const featureGroups = [
   {
     category: 'CAPACITY',
     features: [
-      { name: 'Phone numbers included', starter: '1', growth: '2', scale: '5' },
+      { name: 'Phone numbers included', starter: '1', growth: '1', scale: '1' },
       { name: 'Concurrent calls', starter: '1', growth: '4', scale: '10' },
-      { name: 'Personas', starter: 'Unlimited core', growth: 'Unlimited core', scale: 'Unlimited core' },
+      { name: 'Personas', starter: 'Unlimited', growth: 'Unlimited', scale: 'Unlimited' },
       { name: 'Included minutes (capacity bonus)', starter: '400 / month', growth: '1,200 / month', scale: '3,600 / month' },
       { name: 'Overage rate', starter: '$0.22 / min', growth: '$0.18 / min', scale: 'From $0.13 / min' },
     ],
@@ -50,7 +50,7 @@ const featureGroups = [
     features: [
       { name: 'Basic analytics', starter: '✓', growth: '—', scale: '—' },
       { name: 'Advanced analytics', starter: '—', growth: '✓', scale: '✓' },
-      { name: 'Call / chat transcripts', starter: '✓', growth: '✓', scale: '✓' },
+      { name: 'Call transcripts', starter: '✓', growth: '✓', scale: '✓' },
       { name: 'Structured logs', starter: '✓', growth: '✓', scale: '✓' },
       { name: 'Alerts & webhooks', starter: '—', growth: '✓', scale: '✓' },
     ],
@@ -107,10 +107,10 @@ export default function PricingPage() {
             </h1>
             <div className="space-y-2">
               <p className="text-base font-semibold text-[#0F172A]">
-                Unlimited personas. Limited concurrent calls.
+                Concurrency + reliability. Unlimited personas.
               </p>
               <p className="text-sm text-[#475569]">
-                Personas define behavior. Concurrency defines capacity.
+                Concurrent calls define capacity. Personas are unlimited and included.
               </p>
             </div>
           </div>
@@ -162,33 +162,27 @@ export default function PricingPage() {
                 )}
 
                 {/* Bullets */}
-                <ul className="flex-1 space-y-3 mb-8">
-                  {plan.bullets.map((bullet, index, array) => {
-                    // Handle two-line treatment for minutes + capacity bonus
-                    const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+minutes included/);
-                    const isCapacityBonus = bullet === 'Capacity bonus';
-                    const nextIsCapacityBonus = array[index + 1] === 'Capacity bonus';
-                    
-                    if (minutesMatch && nextIsCapacityBonus) {
-                      const minutes = minutesMatch[1];
-                      return (
-                        <li key={`${bullet}-${index}`} className="space-y-1">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
-                              <Check className="h-3.5 w-3.5 text-[#2563EB]" />
+                <ul className="flex-1 space-y-3 mb-6">
+                  {plan.bullets.map((bullet, index) => {
+                    // Handle minutes line with explanation
+                    if (bullet.includes('included minutes')) {
+                      const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+included minutes/);
+                      if (minutesMatch) {
+                        const minutes = minutesMatch[1];
+                        return (
+                          <li key={bullet} className="space-y-1">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
+                                <Check className="h-3.5 w-3.5 text-[#2563EB]" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes included</span>
+                                <span className="text-xs text-[#64748B]">Minutes are a usage allowance for smoother onboarding — overage is pay-as-you-go.</span>
+                              </div>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes included</span>
-                              <span className="text-xs text-[#64748B]">Capacity bonus</span>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    }
-                    
-                    // Skip capacity bonus if it was already rendered with minutes
-                    if (isCapacityBonus && index > 0 && array[index - 1].includes('minutes included')) {
-                      return null;
+                          </li>
+                        );
+                      }
                     }
                     
                     return (
@@ -201,7 +195,7 @@ export default function PricingPage() {
                         </span>
                       </li>
                     );
-                  }).filter(Boolean)}
+                  })}
                 </ul>
 
                 {/* CTA Button */}
@@ -211,7 +205,9 @@ export default function PricingPage() {
                   variant={plan.highlight ? 'default' : 'secondary'}
                   className="w-full"
                 >
-                  <Link href={plan.cta.href}>{plan.cta.label}</Link>
+                  <Link href={plan.cta.href}>
+                    {plan.cta.label}
+                  </Link>
                 </Button>
               </div>
             ))}
@@ -326,24 +322,17 @@ export default function PricingPage() {
           {/* Add-ons Section */}
           <div className="mt-12 rounded-2xl border border-[#CBD5E1] bg-white p-6 md:p-8 shadow-sm max-w-4xl mx-auto">
             <h3 className="text-xl font-bold text-[#0F172A] mb-4">Add-ons</h3>
-            <p className="text-sm text-[#64748B] mb-6">
-              Add-ons share the same concurrency pool and do not increase capacity.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* TODO: Fetch addon prices from /api/billing/summary or a public pricing endpoint for server truth */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
               <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">Additional Phone Numbers</div>
-                <div className="text-lg font-bold text-[#0F172A] mb-2">$10 / number / month</div>
-                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra concurrent calls</div>
+                <div className="text-lg font-bold text-[#0F172A] mb-2">+$99 / month per 1</div>
+                <p className="text-xs text-[#64748B]">Adds 1 concurrent call to your plan</p>
               </div>
               <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">Sales Agent</div>
-                <div className="text-lg font-bold text-[#0F172A] mb-2">$199 / month</div>
-                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
-              </div>
-              <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">CEO / Ops Agent</div>
-                <div className="text-lg font-bold text-[#0F172A] mb-2">$299 / month</div>
-                <p className="text-xs text-[#64748B]">Does not increase concurrency</p>
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra phone number</div>
+                <div className="text-lg font-bold text-[#0F172A] mb-2">+$10 / month per 1</div>
+                <p className="text-xs text-[#64748B]">Additional phone number for your account</p>
               </div>
             </div>
           </div>
