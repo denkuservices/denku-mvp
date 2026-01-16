@@ -48,15 +48,25 @@ export async function getOnboardingState() {
   const orgName = org?.name || "";
 
   // 4) Get organization_settings
-  const { data: settings } = await supabaseAdmin
+  let { data: settings } = await supabaseAdmin
     .from("organization_settings")
     .select("*")
     .eq("org_id", orgId)
     .maybeSingle();
 
-  // 5) Check if plan is active - if active, redirect to dashboard (paid org should not be in onboarding)
-  // Plan check happens below, but we'll use it to decide redirect here
-  // This check is moved after plan check to use isPlanActive
+  // 5) Ensure organization_settings row exists (FK-safe)
+  if (!settings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+    // Refetch after insert
+    const { data: newSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    settings = newSettings;
+  }
 
   // 6) Get workspace status and paused_reason
   const workspaceStatus = (settings as any)?.workspace_status || "active";
@@ -73,12 +83,28 @@ export async function getOnboardingState() {
   const planCode = planLimits?.plan_code || null;
   const isPlanActive = !!planCode;
 
-  // 5b) If plan is active, redirect to dashboard (paid org should not be in onboarding)
-  if (isPlanActive) {
+  // 8) Get onboarding step (safe fallback if column doesn't exist or is null)
+  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
+  const rawStep = (settings as any)?.onboarding_step ?? 0;
+  
+  // 9) Auto-advance logic: If plan is active AND step < 3, set step=3 and persist
+  let onboardingStep = rawStep;
+  if (isPlanActive && rawStep < 3) {
+    onboardingStep = 3; // Activate step
+    // Persist step=3 to DB immediately (idempotent)
+    await supabaseAdmin
+      .from("organization_settings")
+      .update({ onboarding_step: 3 })
+      .eq("org_id", orgId);
+  }
+
+  // 10) If plan is active and step >= 3, redirect to dashboard (paid org should not be in onboarding)
+  // But allow step 3-4 to complete onboarding
+  if (isPlanActive && onboardingStep >= 4) {
     redirect("/dashboard");
   }
 
-  // 8) Fetch plans catalog for inline plan selection
+  // 11) Fetch plans catalog for inline plan selection
   const { data: plansData } = await supabaseAdmin
     .from("billing_plan_catalog")
     .select("plan_code, display_name, monthly_fee_usd, included_minutes, overage_rate_usd_per_min, concurrency_limit, included_phone_numbers")
@@ -87,19 +113,12 @@ export async function getOnboardingState() {
 
   const plans = plansData || [];
 
-  // 9) Get onboarding step (safe fallback if column doesn't exist or is null)
-  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
-  const rawStep = (settings as any)?.onboarding_step ?? 0;
-  
-  // Auto-advance: If plan is active and we're at step 2 (choose plan), advance to step 3 (activate)
-  let onboardingStep = rawStep;
-  if (isPlanActive && rawStep === 2) {
-    onboardingStep = 3; // Skip plan selection if plan already active
-  }
-
-  // 9) Get saved onboarding preferences (goal and language)
+  // 12) Get saved onboarding preferences (goal, language, country, area_code, selected_number_type)
   const onboardingGoal = (settings as any)?.onboarding_goal || null;
   const onboardingLanguage = (settings as any)?.onboarding_language || null;
+  const onboardingCountry = (settings as any)?.onboarding_country || null;
+  const onboardingAreaCode = (settings as any)?.onboarding_area_code || null;
+  const onboardingSelectedNumberType = (settings as any)?.onboarding_selected_number_type || null;
 
   // 10) Check if phone number exists (check agents table)
   const { data: agents } = await supabaseAdmin
@@ -117,6 +136,9 @@ export async function getOnboardingState() {
     onboardingStep: onboardingStep as number,
     onboardingGoal: onboardingGoal as string | null,
     onboardingLanguage: onboardingLanguage as string | null,
+    onboardingCountry: onboardingCountry as string | null,
+    onboardingAreaCode: onboardingAreaCode as string | null,
+    onboardingSelectedNumberType: onboardingSelectedNumberType as string | null,
     workspaceStatus: workspaceStatus as "active" | "paused",
     pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | null,
     planCode,
@@ -133,6 +155,63 @@ export async function getOnboardingState() {
     hasPhoneNumber: !!hasPhoneNumber,
     phoneNumber: agents?.[0]?.phone_number || null,
   };
+}
+
+/**
+ * Update onboarding step in DB (idempotent, FK-safe).
+ * Used by Next/Back buttons and checkout success flow.
+ */
+export async function updateOnboardingStep(orgId: string, step: number) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Verify user has access to this org
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Ensure FK parent exists in organizations_legacy
+  const { data: existingOrg } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrg) {
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name: null, created_at: new Date().toISOString() });
+  }
+
+  // Ensure settings row exists
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+  }
+
+  // Update onboarding_step
+  const { error } = await supabaseAdmin
+    .from("organization_settings")
+    .update({ onboarding_step: step })
+    .eq("org_id", orgId);
+
+  if (error) {
+    console.error("[updateOnboardingStep] Error:", error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, step };
 }
 
 /**

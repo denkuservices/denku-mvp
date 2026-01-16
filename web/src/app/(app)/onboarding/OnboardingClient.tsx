@@ -12,6 +12,8 @@ import {
   completeOnboarding,
   setOnboardingStepToPlan,
   startPlanCheckout,
+  updateOnboardingStep,
+  getOnboardingState,
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
 
@@ -69,15 +71,41 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
   // Handle checkout return (success or cancel) from URL params
   React.useEffect(() => {
     const checkout = searchParams.get("checkout");
-    if (checkout === "success" && currentStep === 2) {
+    if (checkout === "success") {
       // On success, check if plan is active (webhook should have set it)
-      setCheckoutMessage("Payment successful! Activating plan...");
-      // Refresh after a short delay to allow webhook to process
-      const timer = setTimeout(() => {
-        // Reload page to get fresh state (plan should be active now)
-        window.location.href = "/onboarding";
-      }, 2000);
-      return () => clearTimeout(timer);
+      // Poll up to 10 times every 1s to wait for webhook to process
+      let pollCount = 0;
+      const maxPolls = 10;
+      
+      setCheckoutMessage("Confirming your plan…");
+      
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        try {
+          const updatedState = await getOnboardingState();
+          if (updatedState.isPlanActive) {
+            // Plan is active - update step to 3 and refresh
+            await updateOnboardingStep(state.orgId, 3);
+            setState(updatedState);
+            setCurrentStep(3);
+            setCheckoutMessage(null);
+            // Clear query param
+            router.replace("/onboarding");
+            clearInterval(pollInterval);
+          } else if (pollCount >= maxPolls) {
+            // Still not active after retries - show error
+            setCheckoutMessage("Plan activation is taking longer than expected. Please refresh the page or contact support.");
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          if (pollCount >= maxPolls) {
+            setCheckoutMessage("Failed to confirm plan. Please refresh the page or try again.");
+            clearInterval(pollInterval);
+          }
+        }
+      }, 1000);
+      
+      return () => clearInterval(pollInterval);
     } else if (checkout === "cancel") {
       setCheckoutMessage("Payment was cancelled. You can try again when ready.");
       // Clear query param
@@ -86,7 +114,7 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [searchParams, currentStep, router]);
+  }, [searchParams, router, state.orgId]);
   
   // Also handle checkoutParam prop for server-side pass-through
   React.useEffect(() => {
@@ -117,15 +145,10 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
         language,
       });
       if (result.ok) {
-        // Step mapping: 0 = goal, 1 = number, 2 = go-live
-        // After saving goal, move to step 1 (number selection)
-        setCurrentStep(1);
-        setState((s) => ({
-          ...s,
-          onboardingStep: 1,
-          onboardingGoal: goal,
-          onboardingLanguage: language,
-        }));
+        // Refresh state from server to get updated step
+        const updatedState = await getOnboardingState();
+        setState(updatedState);
+        setCurrentStep(updatedState.onboardingStep);
         setError(null);
       } else {
         setError(result.error || "Failed to save preferences");
@@ -194,7 +217,15 @@ export function OnboardingClient({ initialState, checkoutParam }: OnboardingClie
     startTransition(async () => {
       const result = await completeOnboarding(state.orgId);
       if (result.ok) {
-        router.push("/dashboard");
+        // Refresh state and then redirect
+        const updatedState = await getOnboardingState();
+        if (updatedState.isPlanActive) {
+          router.push("/dashboard");
+        } else {
+          // If not active yet, refresh and stay on onboarding
+          setState(updatedState);
+          setCurrentStep(updatedState.onboardingStep);
+        }
       } else {
         setError(result.error || "Failed to complete onboarding");
       }

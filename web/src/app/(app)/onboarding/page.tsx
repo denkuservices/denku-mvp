@@ -17,15 +17,20 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     
     const state = await getOnboardingState();
     
-    // If plan is active, redirect to dashboard (paid org should not be in onboarding)
-    if (state.isPlanActive) {
-      redirect("/dashboard");
+    // If checkout=success: set step=3 and persist (idempotent)
+    // This handles Stripe success redirect
+    if (checkoutParam === "success") {
+      const { updateOnboardingStep } = await import("./_actions");
+      // Always set step=3 on checkout success (idempotent)
+      await updateOnboardingStep(state.orgId, 3);
+      // Update state with step=3
+      state.onboardingStep = 3;
     }
     
-    // If checkout success and plan is active, auto-advance to activation step
-    if (checkoutParam === "success" && state.isPlanActive && state.onboardingStep === 2) {
-      // Update onboarding_step to 3 (activate)
-      // This will be handled by client-side state refresh
+    // If plan is active and step >= 4, redirect to dashboard (onboarding complete)
+    // But allow step 3 to proceed (activation)
+    if (state.isPlanActive && state.onboardingStep >= 4) {
+      redirect("/dashboard");
     }
     
     // Pass checkout param to client for handling
