@@ -4,7 +4,7 @@ import * as React from "react";
 import { useState, useTransition, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Check, Phone, ArrowRight, Copy, CheckCircle2 } from "lucide-react";
+import { Check, Phone, ArrowRight, Copy, CheckCircle2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   saveOnboardingPreferences,
@@ -650,29 +650,32 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   Language
                 </label>
                 <div className="space-y-2">
-                  {[
+                  {([
                     { value: "en", label: "English", icon: null },
                     { value: "tr", label: "Turkish", icon: null },
-                  ].map((lang) => (
-                    <button
-                      key={lang.value}
-                      type="button"
-                      onClick={() => setLanguage(lang.value)}
-                      className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
-                        language === lang.value
-                          ? "border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-500/10"
-                          : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {lang.icon && <lang.icon className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />}
-                        <span className="text-sm font-medium text-zinc-900 dark:text-white">{lang.label}</span>
-                        {language === lang.value && (
-                          <CheckCircle2 className="ml-auto h-5 w-5 text-brand-500" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                  ] as Array<{ value: string; label: string; icon: LucideIcon | null }>).map((lang) => {
+                    const Icon = lang.icon;
+                    return (
+                      <button
+                        key={lang.value}
+                        type="button"
+                        onClick={() => setLanguage(lang.value)}
+                        className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
+                          language === lang.value
+                            ? "border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-500/10"
+                            : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {Icon ? <Icon className="h-5 w-5 text-zinc-600 dark:text-zinc-400" /> : null}
+                          <span className="text-sm font-medium text-zinc-900 dark:text-white">{lang.label}</span>
+                          {language === lang.value && (
+                            <CheckCircle2 className="ml-auto h-5 w-5 text-brand-500" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
