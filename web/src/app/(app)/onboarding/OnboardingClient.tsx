@@ -373,11 +373,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       const result = await activatePhoneNumber(orgId, country, areaCode || undefined);
       if (result.ok) {
         setProvisionedPhoneNumber(result.phoneNumber || null);
-        setActivationComplete(true);
-        // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
-        // After activation, move to step 4 (live)
-        setCurrentStep(4);
-        setState((s) => ({ ...s, onboardingStep: 4 }));
+        
+        // Refresh state from DB to get deterministic step advancement
+        const updatedState = await getOnboardingState();
+        setState(updatedState);
+        setCurrentStep(updatedState.onboardingStep);
         setIsActivating(false);
       } else {
         if (result.error === "BILLING_PAUSED") {
