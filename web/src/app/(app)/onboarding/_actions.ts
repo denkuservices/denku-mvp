@@ -940,9 +940,23 @@ export async function runActivation(): Promise<
     // 3) Bind phone number to assistant (idempotent - safe to call multiple times)
     // CRITICAL: Only send assistantId - do NOT include any phone number fields
     // Vapi expects: { assistantId: string } for binding
+    const bindPath = `/phone-number/${phone.id}`;
+    
+    // Validate phone.id is a valid UUID string (not a phone number E164)
+    if (typeof phone.id !== "string" || !phone.id) {
+      throw new Error(`Invalid phone.id: expected non-empty string UUID, got ${typeof phone.id}`);
+    }
+    
+    // Validate assistantId is a string (UUID)
+    if (typeof assistant.id !== "string" || !assistant.id) {
+      throw new Error(`Invalid assistant.id: expected non-empty string UUID, got ${typeof assistant.id}`);
+    }
+    
+    // Build bind payload with ONLY assistantId (no phone fields)
     const bindPayload: { assistantId: string } = { assistantId: assistant.id };
     
-    // Guard: Ensure no phone number fields are accidentally included
+    // HARD GUARD: Prevent any phone fields from being sent in binding request
+    // This ensures we never send phone/number fields which cause Vapi TypeError
     const phoneFields = ["phone", "phoneNumber", "phone_number", "number"];
     const payloadKeys = Object.keys(bindPayload);
     const hasInvalidPhoneField = payloadKeys.some((key) => 
@@ -950,30 +964,17 @@ export async function runActivation(): Promise<
     );
     
     if (hasInvalidPhoneField) {
-      throw new Error(`Invalid payload: phone number fields (${phoneFields.join(", ")}) must not be included in binding request.`);
+      throw new Error("BUG: Do not send phone fields when binding a line. Use assistantId only.");
     }
     
-    // Validate assistantId is a string (UUID)
-    if (typeof bindPayload.assistantId !== "string" || !bindPayload.assistantId) {
-      throw new Error(`Invalid assistantId: expected non-empty string, got ${typeof bindPayload.assistantId}`);
-    }
+    // Also check the payload values for any phone-like strings (UUIDs should not match phone patterns)
+    const payloadValues = Object.values(bindPayload);
+    const hasPhoneLikeValue = payloadValues.some((val) => 
+      typeof val === "string" && /^\+?\d{10,}$/.test(val.replace(/\D/g, ""))
+    );
     
-    // Validate phone.id is a valid UUID string (not a phone number E164)
-    if (typeof phone.id !== "string" || !phone.id) {
-      throw new Error(`Invalid phone.id: expected non-empty string UUID, got ${typeof phone.id}`);
-    }
-    
-    const bindPath = `/phone-number/${phone.id}`;
-    
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[runActivation] VAPI request", { 
-        method: "PATCH", 
-        path: bindPath, 
-        payload: bindPayload,
-        payloadKeys: Object.keys(bindPayload),
-        phoneId: phone.id,
-        assistantId: assistant.id,
-      });
+    if (hasPhoneLikeValue) {
+      throw new Error("BUG: Do not send phone fields when binding a line. Use assistantId only.");
     }
     
     try {

@@ -45,8 +45,8 @@ export async function vapiFetch<T>(path: string, init: RequestInit = {}): Promis
     method,
     path,
     bodyKeys,
-    bodyPreview,
   });
+  console.log("[VAPI][REQ_BODY]", bodyPreview ?? null);
   
   const res = await fetch(`${VAPI_BASE_URL}${path}`, {
     ...init,
