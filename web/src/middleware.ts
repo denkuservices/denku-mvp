@@ -81,7 +81,51 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // 2) App koruması (Supabase session + email verification) — /dashboard
+  // 2) Redirect authenticated users away from login page
+  const isLogin = pathname === "/login";
+  if (isLogin) {
+    try {
+      const supabase = createSupabaseMiddlewareClient(request, response);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (user) {
+        // User already logged in - redirect to dashboard
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    } catch (err) {
+      // If auth check fails, allow access to login page
+      // (user might not have session, which is fine)
+      console.error("[middleware] Login page auth check error:", err);
+    }
+  }
+
+  // 2.5) Onboarding route - never apply plan gating, allow through after basic auth check
+  const isOnboarding = pathname.startsWith("/onboarding");
+  if (isOnboarding) {
+    // Onboarding page handles its own redirects based on planCode
+    // Middleware should never redirect /onboarding to /dashboard
+    // Just do basic auth check and allow through
+    try {
+      const supabase = createSupabaseMiddlewareClient(request, response);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      // If no user, onboarding page will handle redirect to login
+      // If user exists, allow through - onboarding page will check planCode and redirect if needed
+      return response;
+    } catch (err) {
+      // If auth check fails, still allow through - onboarding page will handle it
+      console.error("[middleware] Onboarding route auth check error:", err);
+      return response;
+    }
+  }
+
+  // 3) App koruması (Supabase session + email verification) — /dashboard
   const isDashboard = pathname.startsWith("/dashboard");
   if (isDashboard) {
     try {
@@ -150,15 +194,36 @@ export async function middleware(request: NextRequest) {
         }
         
         // Check plan active status for all other /dashboard paths
-        const { data: planLimits } = await supabaseAdmin
+        const { data: planRow, error: planErr } = await supabaseAdmin
           .from("org_plan_limits")
           .select("plan_code")
           .eq("org_id", orgId)
-          .maybeSingle<{ plan_code: string | null }>();
+          .single<{ plan_code: string | null }>();
 
-        const planActive = !!planLimits?.plan_code;
+        let planActive = false;
+        if (planErr) {
+          // If error indicates "no rows", treat as plan inactive
+          if (planErr.code === "PGRST116" || planErr.message?.includes("No rows")) {
+            planActive = false;
+          } else {
+            // Other error (network, permissions, etc.) - FAIL OPEN: allow /dashboard to prevent ping-pong loops
+            console.error("[middleware] Plan check error (failing open to prevent loops):", planErr.message);
+            return response;
+          }
+        } else {
+          // No error - check if plan_code exists
+          planActive = !!planRow?.plan_code;
+        }
+
         if (!planActive) {
           // Plan not active → redirect to onboarding
+          // Temporary debug log
+          console.log("[middleware] redirect -> /onboarding", {
+            pathname,
+            orgId,
+            plan_code: planRow?.plan_code,
+            planErr: planErr?.message,
+          });
           // Preserve query params if present
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";
@@ -200,5 +265,6 @@ export const config = {
     "/admin/:path*",
     "/api/admin/:path*",
     "/dashboard/:path*",
+    "/onboarding/:path*",
   ],
 };

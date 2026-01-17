@@ -1,16 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Info, Moon, Sun } from 'lucide-react';
+import { Search, Bell, Info, Moon, Sun, Menu } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+
+interface ProfileWidgetProps {
+  onToggleMobileNav?: () => void;
+}
 
 /**
  * Horizon UI Profile Widget (right-side capsule)
  * Extracted from DashboardHeader for global use across all authenticated pages.
  * Includes: search, bell, info, moon/sun toggle, and avatar dropdown.
+ * On mobile: includes hamburger menu button.
  */
-export default function ProfileWidget() {
+export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps) {
   const [searchValue, setSearchValue] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -88,11 +93,11 @@ export default function ProfileWidget() {
   };
 
   return (
-    <div className="flex items-center justify-end min-w-[420px]">
-      <div className="flex h-[61px] w-[420px] items-center justify-between rounded-full bg-white px-2 shadow-shadow-100 dark:!bg-navy-800 dark:shadow-none">
-        {/* Search section */}
-        <div className="flex h-[45px] w-[240px] items-center gap-2 rounded-full bg-lightPrimary px-4 dark:bg-navy-900/20">
-          <span className="text-gray-500 dark:text-white/70">
+    <div className="flex w-full max-w-full items-center justify-end sm:w-[420px] sm:max-w-[420px]">
+      <div className="flex h-[61px] w-full flex-nowrap items-center justify-between rounded-full bg-white px-2 shadow-shadow-100 dark:!bg-navy-800 dark:shadow-none sm:w-[420px] sm:max-w-[420px]">
+        {/* Search section - first */}
+        <div className="flex h-[45px] min-w-0 flex-1 items-center gap-2 rounded-full bg-lightPrimary px-4 dark:bg-navy-900/20">
+          <span className="shrink-0 text-gray-500 dark:text-white/70">
             <Search className="h-4 w-4" />
           </span>
           <input
@@ -101,63 +106,76 @@ export default function ProfileWidget() {
             onChange={(e) => setSearchValue(e.target.value)}
             placeholder="Search..."
             data-testid="dashboard-search-input"
-            className="h-full w-full bg-transparent text-sm font-medium text-navy-700 outline-none placeholder:font-medium placeholder:text-gray-400 dark:text-white dark:placeholder:text-white/50"
+            className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-navy-700 outline-none placeholder:font-medium placeholder:text-gray-400 dark:text-white dark:placeholder:text-white/50"
           />
         </div>
 
-        {/* Right icons */}
-        <div className="flex h-full items-center">
-          <div className="mx-2 h-6 w-px bg-gray-200 dark:bg-white/10" />
-
+        {/* Mobile hamburger menu button - after search, mobile only */}
+        {/* MUST be hidden on desktop: lg:hidden (do not remove) */}
+        {onToggleMobileNav && (
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
-            aria-label="Notifications"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleMobileNav();
+            }}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10 lg:!hidden"
+            aria-label="Open menu"
           >
-            <Bell className="h-5 w-5" />
+            <Menu className="h-5 w-5" />
           </button>
+        )}
 
+        {/* Icons: Bell, Info, Moon, Avatar - no separators */}
+        <button
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
+          aria-label="Notifications"
+        >
+          <Bell className="h-5 w-5" />
+        </button>
+
+        <button
+          className="hidden shrink-0 sm:flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
+          aria-label="Information"
+        >
+          <Info className="h-5 w-5" />
+        </button>
+
+        <button
+          onClick={toggleDarkMode}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
+          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDarkMode ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+        </button>
+
+        {/* Avatar Dropdown */}
+        <div className="relative shrink-0" ref={profileDropdownRef}>
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
-            aria-label="Information"
+            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+            className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-white dark:ring-navy-700"
+            aria-label="Profile menu"
           >
-            <Info className="h-5 w-5" />
+            <img
+              src={avatarSrc}
+              alt="Profile"
+              className="h-full w-full rounded-full object-cover"
+              onError={(e) => {
+                // Fallback to default avatar on error
+                (e.target as HTMLImageElement).src = '/horizon/img/avatars/avatar4.png';
+              }}
+            />
           </button>
-
-          <button
-            onClick={toggleDarkMode}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
-            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {isDarkMode ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </button>
-
-          {/* Avatar Dropdown */}
-          <div className="relative ml-2" ref={profileDropdownRef}>
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-white dark:ring-navy-700"
-              aria-label="Profile menu"
-            >
-              <img
-                src={avatarSrc}
-                alt="Profile"
-                className="h-full w-full rounded-full object-cover"
-                onError={(e) => {
-                  // Fallback to default avatar on error
-                  (e.target as HTMLImageElement).src = '/horizon/img/avatars/avatar4.png';
-                }}
-              />
-            </button>
-            {showProfileDropdown && (
-              <div className="absolute right-0 top-12 z-[9999]">
-                <ProfileDropdown avatarSrc={avatarSrc} />
-              </div>
-            )}
-          </div>
+          {showProfileDropdown && (
+            <div className="absolute right-0 top-12 z-[9999]">
+              <ProfileDropdown avatarSrc={avatarSrc} />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '@/components/ui-horizon/card';
 import BarChart from '@/components/charts/BarChart';
 import { barChartOptionsWeeklyRevenue } from '@/variables/charts';
@@ -12,6 +12,11 @@ interface WeeklyRevenueProps {
 
 export default function WeeklyRevenue({ weeklyOutcomes }: WeeklyRevenueProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const barChartDataWeeklyRevenue = [
     {
       name: 'PRODUCT A',
@@ -35,7 +40,7 @@ export default function WeeklyRevenue({ weeklyOutcomes }: WeeklyRevenueProps) {
 
   return (
     <>
-      <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 md:px-6 relative">
+      <Card extra="flex flex-col bg-white w-full rounded-3xl p-4 sm:p-5 lg:p-6 relative">
         <div className="flex flex-col px-5">
           <div className="mb-[16px] flex flex-row items-center justify-between">
             <h4 className="text-lg font-bold text-navy-700 dark:text-white">Weekly Revenue</h4>
@@ -46,8 +51,12 @@ export default function WeeklyRevenue({ weeklyOutcomes }: WeeklyRevenueProps) {
               <Maximize2 className="h-4 w-4" />
             </button>
           </div>
-          <div className="h-[300px] w-full">
-            <BarChart chartOptions={chartOptions} chartData={barChartDataWeeklyRevenue} />
+          <div className="h-[180px] sm:h-[220px] lg:h-[260px] w-full">
+            {mounted ? (
+              <BarChart chartOptions={chartOptions} chartData={barChartDataWeeklyRevenue} />
+            ) : (
+              <div className="h-full w-full" />
+            )}
           </div>
         </div>
       </Card>

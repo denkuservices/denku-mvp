@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '@/components/ui-horizon/card';
 import LineChart from '@/components/charts/LineChart';
 import { lineChartOptionsTotalSpent } from '@/variables/charts';
@@ -20,6 +20,11 @@ export default function TotalSpent({
   totalCallsSeries,
 }: TotalSpentProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const changePercent = totalCallsLastMonth > 0 
     ? ((totalCallsThisMonth - totalCallsLastMonth) / totalCallsLastMonth * 100).toFixed(1)
     : '0';
@@ -50,7 +55,7 @@ export default function TotalSpent({
 
   return (
     <>
-      <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 md:px-6 relative">
+      <Card extra="flex flex-col bg-white w-full rounded-3xl p-4 sm:p-5 lg:p-6 relative">
         <div className="flex flex-col px-5">
           <div className="mb-[16px] flex flex-row items-center justify-between">
             <button className="flex items-center gap-[8px] rounded-[20px] border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-navy-700 dark:text-white/80 dark:hover:bg-navy-600">
@@ -73,8 +78,12 @@ export default function TotalSpent({
               </p>
             </div>
           </div>
-          <div className="h-[300px] w-full pt-5">
-            <LineChart chartOptions={chartOptions} chartData={lineChartDataTotalSpent} />
+          <div className="h-[180px] sm:h-[220px] lg:h-[260px] w-full pt-5">
+            {mounted ? (
+              <LineChart chartOptions={chartOptions} chartData={lineChartDataTotalSpent} />
+            ) : (
+              <div className="h-full w-full" />
+            )}
           </div>
         </div>
       </Card>

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { parseAnalyticsParams, getDateRange, resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import {
   fetchCalls,
@@ -143,14 +143,8 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-          <p className="text-sm text-muted-foreground">{rangeLabel}</p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* Controls */}
+      <div className="flex items-center gap-2 justify-end">
           {/* Section switch */}
           <div className="flex items-center gap-2 border-r pr-2">
             <Link
@@ -205,7 +199,6 @@ export default async function AnalyticsPage({
             </Link>
           )}
         </div>
-      </div>
 
       {/* Render section content */}
       {section === "calls" ? (

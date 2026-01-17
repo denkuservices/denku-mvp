@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type LeadStatus = "new" | "contacted" | "qualified" | "unqualified";
@@ -180,15 +180,8 @@ export default async function Page({
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage inbound prospects and track progression through your pipeline.
-          </p>
-        </div>
-
+      {/* Action button */}
+      <div className="flex justify-end mb-4">
         <Link
           href="/dashboard/leads/new"
           className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"

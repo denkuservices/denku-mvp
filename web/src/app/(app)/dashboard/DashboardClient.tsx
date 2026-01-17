@@ -103,7 +103,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       </div>
 
       {/* Charts Row: Two columns - Horizon Free exact grid */}
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
         <TotalSpent
           totalCallsThisMonth={data.metrics.total_calls_this_month}
           totalCallsLastMonth={data.metrics.total_calls_last_month}
@@ -114,18 +114,18 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       </div>
 
       {/* Bottom Row: Table + Chart - Horizon Free exact grid */}
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
         <AgentComplexTable tableData={tableData} />
         {(() => {
           const hasData = data.metrics.hourly_calls_series?.some(item => (item.value ?? 0) > 0);
           if (!hasData) {
             return (
-              <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 md:px-6">
+              <Card extra="flex flex-col bg-white w-full rounded-3xl p-4 sm:p-5 lg:p-6">
                 <div className="flex flex-col px-5">
                   <div className="mb-[16px] flex flex-row items-center justify-between">
                     <h4 className="text-lg font-bold text-navy-700 dark:text-white">Daily Traffic</h4>
                   </div>
-                  <div className="mt-8 h-[260px] w-full flex items-center justify-center">
+                  <div className="mt-8 h-[180px] sm:h-[220px] lg:h-[260px] w-full flex items-center justify-center">
                     <p className="text-sm text-gray-600 dark:text-gray-400">No calls yet today</p>
                   </div>
                 </div>

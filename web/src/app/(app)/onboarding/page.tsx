@@ -126,6 +126,12 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     
     const state = await getOnboardingState();
     
+    // CRITICAL: If plan_code exists, user has paid - redirect to dashboard immediately
+    // This is the canonical rule: org_plan_limits.plan_code presence = onboarding complete
+    if (state.planCode) {
+      redirect("/dashboard");
+    }
+    
     // getOnboardingState() now only reads state - no auto-advance or redirects
     // Webhook handles step updates on plan activation (sets step to 5 = Activating)
     

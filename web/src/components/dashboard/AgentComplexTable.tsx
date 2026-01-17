@@ -131,14 +131,14 @@ export default function AgentComplexTable(props: { tableData: any }) {
   });
   
   return (
-    <Card extra={"w-full h-full px-6 pb-6"}>
+    <Card extra={"w-full h-full p-4 sm:p-6"}>
       <div className="pt-4 pb-2">
         <div className="text-xl font-bold text-navy-700 dark:text-white">
           Agent Performance
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
             <col className="w-[32%]" />

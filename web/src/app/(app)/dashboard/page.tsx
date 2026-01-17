@@ -1,6 +1,5 @@
 import { getDashboardOverview } from '@/lib/dashboard/getDashboardOverview';
 import DashboardClient from './DashboardClient';
-import { checkPlanActiveAndRedirect } from '@/lib/auth/checkOnboarding';
 
 // Explicitly cache dashboard page to prevent automatic revalidation loops
 // Revalidate every 60 seconds (or on-demand via router.refresh after mutations)
@@ -11,11 +10,13 @@ export const revalidate = 60;
  * Fetches data server-side and passes it to the client component wrapper.
  * This ensures proper App Router architecture: Server Component → Client Component.
  * 
- * Hard guard: Redirects to /onboarding if plan not active.
+ * Note: Plan gating is handled by middleware (web/src/middleware.ts).
+ * Middleware uses canonical rule: if org_plan_limits.plan_code exists, allow /dashboard.
+ * No duplicate hard guard needed here to avoid redirect loops.
  */
 export default async function DashboardPage() {
-  // Check plan active status - will redirect to /onboarding if plan not active
-  await checkPlanActiveAndRedirect();
+  // Middleware already gates /dashboard based on plan_code
+  // No need for duplicate check here to prevent redirect loops
   
   const data = await getDashboardOverview();
 

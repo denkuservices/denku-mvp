@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '@/components/ui-horizon/card';
 import BarChart from '@/components/charts/BarChart';
 import { barChartOptionsDailyTraffic } from '@/variables/charts';
@@ -12,6 +12,11 @@ interface HourlyCallsProps {
 const HORIZON_BUCKETS = ['00', '04', '08', '12', '14', '16', '18'];
 
 export default function HourlyCalls({ hourlyCallsSeries }: HourlyCallsProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // Normalize to Horizon design buckets
   const normalizedSeries = HORIZON_BUCKETS.map(label => {
     const match = hourlyCallsSeries.find(i => i.label === label);
@@ -40,7 +45,7 @@ export default function HourlyCalls({ hourlyCallsSeries }: HourlyCallsProps) {
   };
 
   return (
-    <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 md:px-6">
+    <Card extra="flex flex-col bg-white w-full rounded-3xl p-4 sm:p-5 lg:p-6">
       <div className="flex flex-col px-5">
         <div className="mb-[16px] flex flex-row items-center justify-between">
           <h4 className="text-lg font-bold text-navy-700 dark:text-white">Daily Traffic</h4>
@@ -50,8 +55,12 @@ export default function HourlyCalls({ hourlyCallsSeries }: HourlyCallsProps) {
             </svg>
           </button>
         </div>
-        <div className="mt-8 h-[260px] w-full">
-          <BarChart chartOptions={chartOptions} chartData={barChartDataHourlyCalls} />
+        <div className="mt-8 h-[180px] sm:h-[220px] lg:h-[260px] w-full">
+          {mounted ? (
+            <BarChart chartOptions={chartOptions} chartData={barChartDataHourlyCalls} />
+          ) : (
+            <div className="h-full w-full" />
+          )}
         </div>
       </div>
     </Card>

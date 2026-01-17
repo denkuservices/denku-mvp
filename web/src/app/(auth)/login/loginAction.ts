@@ -15,10 +15,21 @@ export type LoginResult =
 
 export async function loginAction(formData: FormData): Promise<LoginResult> {
   try {
+    const supabase = await createSupabaseServerClient();
+    
+    // Early guard: Check if user already has an active session
+    // If session exists, redirect to dashboard immediately
+    const { data: { user: existingUser } } = await supabase.auth.getUser();
+    if (existingUser && existingUser.id) {
+      // User already logged in - redirect to dashboard
+      const userEmail = existingUser.email ?? "";
+      redirect("/dashboard");
+      // This line should never execute due to redirect, but TypeScript needs it
+      return { ok: true, next: "dashboard", email: userEmail };
+    }
+
     const email = mustString(formData.get("email"), "email");
     const password = mustString(formData.get("password"), "password");
-
-    const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     
@@ -62,13 +73,30 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     if (profiles && profiles.length > 0 && profiles[0].org_id) {
       const orgId = profiles[0].org_id;
       // Check plan active status (plan is active if org_plan_limits.plan_code exists)
-      const { data: planLimits } = await supabaseAdmin
+      const { data: planRow, error: planErr } = await supabaseAdmin
         .from("org_plan_limits")
         .select("plan_code")
         .eq("org_id", orgId)
-        .maybeSingle<{ plan_code: string | null }>();
+        .single<{ plan_code: string | null }>();
 
-      const planActive = !!planLimits?.plan_code;
+      // Temporary server logs to confirm plan detection
+      console.log("[loginAction] orgId", orgId, "plan_code", planRow?.plan_code, "planErr", planErr?.message);
+
+      let planActive = false;
+      if (planErr) {
+        // If error indicates "no rows", treat as plan inactive
+        if (planErr.code === "PGRST116" || planErr.message?.includes("No rows")) {
+          planActive = false;
+        } else {
+          // Other error - log it and default to dashboard (do not block user)
+          console.error("[loginAction] Plan check error (defaulting to dashboard):", planErr.message);
+          planActive = true; // Default to dashboard on unexpected errors
+        }
+      } else {
+        // No error - check if plan_code exists
+        planActive = Boolean(planRow?.plan_code);
+      }
+
       if (!planActive) {
         redirectTo = "onboarding";
       }
@@ -86,7 +114,9 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
   } catch (err) {
     // Check if error is NEXT_REDIRECT (expected when redirect() is called)
     // Do NOT log NEXT_REDIRECT as an error - it's expected behavior
-    if (err && typeof err === "object" && "digest" in err && err.digest === "NEXT_REDIRECT") {
+    // Next.js digest often starts with "NEXT_REDIRECT;" not just equals "NEXT_REDIRECT"
+    const digest = (err as any)?.digest;
+    if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
       // Re-throw redirect - this is expected and should propagate
       throw err;
     }
@@ -94,7 +124,11 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     // Only log unexpected system errors (e.g., missing env, network issues)
     // NOT for invalid credentials (handled above) or redirects
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    const errorStack = err instanceof Error ? err.stack : undefined;
     console.error("[loginAction] Unexpected error:", errorMsg);
+    if (errorStack) {
+      console.error("[loginAction] Error stack:", errorStack);
+    }
     
     // For truly unexpected errors, still return structured error instead of throwing
     // This prevents SSR crash while still logging the error

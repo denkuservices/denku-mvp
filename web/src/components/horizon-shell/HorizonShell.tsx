@@ -9,8 +9,7 @@ import {
 import React from 'react';
 import SidebarAdapter from './SidebarAdapter';
 import { horizonNavRoutes } from './nav';
-import { HiMenu } from 'react-icons/hi';
-import ProfileWidget from './ProfileWidget';
+import { MobileNavProvider, useMobileNav } from './MobileNavContext';
 
 interface HorizonShellProps {
   children: React.ReactNode;
@@ -20,8 +19,8 @@ interface HorizonShellProps {
  * HorizonShell - Adapter component that wraps app routes with Horizon UI layout shell
  * (sidebar + topbar + spacing + background) while preserving existing page logic.
  */
-export default function HorizonShell({ children }: HorizonShellProps) {
-  const [open, setOpen] = useState(false);
+function HorizonShellInner({ children }: HorizonShellProps) {
+  const { mobileNavOpen, setMobileNavOpen } = useMobileNav();
   const pathname = usePathname();
   
   // Compute brandText and secondary only on client to avoid hydration mismatch
@@ -35,6 +34,12 @@ export default function HorizonShell({ children }: HorizonShellProps) {
     setSecondary(getActiveNavbar(horizonNavRoutes, pathname));
   }, [pathname]);
 
+  // Close mobile drawer when route changes (mobile only)
+  // Only depend on pathname - don't include mobileNavOpen to avoid closing when opening
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   // Set document direction (LTR) if window is available
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -44,26 +49,14 @@ export default function HorizonShell({ children }: HorizonShellProps) {
 
   return (
     <div className="flex min-h-screen w-full bg-background-100 dark:bg-background-900">
-      <SidebarAdapter routes={horizonNavRoutes} open={open} setOpen={setOpen} variant="admin" />
+      <SidebarAdapter routes={horizonNavRoutes} open={mobileNavOpen} setOpen={setMobileNavOpen} variant="admin" />
       {/* Main Content Column - This is the scroll container */}
       <div className="flex min-h-screen flex-1 flex-col min-w-0 h-full w-full font-dm dark:bg-navy-900">
         {/* Scrollable main content area - matches Horizon layout structure */}
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative">
           {/* Routes wrapper - matches Horizon structure */}
           <div>
-            {/* Sticky header with profile widget - matches DashboardHeader structure */}
-            <div className="sticky top-0 z-50 hidden h-[70px] w-full items-center justify-end bg-white/80 px-4 backdrop-blur-sm dark:bg-navy-800/80 md:px-6 lg:px-8 md:flex">
-              <ProfileWidget />
-            </div>
-            {/* Minimal top bar for mobile menu only */}
-            <div className="sticky top-0 z-40 flex h-[70px] w-full items-center bg-white/80 px-4 backdrop-blur-sm dark:bg-navy-800/80 md:px-6 lg:px-8 xl:hidden">
-              <button
-                onClick={() => setOpen(!open)}
-                className="text-gray-600 dark:text-gray-300"
-              >
-                <HiMenu className="h-6 w-6" />
-              </button>
-            </div>
+            {/* Old mobile hamburger removed - now in ProfileWidget */}
             <div className="mx-auto min-h-screen max-w-7xl px-4 !pt-[10px] md:px-6">
               {children}
             </div>
@@ -71,5 +64,13 @@ export default function HorizonShell({ children }: HorizonShellProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function HorizonShell({ children }: HorizonShellProps) {
+  return (
+    <MobileNavProvider>
+      <HorizonShellInner>{children}</HorizonShellInner>
+    </MobileNavProvider>
   );
 }

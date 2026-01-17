@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listTickets, getDistinctStatuses, getDistinctPriorities } from "@/lib/tickets/queries";
 import { resolveOrgId } from "@/lib/analytics/params";
@@ -19,7 +19,6 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui-horizon/table";
-import { Toolbar } from "@/components/ui-horizon/toolbar";
 import { EmptyState } from "@/components/ui-horizon/empty";
 
 function asString(v: string | string[] | undefined) {
@@ -93,37 +92,27 @@ export default async function TicketsPage({
         </div>
       )}
 
-      {/* Header */}
-      <Toolbar
-        left={
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Tickets</h1>
-            <p className="text-sm text-muted-foreground">
-              Operational follow-ups and escalations created from calls and lead activity.
-            </p>
-          </div>
-        }
-        right={
-          canMutate && (
-            isPaused ? (
-              <span
-                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white opacity-60 cursor-not-allowed"
-                title="Workspace is paused"
-              >
-                New ticket
-              </span>
-            ) : (
-              <Link
-                href="/dashboard/tickets/new"
-                className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-                title="Create new ticket"
-              >
-                New ticket
-              </Link>
-            )
+      {/* Action button */}
+      <div className="mb-4 flex justify-end">
+        {canMutate && (
+          isPaused ? (
+            <span
+              className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white opacity-60 cursor-not-allowed transition duration-200"
+              title="Workspace is paused"
+            >
+              New ticket
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/tickets/new"
+              className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
+              title="Create new ticket"
+            >
+              New ticket
+            </Link>
           )
-        }
-      />
+        )}
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -162,16 +151,6 @@ export default async function TicketsPage({
           <EmptyState
             title="No tickets found"
             description={q || status || priority ? "Try adjusting your filters." : "Create your first ticket to get started."}
-            action={
-              canMutate && !isPaused ? (
-                <Link
-                  href="/dashboard/tickets/new"
-                  className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-                >
-                  New ticket
-                </Link>
-              ) : undefined
-            }
           />
         ) : (
           <div className="overflow-x-auto">

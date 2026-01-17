@@ -5,12 +5,8 @@ import { SettingsCard } from "@/app/(app)/dashboard/settings/_components/Setting
 
 export default function SettingsHomePage() {
   return (
-    <SettingsShell
-      title="Settings"
-      subtitle="Manage your account, workspace, agents, billing, and integrations."
-      crumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Settings" }]}
-    >
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <SettingsShell>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
         <SettingsCard
           title="Account"
           description="Profile and security for your personal login."

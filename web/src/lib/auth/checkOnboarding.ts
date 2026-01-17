@@ -23,6 +23,7 @@ export async function isPlanActive(orgId: string): Promise<boolean> {
 
 /**
  * Check plan active status for the current user's org.
+ * Canonical rule: if org_plan_limits.plan_code exists, onboarding is complete.
  * Returns the redirect path based on plan status.
  * 
  * @returns "/onboarding" if plan not active, "/dashboard" if active
@@ -52,22 +53,34 @@ export async function checkPlanActiveAndRedirect(): Promise<"/dashboard"> {
 
   const orgId = profiles[0].org_id;
 
-  // 3) Check onboarding_step - dashboard only accessible if step === 6 (Live)
-  // DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
-  const { data: settings } = await supabaseAdmin
-    .from("organization_settings")
-    .select("onboarding_step")
+  // 3) Check plan_code - canonical rule: if plan_code exists, onboarding is complete
+  const { data: planRow, error: planErr } = await supabaseAdmin
+    .from("org_plan_limits")
+    .select("plan_code")
     .eq("org_id", orgId)
-    .maybeSingle<{ onboarding_step: number | null }>();
+    .single<{ plan_code: string | null }>();
 
-  const onboardingStep = settings?.onboarding_step ?? 0;
+  let planActive = false;
+  if (planErr) {
+    // If error indicates "no rows", treat as plan inactive
+    if (planErr.code === "PGRST116" || planErr.message?.includes("No rows")) {
+      planActive = false;
+    } else {
+      // Other error - fail open: allow dashboard to prevent loops
+      console.error("[checkPlanActiveAndRedirect] Plan check error (failing open):", planErr.message);
+      return "/dashboard";
+    }
+  } else {
+    // No error - check if plan_code exists
+    planActive = !!planRow?.plan_code;
+  }
 
-  if (onboardingStep < 6) {
-    // Not completed onboarding -> redirect to onboarding
+  if (!planActive) {
+    // Plan not active -> redirect to onboarding
     redirect("/onboarding");
   }
 
-  // Onboarding completed (step 6 = Live) -> allow dashboard
+  // Plan active (plan_code exists) -> allow dashboard
   return "/dashboard";
 }
 
