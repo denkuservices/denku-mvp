@@ -404,7 +404,7 @@ export async function saveOnboardingPreferences(
     return { ok: false, error: error.message };
   }
 
-  return { ok: true, nextStep: 3 }; // Advance to Phone Intent step
+  return { ok: true }; // Advance to Phone Intent step (onboardingStep updated in DB)
 }
 
 /**
@@ -573,7 +573,7 @@ export async function bootstrapOrgAndProfile(
       },
     });
 
-    return { ok: true, orgId, onboardingStep: 1, nextStep: 1 }; // Advance to Goal step
+    return { ok: true, orgId, onboardingStep: 1 }; // Advance to Goal step
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     console.error("[bootstrapOrgAndProfile] Unexpected error:", errorMsg);
@@ -696,7 +696,7 @@ export async function saveWorkspaceAndProfile(
     return { ok: false, error: `Failed to update step: ${stepError.message}` };
   }
 
-  return { ok: true, nextStep: 1 }; // Advance to Goal step
+  return { ok: true }; // Advance to Goal step (onboardingStep updated in DB)
 }
 
 /**
@@ -1407,7 +1407,7 @@ export async function setOnboardingStepToPlan(orgId: string) {
     return { ok: false, error: error.message };
   }
 
-  return { ok: true, nextStep: 4 }; // Advance to Plan step
+  return { ok: true }; // Advance to Plan step (onboardingStep updated in DB)
 }
 
 /**
