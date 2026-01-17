@@ -273,6 +273,14 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
   // Auto-run activation when on Step 4 (Activating)
   React.useEffect(() => {
+    // Guard: Ensure orgId exists before running activation
+    if (!state.orgId) {
+      if (currentStep === 4) {
+        setActivationError("We couldn't find your workspace. Please refresh and try again.");
+      }
+      return;
+    }
+
     if (currentStep === 4 && !isActivating && !activationError) {
       setIsActivating(true);
       setActivationError(null);
@@ -307,7 +315,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+  }, [currentStep, state.orgId]);
   
   // Submit button component with pending state
   function SubmitButton({ children, disabled: externalDisabled, ...props }: React.ComponentProps<typeof Button> & { children: React.ReactNode }) {
@@ -351,8 +359,10 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
 
     // Plan is active - proceed with activation
-    if (!state.orgId) {
-      setError("Organization ID is missing. Please refresh the page.");
+    // Guard: Ensure orgId is a string before calling activatePhoneNumber
+    const orgId = state.orgId;
+    if (!orgId) {
+      setError("We couldn't find your workspace. Please refresh and try again.");
       return;
     }
 
@@ -360,7 +370,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     setError(null);
 
     startTransition(async () => {
-      const result = await activatePhoneNumber(state.orgId, country, areaCode || undefined);
+      const result = await activatePhoneNumber(orgId, country, areaCode || undefined);
       if (result.ok) {
         setProvisionedPhoneNumber(result.phoneNumber || null);
         setActivationComplete(true);
