@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fetchCalls, computeSummary } from "@/lib/analytics/queries";
+import { computeSummary } from "@/lib/analytics/queries";
 
 export type DashboardOverview = {
   user: { name: string; org: string };
@@ -74,7 +74,6 @@ function timeAgoLabel(iso?: string | null) {
 
 export async function getDashboardOverview(): Promise<DashboardOverview> {
   const supabase = await createSupabaseServerClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -109,77 +108,49 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     orgName = org?.name ?? "—";
   }
 
-  // 3) Agents total (org scoped)
+  // 3-7) Parallelize independent count queries (all org-scoped, can run concurrently)
   let agentsTotal = 0;
-  if (orgId) {
-    const { count } = await supabase
-      .from("agents")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId);
-
-    agentsTotal = typeof count === "number" ? count : 0;
-  }
-
-  // 4) Calls count (total and last 7 days)
   let callsTotal = 0;
   let callsLast7d = 0;
+  let leadsCount = 0;
+  let appointmentsCount = 0;
+  let ticketsCount = 0;
+
   if (orgId) {
-    // Total calls
-    const { count: totalCount } = await supabase
-      .from("calls")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId);
-
-    callsTotal = typeof totalCount === "number" ? totalCount : 0;
-
-    // Last 7 days
+    // Pre-calculate date ranges needed for callsLast7d
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
     sevenDaysAgo.setUTCHours(0, 0, 0, 0);
     const now = new Date();
     now.setUTCHours(23, 59, 59, 999);
 
-    const { count: last7dCount } = await supabase
-      .from("calls")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", sevenDaysAgo.toISOString())
-      .lte("started_at", now.toISOString());
+    const [
+      { count: agentsCount },
+      { count: callsTotalCount },
+      { count: callsLast7dCount },
+      { count: leadsCountResult },
+      { count: appointmentsCountResult },
+      { count: ticketsCountResult },
+    ] = await Promise.all([
+      supabase.from("agents").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+      supabase.from("calls").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+      supabase
+        .from("calls")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .gte("started_at", sevenDaysAgo.toISOString())
+        .lte("started_at", now.toISOString()),
+      supabase.from("leads").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+      supabase.from("appointments").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+      supabase.from("tickets").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+    ]);
 
-    callsLast7d = typeof last7dCount === "number" ? last7dCount : 0;
-  }
-
-  // 5) Leads count (org scoped)
-  let leadsCount = 0;
-  if (orgId) {
-    const { count } = await supabase
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId);
-
-    leadsCount = typeof count === "number" ? count : 0;
-  }
-
-  // 6) Appointments count (org scoped)
-  let appointmentsCount = 0;
-  if (orgId) {
-    const { count } = await supabase
-      .from("appointments")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId);
-
-    appointmentsCount = typeof count === "number" ? count : 0;
-  }
-
-  // 7) Tickets count (org scoped)
-  let ticketsCount = 0;
-  if (orgId) {
-    const { count } = await supabase
-      .from("tickets")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId);
-
-    ticketsCount = typeof count === "number" ? count : 0;
+    agentsTotal = typeof agentsCount === "number" ? agentsCount : 0;
+    callsTotal = typeof callsTotalCount === "number" ? callsTotalCount : 0;
+    callsLast7d = typeof callsLast7dCount === "number" ? callsLast7dCount : 0;
+    leadsCount = typeof leadsCountResult === "number" ? leadsCountResult : 0;
+    appointmentsCount = typeof appointmentsCountResult === "number" ? appointmentsCountResult : 0;
+    ticketsCount = typeof ticketsCountResult === "number" ? ticketsCountResult : 0;
   }
 
   // 8) Feed (derive from latest calls, leads, and agents)
@@ -187,32 +158,39 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   let feed: Array<{ id: string; message: string; time: string }> = [];
 
   if (orgId) {
-    // Fetch recent calls with agent_id
-    const { data: calls } = await supabase
-      .from("calls")
-      .select("id, started_at, agent_id")
-      .eq("org_id", orgId)
-      .order("started_at", { ascending: false })
-      .limit(3);
+    // Optimized: Run all feed queries in parallel (they are independent)
+    // Also optimize: only fetch fields used by feed UI (id, started_at/created_at, agent_id for lookup)
+    const [
+      { data: calls },
+      { data: leads },
+      { data: agents },
+    ] = await Promise.all([
+      // Recent calls: only fields needed for feed (id, started_at for time, agent_id for name lookup)
+      supabase
+        .from("calls")
+        .select("id, started_at, agent_id")
+        .eq("org_id", orgId)
+        .order("started_at", { ascending: false })
+        .limit(3),
+      // Recent leads: only fields needed for feed (id, created_at for time, agent_id for name lookup)
+      supabase
+        .from("leads")
+        .select("id, created_at, agent_id")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(3),
+      // Recent agents: only fields needed (id, name for feed/lookup, created_at for time)
+      // Limit to 6 agents: enough for agent feed items (max 6 total feed items) + lookup map for calls/leads
+      supabase
+        .from("agents")
+        .select("id, name, created_at")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(6)
+        .returns<AgentRow[]>(),
+    ]);
 
-    // Fetch recent leads (check if they have agent_id directly)
-    const { data: leads } = await supabase
-      .from("leads")
-      .select("id, created_at, agent_id")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(3);
-
-    // Fetch recent agents (for agent creation feed and name lookup)
-    const { data: agents } = await supabase
-      .from("agents")
-      .select("id, name, created_at")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(10) // Increase limit to build better agent name lookup map
-      .returns<AgentRow[]>();
-
-    // Build agent name lookup map
+    // Build agent name lookup map from fetched agents
     const agentNameById: Record<string, string> = {};
     if (Array.isArray(agents)) {
       for (const agent of agents) {
@@ -221,7 +199,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         }
       }
     }
-
     const callsFeed =
       Array.isArray(calls)
         ? calls.map((c) => {
@@ -341,79 +318,74 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   }> = [];
 
   if (orgId) {
-    // Total calls this month
-    const { count: monthTotalCount } = await supabase
-      .from("calls")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", monthStart.toISOString())
-      .lte("started_at", monthEnd.toISOString());
-
-    totalCallsMonth = typeof monthTotalCount === "number" ? monthTotalCount : 0;
-    totalCallsThisMonth = totalCallsMonth;
-
-    // Total calls last month
-    const { count: lastMonthTotalCount } = await supabase
-      .from("calls")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", lastMonthStart.toISOString())
-      .lte("started_at", lastMonthEnd.toISOString());
+    // Optimized: Fetch month metrics in 2 parallel queries instead of 6 sequential
+    // Query 1: Fetch all calls for this month + last month (for comparison) with minimal fields needed for aggregation
+    // Query 2: Fetch tickets and appointments counts in parallel
+    
+    const [
+      { data: callsMonthData },
+      { count: lastMonthTotalCount },
+      { count: ticketsMonthCount },
+      { count: appointmentsMonthCount },
+    ] = await Promise.all([
+      // This month calls: fetch only fields needed for aggregation (started_at for filtering, duration_seconds for sum, ended_at for handled filter)
+      supabase
+        .from("calls")
+        .select("started_at, ended_at, duration_seconds")
+        .eq("org_id", orgId)
+        .gte("started_at", monthStart.toISOString())
+        .lte("started_at", monthEnd.toISOString()),
+      // Last month total count
+      supabase
+        .from("calls")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .gte("started_at", lastMonthStart.toISOString())
+        .lte("started_at", lastMonthEnd.toISOString()),
+      // Tickets count
+      supabase
+        .from("tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString()),
+      // Appointments count
+      supabase
+        .from("appointments")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString()),
+    ]);
 
     totalCallsLastMonth = typeof lastMonthTotalCount === "number" ? lastMonthTotalCount : 0;
+    ticketsCreatedMonth = typeof ticketsMonthCount === "number" ? ticketsMonthCount : 0;
+    appointmentsCreatedMonth = typeof appointmentsMonthCount === "number" ? appointmentsMonthCount : 0;
 
-    // Handled calls this month (duration_seconds >= 5 AND ended_at IS NOT NULL)
-    const { count: handledCount } = await supabase
-      .from("calls")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", monthStart.toISOString())
-      .lte("started_at", monthEnd.toISOString())
-      .not("ended_at", "is", null)
-      .gte("duration_seconds", 5);
+    // Compute metrics from callsMonthData in JS
+    if (callsMonthData) {
+      totalCallsMonth = callsMonthData.length;
+      totalCallsThisMonth = totalCallsMonth;
 
-    handledCallsMonth = typeof handledCount === "number" ? handledCount : 0;
+      // Handled calls: ended_at IS NOT NULL AND duration_seconds >= 5
+      handledCallsMonth = callsMonthData.filter(
+        (c) => c.ended_at !== null && (c.duration_seconds ?? 0) >= 5
+      ).length;
+
+      // Estimated savings: SUM(duration_seconds of handled calls) / 3600 * 25
+      const totalSeconds = callsMonthData
+        .filter((c) => c.ended_at !== null && (c.duration_seconds ?? 0) >= 5)
+        .reduce((sum, c) => sum + (c.duration_seconds || 0), 0);
+      estimatedSavingsUsd = (totalSeconds / 3600) * 25;
+    } else {
+      totalCallsMonth = 0;
+      totalCallsThisMonth = 0;
+      handledCallsMonth = 0;
+      estimatedSavingsUsd = 0;
+    }
 
     // Answer rate
     answerRate = totalCallsMonth > 0 ? (handledCallsMonth / totalCallsMonth) * 100 : 0;
-
-    // Tickets created this month
-    const { count: ticketsMonthCount } = await supabase
-      .from("tickets")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("created_at", monthStart.toISOString())
-      .lte("created_at", monthEnd.toISOString());
-
-    ticketsCreatedMonth = typeof ticketsMonthCount === "number" ? ticketsMonthCount : 0;
-
-    // Appointments created this month
-    const { count: appointmentsMonthCount } = await supabase
-      .from("appointments")
-      .select("*", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("created_at", monthStart.toISOString())
-      .lte("created_at", monthEnd.toISOString());
-
-    appointmentsCreatedMonth = typeof appointmentsMonthCount === "number" ? appointmentsMonthCount : 0;
-
-    // Estimated savings USD: (SUM(duration_seconds of handled calls in month) / 3600) * 25
-    const { data: handledCallsData } = await supabase
-      .from("calls")
-      .select("duration_seconds")
-      .eq("org_id", orgId)
-      .gte("started_at", monthStart.toISOString())
-      .lte("started_at", monthEnd.toISOString())
-      .not("ended_at", "is", null)
-      .gte("duration_seconds", 5);
-
-    if (handledCallsData) {
-      const totalSeconds = handledCallsData.reduce(
-        (sum, c) => sum + (c.duration_seconds || 0),
-        0
-      );
-      estimatedSavingsUsd = (totalSeconds / 3600) * 25;
-    }
 
     // Generate 6-month series (last 6 months including current)
     const monthLabels: string[] = [];
@@ -518,7 +490,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
 
     const handledCallsWeekly = new Array(8).fill(0);
     const supportTicketsWeekly = new Array(8).fill(0);
-
     if (weeklyCallsData) {
       for (const call of weeklyCallsData) {
         if (!call.started_at) continue;
@@ -577,48 +548,56 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     const endOfYesterday = new Date(startOfToday);
     endOfYesterday.setMilliseconds(-1);
 
-    // Total calls today
-    const { count: todayCount } = await supabase
-      .from("calls")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", startOfToday.toISOString())
-      .lte("started_at", endOfToday.toISOString());
-
-    totalCallsToday = typeof todayCount === "number" ? todayCount : 0;
-
-    // Total calls yesterday
-    const { count: yesterdayCount } = await supabase
-      .from("calls")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .gte("started_at", startOfYesterday.toISOString())
-      .lte("started_at", endOfYesterday.toISOString());
-
-    totalCallsYesterday = typeof yesterdayCount === "number" ? yesterdayCount : 0;
-
-    // Hourly aggregation for today: use LOCAL timezone, sparse buckets (only hours with data)
-    const { data: todayCallsData } = await supabase
+    // Optimized: Single query for last 48 hours, then compute today/yesterday/hourly in JS
+    const { data: calls48hData } = await supabase
       .from("calls")
       .select("started_at")
       .eq("org_id", orgId)
-      .gte("started_at", startOfToday.toISOString())
+      .gte("started_at", startOfYesterday.toISOString())
       .lte("started_at", endOfToday.toISOString());
 
     // Use Map to track counts by local hour (only hours with data)
     const hourlyCountsMap = new Map<number, number>();
+    if (calls48hData) {
+      let todayCount = 0;
+      let yesterdayCount = 0;
 
-    if (todayCallsData) {
-      for (const call of todayCallsData) {
+      for (const call of calls48hData) {
         if (!call.started_at) continue;
         const callDate = new Date(call.started_at);
-        // Extract LOCAL hour (0-23)
-        const hour = callDate.getHours();
-        hourlyCountsMap.set(hour, (hourlyCountsMap.get(hour) || 0) + 1);
+        
+        // Determine if call is today or yesterday using LOCAL timezone
+        const callDateLocal = new Date(
+          callDate.getFullYear(),
+          callDate.getMonth(),
+          callDate.getDate()
+        );
+        const todayLocal = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const yesterdayLocal = new Date(startOfYesterday);
+        yesterdayLocal.setHours(0, 0, 0, 0);
+
+        if (callDateLocal.getTime() === todayLocal.getTime()) {
+          todayCount++;
+          // Extract LOCAL hour (0-23) for hourly aggregation
+          const hour = callDate.getHours();
+          hourlyCountsMap.set(hour, (hourlyCountsMap.get(hour) || 0) + 1);
+        } else if (callDateLocal.getTime() === yesterdayLocal.getTime()) {
+          yesterdayCount++;
+        }
       }
+
+      totalCallsToday = todayCount;
+      totalCallsYesterday = yesterdayCount;
+    } else {
+      totalCallsToday = 0;
+      totalCallsYesterday = 0;
     }
 
-    // Convert to array format, sorted ascending, only hours that exist
+    // Convert hourly map to array format, sorted ascending, only hours that exist
     hourlyCallsSeries = Array.from(hourlyCountsMap.entries())
       .sort((a, b) => a[0] - b[0]) // Sort by hour ascending
       .map(([hour, count]) => ({
@@ -730,6 +709,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   }
 
   // 11) Compute estimated savings (legacy, 30-day range for compatibility)
+  // Optimized: Only fetch duration_seconds and cost_usd (computeSummary only needs these fields)
   let estimatedSavings = 0;
   if (orgId) {
     try {
@@ -739,11 +719,26 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       from.setUTCDate(from.getUTCDate() - 29); // 30 days inclusive
       from.setUTCHours(0, 0, 0, 0);
 
-      const calls = await fetchCalls({
-        orgId,
-        from,
-        to,
-      });
+      // Optimized query: only fetch the two fields needed for computeSummary
+      // This avoids fetching large raw_payload and other unused columns
+      const { data: callsData } = await supabase
+        .from("calls")
+        .select("duration_seconds, cost_usd")
+        .eq("org_id", orgId)
+        .gte("started_at", from.toISOString())
+        .lte("started_at", to.toISOString());
+
+      // Transform to minimal CallRow shape expected by computeSummary
+      const calls = (callsData || []).map((c) => ({
+        id: "", // Not used by computeSummary
+        agent_id: null,
+        raw_payload: null,
+        started_at: "",
+        duration_seconds: c.duration_seconds,
+        cost_usd: c.cost_usd,
+        outcome: null,
+        direction: null,
+      }));
 
       const summary = computeSummary(calls, 0, 0, 0);
       estimatedSavings = summary.estimatedSavings;
@@ -752,7 +747,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       estimatedSavings = 0;
     }
   }
-
   return {
     user: { name: userName, org: orgName },
     metrics: {
