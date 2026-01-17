@@ -25,16 +25,33 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
+
   return createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
         return request.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        response.cookies.set({ name, value, ...options });
+        // CRITICAL: Ensure cookies work on localhost (http://)
+        // Secure flag must be false on localhost, true only in production (HTTPS)
+        const cookieOptions: CookieOptions = {
+          ...options,
+          secure: isProduction, // false on localhost, true in production
+          sameSite: options.sameSite ?? "lax", // Default to lax if not specified
+          path: options.path ?? "/", // Default to root path
+        };
+        response.cookies.set({ name, value, ...cookieOptions });
       },
       remove(name: string, options: CookieOptions) {
-        response.cookies.set({ name, value: "", ...options, maxAge: 0 });
+        // Ensure cookie removal also respects secure flag for localhost
+        const cookieOptions: CookieOptions = {
+          ...options,
+          secure: isProduction,
+          sameSite: options.sameSite ?? "lax",
+          path: options.path ?? "/",
+        };
+        response.cookies.set({ name, value: "", ...cookieOptions, maxAge: 0 });
       },
     },
   });

@@ -13,7 +13,6 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui-horizon/table";
-import { Toolbar } from "@/components/ui-horizon/toolbar";
 import { EmptyState } from "@/components/ui-horizon/empty";
 
 // Disable Next.js Server Component caching to ensure fresh data on every request
@@ -423,23 +422,6 @@ export default async function CallsPage({
 
   return (
     <div className="space-y-6">
-      <div className="mb-6">
-        <Toolbar
-          left={
-            <>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Calls
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Browse recent calls from all agents.
-                </p>
-              </div>
-            </>
-          }
-        />
-      </div>
-
       <div className="mb-6">
         <FilterToolbar />
       </div>

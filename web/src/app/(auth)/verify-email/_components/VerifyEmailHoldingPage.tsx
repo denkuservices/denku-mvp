@@ -38,12 +38,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
         }, 1000);
       } else {
         setError(result.error);
-        if (result.code === "USER_EXISTS") {
-          // Show sign in link for existing users
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
-        }
+        // No longer check for USER_EXISTS code - just show error
       }
     });
   };

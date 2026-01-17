@@ -1,18 +1,93 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
+import { vapiFetch } from "@/lib/vapi/server";
 import Stripe from "stripe";
 
 /**
+ * Form action: Bootstrap workspace (Step 0)
+ */
+export async function bootstrapWorkspaceAction(formData: FormData) {
+  const workspaceName = formData.get("workspaceName")?.toString() || "";
+  const fullName = formData.get("fullName")?.toString() || "";
+  const phone = formData.get("phone")?.toString() || null;
+  
+  console.log("[onboarding submit] step 0 (workspace bootstrap)");
+  
+  if (!workspaceName.trim() || !fullName.trim()) {
+    return { ok: false, error: "Workspace name and full name are required." };
+  }
+  
+  const result = await bootstrapOrgAndProfile(workspaceName.trim(), fullName.trim(), phone?.trim() || null);
+  return result;
+}
+
+/**
+ * Form action: Save workspace and profile (Step 0 - existing org)
+ */
+export async function saveWorkspaceAction(formData: FormData) {
+  const orgId = formData.get("orgId")?.toString();
+  const workspaceName = formData.get("workspaceName")?.toString() || "";
+  const fullName = formData.get("fullName")?.toString() || "";
+  const phone = formData.get("phone")?.toString() || null;
+  
+  console.log("[onboarding submit] step 0 (workspace save)");
+  
+  if (!orgId || !workspaceName.trim() || !fullName.trim()) {
+    return { ok: false, error: "All fields are required." };
+  }
+  
+  const result = await saveWorkspaceAndProfile(orgId, workspaceName.trim(), fullName.trim(), phone?.trim() || null);
+  return result;
+}
+
+/**
+ * Form action: Save goal and language preferences (Step 1)
+ */
+export async function saveGoalAndLanguageAction(formData: FormData) {
+  const orgId = formData.get("orgId")?.toString();
+  const goal = formData.get("goal")?.toString() || "support";
+  const language = formData.get("language")?.toString() || "en";
+  
+  console.log("[onboarding submit] step 1 (goal + language)");
+  
+  if (!orgId) {
+    return { ok: false, error: "Organization ID is missing." };
+  }
+  
+  const result = await saveOnboardingPreferences(orgId, { goal, language });
+  return result;
+}
+
+/**
+ * Form action: Advance to plan selection (Step 3 -> Step 4)
+ */
+export async function advanceToPlanAction(formData: FormData) {
+  const orgId = formData.get("orgId")?.toString();
+  
+  console.log("[onboarding submit] step 3 (phone intent -> plan)");
+  
+  if (!orgId) {
+    return { ok: false, error: "Organization ID is missing." };
+  }
+  
+  const result = await setOnboardingStepToPlan(orgId);
+  return result;
+}
+
+/**
  * Get onboarding state for current user's org.
+ * Always fetches fresh data from DB (no caching).
  */
 export async function getOnboardingState() {
+  noStore(); // Prevent Next.js caching - always fetch fresh state from DB
   const supabase = await createSupabaseServerClient();
   
   // 1) Get current user
@@ -24,7 +99,26 @@ export async function getOnboardingState() {
   // 2) Get org_id using helper
   const orgId = await getActiveOrgId();
   if (!orgId) {
-    throw new Error("No organization found for this user.");
+    // No org yet - return initial state for bootstrap flow
+    // This is expected in OTP-first flow where org is created during onboarding
+    return {
+      orgId: null,
+      orgName: "",
+      role: null,
+      onboardingStep: 0,
+      onboardingGoal: null,
+      onboardingLanguage: null,
+      profileFullName: null,
+      profilePhone: null,
+      workspaceStatus: "active" as const,
+      pausedReason: null,
+      planCode: null,
+      isPlanActive: false,
+      plans: [],
+      hasPhoneNumber: false,
+      phoneNumber: null,
+      needsOrgSetup: true,
+    };
   }
 
   // 3) Get profile role
@@ -47,7 +141,7 @@ export async function getOnboardingState() {
 
   const orgName = org?.name || "";
 
-  // 4) Get organization_settings
+  // 4) Get organization_settings (includes phone number artifacts after activation)
   let { data: settings } = await supabaseAdmin
     .from("organization_settings")
     .select("*")
@@ -84,24 +178,38 @@ export async function getOnboardingState() {
   const isPlanActive = !!planCode;
 
   // 8) Get onboarding step (safe fallback if column doesn't exist or is null)
-  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
+  // DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+  // UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
   const rawStep = (settings as any)?.onboarding_step ?? 0;
   
-  // 9) Auto-advance logic: If plan is active AND step < 3, set step=3 and persist
-  let onboardingStep = rawStep;
-  if (isPlanActive && rawStep < 3) {
-    onboardingStep = 3; // Activate step
-    // Persist step=3 to DB immediately (idempotent)
-    await supabaseAdmin
-      .from("organization_settings")
-      .update({ onboarding_step: 3 })
-      .eq("org_id", orgId);
-  }
+  // 9) Workspace/profile setup happens during bootstrap (UI step 0), sets DB step to 1 (Goal)
+  let resolvedStep = rawStep;
+  
+  // 10) CRITICAL: Never downgrade onboarding_step - only read what's in DB
+  // getOnboardingState() must only READ state, never modify it or redirect
+  // This prevents step from being downgraded back to Plan (step 3) if plan is active
+  let onboardingStep = resolvedStep;
 
-  // 10) If plan is active and step >= 3, redirect to dashboard (paid org should not be in onboarding)
-  // But allow step 3-4 to complete onboarding
-  if (isPlanActive && onboardingStep >= 4) {
-    redirect("/dashboard");
+  // 11) Map DB step to UI step for client
+  // DB: 0=initial, 1=Goal, 2=Language, 3=Phone Intent, 4=Plan, 5=Activating, 6=Live
+  // UI: 0=Workspace, 1=Goal+Language, 2=Phone Intent, 3=Plan, 4=Activating, 5=Live
+  let uiStep: number;
+  if (onboardingStep === 0) {
+    uiStep = 0; // Workspace
+  } else if (onboardingStep === 1 || onboardingStep === 2) {
+    uiStep = 1; // Goal+Language (DB steps 1 or 2 both map to UI step 1)
+  } else if (onboardingStep === 3) {
+    uiStep = 2; // Phone Intent
+  } else if (onboardingStep === 4) {
+    uiStep = 3; // Plan
+  } else if (onboardingStep === 5) {
+    uiStep = 4; // Activating
+  } else if (onboardingStep >= 6) {
+    uiStep = 5; // Live
+    // Note: Redirect to dashboard is handled in onboarding/page.tsx, not here
+    // getOnboardingState() must NEVER redirect - it only returns state
+  } else {
+    uiStep = 0; // Fallback to Workspace
   }
 
   // 11) Fetch plans catalog for inline plan selection
@@ -119,26 +227,38 @@ export async function getOnboardingState() {
   const onboardingCountry = (settings as any)?.onboarding_country || null;
   const onboardingAreaCode = (settings as any)?.onboarding_area_code || null;
   const onboardingSelectedNumberType = (settings as any)?.onboarding_selected_number_type || null;
-
-  // 10) Check if phone number exists (check agents table)
-  const { data: agents } = await supabaseAdmin
-    .from("agents")
-    .select("id, vapi_phone_number_id, phone_number")
+  
+  // 13) Get profile data (full_name, phone) for Step 0 pre-fill
+  const { data: profileData } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name, phone")
+    .eq("auth_user_id", user.id)
     .eq("org_id", orgId)
-    .limit(1);
+    .maybeSingle<{ full_name: string | null; phone: string | null }>();
+  
+  const profileFullName = profileData?.full_name || null;
+  const profilePhone = profileData?.phone || null;
 
-  const hasPhoneNumber = agents && agents.length > 0 && (agents[0].vapi_phone_number_id || agents[0].phone_number);
+  // 14) Get phone number from organization_settings (authoritative source for Main Line)
+  // Phone number artifacts are stored in organization_settings after activation completes
+  const phoneNumberE164 = (settings as any)?.phone_number_e164 || null;
+  const vapiPhoneNumberId = (settings as any)?.vapi_phone_number_id || null;
+  const vapiAssistantId = (settings as any)?.vapi_assistant_id || null;
+  const mainAgentId = (settings as any)?.main_agent_id || null;
+  const hasPhoneNumber = !!vapiPhoneNumberId;
 
   return {
     orgId,
     orgName,
     role,
-    onboardingStep: onboardingStep as number,
+    onboardingStep: uiStep as number, // Return UI step, not DB step
     onboardingGoal: onboardingGoal as string | null,
     onboardingLanguage: onboardingLanguage as string | null,
     onboardingCountry: onboardingCountry as string | null,
     onboardingAreaCode: onboardingAreaCode as string | null,
     onboardingSelectedNumberType: onboardingSelectedNumberType as string | null,
+    profileFullName: profileFullName as string | null,
+    profilePhone: profilePhone as string | null,
     workspaceStatus: workspaceStatus as "active" | "paused",
     pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | null,
     planCode,
@@ -152,8 +272,12 @@ export async function getOnboardingState() {
       concurrency_limit: p.concurrency_limit,
       included_phone_numbers: p.included_phone_numbers,
     })),
-    hasPhoneNumber: !!hasPhoneNumber,
-    phoneNumber: agents?.[0]?.phone_number || null,
+    hasPhoneNumber,
+    phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
+    phoneNumberE164, // Also include as separate field for clarity
+    vapiPhoneNumberId, // From organization_settings
+    vapiAssistantId, // From organization_settings
+    needsOrgSetup: false,
   };
 }
 
@@ -262,12 +386,14 @@ export async function saveOnboardingPreferences(
   }
 
   // Update organization_settings with preferences
-  // Step mapping: 0 = goal, 1 = number, 2 = go-live
-  // After saving goal, move to step 1 (number selection)
+  // DB step mapping: 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+  // Since Goal and Language are combined in UI, Goal+Language submit advances to Phone Intent (step 3)
+  // User requirement: "Goal submit should set onboarding_step = 2 (Language)" and "Language submit should set onboarding_step = 3 (Phone intent)"
+  // Combined: Goal+Language -> step 3 (Phone Intent)
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 1, // Move to step 1 (number selection)
+      onboarding_step: 3, // Move to step 3 (Phone Intent) - completing both Goal and Language
       onboarding_goal: preferences.goal,
       onboarding_language: preferences.language,
     })
@@ -278,13 +404,195 @@ export async function saveOnboardingPreferences(
     return { ok: false, error: error.message };
   }
 
-  return { ok: true };
+  return { ok: true, nextStep: 3 }; // Advance to Phone Intent step
 }
 
 /**
- * Save workspace name (if not already set).
+ * Bootstrap org + profile for OTP-first users (no org yet).
+ * Creates org, profile linkage, and org settings atomically.
+ * Idempotent: if org already exists, updates profile and returns existing org.
  */
-export async function saveWorkspaceName(orgId: string, name: string) {
+export async function bootstrapOrgAndProfile(
+  workspaceName: string,
+  fullName: string,
+  phone: string | null
+): Promise<{ ok: true; orgId: string; onboardingStep: number } | { ok: false; error: string; debug?: { constraint?: string } }> {
+  console.log("[bootstrapOrgAndProfile] CALLED");
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Please log in again." };
+  }
+
+  // Normalize phone input at the start: trim, clean, and ensure NULL (not empty string)
+  // This is critical for UNIQUE(phone_number) constraint - NULL values don't conflict
+  const trimmedPhone = phone?.trim();
+  const normalizedPhone = trimmedPhone && trimmedPhone.length > 0
+    ? trimmedPhone.replace(/[^\d+]/g, "").slice(0, 32) || null
+    : null;
+  
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[bootstrapOrgAndProfile] normalizedPhone", normalizedPhone);
+  }
+
+  // Idempotency check: if user already has an org, return it
+  const existingOrgId = await getActiveOrgId();
+  if (existingOrgId) {
+    // Update profile fields if needed, but return existing org
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        full_name: fullName.trim(),
+        phone: normalizedPhone,
+      })
+      .eq("auth_user_id", user.id)
+      .eq("org_id", existingOrgId);
+
+    if (profileError) {
+      console.error("[bootstrapOrgAndProfile] Error updating profile:", profileError);
+      // Continue anyway - profile update is optional
+    }
+
+    // Get existing onboarding step
+    const { data: settings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("onboarding_step")
+      .eq("org_id", existingOrgId)
+      .maybeSingle();
+
+    const existingStep = (settings as any)?.onboarding_step ?? 0;
+
+    return { ok: true, orgId: existingOrgId, onboardingStep: existingStep };
+  }
+
+  // Create new org
+  const orgId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  try {
+    // 1) Create org in public.orgs (canonical)
+    const { error: orgError } = await supabaseAdmin
+      .from("orgs")
+      .insert({
+        id: orgId,
+        name: workspaceName.trim(),
+        created_at: now,
+        created_by: user.id, // NOT NULL
+      });
+
+    if (orgError) {
+      console.error("[bootstrapOrgAndProfile] Error creating org:", orgError);
+      return { ok: false, error: "Could not create workspace. Please try again." };
+    }
+
+    // 2) Create organizations_legacy (FK parent for organization_settings)
+    // CRITICAL: This must happen BEFORE inserting organization_settings (FK constraint)
+    // Ensure organizations_legacy row exists with same id as orgs.id
+    // IMPORTANT: UNIQUE(phone_number) constraint requires NULL (not empty string) when phone is optional
+    // Multiple NULL values are allowed in UNIQUE columns (NULL != NULL), but empty strings violate UNIQUE
+    const { error: legacyError } = await supabaseAdmin
+      .from("organizations_legacy")
+      .upsert(
+        {
+          id: orgId, // Same id as orgs.id
+          name: workspaceName.trim(),
+          created_at: now,
+          phone_number: normalizedPhone, // NULL when no phone (not empty string) - satisfies UNIQUE constraint
+        },
+        { onConflict: "id" } // Idempotent: ignore if already exists
+      );
+
+    if (legacyError) {
+      console.error("[bootstrapOrgAndProfile] Error creating organizations_legacy:", legacyError);
+      
+      // Check if this is a phone number unique constraint violation
+      const errorMessage = legacyError.message || "";
+      const isPhoneDuplicate = errorMessage.includes("organizations_phone_number_key") || 
+                               legacyError.code === "23505" && errorMessage.includes("phone_number");
+      
+      if (isPhoneDuplicate) {
+        return { 
+          ok: false, 
+          error: "Could not create workspace. Please try again.",
+          debug: { constraint: "organizations_phone_number_key" }
+        };
+      }
+      
+      return { ok: false, error: "Could not create workspace. Please try again." };
+    }
+
+    // 3) Create/upsert profile with org_id linkage
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id, // profiles.id = auth_user_id
+          auth_user_id: user.id,
+          email: user.email || "",
+          org_id: orgId,
+          full_name: fullName.trim(),
+          phone: normalizedPhone,
+          role: "owner", // First user is owner
+        },
+        { onConflict: "id" }
+      );
+
+    if (profileError) {
+      console.error("[bootstrapOrgAndProfile] Error creating profile:", profileError);
+      return { ok: false, error: "Could not create workspace. Please try again." };
+    }
+
+    // 4) Create organization_settings row with onboarding_step = 1 (Goal)
+    // FK constraint: org_id must exist in organizations_legacy (we ensured this in step 2)
+    // UI step mapping: 0 = Workspace, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+    // After bootstrap (UI step 0) completes, DB step becomes 1 (Goal)
+    const { error: settingsError } = await supabaseAdmin
+      .from("organization_settings")
+      .insert({
+        org_id: orgId,
+        onboarding_step: 1, // Advance to Goal step (DB step 1) after bootstrap
+      });
+
+    if (settingsError) {
+      console.error("[bootstrapOrgAndProfile] Error creating organization_settings:", settingsError);
+      return { ok: false, error: "Could not create workspace. Please try again." };
+    }
+
+    await logEvent({
+      tag: "[ONBOARDING][BOOTSTRAP_ORG]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      severity: "info",
+      org_id: orgId,
+      details: {
+        hasUserId: !!user.id,
+        userId: user.id?.slice(0, 8),
+        orgName: workspaceName.trim(),
+      },
+    });
+
+    return { ok: true, orgId, onboardingStep: 1, nextStep: 1 }; // Advance to Goal step
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[bootstrapOrgAndProfile] Unexpected error:", errorMsg);
+    return { ok: false, error: `Failed to bootstrap workspace: ${errorMsg}` };
+  }
+}
+
+/**
+ * Save workspace + profile data (Step 0).
+ * Creates/updates org and profile with workspace_name, full_name, phone.
+ * Idempotent: safe to call multiple times.
+ * NOTE: This requires orgId to already exist. Use bootstrapOrgAndProfile() for new users.
+ */
+export async function saveWorkspaceAndProfile(
+  orgId: string,
+  workspaceName: string,
+  fullName: string,
+  phone: string | null
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -297,40 +605,98 @@ export async function saveWorkspaceName(orgId: string, name: string) {
     return { ok: false, error: "Unauthorized" };
   }
 
-  // Ensure FK parent exists in organizations_legacy
-  // Check if exists first, then insert if missing
-  const { data: existingOrg } = await supabaseAdmin
-    .from("organizations_legacy")
-    .select("id")
-    .eq("id", orgId)
-    .maybeSingle();
-  
-  if (!existingOrg) {
-    // Insert new org with name
-    const { error: insertError } = await supabaseAdmin
-      .from("organizations_legacy")
-      .insert({ id: orgId, name, created_at: new Date().toISOString() });
-    
-    if (insertError) {
-      console.error("[saveWorkspaceName] Error creating org:", insertError);
-      return { ok: false, error: insertError.message };
-    }
-  } else {
-    // Update org name in organizations_legacy
-    const { error: updateError } = await supabaseAdmin
-      .from("organizations_legacy")
-      .update({ name })
-      .eq("id", orgId);
-    
-    if (updateError) {
-      console.error("[saveWorkspaceName] Error updating org name:", updateError);
-      return { ok: false, error: updateError.message };
-    }
-  }
-  
-  return { ok: true };
+  // Normalize phone (remove non-digits, keep + prefix if present)
+  const normalizedPhone = phone
+    ? phone.trim().replace(/[^\d+]/g, "").slice(0, 32) || null
+    : null;
 
-  return { ok: true };
+  const now = new Date().toISOString();
+
+  // 1) Ensure org exists in public.orgs (canonical org table) and organizations_legacy (FK parent)
+  // Idempotent: upsert will update name if changed, but won't create duplicates
+  await supabaseAdmin
+    .from("orgs")
+    .upsert(
+      {
+        id: orgId,
+        name: workspaceName.trim(),
+        created_at: now,
+        created_by: user.id, // NOT NULL - set to authenticated user's id
+      },
+      { onConflict: "id" }
+    );
+
+  // Update name explicitly (upsert may not update on conflict)
+  await supabaseAdmin
+    .from("orgs")
+    .update({ name: workspaceName.trim() })
+    .eq("id", orgId);
+
+  // Also ensure organizations_legacy exists for FK integrity
+  await supabaseAdmin
+    .from("organizations_legacy")
+    .upsert(
+      {
+        id: orgId,
+        name: workspaceName.trim(),
+        created_at: now,
+        phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
+      },
+      { onConflict: "id" }
+    );
+
+  await supabaseAdmin
+    .from("organizations_legacy")
+    .update({ name: workspaceName.trim() })
+    .eq("id", orgId);
+
+  // 2) Upsert profile with full_name, phone, org_id
+  // Idempotent: upsert will update fields if changed
+  const { error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .upsert(
+      {
+        id: user.id, // profiles.id = auth_user_id
+        auth_user_id: user.id,
+        email: user.email || "",
+        org_id: orgId,
+        full_name: fullName.trim(),
+        phone: normalizedPhone,
+        role: "owner", // First user is owner
+      },
+      { onConflict: "id" }
+    );
+
+  if (profileError) {
+    console.error("[saveWorkspaceAndProfile] Error upserting profile:", profileError);
+    return { ok: false, error: `Failed to save profile: ${profileError.message}` };
+  }
+
+  // 3) Ensure organization_settings row exists
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+  }
+
+  // 4) Update onboarding_step to 1 (move to Language step)
+  const { error: stepError } = await supabaseAdmin
+    .from("organization_settings")
+    .update({ onboarding_step: 1 })
+    .eq("org_id", orgId);
+
+  if (stepError) {
+    console.error("[saveWorkspaceAndProfile] Error updating step:", stepError);
+    return { ok: false, error: `Failed to update step: ${stepError.message}` };
+  }
+
+  return { ok: true, nextStep: 1 }; // Advance to Goal step
 }
 
 /**
@@ -400,12 +766,13 @@ export async function activatePhoneNumber(
   }
 
   // TODO: Wire actual phone number provisioning here
-  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
-  // After activation, move to step 4 (live) and mark as completed
+  // Provision phone number via VAPI, create "Main Line" agent, bind number to agent
+  // DB step mapping: 5 = Activating, 6 = Live
+  // After activation completes, move to step 6 (Live) and mark as completed
   const { error: updateError } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 4, // Step 4 = live
+      onboarding_step: 6, // Step 6 = Live
       onboarding_completed_at: new Date().toISOString(),
     })
     .eq("org_id", orgId);
@@ -416,6 +783,307 @@ export async function activatePhoneNumber(
   }
 
   return { ok: true, phoneNumber: "+1234567890" }; // Placeholder
+}
+
+type VapiCreateAssistantResponse = { id: string };
+type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?: string };
+
+/**
+ * Run activation pipeline: provision phone, create Main Line agent, bind number to agent.
+ * Server action that executes the full activation flow for onboarding.
+ * Called automatically when user reaches Step 4 (Activating).
+ */
+export async function runActivation(): Promise<
+  { ok: true; phoneNumberE164: string | null; vapiPhoneNumberId: string; vapiAssistantId: string } | { ok: false; error: string }
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Get org_id
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("org_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle<{ org_id: string | null }>();
+
+  if (!profile?.org_id) {
+    return { ok: false, error: "No organization found. Please complete workspace setup first." };
+  }
+
+  const orgId = profile.org_id;
+
+  // Check plan is active (org_plan_limits.plan_code must exist)
+  const { data: planLimits } = await supabaseAdmin
+    .from("org_plan_limits")
+    .select("plan_code")
+    .eq("org_id", orgId)
+    .maybeSingle<{ plan_code: string | null }>();
+
+  if (!planLimits?.plan_code) {
+    return { ok: false, error: "Plan not active yet. Please wait for payment confirmation." };
+  }
+
+  // Check workspace status and check for existing activation artifacts (idempotency)
+  const { data: settings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("workspace_status, paused_reason, onboarding_language, vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      workspace_status: "active" | "paused" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+      onboarding_language: string | null;
+      vapi_phone_number_id?: string | null;
+      vapi_assistant_id?: string | null;
+      main_agent_id?: string | null;
+      phone_number_e164?: string | null;
+    }>();
+
+  if (settings?.workspace_status === "paused") {
+    const pausedReason = settings.paused_reason;
+    if (pausedReason === "hard_cap" || pausedReason === "past_due") {
+      return { ok: false, error: "Billing issue. Update payment method to continue." };
+    }
+    return { ok: false, error: "Workspace is paused. Please resume to continue." };
+  }
+
+  // Idempotency check: If activation partially succeeded, resume from existing artifacts
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      vapi_phone_number_id: string | null;
+      vapi_assistant_id: string | null;
+      main_agent_id: string | null;
+      phone_number_e164: string | null;
+    }>();
+
+  let phone: VapiCreatePhoneNumberResponse;
+  let phoneNumberE164: string | null = null;
+  let assistant: VapiCreateAssistantResponse;
+  let agentId: string | null = null;
+
+  try {
+    // 1) Provision phone number via VAPI (skip if already provisioned)
+    if (existingSettings?.vapi_phone_number_id) {
+      // Resume: reuse existing phone number ID
+      phone = { id: existingSettings.vapi_phone_number_id };
+      phoneNumberE164 = existingSettings.phone_number_e164;
+      console.log("[runActivation] Resuming with existing phone number:", phone.id);
+    } else {
+      // Provision new phone number
+      const provisioningPayload = {
+        provider: "vapi" as const,
+      };
+      
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[runActivation] provisioning payload keys:", Object.keys(provisioningPayload));
+      }
+
+      try {
+        phone = await vapiFetch<VapiCreatePhoneNumberResponse>("/phone-number", {
+          method: "POST",
+          body: JSON.stringify(provisioningPayload),
+        });
+      } catch (vapiErr) {
+        // Catch VAPI 400 errors and return calm user message
+        const errorText = vapiErr instanceof Error ? vapiErr.message : String(vapiErr);
+        console.error("[runActivation] VAPI phone provisioning error:", errorText);
+        
+        // Check if it's a 400 error (bad request)
+        if (errorText.includes("400") || errorText.includes("should not exist") || errorText.includes("must be")) {
+          return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
+        }
+        
+        // For other errors, return generic message
+        return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
+      }
+
+      if (!phone?.id) {
+        return { ok: false, error: "Failed to provision phone number. Please try again." };
+      }
+
+      // Get phone number (E.164 format) if available from response
+      // VAPI might return it as 'number' or 'phoneNumber'
+      phoneNumberE164 = phone.number || phone.phoneNumber || null;
+    }
+
+    // 2) Create "Main Line" assistant via VAPI (skip if already created)
+    const language = settings?.onboarding_language || "en";
+    if (existingSettings?.vapi_assistant_id) {
+      // Resume: reuse existing assistant ID
+      assistant = { id: existingSettings.vapi_assistant_id };
+      console.log("[runActivation] Resuming with existing assistant:", assistant.id);
+    } else {
+      assistant = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Main Line",
+          metadata: {
+            org_id: orgId,
+            created_by: user.id,
+            language,
+            voice: "jennifer", // Default voice
+            timezone: "America/New_York", // Default timezone
+          },
+        }),
+      });
+
+      if (!assistant?.id) {
+        return { ok: false, error: "Failed to create Main Line agent. Please try again." };
+      }
+    }
+
+    // 3) Bind phone number to assistant (idempotent - safe to call multiple times)
+    // CRITICAL: Only send assistantId - do NOT include any phone number fields
+    // Vapi expects: { assistantId: string } for binding
+    const bindPayload: { assistantId: string } = { assistantId: assistant.id };
+    
+    // Guard: Ensure no phone number fields are accidentally included
+    const phoneFields = ["phone", "phoneNumber", "phone_number", "number"];
+    const payloadKeys = Object.keys(bindPayload);
+    const hasInvalidPhoneField = payloadKeys.some((key) => 
+      phoneFields.some((field) => key.toLowerCase().includes(field.toLowerCase()))
+    );
+    
+    if (hasInvalidPhoneField) {
+      throw new Error(`Invalid payload: phone number fields (${phoneFields.join(", ")}) must not be included in binding request.`);
+    }
+    
+    // Validate assistantId is a string (UUID)
+    if (typeof bindPayload.assistantId !== "string" || !bindPayload.assistantId) {
+      throw new Error(`Invalid assistantId: expected non-empty string, got ${typeof bindPayload.assistantId}`);
+    }
+    
+    // Validate phone.id is a valid UUID string (not a phone number E164)
+    if (typeof phone.id !== "string" || !phone.id) {
+      throw new Error(`Invalid phone.id: expected non-empty string UUID, got ${typeof phone.id}`);
+    }
+    
+    const bindPath = `/phone-number/${phone.id}`;
+    
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[runActivation] VAPI request", { 
+        method: "PATCH", 
+        path: bindPath, 
+        payload: bindPayload,
+        payloadKeys: Object.keys(bindPayload),
+        phoneId: phone.id,
+        assistantId: assistant.id,
+      });
+    }
+    
+    try {
+      await vapiFetch(bindPath, {
+        method: "PATCH",
+        body: JSON.stringify(bindPayload),
+      });
+    } catch (bindErr) {
+      const errorText = bindErr instanceof Error ? bindErr.message : String(bindErr);
+      console.error("[runActivation] VAPI phone binding error:", errorText, {
+        path: bindPath,
+        payload: bindPayload,
+        phoneId: phone.id,
+        assistantId: assistant.id,
+      });
+      
+      // Check if it's a phone number validation error
+      if (errorText.includes("phone number must either be a string") || errorText.includes("TypeError")) {
+        return { ok: false, error: "We couldn't bind your phone number. Please try again in a minute." };
+      }
+      
+      // Re-throw other errors
+      throw bindErr;
+    }
+
+    // 4) Insert agent record into agents table (skip if main_agent_id exists)
+    if (existingSettings?.main_agent_id) {
+      // Resume: reuse existing agent
+      agentId = existingSettings.main_agent_id;
+      console.log("[runActivation] Resuming with existing agent:", agentId);
+    } else {
+      // Create new agent record (DO NOT include phone_number - that column doesn't exist)
+      const { data: newAgent, error: agentError } = await supabaseAdmin
+        .from("agents")
+        .insert({
+          org_id: orgId,
+          name: "Main Line",
+          language,
+          voice: "jennifer",
+          timezone: "America/New_York",
+          created_by: user.id,
+          vapi_assistant_id: assistant.id,
+          vapi_phone_number_id: phone.id,
+          // NOTE: phone_number column does NOT exist in agents table - removed
+        })
+        .select("id")
+        .single<{ id: string }>();
+
+      if (agentError) {
+        console.error("[runActivation] Error inserting agent:", agentError);
+        // Do NOT set onboarding_step=6 if agent insert fails
+        return { ok: false, error: "We couldn't finish setting up your Main Line. Please try again." };
+      }
+
+      agentId = newAgent.id;
+    }
+
+    // 5) Persist phone number artifacts to organization_settings (upsert by org_id)
+    const { error: settingsError } = await supabaseAdmin
+      .from("organization_settings")
+      .upsert(
+        {
+          org_id: orgId,
+          vapi_phone_number_id: phone.id,
+          phone_number_e164: phoneNumberE164,
+          vapi_assistant_id: assistant.id,
+          main_agent_id: agentId,
+        },
+        { onConflict: "org_id" }
+      );
+
+    if (settingsError) {
+      console.error("[runActivation] Error upserting organization_settings:", settingsError);
+      // Log error but continue - artifacts are persisted in agents table
+    }
+
+    // 6) Only AFTER successful DB writes: Update onboarding_step to 6 (Live) and mark as completed
+    const { error: stepError } = await supabaseAdmin
+      .from("organization_settings")
+      .update({
+        onboarding_step: 6, // Step 6 = Live (DB step)
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      .eq("org_id", orgId);
+
+    if (stepError) {
+      console.error("[runActivation] Error updating onboarding step:", stepError);
+      // Log error but still return success since activation artifacts were persisted
+      // Step update can be retried, but artifacts are critical
+    }
+
+    // Log activation completion with artifacts
+    console.log("[ACTIVATION][DONE]", {
+      org_id: orgId,
+      vapiPhoneNumberId: phone.id,
+      vapiAssistantId: assistant.id,
+      phoneNumberE164: phoneNumberE164 || null,
+    });
+
+    return { 
+      ok: true, 
+      phoneNumberE164: phoneNumberE164 || null,
+      vapiPhoneNumberId: phone.id,
+      vapiAssistantId: assistant.id,
+    };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Activation failed. Please try again.";
+    console.error("[runActivation] Unexpected error:", err);
+    return { ok: false, error: errorMsg };
+  }
 }
 
 /**
@@ -565,8 +1233,9 @@ export async function startPlanCheckout(planCode: "starter" | "growth" | "scale"
     }
 
     // 8) Get APP_URL for return URLs
+    // Include session_id in success_url so we can fetch session server-side as fallback if webhook delays
     const appUrl = getBaseUrl();
-    const successUrl = `${appUrl}/onboarding?checkout=success`;
+    const successUrl = `${appUrl}/onboarding?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${appUrl}/onboarding?checkout=cancel`;
 
     // 9) Create Stripe Checkout Session
@@ -680,7 +1349,7 @@ export async function handleCheckoutSuccess(checkoutSessionId?: string) {
 }
 
 /**
- * Set onboarding step to plan selection (step 2).
+ * Set onboarding step to plan selection (step 3).
  * Used when user needs to select a plan before activation.
  */
 export async function setOnboardingStepToPlan(orgId: string) {
@@ -722,11 +1391,14 @@ export async function setOnboardingStepToPlan(orgId: string) {
       .insert({ org_id: orgId });
   }
 
-  // Set step to 2 (choose plan)
+  // Set step to 4 (choose plan)
+  // UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
+  // Called from Phone Intent step (UI step 2), advances to Plan step (DB step 4)
+  // User requirement: "Phone intent submit should set onboarding_step = 4 (Plan)"
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 2, // Step 2 = choose plan
+      onboarding_step: 4, // Step 4 = choose plan
     })
     .eq("org_id", orgId);
 
@@ -735,7 +1407,7 @@ export async function setOnboardingStepToPlan(orgId: string) {
     return { ok: false, error: error.message };
   }
 
-  return { ok: true };
+  return { ok: true, nextStep: 4 }; // Advance to Plan step
 }
 
 /**

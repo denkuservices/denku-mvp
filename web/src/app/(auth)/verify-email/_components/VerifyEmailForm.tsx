@@ -20,8 +20,8 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
     e.preventDefault();
     setError(null);
 
-    if (code.length !== 6) {
-      setError("Please enter a 6-digit code");
+    if (code.length !== 8) {
+      setError("Enter the 8-digit code.");
       return;
     }
 
@@ -72,20 +72,21 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          maxLength={6}
+          maxLength={8}
           value={code}
           onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+            // Sanitize: keep only digits, limit to 8 characters
+            const value = e.target.value.replace(/\D/g, "").slice(0, 8);
             setCode(value);
             setError(null);
           }}
           disabled={isPending}
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-2xl tracking-widest text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
-          placeholder="000000"
+          placeholder="00000000"
           autoFocus
         />
         <p className="mt-1 text-xs text-slate-500">
-          Enter the 6-digit code sent to {email}
+          Enter the 8-digit code sent to {email}
         </p>
       </div>
 
@@ -97,7 +98,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
 
       <button
         type="submit"
-        disabled={isPending || code.length !== 6}
+        disabled={isPending || code.length !== 8}
         className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Verifying..." : "Verify"}

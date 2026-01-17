@@ -1,14 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Phone, Globe, ArrowRight, Copy, CheckCircle2 } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { Check, Phone, ArrowRight, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   saveOnboardingPreferences,
-  saveWorkspaceName,
+  bootstrapWorkspaceAction,
+  saveWorkspaceAction,
+  saveGoalAndLanguageAction,
+  advanceToPlanAction,
   activatePhoneNumber,
+  runActivation,
   completeOnboarding,
   setOnboardingStepToPlan,
   startPlanCheckout,
@@ -17,12 +22,14 @@ import {
 import { formatUsd } from "@/lib/utils";
 
 type OnboardingState = {
-  orgId: string;
+  orgId: string | null;
   orgName: string;
-  role: string;
+  role: string | null;
   onboardingStep: number;
   onboardingGoal: string | null;
   onboardingLanguage: string | null;
+  profileFullName: string | null;
+  profilePhone: string | null;
   workspaceStatus: "active" | "paused";
   pausedReason: "manual" | "hard_cap" | "past_due" | null;
   planCode: string | null;
@@ -38,6 +45,10 @@ type OnboardingState = {
   }>;
   hasPhoneNumber: boolean;
   phoneNumber: string | null;
+  phoneNumberE164?: string | null;
+  vapiPhoneNumberId?: string | null;
+  vapiAssistantId?: string | null;
+  needsOrgSetup?: boolean;
 };
 
 type OnboardingClientProps = {
@@ -45,24 +56,33 @@ type OnboardingClientProps = {
   checkoutStatus?: "success" | "cancel" | null;
 };
 
-// Step mapping: 0 = goal, 1 = phone number, 2 = choose plan (if no plan), 3 = activate, 4 = live
+// UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
+// DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
 const STEPS = [
-  { id: 0, label: "Goal" },
-  { id: 1, label: "Number" },
-  { id: 2, label: "Plan" },
-  { id: 3, label: "Activate" },
-  { id: 4, label: "Go live" },
+  { id: 0, label: "Workspace" },
+  { id: 1, label: "Goal" },
+  { id: 2, label: "Phone Intent" },
+  { id: 3, label: "Plan" },
+  { id: 4, label: "Activating" },
+  { id: 5, label: "Live" },
 ];
 
 export function OnboardingClient({ initialState, checkoutStatus }: OnboardingClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState(initialState);
-  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
-  const initialStep = state.onboardingStep ?? 0;
+  
+  // Canonical step mapping: 0 = Goal, 1 = Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
+  // Workspace setup happens during bootstrap - onboarding starts at Goal (step 0)
+  // IMPORTANT: initialStep is only used ONCE on first render. Do NOT derive currentStep from state.onboardingStep after mount.
+  const initialStep = state.needsOrgSetup || !state.orgId ? 0 : (state.onboardingStep ?? 0);
   const [currentStep, setCurrentStep] = useState(initialStep);
+  
+  // Guard: Never reset currentStep from initialState after first render
+  // The ONLY way currentStep should change after mount is via explicit setCurrentStep() calls after DB updates
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [phoneFieldError, setPhoneFieldError] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false); // true when starting checkout
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
@@ -87,7 +107,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       const pollForPlanActivation = async () => {
         pollCount++;
         try {
-          // Call getOnboardingState() which performs self-heal (writes step=3 if plan active)
+          // Call getOnboardingState() which performs self-heal (writes step=4 if plan active)
           // We only read the result, never write onboarding_step here
           const updatedState = await getOnboardingState();
           
@@ -96,7 +116,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           setCurrentStep(updatedState.onboardingStep);
           
           if (updatedState.isPlanActive) {
-            // Plan is active - getOnboardingState() already self-healed step to 3
+            // Plan is active - getOnboardingState() already self-healed step to 4 (Activating)
             setIsConfirming(false);
             setCheckoutMessage(null);
             
@@ -177,38 +197,130 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
   }, [searchParams, checkoutStatus, isConfirming, checkoutMessage]);
 
-  // Step 0: Goal + Language (load from state if available)
+  // Step 0: Workspace + Full name + Phone (load from state if available)
+  const [workspaceName, setWorkspaceName] = useState(state.orgName || "");
+  const [fullName, setFullName] = useState(state.profileFullName || "");
+  const [phone, setPhone] = useState(state.profilePhone || "");
+
+  // Step 1: Goal + Language (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales">(
     (state.onboardingGoal as "support" | "sales") || "support"
   );
-  const [language, setLanguage] = useState(state.onboardingLanguage || "auto");
+  // Default to English (remove auto-detect)
+  const [language, setLanguage] = useState(state.onboardingLanguage || "en");
 
-  // Step 1: Phone number
+  // Step 2: Phone number (AI line)
   const [country, setCountry] = useState("US");
   const [areaCode, setAreaCode] = useState("");
 
-  // Step 2: Activation
+  // Step 4: Activation
   const [isActivating, setIsActivating] = useState(false);
-  const [activationComplete, setActivationComplete] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
   const [provisionedPhoneNumber, setProvisionedPhoneNumber] = useState<string | null>(null);
 
-  const handleSavePreferences = () => {
-    startTransition(async () => {
-      const result = await saveOnboardingPreferences(state.orgId, {
-        goal,
-        language,
-      });
-      if (result.ok) {
-        // Refresh state from server to get updated step
-        const updatedState = await getOnboardingState();
-        setState(updatedState);
-        setCurrentStep(updatedState.onboardingStep);
-        setError(null);
-      } else {
-        setError(result.error || "Failed to save preferences");
-      }
-    });
+  // Form state handlers with refresh after submission
+  const handleFormAction = async (prevState: any, formData: FormData) => {
+    const action = formData.get("_action")?.toString();
+    let result;
+    
+    if (action === "bootstrap") {
+      result = await bootstrapWorkspaceAction(formData);
+    } else if (action === "saveWorkspace") {
+      result = await saveWorkspaceAction(formData);
+    } else if (action === "saveGoalLanguage") {
+      result = await saveGoalAndLanguageAction(formData);
+    } else if (action === "advanceToPlan") {
+      result = await advanceToPlanAction(formData);
+    } else {
+      return { ok: false, error: "Unknown action" };
+    }
+    
+    if (!result.ok) {
+      return { ok: false, error: result.error || "Something went wrong." };
+    }
+    
+    // Always refresh from DB (authoritative source of truth)
+    const updated = await getOnboardingState();
+    setState(updated);
+    setCurrentStep(updated.onboardingStep);
+    
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[onboarding] advanced", updated.onboardingStep);
+    }
+    
+    return { ok: true };
   };
+  
+  const [formState, formAction] = React.useActionState(handleFormAction, { ok: true });
+  
+  // Update error state from form state
+  React.useEffect(() => {
+    if (formState && !formState.ok) {
+      // Check for phone duplicate constraint error
+      const debug = (formState as any).debug;
+      if (debug?.constraint === "organizations_phone_number_key") {
+        setPhoneFieldError("This phone number is already in use. Use a different number or leave it blank for now.");
+        setError(null); // Don't show generic error for phone duplicate
+      } else {
+        setPhoneFieldError(null);
+        setError(formState.error || "Something went wrong.");
+      }
+    } else {
+      setError(null);
+      setPhoneFieldError(null);
+    }
+  }, [formState]);
+
+  // Auto-run activation when on Step 4 (Activating)
+  React.useEffect(() => {
+    if (currentStep === 4 && !isActivating && !activationError) {
+      setIsActivating(true);
+      setActivationError(null);
+
+      runActivation()
+        .then((result) => {
+          if (result.ok) {
+            // Store provisioned phone number if returned (fallback, but DB is source of truth)
+            if (result.phoneNumberE164) {
+              setProvisionedPhoneNumber(result.phoneNumberE164);
+            }
+            // Activation succeeded - refresh state to move to Step 5 (Live)
+            getOnboardingState()
+              .then((updatedState) => {
+                setState(updatedState);
+                setCurrentStep(updatedState.onboardingStep);
+              })
+              .catch((err) => {
+                console.error("[onboarding] Error refreshing state after activation:", err);
+                setActivationError("Activation completed but could not refresh. Please refresh the page.");
+              });
+          } else {
+            setActivationError(result.error || "Activation failed. Please try again.");
+          }
+        })
+        .catch((err) => {
+          console.error("[onboarding] Activation error:", err);
+          setActivationError("An unexpected error occurred during activation. Please try again.");
+        })
+        .finally(() => {
+          setIsActivating(false);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+  
+  // Submit button component with pending state
+  function SubmitButton({ children, disabled: externalDisabled, ...props }: React.ComponentProps<typeof Button> & { children: React.ReactNode }) {
+    const { pending } = useFormStatus();
+    return (
+      <Button type="submit" variant="primary" disabled={pending || externalDisabled} {...props}>
+        {pending ? "Please wait…" : children}
+        {!pending && typeof children === "string" && !children.includes("wait") && (
+          <ArrowRight className="ml-2 h-4 w-4" />
+        )}
+      </Button>
+    );
+  }
 
   const handleActivateNumber = () => {
     // Check gating conditions
@@ -219,8 +331,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
     // If plan is not active, advance to inline plan selection (step 2) instead of redirecting
     if (!state.isPlanActive) {
+      if (!state.orgId) {
+        setError("Organization ID is missing. Please refresh the page.");
+        return;
+      }
+      const orgId = state.orgId; // Extract for TypeScript narrowing
       startTransition(async () => {
-        const result = await setOnboardingStepToPlan(state.orgId);
+        const result = await setOnboardingStepToPlan(orgId);
         if (result.ok) {
           // Advance to step 2 (choose plan) - stay on onboarding page
           setCurrentStep(2);
@@ -234,6 +351,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
 
     // Plan is active - proceed with activation
+    if (!state.orgId) {
+      setError("Organization ID is missing. Please refresh the page.");
+      return;
+    }
+
     setIsActivating(true);
     setError(null);
 
@@ -252,7 +374,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           setError("BILLING_PAUSED");
         } else if (result.error === "NO_PLAN") {
           // Plan became inactive - advance to plan selection
-          const stepResult = await setOnboardingStepToPlan(state.orgId);
+          if (!state.orgId) {
+            setError("Organization ID is missing. Please refresh the page.");
+            setIsActivating(false);
+            return;
+          }
+          const orgIdForStep = state.orgId; // Extract for TypeScript narrowing
+          const stepResult = await setOnboardingStepToPlan(orgIdForStep);
           if (stepResult.ok) {
             setCurrentStep(2);
             setState((s) => ({ ...s, onboardingStep: 2 }));
@@ -268,8 +396,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   };
 
   const handleComplete = () => {
+    if (!state.orgId) {
+      setError("Organization ID is missing. Please refresh the page.");
+      return;
+    }
+    const orgId = state.orgId; // Extract for TypeScript narrowing
     startTransition(async () => {
-      const result = await completeOnboarding(state.orgId);
+      const result = await completeOnboarding(orgId);
       if (result.ok) {
         // Refresh state and then redirect
         const updatedState = await getOnboardingState();
@@ -287,13 +420,16 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   };
 
   const handleCopyNumber = () => {
-    const number = provisionedPhoneNumber || state.phoneNumber;
+    const number = state.phoneNumberE164 ?? state.phoneNumber ?? provisionedPhoneNumber ?? null;
     if (number && typeof window !== "undefined") {
       navigator.clipboard.writeText(number);
     }
   };
 
-  const displayPhoneNumber = provisionedPhoneNumber || state.phoneNumber;
+  // SSR-safe and null-safe phone number display
+  // SSR-safe and null-safe phone number display
+  // Prefer phoneNumberE164 from state (DB truth), fallback to phoneNumber or provisionedPhoneNumber
+  const displayPhoneNumber = state.phoneNumberE164 ?? state.phoneNumber ?? provisionedPhoneNumber ?? null;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -345,9 +481,108 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             </div>
           )}
 
-          {/* Step 0: Goal + Language */}
+          {/* Step 0: Workspace + Full name + Phone */}
           {currentStep === 0 && (
-            <div className="space-y-6">
+            <form action={formAction} className="space-y-6">
+              <input type="hidden" name="_action" value={state.needsOrgSetup || !state.orgId ? "bootstrap" : "saveWorkspace"} />
+              {state.orgId && <input type="hidden" name="orgId" value={state.orgId} />}
+              
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Set up your workspace</h2>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Tell us a bit about yourself and your workspace.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="workspace_name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Workspace name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="workspace_name"
+                  name="workspaceName"
+                  type="text"
+                  value={workspaceName}
+                  onChange={(e) => {
+                    setWorkspaceName(e.target.value);
+                    setError(null);
+                  }}
+                  required
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white disabled:opacity-60 transition-colors"
+                  placeholder="Acme Inc."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Full name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="full_name"
+                  name="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setError(null);
+                  }}
+                  required
+                  autoComplete="name"
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white disabled:opacity-60 transition-colors"
+                  placeholder="Alex Johnson"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Phone number <span className="text-zinc-500 text-xs">(optional)</span>
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^\d+()-]/g, "");
+                    setPhone(value);
+                    setError(null);
+                    setPhoneFieldError(null);
+                  }}
+                  autoComplete="tel"
+                  className={`w-full rounded-xl border px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 transition-colors dark:bg-zinc-800 dark:text-white disabled:opacity-60 ${
+                    phoneFieldError
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
+                      : "border-zinc-200 focus:border-brand-500 focus:ring-brand-500/20 dark:border-zinc-700"
+                  } bg-white`}
+                  placeholder="+1 (555) 123-4567"
+                />
+                {phoneFieldError ? (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {phoneFieldError}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-zinc-500">
+                    For recovery and notifications. You can add this later.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <SubmitButton disabled={!workspaceName.trim() || !fullName.trim()}>
+                  Continue
+                </SubmitButton>
+              </div>
+            </form>
+          )}
+
+          {/* Step 1: Goal + Language */}
+          {currentStep === 1 && (
+            <form action={formAction} className="space-y-6">
+              <input type="hidden" name="_action" value="saveGoalLanguage" />
+              <input type="hidden" name="orgId" value={state.orgId || ""} />
+              <input type="hidden" name="goal" value={goal} />
+              <input type="hidden" name="language" value={language} />
+              
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">What do you want your line to handle?</h2>
                 <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -357,6 +592,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <button
+                  type="button"
                   onClick={() => setGoal("support")}
                   className={`rounded-xl border-2 p-6 text-left transition-all ${
                     goal === "support"
@@ -378,6 +614,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {}}
                   disabled
                   className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 dark:border-zinc-700 dark:bg-zinc-800"
@@ -404,12 +641,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 </label>
                 <div className="space-y-2">
                   {[
-                    { value: "auto", label: "Auto-detect", icon: Globe },
                     { value: "en", label: "English", icon: null },
                     { value: "tr", label: "Turkish", icon: null },
                   ].map((lang) => (
                     <button
                       key={lang.value}
+                      type="button"
                       onClick={() => setLanguage(lang.value)}
                       className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
                         language === lang.value
@@ -430,16 +667,15 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSavePreferences} disabled={isPending}>
+                <SubmitButton>
                   Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                </SubmitButton>
               </div>
-            </div>
+            </form>
           )}
 
-          {/* Step 1: Get Phone Number */}
-          {currentStep === 1 && (
+          {/* Step 2: Get Phone Number (AI line) */}
+          {currentStep === 2 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Get a phone number</h2>
@@ -475,27 +711,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
                     Select a plan to get started with your phone line.
                   </p>
-                  <Button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      // Advance to inline plan selection (step 2) - stay on onboarding
-                      startTransition(async () => {
-                        const result = await setOnboardingStepToPlan(state.orgId);
-                        if (result.ok) {
-                          setCurrentStep(2);
-                          setState((s) => ({ ...s, onboardingStep: 2 }));
-                          setError(null);
-                        } else {
-                          setError(result.error || "Failed to advance to plan selection");
-                        }
-                      });
-                    }}
-                    disabled={isPending}
-                  >
-                    Choose a plan
-                  </Button>
+                  <form action={formAction} className="inline">
+                    <input type="hidden" name="_action" value="advanceToPlan" />
+                    <input type="hidden" name="orgId" value={state.orgId || ""} />
+                    <SubmitButton>
+                      Choose a plan
+                    </SubmitButton>
+                  </form>
                 </div>
               )}
 
@@ -564,10 +786,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
                   <div className="flex justify-end">
                     <Button
+                      variant="primary"
                       onClick={handleActivateNumber}
                       disabled={isActivating || isPending}
                     >
-                      {isActivating ? "Activating…" : "Activate my number"}
+                      {isActivating ? "Please wait…" : "Activate my number"}
                       {!isActivating && <ArrowRight className="ml-2 h-4 w-4" />}
                     </Button>
                   </div>
@@ -576,8 +799,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             </div>
           )}
 
-          {/* Step 2: Choose Plan (if no plan active) */}
-          {currentStep === 2 && (
+          {/* Step 3: Choose Plan (if no plan active) */}
+          {currentStep === 3 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Choose a plan</h2>
@@ -712,7 +935,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     <div className="flex justify-center pt-4">
                       <Button
                         className="min-w-[200px]"
-                        variant="default"
+                        variant="primary"
                         disabled={checkoutLoading || isPending || isConfirming}
                         onClick={() => {
                           if (!selectedPlan) return;
@@ -727,8 +950,10 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                             } else {
                               setCheckoutLoading(false);
                               if (result.error === "UNAUTH") {
-                                // Not authenticated - redirect to login
-                                router.push("/login");
+                                // Server-side auth failed - show error and allow retry
+                                // Do NOT redirect client-side; server-side session exists via httpOnly cookies
+                                // Client Supabase client cannot read httpOnly cookies, so client redirects are unreliable
+                                setError("Authentication error. Please refresh the page and try again.");
                               } else if (result.error === "BILLING_PAUSED") {
                                 setError("BILLING_PAUSED");
                               } else {
@@ -754,8 +979,51 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             </div>
           )}
 
-          {/* Step 4: Activation Complete / You're live */}
+          {/* Step 4: Activating your line */}
           {currentStep === 4 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500/10">
+                  {isActivating ? (
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+                  ) : (
+                    <CheckCircle2 className="h-8 w-8 text-brand-500" />
+                  )}
+                </div>
+
+                <h2 className="mt-6 text-2xl font-bold text-zinc-900 dark:text-white">Activating your line</h2>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Provisioning your phone number and setting up your Main Line.
+                </p>
+              </div>
+
+              {/* Progress list */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
+                  <span className="text-sm text-zinc-900 dark:text-white">Provisioning phone number</span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
+                  <span className="text-sm text-zinc-900 dark:text-white">Creating Main Line</span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
+                  <span className="text-sm text-zinc-900 dark:text-white">Binding number to agent</span>
+                </div>
+              </div>
+
+              {/* Error message */}
+              {activationError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
+                  <p className="text-sm text-red-900 dark:text-red-200">{activationError}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 5: You're Live (only place with dashboard CTA) */}
+          {currentStep === 5 && (
             <div className="space-y-6 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500">
                 <CheckCircle2 className="h-8 w-8 text-white" />
@@ -766,18 +1034,18 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                   {displayPhoneNumber
                     ? "Your phone number is ready to receive calls."
-                    : "We'll assign your number right after plan activation."}
+                    : "Your phone number is being set up."}
                 </p>
               </div>
 
-              {displayPhoneNumber && (
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
-                  <div className="flex items-center justify-center gap-3">
-                    <Phone className="h-6 w-6 text-zinc-600 dark:text-zinc-400" />
-                    <span className="text-xl font-semibold text-zinc-900 dark:text-white">{displayPhoneNumber}</span>
-                  </div>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
+                <div className="flex items-center justify-center gap-3">
+                  <Phone className="h-6 w-6 text-zinc-600 dark:text-zinc-400" />
+                  <span className="text-xl font-semibold text-zinc-900 dark:text-white">
+                    {displayPhoneNumber || "Number will appear here once provisioning completes."}
+                  </span>
                 </div>
-              )}
+              </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                 {displayPhoneNumber && (
@@ -786,13 +1054,15 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <Copy className="mr-2 h-4 w-4" />
                       Copy number
                     </Button>
-                    <Button variant="outline" onClick={() => window.open(`tel:${displayPhoneNumber}`)}>
-                      <Phone className="mr-2 h-4 w-4" />
-                      Call to test
+                    <Button variant="outline" asChild>
+                      <a href={`tel:${displayPhoneNumber}`}>
+                        <Phone className="mr-2 h-4 w-4" />
+                        Call this number to test
+                      </a>
                     </Button>
                   </>
                 )}
-                <Button onClick={handleComplete} disabled={isPending}>
+                <Button variant="primary" onClick={handleComplete} disabled={isPending}>
                   Go to dashboard
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

@@ -3,12 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setPasswordAction } from "../_actions/setPassword";
-import { saveSignupPhoneAction } from "../_actions/saveSignupPhone";
 
 interface SetPasswordFormProps {
   email: string;
-  orgName: string;
-  fullName: string;
+  orgName: string; // Not used anymore (collected in onboarding), kept for type compatibility
+  fullName: string; // Not used anymore (collected in onboarding), kept for type compatibility
 }
 
 export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormProps) {
@@ -17,6 +16,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,30 +33,23 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
     }
 
     startTransition(async () => {
+      // orgName and fullName are empty strings (will be collected in onboarding)
       const result = await setPasswordAction(password, confirmPassword, orgName, fullName);
       if (!result.ok) {
-        setError(result.error);
+        // Check if error indicates session expired
+        const errorMsg = result.error?.toLowerCase() || "";
+        if (errorMsg.includes("session expired") || errorMsg.includes("verify again")) {
+          setSessionExpired(true);
+          setError(result.error);
+        } else {
+          setError(result.error);
+        }
         return;
       }
 
-      // After password is set successfully, save phone from sessionStorage
-      if (typeof window !== "undefined") {
-        const lowerEmail = email.toLowerCase();
-        const storedPhone = sessionStorage.getItem(`signup:phone:${lowerEmail}`);
-        const phone = storedPhone ? storedPhone.trim() : null;
-
-        // Save phone (non-blocking, don't fail if this errors)
-        await saveSignupPhoneAction(phone || null).catch(() => {
-          // Silently fail - phone is optional
-        });
-
-        // Clear sessionStorage after successful save
-        sessionStorage.removeItem(`signup:phone:${lowerEmail}`);
-      }
-
-      // Redirect to dashboard (setPasswordAction handles email confirmation check)
-      router.push("/dashboard");
-      router.refresh();
+      // Password set successfully - navigate to onboarding
+      // Client-side navigation ensures cookies are committed before navigation
+      router.replace("/onboarding");
     });
   };
 
@@ -105,6 +98,20 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
           <p className="text-sm text-red-800">{error}</p>
+          {sessionExpired && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Reset to OTP step - user needs to verify again
+                  window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
+                }}
+                className="text-sm text-red-800 underline hover:text-red-900 transition-colors"
+              >
+                Resend code
+              </button>
+            </div>
+          )}
         </div>
       )}
 

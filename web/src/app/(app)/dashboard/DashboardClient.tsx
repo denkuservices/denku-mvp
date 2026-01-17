@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import Widget from '@/components/dashboard/Widget';
 import HourlyCalls from "@/components/dashboard/HourlyCalls";
-import DashboardHeader from '@/components/horizon-shell/DashboardHeader';
 import Card from '@/components/ui-horizon/card';
 import { MdBarChart, MdDashboard } from 'react-icons/md';
 import { Phone, Info, Ticket, Percent, Headset } from 'lucide-react';
@@ -69,9 +68,6 @@ export default function DashboardClient({ data }: DashboardClientProps) {
 
   return (
     <div className="pt-5 px-2 md:px-6 bg-background-100">
-      {/* Horizon Free Dashboard Header */}
-      <DashboardHeader breadcrumb="Pages / Main Dashboard" title="Main Dashboard" />
-      
       {/* Stats Row: 6 stat cards - Horizon Free exact grid */}
       <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 3xl:grid-cols-6">
         <Widget

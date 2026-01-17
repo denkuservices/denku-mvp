@@ -1,9 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { cookies } from "next/headers";
 
 const SetPasswordSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -23,15 +22,19 @@ export async function setPasswordAction(
   orgName: string,
   fullName: string
 ): Promise<SetPasswordResult> {
+  // Create Supabase server client with cookie-aware setup
+  // This ensures auth cookies are persisted after updateUser
   const supabase = await createSupabaseServerClient();
 
   // 1) Get current user (must be authenticated after OTP verification)
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { ok: false, error: "Not authenticated. Please verify your email first." };
+  if (getUserError || !user) {
+    console.error("[setPassword] Session missing before update:", getUserError?.message);
+    return { ok: false, error: "Session expired. Please verify again." };
   }
 
   // 2) Validate password
@@ -47,168 +50,40 @@ export async function setPasswordAction(
   });
 
   if (updateErr) {
-    return { ok: false, error: `Failed to set password: ${updateErr.message}` };
+    console.error("[setPassword] Password update error:", updateErr.message);
+    return { ok: false, error: "Failed to set password. Please try again." };
   }
 
-  // 4) Ensure org exists (create if needed)
-  const { data: existingProfile } = await supabaseAdmin
-    .from("profiles")
-    .select("org_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle<{ org_id: string | null }>();
+  // 4) CRITICAL: Verify session is still valid after updateUser
+  // This ensures cookies were persisted and session is readable
+  // Access cookie store to ensure cookie writes are committed
+  const cookieStore = await cookies();
+  
+  // Verify session persists by calling getUser again
+  const {
+    data: { user: updatedUser },
+    error: sessionVerifyError,
+  } = await supabase.auth.getUser();
 
-  let orgId: string | null = null;
-
-  if (existingProfile?.org_id) {
-    orgId = existingProfile.org_id;
-    
-    // Ensure org exists in public.orgs (canonical org table) and organizations_legacy (FK parent)
-    const now = new Date().toISOString();
-    
-    // Write to public.orgs (canonical org table - no phone_number column)
-    // created_by is NOT NULL - set it to the authenticated user's id
-    await supabaseAdmin
-      .from("orgs")
-      .upsert(
-        {
-          id: orgId,
-          name: orgName,
-          created_at: now,
-          created_by: user.id, // NOT NULL - set to authenticated user's id
-        },
-        {
-          onConflict: "id",
-        }
-      );
-
-    // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
-    // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
-    await supabaseAdmin
-      .from("organizations_legacy")
-      .upsert(
-        {
-          id: orgId,
-          name: orgName,
-          created_at: now,
-          phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
-        },
-        {
-          onConflict: "id",
-        }
-      );
-
-    // Explicitly update name in both tables to ensure it's set (upsert may not update on conflict)
-    await supabaseAdmin
-      .from("orgs")
-      .update({ name: orgName })
-      .eq("id", orgId);
-    
-    await supabaseAdmin
-      .from("organizations_legacy")
-      .update({ name: orgName })
-      .eq("id", orgId);
-  } else {
-    // Create org in public.orgs (canonical org table) and organizations_legacy (FK parent)
-    // Generate orgId first, then upsert
-    orgId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
-    // Write to public.orgs (canonical org table - no phone_number column)
-    // created_by is NOT NULL - set it to the authenticated user's id
-    const { data: org, error: orgErr } = await supabaseAdmin
-      .from("orgs")
-      .upsert(
-        {
-          id: orgId,
-          name: orgName,
-          created_at: now,
-          created_by: user.id, // NOT NULL - set to authenticated user's id
-        },
-        {
-          onConflict: "id",
-        }
-      )
-      .select("id")
-      .single();
-
-    if (orgErr) {
-      return { ok: false, error: `Failed to create workspace: ${orgErr.message}` };
-    }
-
-    if (!org?.id) {
-      return { ok: false, error: "Failed to create workspace: No organization ID returned" };
-    }
-
-    // Use the returned ID (should match our generated UUID)
-    orgId = org.id;
-
-    // Also ensure organizations_legacy exists for FK integrity (organization_settings.org_id references it)
-    // Write with phone_number='' to satisfy NOT NULL constraint (phone_number set during onboarding)
-    await supabaseAdmin
-      .from("organizations_legacy")
-      .upsert(
-        {
-          id: orgId,
-          name: orgName,
-          created_at: now,
-          phone_number: "", // Empty string for NOT NULL column - will be set during onboarding activation
-        },
-        {
-          onConflict: "id",
-        }
-      );
-
-    // Explicitly update name in both tables to ensure it's set (upsert may not update on conflict)
-    await supabaseAdmin
-      .from("orgs")
-      .update({ name: orgName })
-      .eq("id", orgId);
-    
-    await supabaseAdmin
-      .from("organizations_legacy")
-      .update({ name: orgName })
-      .eq("id", orgId);
+  if (sessionVerifyError || !updatedUser) {
+    console.error("[setPassword] Session lost after updateUser:", sessionVerifyError?.message);
+    return { ok: false, error: "Session expired. Please verify again." };
   }
 
-  // 5) Ensure profile exists with correct mapping
-  if (!existingProfile) {
-    const { error: profErr } = await supabaseAdmin.from("profiles").insert({
-      auth_user_id: user.id,
-      email: user.email,
-      org_id: orgId,
-      full_name: fullName,
-      role: "owner", // First user is owner
+  // TEMP: Debug log cookie names (not values) in development only
+  if (process.env.NODE_ENV !== "production") {
+    const cookieNames = cookieStore.getAll().map((c: any) => c.name).filter((name: string) => 
+      name.includes("auth-token") || name.includes("supabase") || name.includes("sb-")
+    );
+    console.log("[setPassword] Auth cookies after updateUser:", {
+      cookieNames,
+      hasUpdatedUser: !!updatedUser,
     });
-
-    if (profErr) {
-      return { ok: false, error: `Failed to create profile: ${profErr.message}` };
-    }
-  } else {
-    // Update existing profile if needed
-    const { error: updateProfErr } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        org_id: orgId,
-        full_name: fullName,
-        email: user.email,
-        role: "owner", // Ensure owner role
-      })
-      .eq("auth_user_id", user.id);
-
-    if (updateProfErr) {
-      return { ok: false, error: `Failed to update profile: ${updateProfErr.message}` };
-    }
   }
 
-  // After password is set, check if email is confirmed before redirecting
-  const { data: { user: updatedUser } } = await supabase.auth.getUser();
-  const emailConfirmed = updatedUser ? ((updatedUser as any).email_confirmed_at || (updatedUser as any).confirmed_at) : false;
-
-  if (emailConfirmed) {
-    redirect("/onboarding");
-  } else {
-    // Email not confirmed yet, redirect back to verify-email
-    redirect(`/verify-email?email=${encodeURIComponent(updatedUser?.email || "")}`);
-  }
+  // 5) Session is confirmed valid - return success
+  // Client will handle navigation to /onboarding
+  // Org/workspace/full_name/phone will be collected in onboarding step 0
+  return { ok: true };
 }
 

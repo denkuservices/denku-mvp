@@ -2,6 +2,10 @@ import { getDashboardOverview } from '@/lib/dashboard/getDashboardOverview';
 import DashboardClient from './DashboardClient';
 import { checkPlanActiveAndRedirect } from '@/lib/auth/checkOnboarding';
 
+// Explicitly cache dashboard page to prevent automatic revalidation loops
+// Revalidate every 60 seconds (or on-demand via router.refresh after mutations)
+export const revalidate = 60;
+
 /**
  * Server component for dashboard page.
  * Fetches data server-side and passes it to the client component wrapper.

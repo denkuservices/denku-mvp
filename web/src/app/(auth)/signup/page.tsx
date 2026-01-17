@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Create account"
-      subtitle="Start with a workspace. Upgrade as call volume grows."
+      subtitle="We'll email you an 8-digit code to get started."
       showBackLink
       footer={
         <p className="text-sm text-slate-600">

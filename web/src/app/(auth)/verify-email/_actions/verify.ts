@@ -24,15 +24,23 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
     return { ok: false, error: "Verification failed. Please try again." };
   }
 
-  // Check if email is confirmed after OTP verification
-  const emailConfirmed = (data.user as any).email_confirmed_at || (data.user as any).confirmed_at;
-  
-  // When using OTP sign-in with shouldCreateUser: true, user always needs to set password
-  // (user is created without password)
-  // For email+password signup flow, if email is confirmed, password should already be set
-  const needsPassword = !emailConfirmed;
+  // TEMP: Debug log cookie names (not values) in development only
+  if (process.env.NODE_ENV !== "production") {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const cookieNames = cookieStore.getAll().map((c: any) => c.name).filter((name: string) => 
+      name.includes("auth-token") || name.includes("supabase") || name.includes("sb-")
+    );
+    console.log("[verifyOtpAction] Auth cookies after verifyOtp:", {
+      cookieNames,
+      hasUser: !!data.user,
+    });
+  }
 
-  return { ok: true, needsPassword };
+  // When using OTP sign-in with shouldCreateUser: true, user is created without password
+  // So user always needs to set password after OTP verification
+  // We no longer depend on email_confirmed_at via link; OTP is primary verification
+  return { ok: true, needsPassword: true };
 }
 
 export async function resendCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {

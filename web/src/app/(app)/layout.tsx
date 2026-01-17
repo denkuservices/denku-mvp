@@ -1,5 +1,4 @@
 import { DM_Sans } from "next/font/google";
-import { requireVerifiedEmail } from "@/lib/auth/requireVerifiedEmail";
 import HorizonShell from "@/components/horizon-shell/HorizonShell";
 import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
 
@@ -14,8 +13,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Enforce email verification for all dashboard routes
-  await requireVerifiedEmail();
+  // NOTE: Do NOT enforce email verification here.
+  // - Onboarding uses OTP verification (not email_confirmed_at)
+  // - Auth gating is handled server-side in page.tsx components and middleware
+  // - Client-side auth checks cannot read httpOnly cookies and should be avoided
 
   return (
     <>

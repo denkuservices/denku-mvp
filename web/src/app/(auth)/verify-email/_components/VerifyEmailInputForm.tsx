@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { resendSignupEmailAction } from "../_actions/resendSignupEmail";
+import { sendCodeAction } from "../../signup/sendCodeAction";
 
 interface VerifyEmailInputFormProps {
   onEmailSet: (email: string) => void;
@@ -26,19 +26,15 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
     }
 
     startTransition(async () => {
-      const result = await resendSignupEmailAction(trimmedEmail);
+      const formData = new FormData();
+      formData.set("email", trimmedEmail);
+      const result = await sendCodeAction(formData);
       if (result.ok) {
         onEmailSet(trimmedEmail);
         // Update URL without reload
         router.push(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
       } else {
         setError(result.error);
-        if (result.code === "USER_EXISTS") {
-          // Redirect to login after showing error
-          setTimeout(() => {
-            router.push("/login");
-          }, 2000);
-        }
       }
     });
   };

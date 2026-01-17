@@ -52,15 +52,22 @@ export async function checkPlanActiveAndRedirect(): Promise<"/dashboard"> {
 
   const orgId = profiles[0].org_id;
 
-  // 3) Check if plan is active
-  const planActive = await isPlanActive(orgId);
-  
-  if (!planActive) {
-    // Plan not active -> redirect to onboarding
+  // 3) Check onboarding_step - dashboard only accessible if step === 6 (Live)
+  // DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+  const { data: settings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("onboarding_step")
+    .eq("org_id", orgId)
+    .maybeSingle<{ onboarding_step: number | null }>();
+
+  const onboardingStep = settings?.onboarding_step ?? 0;
+
+  if (onboardingStep < 6) {
+    // Not completed onboarding -> redirect to onboarding
     redirect("/onboarding");
   }
 
-  // Plan active -> allow dashboard
+  // Onboarding completed (step 6 = Live) -> allow dashboard
   return "/dashboard";
 }
 

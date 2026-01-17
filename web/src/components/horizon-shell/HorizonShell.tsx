@@ -10,6 +10,7 @@ import React from 'react';
 import SidebarAdapter from './SidebarAdapter';
 import { horizonNavRoutes } from './nav';
 import { HiMenu } from 'react-icons/hi';
+import ProfileWidget from './ProfileWidget';
 
 interface HorizonShellProps {
   children: React.ReactNode;
@@ -50,6 +51,10 @@ export default function HorizonShell({ children }: HorizonShellProps) {
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative">
           {/* Routes wrapper - matches Horizon structure */}
           <div>
+            {/* Sticky header with profile widget - matches DashboardHeader structure */}
+            <div className="sticky top-0 z-50 hidden h-[70px] w-full items-center justify-end bg-white/80 px-4 backdrop-blur-sm dark:bg-navy-800/80 md:px-6 lg:px-8 md:flex">
+              <ProfileWidget />
+            </div>
             {/* Minimal top bar for mobile menu only */}
             <div className="sticky top-0 z-40 flex h-[70px] w-full items-center bg-white/80 px-4 backdrop-blur-sm dark:bg-navy-800/80 md:px-6 lg:px-8 xl:hidden">
               <button

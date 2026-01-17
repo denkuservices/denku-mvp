@@ -190,6 +190,9 @@ export async function POST(req: NextRequest) {
     });
     const event: Stripe.Event = JSON.parse(body);
 
+    // Hard logging at the top after signature verification
+    console.log("[STRIPE][WEBHOOK_RECEIVED]", { type: event.type, id: event.id });
+
     logEvent({
       tag: "[BILLING][WEBHOOK][EVENT_RECEIVED]",
       ts: Date.now(),
@@ -296,6 +299,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      // Hard logging for plan activation
+      console.log("[STRIPE][PLAN_ACTIVATED]", {
+        org_id: orgId,
+        plan_code: planCode,
+        checkout_session_id: session.id,
+        subscription_id: session.subscription || null,
+      });
+
       logEvent({
         tag: "[BILLING][WEBHOOK][CHECKOUT_PLAN_ACTIVATED]",
         ts: Date.now(),
@@ -307,8 +318,125 @@ export async function POST(req: NextRequest) {
           event_type: event.type,
           session_id: session.id,
           plan_code: planCode,
+          subscription_id: session.subscription || null,
         },
       });
+
+      // Force onboarding_step = 5 (Activating) when plan is activated
+      // DB step mapping: 4 = Plan, 5 = Activating, 6 = Live
+      // This ensures user returns to onboarding (not dashboard) after Stripe checkout
+      await supabaseAdmin
+        .from("organization_settings")
+        .update({ onboarding_step: 5 })
+        .eq("org_id", orgId);
+
+      // Return 200 OK
+      return NextResponse.json({ received: true });
+    }
+
+    // Handle subscription events as backup (customer.subscription.created, customer.subscription.updated)
+    if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+      const subscription = event.data.object as Stripe.Subscription;
+      
+      // Extract metadata
+      const orgId = subscription.metadata?.org_id;
+      const planCode = subscription.metadata?.plan_code?.toLowerCase();
+
+      if (!orgId || !planCode) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][SUBSCRIPTION_MISSING_METADATA]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          severity: "warn",
+          details: {
+            event_type: event.type,
+            subscription_id: subscription.id,
+            has_org_id: !!orgId,
+            has_plan_code: !!planCode,
+          },
+        });
+        // Return 200 - do not cause retries
+        return NextResponse.json({ received: true });
+      }
+
+      // Validate plan_code
+      if (!["starter", "growth", "scale"].includes(planCode)) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][SUBSCRIPTION_INVALID_PLAN]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          severity: "warn",
+          details: {
+            event_type: event.type,
+            subscription_id: subscription.id,
+            org_id: orgId,
+            plan_code: planCode,
+          },
+        });
+        // Return 200 - do not cause retries
+        return NextResponse.json({ received: true });
+      }
+
+      // Write to org_plan_overrides (idempotent upsert)
+      const { error: overrideError } = await supabaseAdmin
+        .from("org_plan_overrides")
+        .upsert(
+          {
+            org_id: orgId,
+            plan_code: planCode,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "org_id" }
+        );
+
+      if (overrideError) {
+        logEvent({
+          tag: "[BILLING][WEBHOOK][SUBSCRIPTION_OVERRIDE_ERROR]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: orgId,
+          severity: "error",
+          details: {
+            event_type: event.type,
+            subscription_id: subscription.id,
+            plan_code: planCode,
+            error: overrideError.message,
+          },
+        });
+        // Still return 200 - we'll retry on next webhook if needed
+        return NextResponse.json({ received: true });
+      }
+
+      // Hard logging for plan activation
+      console.log("[STRIPE][PLAN_ACTIVATED]", {
+        org_id: orgId,
+        plan_code: planCode,
+        checkout_session_id: null,
+        subscription_id: subscription.id,
+      });
+
+      logEvent({
+        tag: "[BILLING][WEBHOOK][SUBSCRIPTION_PLAN_ACTIVATED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "info",
+        details: {
+          event_type: event.type,
+          subscription_id: subscription.id,
+          plan_code: planCode,
+        },
+      });
+
+      // Force onboarding_step = 5 (Activating) when plan is activated via subscription event
+      await supabaseAdmin
+        .from("organization_settings")
+        .update({ onboarding_step: 5 })
+        .eq("org_id", orgId);
 
       // Return 200 OK
       return NextResponse.json({ received: true });
