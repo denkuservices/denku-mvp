@@ -107,7 +107,13 @@ export default function ProfileDropdown({ avatarSrc = '/horizon/img/avatars/avat
 
   const handleLogout = () => {
     startTransition(async () => {
-      await signOutAction();
+      const result = await signOutAction();
+      if (!result.ok) {
+        console.error("[ProfileDropdown] Sign out failed:", result.error);
+        return;
+      }
+      // Force full page reload to /login for clean navigation and correct UI rendering
+      window.location.assign("/login");
     });
   };
 

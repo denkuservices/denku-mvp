@@ -19,7 +19,13 @@ export function AccountMenu({ userEmail, userName, orgName, userRole }: AccountM
 
   const handleSignOut = () => {
     startTransition(async () => {
-      await signOutAction();
+      const result = await signOutAction();
+      if (!result.ok) {
+        console.error("[AccountMenu] Sign out failed:", result.error);
+        return;
+      }
+      // Force full page reload to /login for clean navigation and correct UI rendering
+      window.location.assign("/login");
     });
   };
 

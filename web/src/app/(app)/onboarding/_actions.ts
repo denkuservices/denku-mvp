@@ -888,6 +888,16 @@ export async function runActivation(): Promise<
           method: "POST",
           body: JSON.stringify(provisioningPayload),
         });
+        
+        // Log successful provisioning response to see which field contains phone number
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[runActivation] Phone provisioning response:", {
+            id: phone?.id,
+            number: phone?.number,
+            phoneNumber: phone?.phoneNumber,
+            keys: phone ? Object.keys(phone) : [],
+          });
+        }
       } catch (vapiErr) {
         // Catch VAPI 400 errors and return calm user message
         const errorText = vapiErr instanceof Error ? vapiErr.message : String(vapiErr);
@@ -909,6 +919,20 @@ export async function runActivation(): Promise<
       // Get phone number (E.164 format) if available from response
       // VAPI might return it as 'number' or 'phoneNumber'
       phoneNumberE164 = phone.number || phone.phoneNumber || null;
+      
+      // If phone number not in response, try fetching it from Vapi using the phone id
+      if (!phoneNumberE164 && phone.id) {
+        try {
+          const phoneDetails = await vapiFetch<{ number?: string; phoneNumber?: string }>(`/phone-number/${phone.id}`);
+          phoneNumberE164 = phoneDetails?.number || phoneDetails?.phoneNumber || null;
+          
+          if (phoneNumberE164) {
+            console.log("[runActivation] Retrieved phone number from Vapi details:", phoneNumberE164);
+          }
+        } catch (fetchErr) {
+          console.warn("[runActivation] Could not fetch phone number details from Vapi:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
+        }
+      }
     }
 
     // 2) Create "Main Line" assistant via VAPI (skip if already created)
@@ -918,17 +942,11 @@ export async function runActivation(): Promise<
       assistant = { id: existingSettings.vapi_assistant_id };
       console.log("[runActivation] Resuming with existing assistant:", assistant.id);
     } else {
+      // Create assistant with ONLY name field (metadata removed - not supported by Vapi)
       assistant = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
         method: "POST",
         body: JSON.stringify({
           name: "Main Line",
-          metadata: {
-            org_id: orgId,
-            created_by: user.id,
-            language,
-            voice: "jennifer", // Default voice
-            timezone: "America/New_York", // Default timezone
-          },
         }),
       });
 
@@ -952,29 +970,20 @@ export async function runActivation(): Promise<
       throw new Error(`Invalid assistant.id: expected non-empty string UUID, got ${typeof assistant.id}`);
     }
     
-    // Build bind payload with ONLY assistantId (no phone fields)
+    // Build bind payload with ONLY assistantId (no phone fields, no metadata)
     const bindPayload: { assistantId: string } = { assistantId: assistant.id };
     
-    // HARD GUARD: Prevent any phone fields from being sent in binding request
-    // This ensures we never send phone/number fields which cause Vapi TypeError
-    const phoneFields = ["phone", "phoneNumber", "phone_number", "number"];
+    // HARD GUARD: Prevent any phone fields or metadata from being sent in binding request
+    // This ensures we never send phone/number/metadata fields which cause Vapi TypeError
+    // Only key-based validation (value regex incorrectly flags UUIDs)
+    const forbiddenKeys = ["phone", "phoneNumber", "phone_number", "number", "metadata"];
     const payloadKeys = Object.keys(bindPayload);
-    const hasInvalidPhoneField = payloadKeys.some((key) => 
-      phoneFields.some((field) => key.toLowerCase().includes(field.toLowerCase()))
+    const hasForbiddenKey = payloadKeys.some((key) => 
+      forbiddenKeys.some((forbidden) => key.toLowerCase().includes(forbidden.toLowerCase()))
     );
     
-    if (hasInvalidPhoneField) {
-      throw new Error("BUG: Do not send phone fields when binding a line. Use assistantId only.");
-    }
-    
-    // Also check the payload values for any phone-like strings (UUIDs should not match phone patterns)
-    const payloadValues = Object.values(bindPayload);
-    const hasPhoneLikeValue = payloadValues.some((val) => 
-      typeof val === "string" && /^\+?\d{10,}$/.test(val.replace(/\D/g, ""))
-    );
-    
-    if (hasPhoneLikeValue) {
-      throw new Error("BUG: Do not send phone fields when binding a line. Use assistantId only.");
+    if (hasForbiddenKey) {
+      throw new Error("BUG: Do not send phone fields or metadata when binding a line. Use assistantId only.");
     }
     
     try {
@@ -1033,13 +1042,14 @@ export async function runActivation(): Promise<
     }
 
     // 5) Persist phone number artifacts to organization_settings (upsert by org_id)
+    // Only include columns that exist in the table
     const { error: settingsError } = await supabaseAdmin
       .from("organization_settings")
       .upsert(
         {
           org_id: orgId,
           vapi_phone_number_id: phone.id,
-          phone_number_e164: phoneNumberE164,
+          phone_number_e164: phoneNumberE164, // May be null if Vapi didn't return it
           vapi_assistant_id: assistant.id,
           main_agent_id: agentId,
         },
@@ -1048,10 +1058,21 @@ export async function runActivation(): Promise<
 
     if (settingsError) {
       console.error("[runActivation] Error upserting organization_settings:", settingsError);
-      // Log error but continue - artifacts are persisted in agents table
+      // DO NOT advance onboarding step if settings upsert fails
+      return { ok: false, error: "Activation failed. Please try again." };
     }
 
-    // 6) Only AFTER successful DB writes: Update onboarding_step to 6 (Live) and mark as completed
+    // 6) Enforce "no live without number": Only set onboarding_step=6 when phone_number_e164 exists
+    if (!phoneNumberE164 || phoneNumberE164.trim() === "") {
+      // Phone number not available - keep at step 5 (Activating) and return error
+      console.warn("[runActivation] Phone number E164 is missing, keeping onboarding_step at 5");
+      return { 
+        ok: false, 
+        error: "We created your line, but couldn't retrieve the phone number. Retrying…" 
+      };
+    }
+
+    // 7) Only AFTER successful DB writes AND phone number exists: Update onboarding_step to 6 (Live)
     const { error: stepError } = await supabaseAdmin
       .from("organization_settings")
       .update({

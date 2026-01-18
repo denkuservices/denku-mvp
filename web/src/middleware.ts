@@ -81,7 +81,10 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // 2) Redirect authenticated users away from login page
+  // 2) Login page handling
+  // NOTE: /login is in (auth) route group and uses (auth)/layout.tsx (NOT (app)/layout.tsx with HorizonShell)
+  // /login is NOT in the middleware matcher, so this block won't run unless explicitly matched
+  // However, we check here as a guard if /login ever enters middleware context
   const isLogin = pathname === "/login";
   if (isLogin) {
     try {
@@ -92,15 +95,17 @@ export async function middleware(request: NextRequest) {
       
       if (user) {
         // User already logged in - redirect to dashboard
+        // This ensures /login page itself doesn't need to handle this redirect
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
       }
     } catch (err) {
-      // If auth check fails, allow access to login page
-      // (user might not have session, which is fine)
+      // If auth check fails, allow access to login page (user might not have session, which is fine)
       console.error("[middleware] Login page auth check error:", err);
     }
+    // Allow /login through - it uses (auth)/layout.tsx, NOT (app)/layout.tsx
+    return response;
   }
 
   // 2.5) Onboarding route - never apply plan gating, allow through after basic auth check
@@ -193,36 +198,34 @@ export async function middleware(request: NextRequest) {
           return response;
         }
         
-        // Check plan active status for all other /dashboard paths
-        const { data: planRow, error: planErr } = await supabaseAdmin
-          .from("org_plan_limits")
-          .select("plan_code")
+        // Check onboarding_step for all other /dashboard paths
+        // Dashboard allowed ONLY when onboarding_step >= 6 (Live)
+        // Plan status alone does NOT grant dashboard access - must complete activation
+        const { data: settings, error: settingsErr } = await supabaseAdmin
+          .from("organization_settings")
+          .select("onboarding_step")
           .eq("org_id", orgId)
-          .single<{ plan_code: string | null }>();
+          .maybeSingle<{ onboarding_step: number | null }>();
 
-        let planActive = false;
-        if (planErr) {
-          // If error indicates "no rows", treat as plan inactive
-          if (planErr.code === "PGRST116" || planErr.message?.includes("No rows")) {
-            planActive = false;
-          } else {
-            // Other error (network, permissions, etc.) - FAIL OPEN: allow /dashboard to prevent ping-pong loops
-            console.error("[middleware] Plan check error (failing open to prevent loops):", planErr.message);
-            return response;
-          }
+        let onboardingStep = 0;
+        if (settingsErr) {
+          // Error fetching settings - FAIL OPEN: allow /dashboard to prevent ping-pong loops
+          console.error("[middleware] Onboarding step check error (failing open to prevent loops):", settingsErr.message);
+          return response;
         } else {
-          // No error - check if plan_code exists
-          planActive = !!planRow?.plan_code;
+          // No error - get onboarding_step (default to 0 if null)
+          onboardingStep = settings?.onboarding_step ?? 0;
         }
 
-        if (!planActive) {
-          // Plan not active → redirect to onboarding
+        // Only allow dashboard when onboarding_step >= 6 (Live)
+        // Do NOT check plan status - plan can be active but activation incomplete
+        if (onboardingStep < 6) {
+          // Onboarding not complete → redirect to onboarding
           // Temporary debug log
           console.log("[middleware] redirect -> /onboarding", {
             pathname,
             orgId,
-            plan_code: planRow?.plan_code,
-            planErr: planErr?.message,
+            onboarding_step: onboardingStep,
           });
           // Preserve query params if present
           const url = request.nextUrl.clone();
@@ -241,7 +244,7 @@ export async function middleware(request: NextRequest) {
         }
       }
 
-      // User authenticated, email confirmed, and plan active → allow access
+      // User authenticated, email confirmed, and onboarding complete (step >= 6) → allow access
       return response;
     } catch (err) {
       // Error creating Supabase client or fetching user
@@ -261,6 +264,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // NOTE: /login is intentionally EXCLUDED from matcher
+  // /login uses (auth)/layout.tsx and should NEVER enter this middleware
+  // Only /dashboard and /onboarding routes go through app-protection middleware
   matcher: [
     "/admin/:path*",
     "/api/admin/:path*",

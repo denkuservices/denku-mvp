@@ -86,12 +86,23 @@ async function handleCheckoutSuccess(sessionId: string) {
     const isPlanActive = !!planLimits?.plan_code;
 
     if (isPlanActive) {
-      // Plan is active - set onboarding_step = 5 (Activating, DB step 5 = UI step 4)
+      // Plan is active - set onboarding_step = 5 (Activating, DB step 5 = UI step 4) if current step < 5
       // DB step mapping: 4 = Plan, 5 = Activating, 6 = Live
-      await supabaseAdmin
+      // Only update step if current step < 5 (don't downgrade if already at Activating or Live)
+      const { data: currentSettings } = await supabaseAdmin
         .from("organization_settings")
-        .update({ onboarding_step: 5 })
-        .eq("org_id", orgId);
+        .select("onboarding_step")
+        .eq("org_id", orgId)
+        .maybeSingle<{ onboarding_step: number | null }>();
+
+      const currentStep = currentSettings?.onboarding_step ?? 0;
+      
+      if (currentStep < 5) {
+        await supabaseAdmin
+          .from("organization_settings")
+          .update({ onboarding_step: 5 })
+          .eq("org_id", orgId);
+      }
 
       console.log("[onboarding/page] Plan activated via checkout session", {
         session_id: sessionId,
@@ -126,18 +137,13 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     
     const state = await getOnboardingState();
     
-    // CRITICAL: If plan_code exists, user has paid - redirect to dashboard immediately
-    // This is the canonical rule: org_plan_limits.plan_code presence = onboarding complete
-    if (state.planCode) {
-      redirect("/dashboard");
-    }
-    
     // getOnboardingState() now only reads state - no auto-advance or redirects
     // Webhook handles step updates on plan activation (sets step to 5 = Activating)
     
     // Redirect to dashboard ONLY when onboarding is complete (UI step 5 = Live, DB step >= 6)
     // This is the ONLY place onboarding redirects to dashboard (one-way gate)
-    // Dashboard will redirect back if step < 6, preventing ping-pong loops
+    // Dashboard will redirect back if onboarding_step < 6, preventing ping-pong loops
+    // CRITICAL: Do NOT redirect based on plan status - only on onboarding_step === 5 (UI) / >= 6 (DB)
     if (state.onboardingStep === 5) {
       redirect("/dashboard");
     }
