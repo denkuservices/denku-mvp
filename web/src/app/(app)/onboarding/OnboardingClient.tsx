@@ -46,6 +46,7 @@ type OnboardingState = {
   hasPhoneNumber: boolean;
   phoneNumber: string | null;
   phoneNumberE164?: string | null;
+  phoneNumberSipUri?: string | null;
   vapiPhoneNumberId?: string | null;
   vapiAssistantId?: string | null;
   needsOrgSetup?: boolean;
@@ -436,10 +437,18 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
   };
 
-  // SSR-safe and null-safe phone number display
+  const handleCopySipUri = () => {
+    const sipUri = state.phoneNumberSipUri ?? null;
+    if (sipUri && typeof window !== "undefined") {
+      navigator.clipboard.writeText(sipUri);
+    }
+  };
+
   // SSR-safe and null-safe phone number display
   // Prefer phoneNumberE164 from state (DB truth), fallback to phoneNumber or provisionedPhoneNumber
   const displayPhoneNumber = state.phoneNumberE164 ?? state.phoneNumber ?? provisionedPhoneNumber ?? null;
+  // SIP URI for provider="vapi" lines (may exist when E164 doesn't)
+  const displaySipUri = state.phoneNumberSipUri ?? null;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -1045,18 +1054,35 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Your AI phone line is live</h2>
                 <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  {displayPhoneNumber
-                    ? "Your phone number is ready to receive calls."
+                  {displayPhoneNumber || displaySipUri
+                    ? displayPhoneNumber 
+                      ? "Your phone number is ready to receive calls."
+                      : "Your SIP line is ready to receive calls."
                     : "Your phone number is being set up."}
                 </p>
               </div>
 
               <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
-                <div className="flex items-center justify-center gap-3">
+                <div className="flex flex-col items-center gap-3">
                   <Phone className="h-6 w-6 text-zinc-600 dark:text-zinc-400" />
-                  <span className="text-xl font-semibold text-zinc-900 dark:text-white">
-                    {displayPhoneNumber || "Number will appear here once provisioning completes."}
-                  </span>
+                  {displayPhoneNumber ? (
+                    <span className="text-xl font-semibold text-zinc-900 dark:text-white">
+                      {displayPhoneNumber}
+                    </span>
+                  ) : displaySipUri ? (
+                    <>
+                      <span className="text-xl font-semibold text-zinc-900 dark:text-white break-all text-center">
+                        {displaySipUri}
+                      </span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Use SIP INVITE to test
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-xl font-semibold text-zinc-900 dark:text-white">
+                      Number will appear here once provisioning completes.
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1074,6 +1100,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       </a>
                     </Button>
                   </>
+                )}
+                {displaySipUri && !displayPhoneNumber && (
+                  <Button variant="outline" onClick={handleCopySipUri}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy SIP URI
+                  </Button>
                 )}
                 <Button variant="primary" onClick={handleComplete} disabled={isPending}>
                   Go to dashboard

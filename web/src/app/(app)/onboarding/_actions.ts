@@ -242,6 +242,7 @@ export async function getOnboardingState() {
   // 14) Get phone number from organization_settings (authoritative source for Main Line)
   // Phone number artifacts are stored in organization_settings after activation completes
   const phoneNumberE164 = (settings as any)?.phone_number_e164 || null;
+  const phoneNumberSipUri = (settings as any)?.phone_number_sip_uri || null;
   const vapiPhoneNumberId = (settings as any)?.vapi_phone_number_id || null;
   const vapiAssistantId = (settings as any)?.vapi_assistant_id || null;
   const mainAgentId = (settings as any)?.main_agent_id || null;
@@ -275,6 +276,7 @@ export async function getOnboardingState() {
     hasPhoneNumber,
     phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
     phoneNumberE164, // Also include as separate field for clarity
+    phoneNumberSipUri, // SIP URI for provider="vapi" lines
     vapiPhoneNumberId, // From organization_settings
     vapiAssistantId, // From organization_settings
     needsOrgSetup: false,
@@ -786,7 +788,8 @@ export async function activatePhoneNumber(
 }
 
 type VapiCreateAssistantResponse = { id: string };
-type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?: string };
+type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?: string; sipUri?: string };
+type VapiPhoneNumberDetails = { id: string; number?: string; phoneNumber?: string; phone_number?: string; sipUri?: string };
 
 /**
  * Run activation pipeline: provision phone, create Main Line agent, bind number to agent.
@@ -794,7 +797,7 @@ type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?
  * Called automatically when user reaches Step 4 (Activating).
  */
 export async function runActivation(): Promise<
-  { ok: true; phoneNumberE164: string | null; vapiPhoneNumberId: string; vapiAssistantId: string } | { ok: false; error: string }
+  { ok: true; phoneNumberE164: string | null; phoneNumberSipUri: string | null; vapiPhoneNumberId: string; vapiAssistantId: string } | { ok: false; error: string }
 > {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -852,17 +855,19 @@ export async function runActivation(): Promise<
   // Idempotency check: If activation partially succeeded, resume from existing artifacts
   const { data: existingSettings } = await supabaseAdmin
     .from("organization_settings")
-    .select("vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164")
+    .select("vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164, phone_number_sip_uri")
     .eq("org_id", orgId)
     .maybeSingle<{
       vapi_phone_number_id: string | null;
       vapi_assistant_id: string | null;
       main_agent_id: string | null;
       phone_number_e164: string | null;
+      phone_number_sip_uri?: string | null;
     }>();
 
   let phone: VapiCreatePhoneNumberResponse;
   let phoneNumberE164: string | null = null;
+  let phoneNumberSipUri: string | null = null;
   let assistant: VapiCreateAssistantResponse;
   let agentId: string | null = null;
 
@@ -871,7 +876,9 @@ export async function runActivation(): Promise<
     if (existingSettings?.vapi_phone_number_id) {
       // Resume: reuse existing phone number ID
       phone = { id: existingSettings.vapi_phone_number_id };
-      phoneNumberE164 = existingSettings.phone_number_e164;
+      phoneNumberE164 = existingSettings.phone_number_e164 || null;
+      // Try to get SIP URI from existing settings if available
+      phoneNumberSipUri = (existingSettings as any)?.phone_number_sip_uri || null;
       console.log("[runActivation] Resuming with existing phone number:", phone.id);
     } else {
       // Provision new phone number
@@ -916,22 +923,25 @@ export async function runActivation(): Promise<
         return { ok: false, error: "Failed to provision phone number. Please try again." };
       }
 
-      // Get phone number (E.164 format) if available from response
-      // VAPI might return it as 'number' or 'phoneNumber'
-      phoneNumberE164 = phone.number || phone.phoneNumber || null;
-      
-      // If phone number not in response, try fetching it from Vapi using the phone id
-      if (!phoneNumberE164 && phone.id) {
-        try {
-          const phoneDetails = await vapiFetch<{ number?: string; phoneNumber?: string }>(`/phone-number/${phone.id}`);
-          phoneNumberE164 = phoneDetails?.number || phoneDetails?.phoneNumber || null;
-          
-          if (phoneNumberE164) {
-            console.log("[runActivation] Retrieved phone number from Vapi details:", phoneNumberE164);
-          }
-        } catch (fetchErr) {
-          console.warn("[runActivation] Could not fetch phone number details from Vapi:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
-        }
+      // Immediately GET /phone-number/{id} to get sipUri and e164 (provider="vapi" returns sipUri)
+      try {
+        const phoneDetails = await vapiFetch<VapiPhoneNumberDetails>(`/phone-number/${phone.id}`);
+        
+        // Parse BOTH sipUri and e164 from response
+        phoneNumberSipUri = phoneDetails?.sipUri ?? null;
+        phoneNumberE164 = phoneDetails?.number ?? phoneDetails?.phoneNumber ?? phoneDetails?.phone_number ?? null;
+        
+        // Log phone details after GET
+        console.log("[runActivation] Phone details from GET /phone-number/{id}:", {
+          id: phoneDetails?.id,
+          sipUri: phoneNumberSipUri,
+          number: phoneNumberE164,
+        });
+      } catch (fetchErr) {
+        // If GET fails, try to get from POST response as fallback
+        phoneNumberSipUri = phone.sipUri ?? null;
+        phoneNumberE164 = phone.number || phone.phoneNumber || null;
+        console.warn("[runActivation] Could not fetch phone details from Vapi, using POST response:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
       }
     }
 
@@ -1042,33 +1052,62 @@ export async function runActivation(): Promise<
     }
 
     // 5) Persist phone number artifacts to organization_settings (upsert by org_id)
-    // Only include columns that exist in the table
+    // Build upsert payload with defensive handling for optional columns
+    const settingsPayload: Record<string, unknown> = {
+      org_id: orgId,
+      vapi_phone_number_id: phone.id,
+      vapi_assistant_id: assistant.id,
+      phone_number_e164: phoneNumberE164, // May be null for SIP lines
+      phone_number_sip_uri: phoneNumberSipUri, // SIP URI for provider="vapi"
+    };
+    
+    // Only include main_agent_id if agentId exists (column may not exist in schema)
+    // If upsert fails due to missing column, we'll handle it gracefully
+    if (agentId) {
+      settingsPayload.main_agent_id = agentId;
+    }
+    
     const { error: settingsError } = await supabaseAdmin
       .from("organization_settings")
-      .upsert(
-        {
-          org_id: orgId,
-          vapi_phone_number_id: phone.id,
-          phone_number_e164: phoneNumberE164, // May be null if Vapi didn't return it
-          vapi_assistant_id: assistant.id,
-          main_agent_id: agentId,
-        },
-        { onConflict: "org_id" }
-      );
+      .upsert(settingsPayload, { onConflict: "org_id" });
 
     if (settingsError) {
       console.error("[runActivation] Error upserting organization_settings:", settingsError);
-      // DO NOT advance onboarding step if settings upsert fails
-      return { ok: false, error: "Activation failed. Please try again." };
+      
+      // If error is due to missing main_agent_id column, retry without it
+      if (settingsError.message?.includes("main_agent_id") || settingsError.code === "PGRST204") {
+        console.warn("[runActivation] main_agent_id column missing, retrying without it");
+        const { error: retryError } = await supabaseAdmin
+          .from("organization_settings")
+          .upsert(
+            {
+              org_id: orgId,
+              vapi_phone_number_id: phone.id,
+              vapi_assistant_id: assistant.id,
+              phone_number_e164: phoneNumberE164,
+              phone_number_sip_uri: phoneNumberSipUri,
+              // Skip main_agent_id if column doesn't exist
+            },
+            { onConflict: "org_id" }
+          );
+          
+        if (retryError) {
+          console.error("[runActivation] Error upserting organization_settings (retry):", retryError);
+          return { ok: false, error: "Activation failed. Please try again." };
+        }
+      } else {
+        // Other error - fail
+        return { ok: false, error: "Activation failed. Please try again." };
+      }
     }
 
-    // 6) Enforce "no live without number": Only set onboarding_step=6 when phone_number_e164 exists
-    if (!phoneNumberE164 || phoneNumberE164.trim() === "") {
-      // Phone number not available - keep at step 5 (Activating) and return error
-      console.warn("[runActivation] Phone number E164 is missing, keeping onboarding_step at 5");
+    // 6) Enforce "no live without number": Only set onboarding_step=6 when sipUri OR e164 exists
+    if ((!phoneNumberSipUri || phoneNumberSipUri.trim() === "") && (!phoneNumberE164 || phoneNumberE164.trim() === "")) {
+      // Neither SIP URI nor E164 available - keep at step 5 (Activating) and return error
+      console.warn("[runActivation] Neither SIP URI nor E164 is available, keeping onboarding_step at 5");
       return { 
         ok: false, 
-        error: "We created your line, but couldn't retrieve the phone number. Retrying…" 
+        error: "Provisioned line, waiting for SIP/number assignment" 
       };
     }
 
@@ -1093,11 +1132,13 @@ export async function runActivation(): Promise<
       vapiPhoneNumberId: phone.id,
       vapiAssistantId: assistant.id,
       phoneNumberE164: phoneNumberE164 || null,
+      phoneNumberSipUri: phoneNumberSipUri || null,
     });
 
     return { 
       ok: true, 
       phoneNumberE164: phoneNumberE164 || null,
+      phoneNumberSipUri: phoneNumberSipUri || null,
       vapiPhoneNumberId: phone.id,
       vapiAssistantId: assistant.id,
     };
