@@ -54,15 +54,67 @@ export async function saveWorkspaceAction(formData: FormData) {
 export async function saveGoalAndLanguageAction(formData: FormData) {
   const orgId = formData.get("orgId")?.toString();
   const goal = formData.get("goal")?.toString() || "support";
-  const language = formData.get("language")?.toString() || "en";
   
-  console.log("[onboarding submit] step 1 (goal + language)");
+  console.log("[onboarding submit] step 1 (goal)");
+
+  if (!orgId) {
+    return { ok: false, error: "Organization ID is missing." };
+  }
+
+  const result = await saveOnboardingPreferences(orgId, { goal });
+  return result;
+}
+
+/**
+ * Form action: Save phone preferences (country + area code) and advance to plan selection
+ */
+export async function savePhonePreferences(formData: FormData) {
+  const orgId = formData.get("orgId")?.toString();
+  const country = formData.get("country")?.toString() || "US";
+  const areaCode = formData.get("areaCode")?.toString()?.trim() || null;
+  
+  console.log("[onboarding submit] step 2 (phone intent -> plan)", { country, areaCode });
   
   if (!orgId) {
     return { ok: false, error: "Organization ID is missing." };
   }
-  
-  const result = await saveOnboardingPreferences(orgId, { goal, language });
+
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Verify user has access to this org
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Normalize area code: if provided, ensure it's exactly 3 digits
+  const normalizedAreaCode = areaCode && areaCode.length === 3 ? areaCode : null;
+
+  // Update orgs table with phone preferences
+  const { error: orgError } = await supabaseAdmin
+    .from("orgs")
+    .update({
+      phone_country_code: country,
+      phone_desired_area_code: normalizedAreaCode,
+    })
+    .eq("id", orgId);
+
+  if (orgError) {
+    console.error("[savePhonePreferences] Error updating orgs:", orgError);
+    // If columns don't exist, log but continue (columns will be added via migration)
+    if (orgError.code === "PGRST204" || orgError.message?.includes("column") || orgError.message?.includes("does not exist")) {
+      console.warn("[savePhonePreferences] phone_country_code/phone_desired_area_code columns may not exist yet, continuing");
+    } else {
+      return { ok: false, error: orgError.message };
+    }
+  }
+
+  // Advance to plan step
+  const result = await setOnboardingStepToPlan(orgId);
   return result;
 }
 
@@ -345,7 +397,7 @@ export async function updateOnboardingStep(orgId: string, step: number) {
  */
 export async function saveOnboardingPreferences(
   orgId: string,
-  preferences: { goal: string; language: string }
+  preferences: { goal: string }
 ) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -388,16 +440,13 @@ export async function saveOnboardingPreferences(
   }
 
   // Update organization_settings with preferences
-  // DB step mapping: 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
-  // Since Goal and Language are combined in UI, Goal+Language submit advances to Phone Intent (step 3)
-  // User requirement: "Goal submit should set onboarding_step = 2 (Language)" and "Language submit should set onboarding_step = 3 (Phone intent)"
-  // Combined: Goal+Language -> step 3 (Phone Intent)
+  // DB step mapping: 1 = Goal, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+  // Goal submit advances to Phone Intent (step 3)
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 3, // Move to step 3 (Phone Intent) - completing both Goal and Language
+      onboarding_step: 3, // Move to step 3 (Phone Intent) after Goal selection
       onboarding_goal: preferences.goal,
-      onboarding_language: preferences.language,
     })
     .eq("org_id", orgId);
 
@@ -788,8 +837,8 @@ export async function activatePhoneNumber(
 }
 
 type VapiCreateAssistantResponse = { id: string };
-type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?: string; sipUri?: string };
-type VapiPhoneNumberDetails = { id: string; number?: string; phoneNumber?: string; phone_number?: string; sipUri?: string };
+type VapiCreatePhoneNumberResponse = { id: string; number?: string; phoneNumber?: string; status?: string };
+type VapiPhoneNumberDetails = { id: string; number?: string; phoneNumber?: string; status?: "activating" | "active" | string };
 
 /**
  * Run activation pipeline: provision phone, create Main Line agent, bind number to agent.
@@ -865,208 +914,350 @@ export async function runActivation(): Promise<
       phone_number_sip_uri?: string | null;
     }>();
 
-  let phone: VapiCreatePhoneNumberResponse;
+  let phone: VapiCreatePhoneNumberResponse | null = null;
   let phoneNumberE164: string | null = null;
-  let phoneNumberSipUri: string | null = null;
   let assistant: VapiCreateAssistantResponse;
   let agentId: string | null = null;
 
   try {
-    // 1) Provision phone number via VAPI (skip if already provisioned)
-    if (existingSettings?.vapi_phone_number_id) {
-      // Resume: reuse existing phone number ID
-      phone = { id: existingSettings.vapi_phone_number_id };
-      phoneNumberE164 = existingSettings.phone_number_e164 || null;
-      // Try to get SIP URI from existing settings if available
-      phoneNumberSipUri = (existingSettings as any)?.phone_number_sip_uri || null;
-      console.log("[runActivation] Resuming with existing phone number:", phone.id);
-    } else {
-      // Provision new phone number
-      const provisioningPayload = {
-        provider: "vapi" as const,
-      };
-      
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[runActivation] provisioning payload keys:", Object.keys(provisioningPayload));
-      }
-
-      try {
-        phone = await vapiFetch<VapiCreatePhoneNumberResponse>("/phone-number", {
-          method: "POST",
-          body: JSON.stringify(provisioningPayload),
-        });
-        
-        // Log successful provisioning response to see which field contains phone number
-        if (process.env.NODE_ENV !== "production") {
-          console.log("[runActivation] Phone provisioning response:", {
-            id: phone?.id,
-            number: phone?.number,
-            phoneNumber: phone?.phoneNumber,
-            keys: phone ? Object.keys(phone) : [],
-          });
-        }
-      } catch (vapiErr) {
-        // Catch VAPI 400 errors and return calm user message
-        const errorText = vapiErr instanceof Error ? vapiErr.message : String(vapiErr);
-        console.error("[runActivation] VAPI phone provisioning error:", errorText);
-        
-        // Check if it's a 400 error (bad request)
-        if (errorText.includes("400") || errorText.includes("should not exist") || errorText.includes("must be")) {
-          return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
-        }
-        
-        // For other errors, return generic message
-        return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
-      }
-
-      if (!phone?.id) {
-        return { ok: false, error: "Failed to provision phone number. Please try again." };
-      }
-
-      // Immediately GET /phone-number/{id} to get sipUri and e164 (provider="vapi" returns sipUri)
-      try {
-        const phoneDetails = await vapiFetch<VapiPhoneNumberDetails>(`/phone-number/${phone.id}`);
-        
-        // Parse BOTH sipUri and e164 from response
-        phoneNumberSipUri = phoneDetails?.sipUri ?? null;
-        phoneNumberE164 = phoneDetails?.number ?? phoneDetails?.phoneNumber ?? phoneDetails?.phone_number ?? null;
-        
-        // Log phone details after GET
-        console.log("[runActivation] Phone details from GET /phone-number/{id}:", {
-          id: phoneDetails?.id,
-          sipUri: phoneNumberSipUri,
-          number: phoneNumberE164,
-        });
-      } catch (fetchErr) {
-        // If GET fails, try to get from POST response as fallback
-        phoneNumberSipUri = phone.sipUri ?? null;
-        phoneNumberE164 = phone.number || phone.phoneNumber || null;
-        console.warn("[runActivation] Could not fetch phone details from Vapi, using POST response:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
-      }
-    }
-
-    // 2) Create "Main Line" assistant via VAPI (skip if already created)
-    const language = settings?.onboarding_language || "en";
+    // A) Resolve org_id and ensure plan is ACTIVE (already done above)
+    
+    // 1) Ensure Main Line assistant exists (DB lookup by org_id; if missing create in Vapi; persist vapi_assistant_id)
     if (existingSettings?.vapi_assistant_id) {
-      // Resume: reuse existing assistant ID
+      // Idempotent: reuse existing assistant ID from DB
       assistant = { id: existingSettings.vapi_assistant_id };
-      console.log("[runActivation] Resuming with existing assistant:", assistant.id);
+      console.log("[runActivation] Resuming with existing assistant from DB:", assistant.id);
     } else {
-      // Create assistant with ONLY name field (metadata removed - not supported by Vapi)
+      // Get workspace name for interpolation
+      const { data: org } = await supabaseAdmin
+        .from("orgs")
+        .select("name")
+        .eq("id", orgId)
+        .maybeSingle<{ name: string | null }>();
+      
+      const workspaceName = org?.name?.trim() || "your company"; // Safe fallback
+
+      // Get base URL for tools serverUrl
+      const baseUrl = getBaseUrl();
+      const toolsServerUrl = `${baseUrl}/api/tools`;
+
+      // Create assistant in Vapi with Main Line defaults
+      // Note: Do NOT send top-level "tools" field (it causes 400). ToolIds will be merged via PATCH after creation.
+      const assistantPayload = {
+        name: "Main Line",
+        firstMessage: `Hi — thanks for calling ${workspaceName}. How can I help today?`,
+        model: {
+          provider: "openai",
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `You are the phone assistant for ${workspaceName}.
+Be concise, friendly, and solution-oriented.
+If the caller has an issue to track or needs help from a human, create a ticket using the create_ticket tool.
+If the caller wants to book time or an appointment, use the create_appointment tool.
+Always confirm the caller's name, phone number, and a short summary before submitting.`,
+            },
+          ],
+        },
+        serverUrl: toolsServerUrl,
+        // Tools will be added via model.toolIds in PATCH after creation (see toolIds merge below)
+      };
+
       assistant = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
         method: "POST",
-        body: JSON.stringify({
-          name: "Main Line",
-        }),
+        body: JSON.stringify(assistantPayload),
       });
 
       if (!assistant?.id) {
         return { ok: false, error: "Failed to create Main Line agent. Please try again." };
       }
+      
+      // Persist vapi_assistant_id to DB immediately (idempotent)
+      const { error: persistAssistantError } = await supabaseAdmin
+        .from("organization_settings")
+        .upsert({ org_id: orgId, vapi_assistant_id: assistant.id }, { onConflict: "org_id" });
+      
+      if (persistAssistantError) {
+        console.error("[runActivation] Error persisting vapi_assistant_id:", persistAssistantError);
+        // Continue anyway - assistant was created in Vapi
+      }
+      
+      console.log("[runActivation] Created and persisted new assistant:", assistant.id);
     }
 
-    // 3) Bind phone number to assistant (idempotent - safe to call multiple times)
-    // CRITICAL: Only send assistantId - do NOT include any phone number fields
-    // Vapi expects: { assistantId: string } for binding
-    const bindPath = `/phone-number/${phone.id}`;
-    
-    // Validate phone.id is a valid UUID string (not a phone number E164)
-    if (typeof phone.id !== "string" || !phone.id) {
-      throw new Error(`Invalid phone.id: expected non-empty string UUID, got ${typeof phone.id}`);
-    }
-    
-    // Validate assistantId is a string (UUID)
-    if (typeof assistant.id !== "string" || !assistant.id) {
-      throw new Error(`Invalid assistant.id: expected non-empty string UUID, got ${typeof assistant.id}`);
-    }
-    
-    // Build bind payload with ONLY assistantId (no phone fields, no metadata)
-    const bindPayload: { assistantId: string } = { assistantId: assistant.id };
-    
-    // HARD GUARD: Prevent any phone fields or metadata from being sent in binding request
-    // This ensures we never send phone/number/metadata fields which cause Vapi TypeError
-    // Only key-based validation (value regex incorrectly flags UUIDs)
-    const forbiddenKeys = ["phone", "phoneNumber", "phone_number", "number", "metadata"];
-    const payloadKeys = Object.keys(bindPayload);
-    const hasForbiddenKey = payloadKeys.some((key) => 
-      forbiddenKeys.some((forbidden) => key.toLowerCase().includes(forbidden.toLowerCase()))
-    );
-    
-    if (hasForbiddenKey) {
-      throw new Error("BUG: Do not send phone fields or metadata when binding a line. Use assistantId only.");
-    }
+    // Ensure toolIds are merged into assistant model config (idempotent)
+    const defaultToolIds = [
+      "6c9b0279-dd71-4511-827f-a3e75b884773", // create_ticket
+      "5373add8-b7d2-49f0-a866-f60167a1e624", // create_appointment
+    ];
     
     try {
-      await vapiFetch(bindPath, {
-        method: "PATCH",
-        body: JSON.stringify(bindPayload),
+      // 1) GET /assistant/{assistantId} to read current model config
+      const currentAssistant = await vapiFetch<any>(`/assistant/${assistant.id}`, {
+        method: "GET",
       });
-    } catch (bindErr) {
-      const errorText = bindErr instanceof Error ? bindErr.message : String(bindErr);
-      console.error("[runActivation] VAPI phone binding error:", errorText, {
-        path: bindPath,
-        payload: bindPayload,
-        phoneId: phone.id,
-        assistantId: assistant.id,
-      });
-      
-      // Check if it's a phone number validation error
-      if (errorText.includes("phone number must either be a string") || errorText.includes("TypeError")) {
-        return { ok: false, error: "We couldn't bind your phone number. Please try again in a minute." };
+
+      if (!currentAssistant?.model) {
+        console.warn("[runActivation] Assistant model config not found, skipping toolIds merge");
+      } else {
+        // 2) Merge toolIds with defaults (ensure uniqueness)
+        const existingToolIds = (currentAssistant.model.toolIds || []) as string[];
+        const mergedToolIds = Array.from(new Set([...existingToolIds, ...defaultToolIds]));
+        
+        // Only update if toolIds actually changed (idempotent)
+        const needsUpdate = mergedToolIds.length !== existingToolIds.length || 
+          !defaultToolIds.every(id => existingToolIds.includes(id));
+        
+        if (needsUpdate) {
+          // 3) PATCH /assistant/{assistantId} with model = existingModel + merged toolIds
+          // Do NOT send top-level "tools" field (it causes 400)
+          const updatePayload = {
+            model: {
+              ...currentAssistant.model,
+              toolIds: mergedToolIds,
+            },
+          };
+
+          await vapiFetch(`/assistant/${assistant.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(updatePayload),
+          });
+
+          console.log("[runActivation] Merged toolIds into assistant model config:", {
+            assistantId: assistant.id,
+            mergedToolIds,
+            existingToolIds: existingToolIds.length > 0 ? existingToolIds : "none",
+          });
+        } else {
+          console.log("[runActivation] Assistant toolIds already up-to-date, skipping merge");
+        }
       }
-      
-      // Re-throw other errors
-      throw bindErr;
+    } catch (toolIdsErr) {
+      const errorText = toolIdsErr instanceof Error ? toolIdsErr.message : String(toolIdsErr);
+      console.error("[runActivation] Error merging toolIds (non-fatal, continuing):", errorText);
+      // Continue anyway - activation can proceed without toolIds merge
     }
 
-    // 4) Insert agent record into agents table (skip if main_agent_id exists)
-    if (existingSettings?.main_agent_id) {
-      // Resume: reuse existing agent
-      agentId = existingSettings.main_agent_id;
-      console.log("[runActivation] Resuming with existing agent:", agentId);
+    // 2) Provision PSTN number using: POST /phone-number { provider:'vapi', numberDesiredAreaCode:'321', assistantId:<vapi_assistant_id> }
+    if (existingSettings?.vapi_phone_number_id) {
+      // Resume: reuse existing phone number ID
+      phone = { id: existingSettings.vapi_phone_number_id };
+      phoneNumberE164 = existingSettings.phone_number_e164 || null;
+      console.log("[runActivation] Resuming with existing phone number:", phone.id);
+      
+      // If phone number exists but E164 is missing, fetch it
+      if (!phoneNumberE164 && phone.id) {
+        try {
+          const phoneDetails = await vapiFetch<VapiPhoneNumberDetails>(`/phone-number/${phone.id}`);
+          phoneNumberE164 = phoneDetails?.number ?? phoneDetails?.phoneNumber ?? null;
+        } catch (fetchErr) {
+          console.warn("[runActivation] Could not fetch existing phone details:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
+        }
+      }
     } else {
-      // Create new agent record (DO NOT include phone_number - that column doesn't exist)
-      const { data: newAgent, error: agentError } = await supabaseAdmin
-        .from("agents")
-        .insert({
-          org_id: orgId,
-          name: "Main Line",
-          language,
-          voice: "jennifer",
-          timezone: "America/New_York",
-          created_by: user.id,
-          vapi_assistant_id: assistant.id,
-          vapi_phone_number_id: phone.id,
-          // NOTE: phone_number column does NOT exist in agents table - removed
-        })
-        .select("id")
-        .single<{ id: string }>();
+      // Get stored area code from orgs table (with fallback to "321")
+      const { data: org } = await supabaseAdmin
+        .from("orgs")
+        .select("phone_desired_area_code")
+        .eq("id", orgId)
+        .maybeSingle<{ phone_desired_area_code: string | null }>();
+      
+      let desiredAreaCode = org?.phone_desired_area_code?.trim() || null;
+      
+      // Validate area code is 3 digits (safety check)
+      if (desiredAreaCode && desiredAreaCode.length !== 3) {
+        console.warn("[runActivation] Invalid area code length, using fallback:", desiredAreaCode);
+        desiredAreaCode = null;
+      }
+      
+      // Use stored area code if valid, otherwise fallback to "321"
+      const areaCodeToUse = desiredAreaCode || "321";
+      
+      // Provision new phone number WITH assistantId at CREATE time (no PATCH binding needed)
+      const provisioningPayload = {
+        provider: "vapi" as const,
+        numberDesiredAreaCode: areaCodeToUse,
+        assistantId: assistant.id, // Bind at creation time
+      };
+      
+      console.log("[runActivation] Provisioning PSTN phone with assistantId:", {
+        areaCode: provisioningPayload.numberDesiredAreaCode,
+        assistantId: assistant.id,
+        isUserProvided: !!desiredAreaCode,
+      });
 
-      if (agentError) {
-        console.error("[runActivation] Error inserting agent:", agentError);
-        // Do NOT set onboarding_step=6 if agent insert fails
-        return { ok: false, error: "We couldn't finish setting up your Main Line. Please try again." };
+      let provisioningAttempt = 0;
+      const maxAttempts = 2;
+      let lastError: Error | null = null;
+
+      // Retry logic: if user-provided area code fails, retry with "321"
+      while (provisioningAttempt < maxAttempts) {
+        try {
+          phone = await vapiFetch<VapiCreatePhoneNumberResponse>("/phone-number", {
+            method: "POST",
+            body: JSON.stringify(provisioningPayload),
+          });
+          
+          console.log("[runActivation] Phone provisioning response:", {
+            id: phone?.id,
+            number: phone?.number,
+            phoneNumber: phone?.phoneNumber,
+            status: phone?.status,
+            attempt: provisioningAttempt + 1,
+          });
+          
+          // Success - break out of retry loop
+          break;
+        } catch (vapiErr) {
+          lastError = vapiErr instanceof Error ? vapiErr : new Error(String(vapiErr));
+          const errorText = lastError.message;
+          
+          console.error(`[runActivation] VAPI phone provisioning error (attempt ${provisioningAttempt + 1}):`, errorText);
+          
+          // If this was the first attempt with user-provided area code and it failed, retry with "321"
+          if (provisioningAttempt === 0 && desiredAreaCode && areaCodeToUse === desiredAreaCode) {
+            console.log("[runActivation] Retrying with fallback area code 321");
+            provisioningPayload.numberDesiredAreaCode = "321";
+            provisioningAttempt++;
+            continue;
+          }
+          
+          // Otherwise, return error
+          if (errorText.includes("400") || errorText.includes("should not exist") || errorText.includes("must be")) {
+            return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
+          }
+          
+          return { ok: false, error: "We couldn't provision your number. Please try again in a minute." };
+        }
+      }
+      
+      // If we exhausted retries, return error
+      if (!phone?.id) {
+        return { ok: false, error: "Failed to provision phone number. Please try again." };
       }
 
-      agentId = newAgent.id;
+      // E) Handle status: If status === "activating", poll until "active" or get details
+      // Get phone details immediately to check status and get phone_number_e164
+      let phoneStatus = phone.status;
+      let pollAttempts = 0;
+      const maxPolls = 10; // Poll up to 10 times (5 seconds with 500ms delay)
+      
+      while (phoneStatus === "activating" && pollAttempts < maxPolls) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before next poll
+        pollAttempts++;
+        
+        try {
+          const phoneDetails = await vapiFetch<VapiPhoneNumberDetails>(`/phone-number/${phone.id}`);
+          phoneStatus = phoneDetails?.status || "activating";
+          
+          // Try to get phone number E164 from details
+          if (phoneDetails?.number || phoneDetails?.phoneNumber) {
+            phoneNumberE164 = phoneDetails.number ?? phoneDetails.phoneNumber ?? null;
+          }
+          
+          if (phoneStatus === "active") {
+            console.log("[runActivation] Phone number is now active after polling:", { id: phone.id, attempts: pollAttempts });
+            break;
+          }
+        } catch (pollErr) {
+          console.warn("[runActivation] Error polling phone status:", pollErr instanceof Error ? pollErr.message : String(pollErr));
+        }
+      }
+      
+      // Get final phone details (E164 should be available after status is "active")
+      if (!phoneNumberE164) {
+        try {
+          const phoneDetails = await vapiFetch<VapiPhoneNumberDetails>(`/phone-number/${phone.id}`);
+          phoneNumberE164 = phoneDetails?.number ?? phoneDetails?.phoneNumber ?? null;
+          
+          console.log("[runActivation] Phone details after provisioning:", {
+            id: phoneDetails?.id,
+            number: phoneNumberE164,
+            status: phoneDetails?.status,
+          });
+        } catch (fetchErr) {
+          console.warn("[runActivation] Could not fetch phone details from Vapi:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
+        }
+      }
+      
+      // If status is still "activating" after polling, allow UI to continue (phone will activate in background)
+      if (phoneStatus === "activating") {
+        console.log("[runActivation] Phone number is still activating after polls, allowing UI to continue");
+      }
     }
 
-    // 5) Persist phone number artifacts to organization_settings (upsert by org_id)
-    // Build upsert payload with defensive handling for optional columns
+    // 3) Persist vapi_phone_number_id + phone_number_e164 + vapi_assistant_id
+    if (!phone?.id) {
+      return { ok: false, error: "Phone number ID is missing. Please try again." };
+    }
+
+    // Build upsert payload - only include columns that exist
     const settingsPayload: Record<string, unknown> = {
       org_id: orgId,
       vapi_phone_number_id: phone.id,
       vapi_assistant_id: assistant.id,
-      phone_number_e164: phoneNumberE164, // May be null for SIP lines
-      phone_number_sip_uri: phoneNumberSipUri, // SIP URI for provider="vapi"
+      phone_number_e164: phoneNumberE164, // May be null if still "activating"
     };
     
-    // Only include main_agent_id if agentId exists (column may not exist in schema)
-    // If upsert fails due to missing column, we'll handle it gracefully
-    if (agentId) {
-      settingsPayload.main_agent_id = agentId;
+    // Only include main_agent_id if agentId exists AND column exists (defensive)
+    if (existingSettings?.main_agent_id) {
+      agentId = existingSettings.main_agent_id;
+    } else {
+      // Try to create agent record, but don't fail if it errors (optional)
+      try {
+        const { data: newAgent } = await supabaseAdmin
+          .from("agents")
+          .insert({
+            org_id: orgId,
+            name: "Main Line",
+            language,
+            voice: "jennifer",
+            timezone: "America/New_York",
+            created_by: user.id,
+            vapi_assistant_id: assistant.id,
+            vapi_phone_number_id: phone.id,
+          })
+          .select("id")
+          .single<{ id: string }>();
+        
+        if (newAgent?.id) {
+          agentId = newAgent.id;
+          settingsPayload.main_agent_id = agentId;
+        }
+      } catch (agentErr) {
+        // Agent creation is optional - don't block activation
+        console.warn("[runActivation] Agent creation optional, continuing:", agentErr instanceof Error ? agentErr.message : String(agentErr));
+      }
     }
     
+    // 4) Proceed to LIVE when phone_number_e164 present (poll until active optional)
+    if (!phoneNumberE164 || phoneNumberE164.trim() === "") {
+      // Phone number E164 not available yet - keep at step 5 (Activating)
+      // UI will show "Activating" and can poll/retry
+      console.log("[runActivation] Phone number E164 not yet available, keeping onboarding_step at 5");
+      return { 
+        ok: false, 
+        error: "Provisioned line, waiting for number assignment" 
+      };
+    }
+
+    // F) Include onboarding_step = 6 and onboarding_completed_at in same upsert as phone artifacts (atomic)
+    // Idempotent: only update if current step < 6
+    const { data: currentSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("onboarding_step")
+      .eq("org_id", orgId)
+      .maybeSingle<{ onboarding_step: number | null }>();
+
+    const currentStep = currentSettings?.onboarding_step ?? 0;
+    
+    // If step < 6, include onboarding_step and onboarding_completed_at in the upsert payload
+    if (currentStep < 6) {
+      settingsPayload.onboarding_step = 6;
+      settingsPayload.onboarding_completed_at = new Date().toISOString();
+    }
+
     const { error: settingsError } = await supabaseAdmin
       .from("organization_settings")
       .upsert(settingsPayload, { onConflict: "org_id" });
@@ -1077,19 +1268,22 @@ export async function runActivation(): Promise<
       // If error is due to missing main_agent_id column, retry without it
       if (settingsError.message?.includes("main_agent_id") || settingsError.code === "PGRST204") {
         console.warn("[runActivation] main_agent_id column missing, retrying without it");
+        const retryPayload: Record<string, unknown> = {
+          org_id: orgId,
+          vapi_phone_number_id: phone.id,
+          vapi_assistant_id: assistant.id,
+          phone_number_e164: phoneNumberE164,
+        };
+        
+        // Include onboarding_step in retry if needed
+        if (currentStep < 6) {
+          retryPayload.onboarding_step = 6;
+          retryPayload.onboarding_completed_at = new Date().toISOString();
+        }
+        
         const { error: retryError } = await supabaseAdmin
           .from("organization_settings")
-          .upsert(
-            {
-              org_id: orgId,
-              vapi_phone_number_id: phone.id,
-              vapi_assistant_id: assistant.id,
-              phone_number_e164: phoneNumberE164,
-              phone_number_sip_uri: phoneNumberSipUri,
-              // Skip main_agent_id if column doesn't exist
-            },
-            { onConflict: "org_id" }
-          );
+          .upsert(retryPayload, { onConflict: "org_id" });
           
         if (retryError) {
           console.error("[runActivation] Error upserting organization_settings (retry):", retryError);
@@ -1101,29 +1295,10 @@ export async function runActivation(): Promise<
       }
     }
 
-    // 6) Enforce "no live without number": Only set onboarding_step=6 when sipUri OR e164 exists
-    if ((!phoneNumberSipUri || phoneNumberSipUri.trim() === "") && (!phoneNumberE164 || phoneNumberE164.trim() === "")) {
-      // Neither SIP URI nor E164 available - keep at step 5 (Activating) and return error
-      console.warn("[runActivation] Neither SIP URI nor E164 is available, keeping onboarding_step at 5");
-      return { 
-        ok: false, 
-        error: "Provisioned line, waiting for SIP/number assignment" 
-      };
-    }
-
-    // 7) Only AFTER successful DB writes AND phone number exists: Update onboarding_step to 6 (Live)
-    const { error: stepError } = await supabaseAdmin
-      .from("organization_settings")
-      .update({
-        onboarding_step: 6, // Step 6 = Live (DB step)
-        onboarding_completed_at: new Date().toISOString(),
-      })
-      .eq("org_id", orgId);
-
-    if (stepError) {
-      console.error("[runActivation] Error updating onboarding step:", stepError);
-      // Log error but still return success since activation artifacts were persisted
-      // Step update can be retried, but artifacts are critical
+    if (currentStep < 6) {
+      console.log("[runActivation] Updated onboarding_step to 6 (Live) via upsert");
+    } else {
+      console.log("[runActivation] onboarding_step already >= 6, skipped in upsert (idempotent)");
     }
 
     // Log activation completion with artifacts
@@ -1132,13 +1307,12 @@ export async function runActivation(): Promise<
       vapiPhoneNumberId: phone.id,
       vapiAssistantId: assistant.id,
       phoneNumberE164: phoneNumberE164 || null,
-      phoneNumberSipUri: phoneNumberSipUri || null,
     });
 
     return { 
       ok: true, 
       phoneNumberE164: phoneNumberE164 || null,
-      phoneNumberSipUri: phoneNumberSipUri || null,
+      phoneNumberSipUri: null, // Not used for PSTN provisioning (kept for backwards compatibility)
       vapiPhoneNumberId: phone.id,
       vapiAssistantId: assistant.id,
     };
@@ -1146,6 +1320,75 @@ export async function runActivation(): Promise<
     const errorMsg = err instanceof Error ? err.message : "Activation failed. Please try again.";
     console.error("[runActivation] Unexpected error:", err);
     return { ok: false, error: errorMsg };
+  }
+}
+
+/**
+ * Check phone number status from Vapi.
+ * Returns current phone status for polling during activation.
+ * Server action that fetches phone status from Vapi API.
+ */
+export async function checkPhoneStatus(): Promise<
+  { ok: true; phoneNumberE164: string | null; vapiPhoneNumberId: string | null; vapiStatus: string | null } | { ok: false; error: string }
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Get org_id
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("org_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle<{ org_id: string | null }>();
+
+  if (!profile?.org_id) {
+    return { ok: false, error: "No organization found." };
+  }
+
+  const orgId = profile.org_id;
+
+  // Get phone number artifacts from organization_settings
+  const { data: settings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("vapi_phone_number_id, phone_number_e164")
+    .eq("org_id", orgId)
+    .maybeSingle<{
+      vapi_phone_number_id: string | null;
+      phone_number_e164: string | null;
+    }>();
+
+  if (!settings?.vapi_phone_number_id) {
+    return { ok: true, phoneNumberE164: null, vapiPhoneNumberId: null, vapiStatus: null };
+  }
+
+  // Fetch phone status from Vapi
+  try {
+    const phoneDetails = await vapiFetch<{ id: string; status?: string; number?: string; phoneNumber?: string }>(
+      `/phone-number/${settings.vapi_phone_number_id}`
+    );
+
+    const vapiStatus = phoneDetails?.status || null;
+    const phoneNumberE164 = phoneDetails?.number ?? phoneDetails?.phoneNumber ?? settings.phone_number_e164 ?? null;
+
+    return {
+      ok: true,
+      phoneNumberE164,
+      vapiPhoneNumberId: settings.vapi_phone_number_id,
+      vapiStatus,
+    };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to check phone status.";
+    console.error("[checkPhoneStatus] Error:", err);
+    // Return DB values as fallback if Vapi fetch fails
+    return {
+      ok: true,
+      phoneNumberE164: settings.phone_number_e164,
+      vapiPhoneNumberId: settings.vapi_phone_number_id,
+      vapiStatus: null, // Unknown status if fetch fails
+    };
   }
 }
 

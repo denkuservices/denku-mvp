@@ -10,8 +10,10 @@ const routeMeta: Record<string, { breadcrumb: string; title: string }> = {
   '/dashboard/calls': { breadcrumb: 'Pages / Calls', title: 'Calls' },
   '/dashboard/leads': { breadcrumb: 'Pages / Leads', title: 'Leads' },
   '/dashboard/tickets': { breadcrumb: 'Pages / Tickets', title: 'Tickets' },
+  '/dashboard/appointments': { breadcrumb: 'Pages / Appointments', title: 'Appointments' },
   '/dashboard/analytics': { breadcrumb: 'Pages / Analytics', title: 'Analytics' },
   '/dashboard/settings': { breadcrumb: 'Pages / Settings', title: 'Settings' },
+  '/onboarding': { breadcrumb: 'Onboarding', title: 'Onboarding' },
 };
 
 export default function HorizonTopbar() {
@@ -22,7 +24,7 @@ export default function HorizonTopbar() {
   // Best-prefix match: find the longest route key that matches the pathname
   // Sort keys by length (longest first) to match most specific routes first
   const keys = Object.keys(routeMeta).sort((a, b) => b.length - a.length);
-  const key = keys.find(k => pathname === k || pathname.startsWith(k + "/")) ?? "/dashboard";
+  const key = keys.find(k => pathname === k || pathname.startsWith(k + "/")) ?? (pathname.startsWith('/onboarding') ? '/onboarding' : '/dashboard');
   const meta = routeMeta[key];
 
   return (

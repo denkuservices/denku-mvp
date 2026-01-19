@@ -18,8 +18,12 @@ import {
   setOnboardingStepToPlan,
   startPlanCheckout,
   getOnboardingState,
+  checkPhoneStatus,
+  savePhonePreferences,
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
+import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
+
 
 type OnboardingState = {
   orgId: string | null;
@@ -57,8 +61,8 @@ type OnboardingClientProps = {
   checkoutStatus?: "success" | "cancel" | null;
 };
 
-// UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
-// DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+// UI step mapping: 0 = Workspace, 1 = Goal, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
+// DB step mapping: 0 = initial, 1 = Goal, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
 const STEPS = [
   { id: 0, label: "Workspace" },
   { id: 1, label: "Goal" },
@@ -73,8 +77,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const searchParams = useSearchParams();
   const [state, setState] = useState(initialState);
   
-  // Canonical step mapping: 0 = Goal, 1 = Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
-  // Workspace setup happens during bootstrap - onboarding starts at Goal (step 0)
+  // Canonical step mapping: 0 = Workspace, 1 = Goal, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
+  // Workspace setup happens during bootstrap - onboarding starts at Goal (step 1)
   // IMPORTANT: initialStep is only used ONCE on first render. Do NOT derive currentStep from state.onboardingStep after mount.
   const initialStep = state.needsOrgSetup || !state.orgId ? 0 : (state.onboardingStep ?? 0);
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -203,21 +207,25 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [fullName, setFullName] = useState(state.profileFullName || "");
   const [phone, setPhone] = useState(state.profilePhone || "");
 
-  // Step 1: Goal + Language (load from state if available)
-  const [goal, setGoal] = useState<"support" | "sales">(
-    (state.onboardingGoal as "support" | "sales") || "support"
+  // Step 1: Goal (load from state if available)
+  const [goal, setGoal] = useState<"support" | "sales" | "ops">(
+    (state.onboardingGoal as "support" | "sales" | "ops") || "support"
   );
-  // Default to English (remove auto-detect)
-  const [language, setLanguage] = useState(state.onboardingLanguage || "en");
 
   // Step 2: Phone number (AI line)
   const [country, setCountry] = useState("US");
   const [areaCode, setAreaCode] = useState("");
+  const [areaCodeError, setAreaCodeError] = useState<string | null>(null);
 
   // Step 4: Activation
   const [isActivating, setIsActivating] = useState(false);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [provisionedPhoneNumber, setProvisionedPhoneNumber] = useState<string | null>(null);
+
+  // Step 5: Live - Phone status polling
+  const [phoneStatus, setPhoneStatus] = useState<"active" | "activating" | null>(null);
+  const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
+  const [showActiveAnimation, setShowActiveAnimation] = useState(false);
 
   // Form state handlers with refresh after submission
   const handleFormAction = async (prevState: any, formData: FormData) => {
@@ -232,6 +240,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       result = await saveGoalAndLanguageAction(formData);
     } else if (action === "advanceToPlan") {
       result = await advanceToPlanAction(formData);
+    } else if (action === "savePhonePreferences") {
+      result = await savePhonePreferences(formData);
     } else {
       return { ok: false, error: "Unknown action" };
     }
@@ -317,6 +327,124 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, state.orgId]);
+
+  // Phone status polling when on Live step (step 5)
+  React.useEffect(() => {
+    if (currentStep !== 5 || !state.vapiPhoneNumberId) {
+      // Reset state when leaving step 5
+      if (currentStep !== 5) {
+        setPhoneStatus(null);
+        setCountdownRemaining(null);
+        setShowActiveAnimation(false);
+      }
+      return;
+    }
+
+    // Initialize countdown to 120 seconds on first entry
+    if (countdownRemaining === null) {
+      setCountdownRemaining(120);
+    }
+
+    // Initial status check
+    const initialCheck = async () => {
+      try {
+        const statusResult = await checkPhoneStatus();
+        if (statusResult.ok) {
+          const newStatus = statusResult.vapiStatus;
+          const newPhoneNumber = statusResult.phoneNumberE164;
+          
+          if (newPhoneNumber && !displayPhoneNumber) {
+            setProvisionedPhoneNumber(newPhoneNumber);
+          }
+          
+          if (newStatus === "active") {
+            setPhoneStatus("active");
+            setCountdownRemaining(0);
+            setShowActiveAnimation(true);
+            // Reset animation after 2 seconds
+            setTimeout(() => {
+              setShowActiveAnimation(false);
+            }, 2000);
+            return; // Don't start polling if already active
+          } else if (newStatus === "activating") {
+            setPhoneStatus("activating");
+          }
+        }
+      } catch (err) {
+        console.error("[onboarding] Error in initial phone status check:", err);
+      }
+    };
+    
+    initialCheck();
+
+    // Poll phone status every 5 seconds (max 180s = 36 polls)
+    let pollCount = 0;
+    const maxPolls = 36;
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      
+      try {
+        const statusResult = await checkPhoneStatus();
+        if (statusResult.ok) {
+          const newStatus = statusResult.vapiStatus;
+          const newPhoneNumber = statusResult.phoneNumberE164;
+          
+          // Update phone number if available
+          if (newPhoneNumber && !displayPhoneNumber) {
+            setProvisionedPhoneNumber(newPhoneNumber);
+          }
+          
+          // If status becomes active, stop polling and show active UI
+          if (newStatus === "active") {
+            setPhoneStatus("active");
+            setCountdownRemaining(0);
+            setShowActiveAnimation(true);
+            // Reset animation after 2 seconds
+            setTimeout(() => {
+              setShowActiveAnimation(false);
+            }, 2000);
+            clearInterval(pollInterval);
+            return;
+          }
+          
+          // Update status (activating or null)
+          setPhoneStatus(newStatus === "activating" ? "activating" : null);
+        }
+      } catch (err) {
+        console.error("[onboarding] Error polling phone status:", err);
+      }
+      
+      // Stop polling after max attempts
+      if (pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, state.vapiPhoneNumberId]);
+
+  // Countdown timer (decrements every 1 second)
+  React.useEffect(() => {
+    if (currentStep !== 5 || countdownRemaining === null || countdownRemaining <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setCountdownRemaining((prev) => {
+        if (prev === null || prev <= 0) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [currentStep, countdownRemaining]);
   
   // Submit button component with pending state
   function SubmitButton({ children, disabled: externalDisabled, ...props }: React.ComponentProps<typeof Button> & { children: React.ReactNode }) {
@@ -407,27 +535,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   };
 
   const handleComplete = () => {
-    if (!state.orgId) {
-      setError("Organization ID is missing. Please refresh the page.");
-      return;
-    }
-    const orgId = state.orgId; // Extract for TypeScript narrowing
-    startTransition(async () => {
-      const result = await completeOnboarding(orgId);
-      if (result.ok) {
-        // Refresh state and then redirect
-        const updatedState = await getOnboardingState();
-        if (updatedState.isPlanActive) {
-          router.push("/dashboard");
-        } else {
-          // If not active yet, refresh and stay on onboarding
-          setState(updatedState);
-          setCurrentStep(updatedState.onboardingStep);
-        }
-      } else {
-        setError(result.error || "Failed to complete onboarding");
-      }
-    });
+    // Navigate directly to dashboard - activation already set onboarding_step = 6
+    router.push("/dashboard");
   };
 
   const handleCopyNumber = () => {
@@ -594,13 +703,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             </form>
           )}
 
-          {/* Step 1: Goal + Language */}
+          {/* Step 1: Goal */}
           {currentStep === 1 && (
             <form action={formAction} className="space-y-6">
               <input type="hidden" name="_action" value="saveGoalLanguage" />
               <input type="hidden" name="orgId" value={state.orgId || ""} />
               <input type="hidden" name="goal" value={goal} />
-              <input type="hidden" name="language" value={language} />
               
               <div>
                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">What do you want your line to handle?</h2>
@@ -609,7 +717,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {/* Support (ACTIVE, default selected) */}
                 <button
                   type="button"
                   onClick={() => setGoal("support")}
@@ -623,7 +732,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     <div>
                       <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Customer Support</h3>
                       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                        Handle customer inquiries and support requests.
+                        Answer questions, create tickets, and schedule appointments.
                       </p>
                     </div>
                     {goal === "support" && (
@@ -632,11 +741,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   </div>
                 </button>
 
+                {/* Sales (DISABLED) */}
                 <button
                   type="button"
                   onClick={() => {}}
                   disabled
-                  className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 dark:border-zinc-700 dark:bg-zinc-800"
+                  className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -647,45 +757,33 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                        Sales calls and lead qualification.
+                        Qualify leads and book demos.
                       </p>
                     </div>
                   </div>
                 </button>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Language
-                </label>
-                <div className="space-y-2">
-                  {([
-                    { value: "en", label: "English", icon: null },
-                    { value: "tr", label: "Turkish", icon: null },
-                  ] as Array<{ value: string; label: string; icon: LucideIcon | null }>).map((lang) => {
-                    const Icon = lang.icon;
-                    return (
-                      <button
-                        key={lang.value}
-                        type="button"
-                        onClick={() => setLanguage(lang.value)}
-                        className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
-                          language === lang.value
-                            ? "border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-500/10"
-                            : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {Icon ? <Icon className="h-5 w-5 text-zinc-600 dark:text-zinc-400" /> : null}
-                          <span className="text-sm font-medium text-zinc-900 dark:text-white">{lang.label}</span>
-                          {language === lang.value && (
-                            <CheckCircle2 className="ml-auto h-5 w-5 text-brand-500" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* Ops (DISABLED) */}
+                <button
+                  type="button"
+                  onClick={() => {}}
+                  disabled
+                  className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-zinc-600 dark:text-zinc-400">Operations</h3>
+                        <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                          Coming soon
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                        Run workflows and handle operational requests.
+                      </p>
+                    </div>
+                  </div>
+                </button>
               </div>
 
               <div className="flex justify-end">
@@ -724,27 +822,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 </div>
               )}
 
-              {/* No Plan Checkpoint */}
-              {!state.isPlanActive && state.workspaceStatus !== "paused" && (
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white mb-2">
-                    To activate your number, choose a plan.
-                  </p>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                    Select a plan to get started with your phone line.
-                  </p>
-                  <form action={formAction} className="inline">
-                    <input type="hidden" name="_action" value="advanceToPlan" />
-                    <input type="hidden" name="orgId" value={state.orgId || ""} />
-                    <SubmitButton>
-                      Choose a plan
-                    </SubmitButton>
-                  </form>
-                </div>
-              )}
-
               {/* Phone Number Options */}
-              {state.planCode && state.workspaceStatus !== "paused" && (
+              {state.workspaceStatus !== "paused" && (
                 <>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="rounded-xl border-2 border-brand-500 bg-brand-50 p-6 dark:border-brand-500 dark:bg-brand-500/10">
@@ -776,46 +855,81 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Country
-                      </label>
-                      <select
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                        disabled={isActivating}
-                      >
-                        <option value="US">United States</option>
-                      </select>
+                  <form action={formAction} className="space-y-4">
+                    <input type="hidden" name="_action" value="savePhonePreferences" />
+                    <input type="hidden" name="orgId" value={state.orgId || ""} />
+                    <input type="hidden" name="country" value={country} />
+                    
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                          Country
+                        </label>
+                        <select
+                          value={country}
+                          disabled
+                          className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-sm text-zinc-600 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                        >
+                          <option value="US">United States (+1)</option>
+                        </select>
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          More countries coming soon
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                          Area code <span className="text-zinc-500">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="areaCode"
+                          value={areaCode}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "").slice(0, 3);
+                            setAreaCode(value);
+                            // Clear error on change
+                            if (areaCodeError) setAreaCodeError(null);
+                          }}
+                          onBlur={() => {
+                            // Validate on blur
+                            if (areaCode && areaCode.length > 0) {
+                              if (areaCode.length !== 3) {
+                                setAreaCodeError("Enter a valid US area code (3 digits).");
+                              } else if (!isValidUSAreaCode(areaCode)) {
+                                setAreaCodeError("Enter a valid US area code (3 digits).");
+                              } else {
+                                setAreaCodeError(null);
+                              }
+                            } else {
+                              setAreaCodeError(null);
+                            }
+                          }}
+                          placeholder="e.g. 321"
+                          maxLength={3}
+                          className={`w-full rounded-lg border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 dark:bg-zinc-800 dark:text-white ${
+                            areaCodeError
+                              ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                              : "border-zinc-300 focus:border-brand-500 focus:ring-brand-500/20 dark:border-zinc-700"
+                          }`}
+                          disabled={isActivating}
+                        />
+                        {areaCodeError ? (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{areaCodeError}</p>
+                        ) : (
+                          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            We'll try to get a local number. Leave blank for best availability.
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Area code <span className="text-zinc-500">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={areaCode}
-                        onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                        placeholder="e.g., 415"
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                        disabled={isActivating}
-                      />
+                    <div className="flex justify-end">
+                      <SubmitButton disabled={!!areaCodeError}>
+                        Continue
+                      </SubmitButton>
                     </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button
-                      variant="primary"
-                      onClick={handleActivateNumber}
-                      disabled={isActivating || isPending}
-                    >
-                      {isActivating ? "Please wait…" : "Activate my number"}
-                      {!isActivating && <ArrowRight className="ml-2 h-4 w-4" />}
-                    </Button>
-                  </div>
+                  </form>
                 </>
               )}
             </div>
@@ -1047,21 +1161,62 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           {/* Step 5: You're Live (only place with dashboard CTA) */}
           {currentStep === 5 && (
             <div className="space-y-6 text-center">
+              {/* Icon with animation */}
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500">
-                <CheckCircle2 className="h-8 w-8 text-white" />
+                <CheckCircle2 
+                  className={`h-8 w-8 text-white transition-all duration-300 ${
+                    showActiveAnimation ? "animate-pulse scale-110" : ""
+                  }`}
+                />
               </div>
 
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Your AI phone line is live</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  {displayPhoneNumber || displaySipUri
-                    ? displayPhoneNumber 
-                      ? "Your phone number is ready to receive calls."
-                      : "Your SIP line is ready to receive calls."
-                    : "Your phone number is being set up."}
-                </p>
-              </div>
+              {/* Header based on status */}
+              {phoneStatus === "active" || (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ? (
+                <>
+                  <div>
+                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Your AI phone line is live</h2>
+                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      {showActiveAnimation ? "Your number is now active." : "Your phone number is ready to receive calls."}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Activating your number</h2>
+                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      We've reserved your number. It can take up to ~2 minutes to activate.
+                    </p>
+                  </div>
 
+                  {/* Countdown */}
+                  {countdownRemaining !== null && countdownRemaining > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-3xl font-mono font-semibold text-zinc-900 dark:text-white">
+                        {Math.floor(countdownRemaining / 60)}:{(countdownRemaining % 60).toString().padStart(2, "0")}
+                      </div>
+                      <div className="h-1 w-full max-w-xs mx-auto rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                        <div 
+                          className="h-full bg-brand-500 transition-all duration-1000"
+                          style={{ width: `${((120 - countdownRemaining) / 120) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {countdownRemaining === 0 && phoneStatus === "activating" && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Still activating… This usually completes within a few moments.
+                    </p>
+                  )}
+
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Once active, you can call the number below to test.
+                  </p>
+                </>
+              )}
+
+              {/* Phone number card (always visible) */}
               <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
                 <div className="flex flex-col items-center gap-3">
                   <Phone className="h-6 w-6 text-zinc-600 dark:text-zinc-400" />
@@ -1086,6 +1241,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 </div>
               </div>
 
+              {/* Action buttons */}
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                 {displayPhoneNumber && (
                   <>
@@ -1093,12 +1249,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <Copy className="mr-2 h-4 w-4" />
                       Copy number
                     </Button>
-                    <Button variant="outline" asChild>
-                      <a href={`tel:${displayPhoneNumber}`}>
+                    {/* Only enable call button when status is active */}
+                    {phoneStatus === "active" || (countdownRemaining === 0 && phoneStatus !== "activating") ? (
+                      <Button variant="outline" asChild>
+                        <a href={`tel:${displayPhoneNumber}`}>
+                          <Phone className="mr-2 h-4 w-4" />
+                          Call this number to test
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" disabled>
                         <Phone className="mr-2 h-4 w-4" />
-                        Call this number to test
-                      </a>
-                    </Button>
+                        Activating…
+                      </Button>
+                    )}
                   </>
                 )}
                 {displaySipUri && !displayPhoneNumber && (

@@ -1,5 +1,5 @@
 import { DM_Sans } from "next/font/google";
-import HorizonShell from "@/components/horizon-shell/HorizonShell";
+import AppShellWrapper from "@/components/horizon-shell/AppShellWrapper";
 import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
 
 const dmSans = DM_Sans({
@@ -17,12 +17,15 @@ export default async function AppLayout({
   // - Onboarding uses OTP verification (not email_confirmed_at)
   // - Auth gating is handled server-side in page.tsx components and middleware
   // - Client-side auth checks cannot read httpOnly cookies and should be avoided
+  //
+  // AppShellWrapper conditionally applies HorizonShell (with sidebar) to dashboard routes,
+  // but leaves onboarding routes unwrapped so they can use their own header-only layout.
 
   return (
     <>
       <HorizonStylesheet />
       <div className={`${dmSans.className} w-full`}>
-        <HorizonShell>{children}</HorizonShell>
+        <AppShellWrapper>{children}</AppShellWrapper>
       </div>
     </>
   );

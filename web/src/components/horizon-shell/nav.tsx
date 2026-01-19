@@ -5,6 +5,7 @@ import {
   Phone,
   UserPlus,
   Ticket,
+  Calendar,
   BarChart3,
   Settings,
 } from 'lucide-react';
@@ -44,6 +45,12 @@ export const horizonNavRoutes: NavRoute[] = [
     layout: 'dashboard',
     path: 'tickets',
     icon: <Ticket className="h-6 w-6" />,
+  },
+  {
+    name: 'Appointments',
+    layout: 'dashboard',
+    path: 'appointments',
+    icon: <Calendar className="h-6 w-6" />,
   },
   {
     name: 'Analytics',
