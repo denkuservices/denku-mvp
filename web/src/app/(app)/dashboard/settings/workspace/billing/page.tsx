@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
 import { formatUsd } from "@/lib/utils";
 import Widget from "@/components/dashboard/Widget";
-import { Phone, Clock, Users, Timer, ArrowLeft } from "lucide-react";
+import { Phone, Clock, Users, Timer, ArrowLeft, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button as UIButton } from "@/components/ui/button";
+import { InlineBanner } from "@/components/marketing/InlineBanner";
 
 // API response types
 type BillingSummary = {
@@ -246,8 +247,16 @@ export default function WorkspaceBillingPage() {
   const [portalError, setPortalError] = React.useState<string | null>(null);
   const [updatingAddon, setUpdatingAddon] = React.useState<string | null>(null);
   
+  // Checkout sync state
+  const [checkoutSyncing, setCheckoutSyncing] = React.useState(false);
+  const [checkoutSyncMessage, setCheckoutSyncMessage] = React.useState<string | null>(null);
+  const [checkoutSyncError, setCheckoutSyncError] = React.useState<string | null>(null);
+  
   // Ref for upgrade plan section scroll/focus
   const upgradePlanRef = React.useRef<HTMLDivElement>(null);
+  
+  // State for highlighting plan selection card
+  const [highlightPlans, setHighlightPlans] = React.useState(false);
 
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
@@ -301,6 +310,73 @@ export default function WorkspaceBillingPage() {
     fetchSummary();
   }, [fetchSummary]);
 
+  // Handle checkout return from Stripe
+  React.useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    const sessionId = searchParams.get("session_id");
+    
+    if (checkout === "success" && sessionId) {
+      // Sync plan activation before refreshing summary (same logic as webhook)
+      const syncCheckout = async () => {
+        try {
+          setCheckoutSyncing(true);
+          setCheckoutSyncMessage("Activating your plan…");
+          setCheckoutSyncError(null);
+          
+          // Call sync-checkout API (replicates webhook logic)
+          const res = await fetch("/api/billing/stripe/sync-checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          
+          const data = await res.json();
+          
+          if (data.ok) {
+            setCheckoutSyncMessage("Plan activated successfully");
+            // Refresh summary to show updated plan
+            await fetchSummary();
+            // Clear sync message after a delay
+            setTimeout(() => {
+              setCheckoutSyncMessage(null);
+            }, 3000);
+          } else {
+            // Sync failed - still try to refresh summary in case webhook already processed it
+            setCheckoutSyncError(data.error || "Failed to sync plan");
+            await fetchSummary();
+            setTimeout(() => {
+              setCheckoutSyncError(null);
+            }, 5000);
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : "Failed to sync plan";
+          setCheckoutSyncError(errorMsg);
+          // Still try to refresh summary in case webhook already processed it
+          await fetchSummary();
+          setTimeout(() => {
+            setCheckoutSyncError(null);
+          }, 5000);
+        } finally {
+          setCheckoutSyncing(false);
+        }
+      };
+      
+      syncCheckout();
+      
+      // Clear query params to avoid re-processing on refresh
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("checkout");
+      newUrl.searchParams.delete("session_id");
+      router.replace(newUrl.pathname + newUrl.search);
+    } else if (checkout === "cancel") {
+      // Just clear query params for cancel
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("checkout");
+      newUrl.searchParams.delete("session_id");
+      router.replace(newUrl.pathname + newUrl.search);
+    }
+  }, [searchParams, router, fetchSummary]);
+
   // Scroll to upgrade plan section if intent=choose_plan
   React.useEffect(() => {
     if (isOnboardingFlow && upgradePlanRef.current && !loading && summary) {
@@ -316,6 +392,16 @@ export default function WorkspaceBillingPage() {
     try {
       setPortalLoading(true);
       setPortalError(null);
+      
+      // Prevent portal redirect in preview mode
+      const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
+      const hasActivePlan = Boolean(currentPlanCode);
+      if (!hasActivePlan) {
+        setPortalError("Available after you choose a plan");
+        setPortalLoading(false);
+        return;
+      }
+      
       const res = await fetch("/api/billing/stripe/portal", {
         method: "POST",
         headers: {
@@ -339,7 +425,7 @@ export default function WorkspaceBillingPage() {
       setPortalError(errorMsg);
       setPortalLoading(false);
     }
-  }, []);
+  }, [summary]);
 
   // Handle plan change - open confirmation dialog
   const handlePlanChange = (planCode: string) => {
@@ -354,6 +440,33 @@ export default function WorkspaceBillingPage() {
     try {
       setConfirmLoading(true);
       setConfirmError(null);
+      
+      // Derive plan state from current summary
+      const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
+      const hasActivePlan = Boolean(currentPlanCode);
+      
+      // If no plan exists (preview mode), use Stripe checkout flow
+      if (!hasActivePlan) {
+        const res = await fetch("/api/billing/stripe/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            plan_code: planCode,
+            return_to: "/dashboard/settings/workspace/billing"
+          }),
+        });
+        const data = await res.json();
+        if (data.ok && data.url) {
+          // Close dialog and redirect to Stripe Checkout
+          setConfirmDialogOpen(false);
+          window.location.href = data.url;
+        } else {
+          setConfirmError(data.error || "Failed to start checkout");
+        }
+        return;
+      }
+      
+      // If plan exists (paid user), use plan change endpoint
       const res = await fetch("/api/billing/plan/change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -414,14 +527,17 @@ export default function WorkspaceBillingPage() {
     }
   };
 
-  // Get current plan code (from preview, fallback to 'starter')
-  const currentPlanCode = summary?.preview?.plan_code || "starter";
+  // Get current plan code from plan_limits (org_plan_limits) - explicitly nullable, no fallback
+  const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
   
-  // Find current plan object from summary.plans
-  const currentPlan = summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null;
+  // Derive plan state
+  const hasPlan = Boolean(currentPlanCode);
   
-  // Get current plan order
-  const currentPlanOrder = PLAN_ORDER[currentPlanCode] || 0;
+  // Find current plan object from summary.plans (only if plan exists)
+  const currentPlan = hasPlan ? (summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null) : null;
+  
+  // Get current plan order (0 if no plan)
+  const currentPlanOrder = hasPlan ? (PLAN_ORDER[currentPlanCode!] || 0) : 0;
 
   // Error state
   if (error && !summary) {
@@ -519,6 +635,33 @@ export default function WorkspaceBillingPage() {
       ]}
     >
       <div className="space-y-6">
+        {/* Checkout sync status banner */}
+        {checkoutSyncing && checkoutSyncMessage && (
+          <InlineBanner
+            type="success"
+            message={
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{checkoutSyncMessage}</span>
+              </div>
+            }
+          />
+        )}
+        {checkoutSyncMessage && !checkoutSyncing && (
+          <InlineBanner
+            type="success"
+            message={checkoutSyncMessage}
+            onDismiss={() => setCheckoutSyncMessage(null)}
+          />
+        )}
+        {checkoutSyncError && (
+          <InlineBanner
+            type="error"
+            message={checkoutSyncError}
+            onDismiss={() => setCheckoutSyncError(null)}
+          />
+        )}
+        
         {/* Onboarding flow banner */}
         {isOnboardingFlow && (
           <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-900/30 dark:bg-brand-950/50">
@@ -570,27 +713,47 @@ export default function WorkspaceBillingPage() {
                   {summary.paused_reason || "Update payment method to resume."}
                 </p>
               </div>
-              <Button
-                variant="primary"
-                onClick={handlePortalRedirect}
-                disabled={portalLoading}
-                className="flex-shrink-0"
-              >
-                {portalLoading ? "Loading..." : "Update payment"}
-              </Button>
+              <div className="group relative">
+                <Button
+                  variant="primary"
+                  onClick={handlePortalRedirect}
+                  disabled={portalLoading || !hasPlan}
+                  className="flex-shrink-0"
+                  title={!hasPlan ? "Available after you choose a plan" : undefined}
+                >
+                  {portalLoading ? "Loading..." : "Update payment"}
+                </Button>
+                {!hasPlan && (
+                  <div className="absolute right-0 top-full z-10 mt-2 hidden w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg group-hover:block dark:border-white/20 dark:bg-navy-800">
+                    <p className="text-xs text-gray-700 dark:text-gray-300">
+                      Available after you choose a plan
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
         {/* Portal CTA */}
         <div className="flex items-center justify-end">
-          <Button
-            variant="primary"
-            onClick={handlePortalRedirect}
-            disabled={portalLoading}
-          >
-            {portalLoading ? "Loading..." : "Manage payment & invoices"}
-          </Button>
+          <div className="group relative">
+            <Button
+              variant="primary"
+              onClick={handlePortalRedirect}
+              disabled={portalLoading || !hasPlan}
+              title={!hasPlan ? "Available after you choose a plan" : undefined}
+            >
+              {portalLoading ? "Loading..." : "Manage payment & invoices"}
+            </Button>
+            {!hasPlan && (
+              <div className="absolute right-0 top-full z-10 mt-2 hidden w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg group-hover:block dark:border-white/20 dark:bg-navy-800">
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  Available after you choose a plan
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Portal error alert */}
@@ -655,102 +818,165 @@ export default function WorkspaceBillingPage() {
             {/* Overage card */}
             {summary?.overage && (
               <Card>
-                <SectionTitle title="Overage" subtitle="Current month usage overage." />
-                <div className="mt-6 space-y-6">
-                    {/* Stats grid */}
+                <SectionTitle title="Overage" subtitle={hasPlan ? "Current month usage overage." : undefined} />
+                {hasPlan ? (
+                  <div className="mt-6 space-y-6">
+                      {/* Stats grid */}
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        <UsageStat
+                          label="Current overage"
+                          value={formatUsd(summary.overage.current_overage_usd)}
+                        />
+                        <UsageStat
+                          label="Next auto-collect at"
+                          value={formatUsd(summary.overage.next_collect_at_usd)}
+                        />
+                        <UsageStat
+                          label="Remaining to cap"
+                          value={formatUsd(summary.overage.remaining_to_cap_usd)}
+                        />
+                        <UsageStat
+                          label="Hard cap"
+                          value={formatUsd(summary.overage.hard_cap_usd)}
+                        />
+                      </div>
+
+                      {/* Progress bar */}
+                      {(() => {
+                        const progressPercent = summary.overage.hard_cap_usd > 0
+                          ? Math.min(
+                              Math.round(
+                                (summary.overage.current_overage_usd / summary.overage.hard_cap_usd) * 100
+                              ),
+                              100
+                            )
+                          : 0;
+                        const hasProgress = progressPercent > 0;
+                        
+                        return (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                              <span>Progress to cap</span>
+                              <span>{summary.overage.hard_cap_usd > 0 ? `${progressPercent}%` : "—"}</span>
+                            </div>
+                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                              <div
+                                className={`h-full transition-all ${
+                                  hasProgress
+                                    ? "bg-amber-500 dark:bg-amber-500"
+                                    : "bg-brand-500 dark:bg-brand-500"
+                                }`}
+                                style={{
+                                  width: `${progressPercent}%`,
+                                }}
+                              />
+                            </div>
+                            {summary.overage.status === "ok" && (
+                              <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
+                                Auto-collect triggers every $100 of overage.
+                              </p>
+                            )}
+                            {(summary.overage.status === "paused_hard_cap" ||
+                              summary.overage.status === "paused_past_due" ||
+                              summary.overage.status === "collecting") && (
+                              <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 dark:border-white/10 dark:bg-white/5">
+                                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                                  {summary.overage.status === "paused_hard_cap"
+                                    ? "Service paused due to hard cap. Payment required to resume."
+                                    : summary.overage.status === "paused_past_due"
+                                    ? "Service paused due to payment failure. Payment required to resume."
+                                    : "Overage threshold reached. Collection in progress."}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                ) : (
+                  <div className="mt-6 space-y-6">
+                    {/* Stats grid - same structure, placeholder values */}
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                       <UsageStat
                         label="Current overage"
-                        value={formatUsd(summary.overage.current_overage_usd)}
+                        value="—"
                       />
                       <UsageStat
                         label="Next auto-collect at"
-                        value={formatUsd(summary.overage.next_collect_at_usd)}
+                        value="—"
                       />
                       <UsageStat
                         label="Remaining to cap"
-                        value={formatUsd(summary.overage.remaining_to_cap_usd)}
+                        value="—"
                       />
                       <UsageStat
                         label="Hard cap"
-                        value={formatUsd(summary.overage.hard_cap_usd)}
+                        value="—"
                       />
                     </div>
 
-                    {/* Progress bar */}
-                    {(() => {
-                      const progressPercent = summary.overage.hard_cap_usd > 0
-                        ? Math.min(
-                            Math.round(
-                              (summary.overage.current_overage_usd / summary.overage.hard_cap_usd) * 100
-                            ),
-                            100
-                          )
-                        : 0;
-                      const hasProgress = progressPercent > 0;
-                      
-                      return (
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                            <span>Progress to cap</span>
-                            <span>{summary.overage.hard_cap_usd > 0 ? `${progressPercent}%` : "—"}</span>
-                          </div>
-                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
-                            <div
-                              className={`h-full transition-all ${
-                                hasProgress
-                                  ? "bg-amber-500 dark:bg-amber-500"
-                                  : "bg-brand-500 dark:bg-brand-500"
-                              }`}
-                              style={{
-                                width: `${progressPercent}%`,
-                              }}
-                            />
-                          </div>
-                          {summary.overage.status === "ok" && (
-                            <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
-                              Auto-collect triggers every $100 of overage.
-                            </p>
-                          )}
-                          {(summary.overage.status === "paused_hard_cap" ||
-                            summary.overage.status === "paused_past_due" ||
-                            summary.overage.status === "collecting") && (
-                            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 dark:border-white/10 dark:bg-white/5">
-                              <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                                {summary.overage.status === "paused_hard_cap"
-                                  ? "Service paused due to hard cap. Payment required to resume."
-                                  : summary.overage.status === "paused_past_due"
-                                  ? "Service paused due to payment failure. Payment required to resume."
-                                  : "Overage threshold reached. Collection in progress."}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {/* Progress bar - disabled/muted style */}
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                        <span>Progress to cap</span>
+                        <span>—</span>
+                      </div>
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                        <div
+                          className="h-full bg-zinc-300 dark:bg-white/20"
+                          style={{
+                            width: "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Helper text */}
+                    <div className="space-y-1">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                        Available after you choose a plan.
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                        Overage charges apply only when you exceed your plan limits.
+                      </p>
+                    </div>
                   </div>
-                </Card>
+                )}
+            </Card>
             )}
           </div>
 
           <div className="col-span-12 lg:col-span-4 min-w-0 max-w-full overflow-hidden">
             {/* Upgrade plan card */}
             <div ref={upgradePlanRef}>
-              <Card>
+              <Card className={cn(
+                "transition-all duration-300",
+                highlightPlans && "ring-2 ring-brand-500/40 bg-brand-50/40 dark:bg-brand-500/10"
+              )}>
                 <SectionTitle title="Upgrade plan" subtitle="Change your plan at any time." />
 
               <div className="mt-6 space-y-3">
                 {plans.map((plan) => {
-                  const isCurrent = plan.plan_code === currentPlanCode;
+                  const isCurrent = hasPlan && plan.plan_code === currentPlanCode;
                   const targetPlanOrder = PLAN_ORDER[plan.plan_code] || 0;
                   
-                  // Determine button label based on plan order
-                  let buttonLabel = "Current";
+                  // Determine button label and variant based on plan state
+                  let buttonLabel = "Current plan";
+                  let buttonVariant: "primary" | "secondary" = "secondary";
+                  
                   if (!isCurrent) {
-                    if (targetPlanOrder > currentPlanOrder) {
+                    if (!hasPlan) {
+                      // Preview mode: all plans show "Select plan" with secondary style
+                      buttonLabel = "Select plan";
+                      buttonVariant = "secondary";
+                    } else if (targetPlanOrder > currentPlanOrder) {
+                      // Paid user upgrading
                       buttonLabel = "Upgrade";
+                      buttonVariant = "primary";
                     } else if (targetPlanOrder < currentPlanOrder) {
-                      buttonLabel = "Switch plan";
+                      // Paid user downgrading
+                      buttonLabel = "Downgrade";
+                      buttonVariant = "secondary";
                     }
                   }
                   
@@ -780,7 +1006,7 @@ export default function WorkspaceBillingPage() {
                           </p>
                         </div>
                         <Button
-                          variant={isCurrent ? "secondary" : "primary"}
+                          variant={isCurrent ? "secondary" : buttonVariant}
                           disabled={isCurrent || changingPlan}
                           onClick={() => handlePlanChange(plan.plan_code)}
                           className="ml-4 flex-shrink-0"
@@ -802,7 +1028,10 @@ export default function WorkspaceBillingPage() {
           {/* Add-ons card - compact */}
           {summary?.addons && (
             <Card className="p-4">
-              <SectionTitle title="Add-ons" subtitle="Extra capacity beyond your plan." />
+              <SectionTitle 
+                title="Add-ons" 
+                subtitle={hasPlan ? "Extra capacity beyond your plan." : "Requires an active plan"}
+              />
               <div className="mt-3 space-y-2.5">
                 {summary.addons.available
                   .filter((addon) => addon.key === "extra_concurrency" || addon.key === "extra_phone")
@@ -852,11 +1081,11 @@ export default function WorkspaceBillingPage() {
                             <Button
                               variant="secondary"
                               onClick={() => {
-                                if (!isBillingPaused) {
+                                if (!isBillingPaused && hasPlan) {
                                   handleAddonUpdate(addon.key, currentQty + addon.step);
                                 }
                               }}
-                              disabled={isBillingPaused || isUpdating}
+                              disabled={isBillingPaused || isUpdating || !hasPlan}
                               className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
                             >
                               +
@@ -876,9 +1105,9 @@ export default function WorkspaceBillingPage() {
               <div className="flex items-start justify-between">
                 <SectionTitle
                   title="Estimated monthly total"
-                  subtitle="Preview — final invoice is calculated at month close."
+                  subtitle={hasPlan ? "Preview — final invoice is calculated at month close." : "No active plan"}
                 />
-                {summary.pricing_preview.invoice_state === "stale" && (
+                {summary.pricing_preview.invoice_state === "stale" && hasPlan && (
                   <Badge variant="warning">Updating</Badge>
                 )}
               </div>
@@ -886,18 +1115,24 @@ export default function WorkspaceBillingPage() {
                   {/* Big total */}
                   <div>
                     <div className="text-3xl font-bold text-zinc-900 dark:text-white">
-                      {formatUsd(summary.pricing_preview.estimated_monthly_total_usd)}
+                      {hasPlan ? formatUsd(summary.pricing_preview.estimated_monthly_total_usd) : formatUsd(0)}
                     </div>
+                    {!hasPlan && (
+                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                        No active plan
+                      </p>
+                    )}
                   </div>
                   
                   {/* Breakdown */}
-                  <div className="space-y-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-zinc-600 dark:text-zinc-400">Plan</span>
-                      <span className="font-medium text-zinc-900 dark:text-white">
-                        {formatUsd(summary.pricing_preview.plan_base_usd)}
-                      </span>
-                    </div>
+                  {hasPlan && (
+                    <div className="space-y-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-600 dark:text-zinc-400">Plan</span>
+                        <span className="font-medium text-zinc-900 dark:text-white">
+                          {formatUsd(summary.pricing_preview.plan_base_usd)}
+                        </span>
+                      </div>
                     {summary.pricing_preview.addons_monthly_usd > 0 && (
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-zinc-600 dark:text-zinc-400">Add-ons</span>
@@ -906,15 +1141,16 @@ export default function WorkspaceBillingPage() {
                         </span>
                       </div>
                     )}
-                    {summary.pricing_preview.usage_overage_so_far_usd > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-600 dark:text-zinc-400">Usage so far</span>
-                        <span className="font-medium text-zinc-900 dark:text-white">
-                          +{formatUsd(summary.pricing_preview.usage_overage_so_far_usd)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                      {summary.pricing_preview.usage_overage_so_far_usd > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-zinc-600 dark:text-zinc-400">Usage so far</span>
+                          <span className="font-medium text-zinc-900 dark:text-white">
+                            +{formatUsd(summary.pricing_preview.usage_overage_so_far_usd)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Invoice status line if finalized/pending */}
                   {invoiceRun?.stripe_invoice_id && (
@@ -935,7 +1171,7 @@ export default function WorkspaceBillingPage() {
           <Card className="border-zinc-200/80 dark:border-white/5">
             <SectionTitle title="Current plan" subtitle="Your subscription and plan settings." />
 
-              {currentPlan ? (
+              {hasPlan && currentPlan ? (
                 <div className="mt-3 rounded-xl border border-zinc-200/60 bg-zinc-50/30 p-3.5 dark:border-white/5 dark:bg-white/3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-1">
@@ -973,8 +1209,34 @@ export default function WorkspaceBillingPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-                  Plan information not available
+                <div className="mt-6 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                        No active plan
+                      </h3>
+                      <Badge variant="neutral">No plan</Badge>
+                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      You're in preview mode. Choose a plan to activate billing.
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      // Scroll to plan selection card and highlight it
+                      if (upgradePlanRef.current) {
+                        upgradePlanRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                        // Trigger highlight animation
+                        setHighlightPlans(true);
+                        setTimeout(() => {
+                          setHighlightPlans(false);
+                        }, 1200);
+                      }
+                    }}
+                  >
+                    Choose a plan
+                  </Button>
                 </div>
               )}
             </Card>
@@ -1061,7 +1323,7 @@ export default function WorkspaceBillingPage() {
           }
         }
       }}>
-        <DialogContent>
+        <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
           <DialogHeader>
             <DialogTitle>{confirmAction === "plan" ? "Confirm plan change" : "Confirm changes"}</DialogTitle>
             <DialogDescription asChild>
@@ -1071,7 +1333,9 @@ export default function WorkspaceBillingPage() {
                     <div className="text-sm text-zinc-700 dark:text-zinc-300">
                       Plan:{" "}
                       <span className="font-semibold">
-                        {summary?.plans.find((p) => p.plan_code === currentPlanCode)?.display_name || currentPlanCode}
+                        {hasPlan && currentPlanCode
+                          ? (summary?.plans.find((p) => p.plan_code === currentPlanCode)?.display_name || currentPlanCode)
+                          : "No plan"}
                       </span>{" "}
                       →{" "}
                       <span className="font-semibold">
@@ -1147,6 +1411,7 @@ export default function WorkspaceBillingPage() {
               Cancel
             </UIButton>
             <UIButton
+              variant="default"
               onClick={() => {
                 if (confirmAction === "plan" && confirmData?.planCode) {
                   executePlanChange(confirmData.planCode);
@@ -1155,6 +1420,7 @@ export default function WorkspaceBillingPage() {
                 }
               }}
               disabled={confirmLoading}
+              className="bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {confirmLoading ? "Confirming..." : "Confirm"}
             </UIButton>

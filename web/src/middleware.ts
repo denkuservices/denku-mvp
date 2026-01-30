@@ -133,6 +133,11 @@ export async function middleware(request: NextRequest) {
   // 3) App koruması (Supabase session + email verification) — /dashboard
   const isDashboard = pathname.startsWith("/dashboard");
   if (isDashboard) {
+    // Debug log for phone-lines route
+    if (pathname === "/dashboard/phone-lines") {
+      console.log("[mw] /dashboard/phone-lines hit");
+    }
+    
     try {
       const supabase = createSupabaseMiddlewareClient(request, response);
       const {
@@ -147,6 +152,9 @@ export async function middleware(request: NextRequest) {
 
       if (!user) {
         // No user → redirect to login
+        if (pathname === "/dashboard/phone-lines") {
+          console.log("[mw] /dashboard/phone-lines -> redirect to /login (no user)");
+        }
         response.headers.set("x-auth-user", "none");
         response.headers.set("x-auth-confirmed", "false");
         response.headers.set("x-auth-email", "");
@@ -168,6 +176,9 @@ export async function middleware(request: NextRequest) {
 
       if (!emailConfirmed) {
         // Email not confirmed → redirect to verify-email
+        if (pathname === "/dashboard/phone-lines") {
+          console.log("[mw] /dashboard/phone-lines -> redirect to /verify-email (email not confirmed)");
+        }
         const url = request.nextUrl.clone();
         url.pathname = "/verify-email";
         if (userEmail) {
@@ -211,6 +222,9 @@ export async function middleware(request: NextRequest) {
         if (settingsErr) {
           // Error fetching settings - FAIL OPEN: allow /dashboard to prevent ping-pong loops
           console.error("[middleware] Onboarding step check error (failing open to prevent loops):", settingsErr.message);
+          if (pathname === "/dashboard/phone-lines") {
+            console.log("[mw] /dashboard/phone-lines -> allowed (settings error, fail open)");
+          }
           return response;
         } else {
           // No error - get onboarding_step (default to 0 if null)
@@ -221,23 +235,33 @@ export async function middleware(request: NextRequest) {
         // Do NOT check plan status - plan can be active but activation incomplete
         if (onboardingStep < 6) {
           // Onboarding not complete → redirect to onboarding
-          // Temporary debug log
-          console.log("[middleware] redirect -> /onboarding", {
-            pathname,
-            orgId,
-            onboarding_step: onboardingStep,
-          });
+          if (pathname === "/dashboard/phone-lines") {
+            console.log("[mw] /dashboard/phone-lines -> redirect to /onboarding", {
+              orgId,
+              onboarding_step: onboardingStep,
+            });
+          }
           // Preserve query params if present
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";
           // Keep existing query params (like return_to) in case user was redirected from billing
           return NextResponse.redirect(url);
+        } else {
+          if (pathname === "/dashboard/phone-lines") {
+            console.log("[mw] /dashboard/phone-lines -> allowed", {
+              orgId,
+              onboarding_step: onboardingStep,
+            });
+          }
         }
       } else {
         // No org yet → redirect to onboarding
         // Exception: allow billing page for users who might be creating org during signup
         const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
         if (!isBillingPath) {
+          if (pathname === "/dashboard/phone-lines") {
+            console.log("[mw] /dashboard/phone-lines -> redirect to /onboarding (no org)");
+          }
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";
           return NextResponse.redirect(url);

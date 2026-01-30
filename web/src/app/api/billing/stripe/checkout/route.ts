@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { plan_code } = body;
+    const { plan_code, return_to } = body;
     if (!plan_code || !["starter", "growth", "scale"].includes(plan_code)) {
       return NextResponse.json(
         { ok: false, error: "Invalid plan_code. Must be starter, growth, or scale" },
@@ -180,8 +180,12 @@ export async function POST(req: NextRequest) {
 
     // 8) Get APP_URL for return URLs
     const appUrl = getAppUrl(req);
-    const successUrl = `${appUrl}/onboarding?checkout=success`;
-    const cancelUrl = `${appUrl}/onboarding?checkout=cancel`;
+    
+    // Determine return URLs based on return_to parameter
+    // Default to onboarding for backward compatibility
+    const returnPath = return_to || "/onboarding";
+    const successUrl = `${appUrl}${returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${appUrl}${returnPath}?checkout=cancel`;
 
     // 9) Create Stripe Checkout Session
     // Use subscription mode with price_data for recurring billing

@@ -21,7 +21,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/agents", label: "Agents", icon: Users },
+  { href: "/dashboard/phone-lines", label: "Phone Lines", icon: Phone },
   { href: "/dashboard/calls", label: "Calls", icon: Phone },
   { href: "/dashboard/leads", label: "Leads", icon: UserPlus },
   { href: "/dashboard/tickets", label: "Tickets", icon: Ticket },

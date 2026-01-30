@@ -10,6 +10,24 @@ import type { AgentListRow } from "@/lib/agents/queries";
 
 interface AgentsClientProps {
   agents: AgentListRow[];
+  // Optional customization props for phone-lines route
+  primaryCtaLabel?: string;
+  primaryCtaHref?: string;
+  showPriceHint?: string;
+  columnLabels?: {
+    name: string;
+    language: string;
+    status: string;
+    live: string;
+    lastActivity: string;
+    actions: string;
+  };
+  title?: string;
+  emptyStateMessage?: string;
+  noResultsMessage?: string;
+  languageFilterLabel?: string;
+  isPhoneLinesMode?: boolean;
+  rowLinkBasePath?: string; // Base path for row links (default: "/dashboard/agents")
 }
 
 /**
@@ -49,8 +67,8 @@ function formatAbsoluteTime(iso: string | null | undefined): string {
   return dt.toLocaleString();
 }
 
-function maskPhone(phone: string | null): string {
-  if (!phone) return "No number";
+function maskPhone(phone: string | null, isPhoneLinesMode: boolean = false): string {
+  if (!phone) return isPhoneLinesMode ? "—" : "No number";
   if (phone.length <= 4) return phone;
   return `•••• ${phone.slice(-4)}`;
 }
@@ -142,7 +160,26 @@ function AgentActionsMenu({
   );
 }
 
-export default function AgentsClient({ agents: initialAgents }: AgentsClientProps) {
+export default function AgentsClient({
+  agents: initialAgents,
+  primaryCtaLabel = "Create Agent",
+  primaryCtaHref = "/dashboard/agents/new",
+  showPriceHint,
+  columnLabels = {
+    name: "NAME",
+    language: "LANGUAGE",
+    status: "STATUS",
+    live: "LIVE",
+    lastActivity: "LAST ACTIVITY",
+    actions: "ACTIONS",
+  },
+  title = "Agents",
+  emptyStateMessage = "No agents found yet.",
+  noResultsMessage = "No agents match your filters.",
+  languageFilterLabel = "All Languages",
+  isPhoneLinesMode = false,
+  rowLinkBasePath = "/dashboard/agents",
+}: AgentsClientProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "Connected" | "Issues">("all");
@@ -212,7 +249,8 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
   };
 
   const handleDisable = async (agentId: string, agentName: string) => {
-    if (window.confirm(`Disable agent "${agentName}"?`)) {
+    const entityName = isPhoneLinesMode ? "phone line" : "agent";
+    if (window.confirm(`Disable ${entityName} "${agentName}"?`)) {
       // TODO: Implement disable action with backend support
       // Check if agents table has a 'disabled' or 'is_active' field
       // If yes, update it. If no, show message.
@@ -232,13 +270,13 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
 
       {initialAgents.length === 0 ? (
         <div className="rounded-md border bg-white p-6 text-sm text-gray-700 dark:bg-navy-800 dark:text-white">
-          No agents found yet.
+          {emptyStateMessage}
         </div>
       ) : (
         <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
           <div className="w-full h-full sm:overflow-auto px-6">
             <div className="relative flex items-center justify-between pt-4">
-              <div className="text-xl font-bold text-navy-700 dark:text-white">Agents</div>
+              <div className="text-xl font-bold text-navy-700 dark:text-white">{title}</div>
               <div className="flex items-center gap-2">
                 {/* Compact search */}
                 <input
@@ -264,7 +302,7 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
                   onChange={(e) => setLanguageFilter(e.target.value)}
                   className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
                 >
-                  <option value="all">All Languages</option>
+                  <option value="all">{languageFilterLabel}</option>
                   {languages.map((lang) => (
                     <option key={lang} value={lang}>
                       {lang}
@@ -288,22 +326,24 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
                 <thead>
                   <tr className="!border-px !border-gray-200 dark:!border-white/20">
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-start">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">NAME</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">{columnLabels.name}</p>
                     </th>
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-start">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">LANGUAGE</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">{columnLabels.language}</p>
                     </th>
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-start">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">STATUS</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">{columnLabels.status}</p>
                     </th>
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-start">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">LIVE</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">{columnLabels.live}</p>
                     </th>
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-start">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">LAST ACTIVITY</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">
+                        {isPhoneLinesMode ? "ACTIVITY" : columnLabels.lastActivity}
+                      </p>
                     </th>
                     <th className="border-b-[1px] border-gray-200 dark:border-white/20 pt-4 pb-2 pr-4 text-right">
-                      <p className="text-xs font-bold text-gray-600 dark:text-white">ACTIONS</p>
+                      <p className="text-xs font-bold text-gray-600 dark:text-white">{columnLabels.actions}</p>
                     </th>
                   </tr>
                 </thead>
@@ -311,7 +351,7 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
                   {filteredAgents.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No agents match your filters.
+                        {noResultsMessage}
                       </td>
                     </tr>
                   ) : (
@@ -331,24 +371,47 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
                       return (
                         <tr key={agent.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
                           <td className="min-w-[150px] border-white/0 py-3 pr-4">
-                            <Link href={`/dashboard/agents/${agent.id}`} className="block group">
-                              <p className="text-sm font-bold text-navy-700 dark:text-white group-hover:underline">
-                                {agent.name}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {maskPhone(agent.inbound_phone)}
-                              </p>
+                            <Link href={`${rowLinkBasePath}/${agent.id}`} className="block group">
+                              {isPhoneLinesMode ? (
+                                <>
+                                  <p className={`text-sm group-hover:underline ${
+                                    agent.inbound_phone
+                                      ? "font-bold text-navy-700 dark:text-white"
+                                      : "font-medium text-gray-500 dark:text-gray-400"
+                                  }`}>
+                                    {agent.inbound_phone || "Not assigned"}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {agent.name}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-sm font-bold text-navy-700 dark:text-white group-hover:underline">
+                                    {agent.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {maskPhone(agent.inbound_phone, isPhoneLinesMode)}
+                                  </p>
+                                </>
+                              )}
                             </Link>
                           </td>
                           <td className="min-w-[150px] border-white/0 py-3 pr-4">
-                            <Link href={`/dashboard/agents/${agent.id}`} className="block" tabIndex={-1}>
-                              <p className="text-sm font-bold text-navy-700 dark:text-white">
-                                {agent.language ?? "—"}
-                              </p>
+                            <Link href={`${rowLinkBasePath}/${agent.id}`} className="block" tabIndex={-1}>
+                              {isPhoneLinesMode ? (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-navy-700 dark:text-gray-300">
+                                  Support
+                                </span>
+                              ) : (
+                                <p className="text-sm font-bold text-navy-700 dark:text-white">
+                                  {agent.language ?? "—"}
+                                </p>
+                              )}
                             </Link>
                           </td>
                           <td className="min-w-[150px] border-white/0 py-3 pr-4">
-                            <Link href={`/dashboard/agents/${agent.id}`} className="block" tabIndex={-1}>
+                            <Link href={`${rowLinkBasePath}/${agent.id}`} className="block" tabIndex={-1}>
                               <span
                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
                               >
@@ -363,23 +426,35 @@ export default function AgentsClient({ agents: initialAgents }: AgentsClientProp
                                   ? "text-yellow-600 dark:text-yellow-400"
                                   : ""
                               }`}
+                              title={isPhoneLinesMode ? agent.name : undefined}
                             >
-                              {agent.active_calls} / {agent.plan_limit}
+                              {isPhoneLinesMode ? agent.name || "Main Assistant" : `${agent.active_calls} / ${agent.plan_limit}`}
                             </p>
                           </td>
                           <td className="min-w-[120px] border-white/0 py-3 pr-4">
-                            <p
-                              className="text-sm font-bold text-navy-700 dark:text-white"
-                              title={lastCallAtTooltip}
-                            >
-                              {lastCallAtDisplay}
-                            </p>
+                            {isPhoneLinesMode ? (
+                              <div>
+                                <p className="text-sm font-bold text-navy-700 dark:text-white">
+                                  0 calls today
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  Last: —
+                                </p>
+                              </div>
+                            ) : (
+                              <p
+                                className="text-sm font-bold text-navy-700 dark:text-white"
+                                title={lastCallAtTooltip}
+                              >
+                                {lastCallAtDisplay}
+                              </p>
+                            )}
                           </td>
                           <td className="min-w-[80px] border-white/0 py-3 pr-4 text-right">
                             <AgentActionsMenu
                               agentId={agent.id}
                               agentName={agent.name}
-                              onDetails={() => router.push(`/dashboard/agents/${agent.id}`)}
+                              onDetails={() => router.push(`${rowLinkBasePath}/${agent.id}`)}
                               onEdit={() => {
                                 setToastMessage("Edit coming soon");
                                 setTimeout(() => setToastMessage(null), 3000);

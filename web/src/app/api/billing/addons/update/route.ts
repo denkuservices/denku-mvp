@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { z } from "zod";
+import Stripe from "stripe";
+import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 
 /**
  * Get current month start in UTC (YYYY-MM-01 format).
@@ -132,7 +134,172 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7) Upsert billing_org_addons
+    // 7) Fetch Stripe price_id from billing_addon_catalog
+    const { data: addonCatalog } = await supabaseAdmin
+      .from("billing_addon_catalog")
+      .select("stripe_price_id")
+      .eq("addon_key", addon_key)
+      .eq("is_active", true)
+      .maybeSingle<{ stripe_price_id: string | null }>();
+
+    if (!addonCatalog?.stripe_price_id) {
+      logEvent({
+        tag: "[BILLING][ADDON_UPDATE][CONFIG_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "error",
+        details: {
+          addon_key: addon_key,
+          error: "stripe_price_id not configured for addon",
+        },
+      });
+
+      return NextResponse.json(
+        { ok: false, error: "Add-on configuration error. Please contact support." },
+        { status: 500 }
+      );
+    }
+
+    const stripePriceId = addonCatalog.stripe_price_id;
+
+    // 8) Fetch Stripe customer_id from billing_stripe_customers
+    const { data: stripeCustomer } = await supabaseAdmin
+      .from("billing_stripe_customers")
+      .select("stripe_customer_id")
+      .eq("org_id", org_id)
+      .maybeSingle<{ stripe_customer_id: string | null }>();
+
+    if (!stripeCustomer?.stripe_customer_id) {
+      return NextResponse.json(
+        { ok: false, error: "Stripe customer not found" },
+        { status: 409 }
+      );
+    }
+
+    const stripeCustomerId = stripeCustomer.stripe_customer_id;
+
+    // 9) Update Stripe subscription items (BEFORE DB update)
+    try {
+      const stripe = getStripeClient();
+
+      // Find active subscription: first check DB for stored subscription_id
+      // Check billing_stripe_customers for stripe_subscription_id
+      const { data: customerRow } = await supabaseAdmin
+        .from("billing_stripe_customers")
+        .select("stripe_subscription_id")
+        .eq("org_id", org_id)
+        .maybeSingle<{ stripe_subscription_id: string | null }>();
+
+      let subscriptionId: string | null = customerRow?.stripe_subscription_id ?? null;
+
+      // If not in DB, fetch from Stripe API
+      if (!subscriptionId) {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          status: "active",
+          limit: 10,
+        });
+
+        // Also check trialing subscriptions
+        if (subscriptions.data.length === 0) {
+          const trialingSubs = await stripe.subscriptions.list({
+            customer: stripeCustomerId,
+            status: "trialing",
+            limit: 10,
+          });
+          subscriptions.data.push(...trialingSubs.data);
+        }
+
+        // Pick the newest subscription (by created timestamp)
+        if (subscriptions.data.length > 0) {
+          subscriptions.data.sort((a: Stripe.Subscription, b: Stripe.Subscription) => b.created - a.created);
+          subscriptionId = subscriptions.data[0].id;
+
+          // Persist subscription_id to DB for future use
+          await supabaseAdmin
+            .from("billing_stripe_customers")
+            .update({ stripe_subscription_id: subscriptionId })
+            .eq("org_id", org_id);
+        }
+      }
+
+      if (!subscriptionId) {
+        return NextResponse.json(
+          { ok: false, error: "No active Stripe subscription found" },
+          { status: 409 }
+        );
+      }
+
+      // Fetch subscription with expanded items
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ["items.data.price"],
+      });
+
+      // Find existing subscription item with matching price_id
+      const existingItem = subscription.items.data.find(
+        (item: Stripe.SubscriptionItem) => {
+          const priceId = typeof item.price === "string" ? item.price : item.price.id;
+          return priceId === stripePriceId;
+        }
+      );
+
+      // Generate idempotency key
+      const idempotencyKey = `addon_update:${org_id}:${addon_key}:${qty}`;
+
+      if (qty > 0) {
+        if (existingItem) {
+          // Update existing item quantity
+          await stripe.subscriptionItems.update(
+            existingItem.id,
+            { quantity: qty },
+            { idempotencyKey }
+          );
+        } else {
+          // Add new subscription item
+          await stripe.subscriptionItems.create(
+            {
+              subscription: subscriptionId,
+              price: stripePriceId,
+              quantity: qty,
+            },
+            { idempotencyKey }
+          );
+        }
+      } else {
+        // qty == 0: delete the subscription item
+        if (existingItem) {
+          await stripe.subscriptionItems.del(existingItem.id, {
+            idempotencyKey,
+          });
+        }
+      }
+    } catch (stripeErr) {
+      const errorMsg = stripeErr instanceof Error ? stripeErr.message : "Stripe update failed";
+      
+      logEvent({
+        tag: "[BILLING][ADDON_UPDATE][STRIPE_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: "error",
+        details: {
+          addon_key: addon_key,
+          qty: qty,
+          stripe_price_id: stripePriceId,
+          error: errorMsg,
+        },
+      });
+
+      return NextResponse.json(
+        { ok: false, error: `Payment service error: ${errorMsg}` },
+        { status: 502 }
+      );
+    }
+
+    // 10) Upsert billing_org_addons (AFTER Stripe succeeds)
     const upsertData: {
       org_id: string;
       addon_key: string;
@@ -172,7 +339,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 8) Mark current month invoice as stale (invalidate draft invoice)
+    // 11) Mark current month invoice as stale (invalidate draft invoice)
     const currentMonth = getCurrentMonthStart();
     await supabaseAdmin
       .from("billing_invoice_runs")
@@ -183,7 +350,7 @@ export async function POST(req: NextRequest) {
       .eq("org_id", org_id)
       .eq("month", currentMonth);
 
-    // 9) Log draft invoice invalidation
+    // 12) Log draft invoice invalidation
     logEvent({
       tag: "[BILLING][DRAFT_INVALIDATED][ADDON_CHANGE]",
       ts: Date.now(),
@@ -198,7 +365,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 10) Log addon update event
+    // 13) Log addon update event
     logEvent({
       tag: "[BILLING][ADDON_UPDATE]",
       ts: Date.now(),
@@ -214,7 +381,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 11) Return success
+    // 14) Return success
+    // TODO(billing): When we generate Stripe invoices, include add-on line items derived from:
+    // - public.billing_org_addons (org_id, addon_key, qty)
+    // - public.billing_addon_catalog (addon_key -> Stripe price metadata)
+    // so add-ons like extra_phone can be billed as $/month per unit.
     return NextResponse.json({
       ok: true,
       addon_key: addon_key,

@@ -23,10 +23,10 @@ export const horizonNavRoutes: NavRoute[] = [
     icon: <LayoutDashboard className="h-6 w-6" />,
   },
   {
-    name: 'Agents',
+    name: 'Phone Lines',
     layout: 'dashboard',
-    path: 'agents',
-    icon: <Users className="h-6 w-6" />,
+    path: 'phone-lines',
+    icon: <Phone className="h-6 w-6" />,
   },
   {
     name: 'Calls',

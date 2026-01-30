@@ -1,9 +1,10 @@
+import * as React from 'react';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InlineBannerProps {
   type: 'success' | 'error';
-  message: string;
+  message: string | React.ReactNode;
   onDismiss?: () => void;
   className?: string;
 }
@@ -31,14 +32,14 @@ export function InlineBanner({ type, message, onDismiss, className }: InlineBann
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p
+        <div
           className={cn(
             'text-sm font-medium leading-relaxed',
             isSuccess ? 'text-green-800' : 'text-red-800'
           )}
         >
           {message}
-        </p>
+        </div>
       </div>
       {onDismiss && (
         <button

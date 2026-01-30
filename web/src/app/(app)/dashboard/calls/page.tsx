@@ -260,7 +260,41 @@ export default async function CallsPage({
 
   // Extract and parse search params
   const sinceFilter = normalizeParam(resolvedSearchParams.since);
-  
+  const phoneLineIdRaw = normalizeParam(resolvedSearchParams.phoneLineId);
+  const isValidUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+  const phoneLineId = phoneLineIdRaw && isValidUuid(phoneLineIdRaw) ? phoneLineIdRaw : undefined;
+
+  // Resolve phone line filter: fetch label and vapi_phone_number_id for filtering (calls.vapi_phone_number_id = phone_lines.vapi_phone_number_id)
+  let phoneLineFilterVapiId: string | null = null;
+  let phoneLineLabel: string | null = null;
+  if (phoneLineId) {
+    const { data: phoneLine } = await supabaseAdmin
+      .from("phone_lines")
+      .select("vapi_phone_number_id, phone_number_e164, display_name")
+      .eq("id", phoneLineId)
+      .eq("org_id", orgId)
+      .maybeSingle<{ vapi_phone_number_id: string | null; phone_number_e164: string | null; display_name: string | null }>();
+    if (phoneLine?.vapi_phone_number_id) {
+      phoneLineFilterVapiId = phoneLine.vapi_phone_number_id;
+      const e164 = phoneLine.phone_number_e164;
+      if (phoneLine.display_name?.trim()) {
+        phoneLineLabel = phoneLine.display_name.trim();
+      } else if (e164) {
+        const cleaned = e164.replace(/\D/g, "");
+        if (cleaned.length === 11 && cleaned.startsWith("1")) {
+          const area = cleaned.slice(1, 4);
+          const exchange = cleaned.slice(4, 7);
+          const rest = cleaned.slice(7);
+          phoneLineLabel = `+1 (${area}) ${exchange}-${rest}`;
+        } else {
+          phoneLineLabel = e164;
+        }
+      } else {
+        phoneLineLabel = "Phone line";
+      }
+    }
+  }
+
   // Calculate cutoff for time filtering (timezone-aware for 7d/30d, timezone-independent for 1d)
   let cutoffUtcISO: string | undefined;
   if (sinceFilter) {
@@ -346,6 +380,11 @@ export default async function CallsPage({
     )
     .eq("org_id", orgId); // CRITICAL: Filter by org_id first
   
+  // Apply phone line filter: calls.vapi_phone_number_id = phone_lines.vapi_phone_number_id (no phone_line_id column)
+  if (phoneLineFilterVapiId) {
+    query = query.eq("vapi_phone_number_id", phoneLineFilterVapiId);
+  }
+  
   // Apply time range filter if cutoff was calculated
   if (cutoffUtcISO) {
     query = query.gte("started_at", cutoffUtcISO);
@@ -424,6 +463,20 @@ export default async function CallsPage({
     <div className="space-y-6">
       <div className="mb-6">
         <FilterToolbar />
+        {/* Phone line filter chip: show when filtered by phone line, with Clear link */}
+        {phoneLineFilterVapiId && phoneLineLabel && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-800 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+              Phone line: {phoneLineLabel}
+            </span>
+            <Link
+              href="/dashboard/calls"
+              className="text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              Clear filter
+            </Link>
+          </div>
+        )}
       </div>
 
       {filteredCalls.length === 0 ? (
@@ -435,7 +488,7 @@ export default async function CallsPage({
           <TableRoot>
             <TableHeader>
               <TableRow>
-                <TableHead>Agent</TableHead>
+                <TableHead>AI</TableHead>
                 <TableHead>Outcome</TableHead>
                 <TableHead>Started</TableHead>
                 <TableHead>Duration</TableHead>

@@ -1211,7 +1211,7 @@ Always confirm the caller's name, phone number, and a short summary before submi
           .insert({
             org_id: orgId,
             name: "Main Line",
-            language,
+            language: settings?.onboarding_language ?? "en",
             voice: "jennifer",
             timezone: "America/New_York",
             created_by: user.id,
@@ -1240,6 +1240,61 @@ Always confirm the caller's name, phone number, and a short summary before submi
         ok: false, 
         error: "Provisioned line, waiting for number assignment" 
       };
+    }
+
+    // 4a) Insert into phone_lines table (idempotent: ignore conflicts)
+    // Insert after we have phone_number_e164 (required for activation completion)
+    try {
+      const now = new Date().toISOString();
+      const { error: phoneLineError } = await supabaseAdmin
+        .from("phone_lines")
+        .insert({
+          org_id: orgId,
+          vapi_phone_number_id: phone.id,
+          phone_number_e164: phoneNumberE164,
+          status: "live",
+          line_type: "support",
+          assigned_agent_id: null,
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (phoneLineError) {
+        // Check if error is due to unique constraint violation (conflict on org_id, vapi_phone_number_id)
+        const errorMsg = phoneLineError.message || String(phoneLineError);
+        const isConflict = errorMsg.includes("duplicate key") || 
+                          errorMsg.includes("unique constraint") ||
+                          errorMsg.includes("already exists");
+        
+        if (isConflict) {
+          // Conflict expected - do nothing (idempotent)
+          console.log("[runActivation] Phone line already exists in phone_lines (idempotent):", {
+            org_id: orgId,
+            vapi_phone_number_id: phone.id,
+          });
+        } else {
+          // Other error - log but don't fail activation (non-critical)
+          console.warn("[runActivation] Error inserting phone_lines (non-fatal):", errorMsg);
+        }
+      } else {
+        console.log("[runActivation] Inserted phone line into phone_lines table:", {
+          org_id: orgId,
+          vapi_phone_number_id: phone.id,
+          phone_number_e164: phoneNumberE164,
+        });
+      }
+    } catch (phoneLineErr) {
+      // Non-fatal: log and continue (don't block activation)
+      const errorMsg = phoneLineErr instanceof Error ? phoneLineErr.message : String(phoneLineErr);
+      const isConflict = errorMsg.includes("duplicate key") || 
+                        errorMsg.includes("unique constraint") ||
+                        errorMsg.includes("already exists");
+      
+      if (isConflict) {
+        console.log("[runActivation] Phone line already exists (idempotent)");
+      } else {
+        console.warn("[runActivation] Exception inserting phone_lines (non-fatal):", errorMsg);
+      }
     }
 
     // F) Include onboarding_step = 6 and onboarding_completed_at in same upsert as phone artifacts (atomic)
@@ -1760,17 +1815,108 @@ export async function completeOnboarding(orgId: string) {
       .insert({ org_id: orgId });
   }
 
-  // Step mapping: 0 = goal, 1 = phone number, 2 = choose plan, 3 = activate, 4 = live
+  // DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+  // Mark onboarding complete by setting step to 6 (Live)
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
-      onboarding_step: 4, // Step 4 = live
+      onboarding_step: 6, // Step 6 = Live (onboarding complete)
       onboarding_completed_at: new Date().toISOString(),
     })
     .eq("org_id", orgId);
 
   if (error) {
     console.error("[completeOnboarding] Error:", error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Continue without plan (preview/freemium mode).
+ * Explicitly marks onboarding complete and allows dashboard access without a paid plan.
+ * Sets onboarding_step to 6 (Live) and onboarding_completed_at to now().
+ * 
+ * This is the ONLY way to complete onboarding without a paid plan.
+ * Abandoned checkout does NOT complete onboarding - user must explicitly click this button.
+ */
+export async function continueWithoutPlan(orgId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not authenticated" };
+  }
+
+  // Verify user has access to this org
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  // Ensure FK parent exists in organizations_legacy
+  const { data: existingOrg } = await supabaseAdmin
+    .from("organizations_legacy")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  
+  if (!existingOrg) {
+    await supabaseAdmin
+      .from("organizations_legacy")
+      .insert({ id: orgId, name: null, created_at: new Date().toISOString() });
+  }
+
+  // Ensure settings row exists
+  const { data: existingSettings } = await supabaseAdmin
+    .from("organization_settings")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  
+  if (!existingSettings) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .insert({ org_id: orgId });
+  }
+
+  // Prepare update payload with onboarding_mode (optional field)
+  const updatePayload: {
+    onboarding_step: number;
+    onboarding_completed_at: string;
+    onboarding_mode?: string;
+  } = {
+    onboarding_step: 6, // Step 6 = Live (onboarding complete)
+    onboarding_completed_at: new Date().toISOString(),
+    onboarding_mode: "preview", // Optional: set if column exists
+  };
+
+  // Mark onboarding complete
+  // If onboarding_mode column doesn't exist, Supabase will return an error
+  // In that case, retry without onboarding_mode
+  let { error } = await supabaseAdmin
+    .from("organization_settings")
+    .update(updatePayload)
+    .eq("org_id", orgId);
+
+  // If error is due to missing column, retry without onboarding_mode
+  if (error && (error.message?.includes("column") || error.code === "PGRST204")) {
+    const { onboarding_mode, ...payloadWithoutMode } = updatePayload;
+    const { error: retryError } = await supabaseAdmin
+      .from("organization_settings")
+      .update(payloadWithoutMode)
+      .eq("org_id", orgId);
+    
+    if (retryError) {
+      error = retryError;
+    } else {
+      // Success without onboarding_mode - that's OK
+      error = null;
+    }
+  }
+
+  if (error) {
+    console.error("[continueWithoutPlan] Error:", error);
     return { ok: false, error: error.message };
   }
 

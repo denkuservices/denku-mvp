@@ -20,6 +20,7 @@ import {
   getOnboardingState,
   checkPhoneStatus,
   savePhonePreferences,
+  continueWithoutPlan,
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
 import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
@@ -1066,9 +1067,9 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       })}
                   </div>
 
-                  {/* Proceed to checkout button */}
-                  {selectedPlan && (
-                    <div className="flex justify-center pt-4">
+                  {/* Action buttons */}
+                  <div className="flex flex-col items-center gap-3 pt-4">
+                    {selectedPlan && (
                       <Button
                         className="min-w-[200px]"
                         variant="primary"
@@ -1101,8 +1102,34 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       >
                         {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
                       </Button>
-                    </div>
-                  )}
+                    )}
+                    
+                    {/* Continue without plan button */}
+                    <Button
+                      variant="outline"
+                      disabled={isPending || isConfirming}
+                      onClick={() => {
+                        if (!state.orgId) {
+                          setError("Organization ID is missing.");
+                          return;
+                        }
+                        setError(null);
+                        setCheckoutMessage(null);
+                        startTransition(async () => {
+                          const result = await continueWithoutPlan(state.orgId!);
+                          if (result.ok) {
+                            // Redirect to phone lines page
+                            router.push("/dashboard/phone-lines");
+                          } else {
+                            setError(result.error || "Failed to continue without plan");
+                          }
+                        });
+                      }}
+                      className="min-w-[200px]"
+                    >
+                      Continue without plan
+                    </Button>
+                  </div>
                 </>
               )}
 
