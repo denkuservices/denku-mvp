@@ -4,6 +4,7 @@ import { Button } from '@/components/marketing/Button';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Check, Code, Webhook, Zap } from 'lucide-react';
+import { SITE_NAME } from '@/config/site';
 
 const gettingStartedSteps = [
   {
@@ -135,7 +136,7 @@ export default function DocsPage() {
               Core Concepts
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm text-[#475569]">
-              Understand the building blocks of SovereignAI.
+              Understand the building blocks of {SITE_NAME}.
             </p>
           </div>
 

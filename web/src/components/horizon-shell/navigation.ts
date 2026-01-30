@@ -14,11 +14,6 @@ export const findCurrentRoute = (
   if (!pathname) return null;
 
   for (let route of routes) {
-    if (!!route.items) {
-      const found = findCurrentRoute(route.items, pathname);
-      if (!!found) return found;
-    }
-    
     // For dashboard routes, match more precisely (handle both 'dashboard' and '/dashboard' layout)
     const layout = route.layout?.replace(/^\/+/, '') || '';
     if (layout === 'dashboard') {

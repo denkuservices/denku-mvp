@@ -1,5 +1,7 @@
 'use client';
 
+import { SITE_NAME } from '@/config/site';
+
 export function ContactPage() {
   return (
     <section className="py-14 md:py-16">
@@ -125,7 +127,7 @@ export function ContactPage() {
             </button>
 
             <div className="text-xs text-muted-foreground">
-              By submitting, you agree to be contacted about SovereignAI. No spam.
+              By submitting, you agree to be contacted about {SITE_NAME}. No spam.
             </div>
           </form>
         </div>

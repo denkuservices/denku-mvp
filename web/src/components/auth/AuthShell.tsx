@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { AuthRightPanelBackground } from './AuthRightPanelBackground';
+import { SITE_NAME } from '@/config/site';
 
 interface AuthShellProps {
   title: string;
@@ -69,7 +70,7 @@ export function AuthShell({ title, subtitle, children, footer, showBackLink }: A
         {/* 4) Content (top) - pointer-events-none so DotGrid can receive mouse events */}
         <div className="relative z-30 flex h-full w-full items-center justify-center px-8 lg:px-12 pointer-events-none">
           <div className="max-w-md text-center">
-            <h2 className="text-4xl font-bold text-white mb-3">Sovereign AI</h2>
+            <h2 className="text-4xl font-bold text-white mb-3">{SITE_NAME}</h2>
             <p className="text-lg text-white/90 mb-6">
               Production-grade Voice AI infrastructure.
             </p>

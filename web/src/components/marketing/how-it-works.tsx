@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from './Button';
 import { Container } from './Container';
 import { Section } from './Section';
+import { SITE_NAME } from '@/config/site';
 
 const steps = [
   {
@@ -27,7 +28,7 @@ export function HowItWorks() {
             A Better Way to Build, Deploy, and Manage Agents
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            SovereignAI is built for SaaS teams who need a secure, reliable, and scalable
+            {SITE_NAME} is built for SaaS teams who need a secure, reliable, and scalable
             platform for production-grade AI agents.
           </p>
         </div>

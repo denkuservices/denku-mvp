@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from './Button';
 import { Container } from './Container';
 import { Section } from './Section';
+import { SITE_NAME } from '@/config/site';
 
 export function FinalCta() {
   return (
@@ -16,7 +17,7 @@ export function FinalCta() {
 
           <div className="relative z-10 mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-              Ready to Build with SovereignAI?
+              Ready to Build with {SITE_NAME}?
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base text-white/90">
               Explore the platform and start building today. Deploy your first agent in minutes.

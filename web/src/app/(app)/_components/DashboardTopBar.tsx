@@ -1,6 +1,7 @@
 import { AccountMenu } from "@/app/(app)/AccountMenu";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { SITE_NAME } from "@/config/site";
 
 export async function DashboardTopBar() {
   // Fetch user data for AccountMenu (minimal query)
@@ -37,7 +38,7 @@ export async function DashboardTopBar() {
     <header className="sticky top-0 z-30 h-16 border-b border-border bg-card">
       <div className="flex h-full items-center justify-between px-6">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Sovereign AI Console</span>
+          <span className="text-sm text-muted-foreground">{SITE_NAME} Console</span>
         </div>
         <AccountMenu 
           userEmail={userEmail}

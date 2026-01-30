@@ -41,13 +41,6 @@ export default function SettingsHomePage() {
           items={["Plan", "Invoices", "Payment methods"]}
         />
 
-        <SettingsCard
-          title="Integrations"
-          description="Voice, webhooks, and external system connections."
-          href="/dashboard/settings/integrations"
-          items={["Voice", "Webhooks", "CRM (coming soon)"]}
-        />
-
         {/* Shortcut → canonical workspace usage */}
         <SettingsCard
           title="Usage"

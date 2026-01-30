@@ -3,6 +3,7 @@ import { AccountMenu } from "./AccountMenu";
 import { DashboardNav } from "./_components/DashboardNav";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { WorkspaceStatusBadgeClient } from "@/components/workspace/WorkspaceStatusBadgeClient";
+import { SITE_NAME } from "@/config/site";
 
 export default async function DashboardHeader() {
   // Fetch user data for AccountMenu (minimal query)
@@ -47,7 +48,7 @@ export default async function DashboardHeader() {
             Denku MVP
           </Link>
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            Sovereign AI Console
+            {SITE_NAME} Console
           </span>
           {/* Workspace status badge - only shows when paused */}
           <WorkspaceStatusBadgeClient className="hidden sm:inline-flex" />

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from './Button';
 import { Container } from './Container';
 import { Section } from './Section';
+import { SITE_NAME } from '@/config/site';
 
 const trustItems = [
   'Multi-Tenant Architecture',
@@ -14,7 +15,7 @@ export function Hero() {
   return (
     <Section className="py-20 text-center md:py-32">
       <Container>
-        <p className="text-sm text-muted-foreground">SovereignAI · Sovereign-grade AI agents</p>
+        <p className="text-sm text-muted-foreground">{SITE_NAME} · Production-grade AI agents</p>
         <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-6xl md:leading-tight">
           Build Production-Ready AI Agents
         </h1>

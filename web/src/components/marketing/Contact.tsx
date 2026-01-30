@@ -7,6 +7,7 @@ import { Section } from './Section';
 import { Button } from './Button';
 import { InlineBanner } from './InlineBanner';
 import { CreditCard, Users, Mic, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { SITE_NAME } from '@/config/site';
 
 // StartInMinutesFlow Component
 function StartInMinutesFlow() {
@@ -526,7 +527,7 @@ export function Contact() {
               </Button>
 
               <div className="text-xs text-[#64748B]">
-                By submitting, you agree to be contacted about SovereignAI. No spam.
+                By submitting, you agree to be contacted about {SITE_NAME}. No spam.
               </div>
             </form>
           </div>

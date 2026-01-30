@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from './Button';
 import { Container } from './Container';
 import { Section } from './Section';
+import { SITE_NAME } from '@/config/site';
 
 const pillars = [
   {
@@ -33,10 +34,10 @@ export function AboutPage() {
         <Container>
           <div className="max-w-3xl">
             <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-              About SovereignAI
+              About {SITE_NAME}
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              SovereignAI helps teams deploy AI agents—voice, chat, and automation—on an
+              {SITE_NAME} helps teams deploy AI agents—voice, chat, and automation—on an
               architecture designed for multi-tenant SaaS products.
             </p>
           </div>

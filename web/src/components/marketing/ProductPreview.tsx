@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Container } from './Container';
 import { Section } from './Section';
 import { Eye, Settings, Plug } from 'lucide-react';
+import { SITE_NAME } from '@/config/site';
 
 const tabs = [
   { id: 'observe', label: 'Observe', icon: Eye },
@@ -51,7 +52,7 @@ export function ProductPreview() {
       <Container>
         <div className="text-center">
           <h2 className="text-3xl font-bold text-navy-700 md:text-4xl">
-            See SovereignAI in Action
+            See {SITE_NAME} in Action
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm text-gray-600">
             Explore how teams use our platform to build, deploy, and manage production-grade AI agents.
