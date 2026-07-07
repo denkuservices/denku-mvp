@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Denku
 
-## Getting Started
+Denku is a self-serve **AI voice employee**: a business gets a provisioned US phone number answered
+24/7 by an AI assistant, and every inbound call is turned into a real outcome — a ticket, an
+appointment request, and a lead — that the business can see and act on.
 
-First, run the development server:
+> Brand is **"Denku"** (never "Denku AI"). The product is the *outcome*, not the AI.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Where things live
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **The app** is in [`web/`](web/) — Next.js 16 (App Router, React 19, TS, Tailwind v4), deployed on
+  Vercel. Run it with `cd web && npm run dev`; build with `npm run build`.
+- The repo root also contains a **dead legacy MVP** under `src/` — never edit or import it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Start here (documentation system)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+New contributor or AI session — read in this order:
 
-## Learn More
+1. **[CLAUDE.md](CLAUDE.md)** — canonical engineering memory: architecture, business rules,
+   conventions, and landmines. Read first.
+2. **[CURRENT_SPRINT.md](CURRENT_SPRINT.md)** — the active implementation sprint: what to build now.
+3. **[docs/PROJECT_VISION.md](docs/PROJECT_VISION.md)** — the north star (what Denku believes) and
+   **[docs/PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md)** — operating principles (how we work).
+4. **[docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md)** — the master findings tracker
+   (`R-###`), with **[docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md)** (how to act safely) and
+   **[docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)** (how much to trust each finding).
+5. **[skills/](skills/README.md)** — subsystem deep-dives; read the relevant one before touching a
+   subsystem.
+6. **[docs/audits/](docs/audits/README.md)** + **[docs/AUDIT_PLAYBOOK.md](docs/AUDIT_PLAYBOOK.md)**
+   — the audit narratives and the standard that governs them.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+There are no tests or CI yet (only a billing-cron GitHub Action) — see the roadmap (`R-037`).
