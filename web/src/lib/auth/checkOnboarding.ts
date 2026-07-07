@@ -81,6 +81,44 @@ export async function checkPlanActiveAndRedirect(): Promise<"/dashboard"> {
 }
 
 /**
+ * Non-redirecting check: is onboarding complete (step >= 6) for the current user's org?
+ * Used by the app shell to decide whether to render the full dashboard chrome
+ * (sidebar) or a focused, sidebar-less wrapper while onboarding is still in progress.
+ *
+ * Fails OPEN (returns true) on any error so users are never trapped out of the
+ * dashboard by a transient lookup failure — mirrors the middleware's fail-open policy.
+ */
+export async function getOnboardingComplete(): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("org_id")
+      .eq("auth_user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    const orgId = profiles?.[0]?.org_id;
+    if (!orgId) return false;
+
+    const { data: settings, error: settingsErr } = await supabaseAdmin
+      .from("organization_settings")
+      .select("onboarding_step")
+      .eq("org_id", orgId)
+      .maybeSingle<{ onboarding_step: number | null }>();
+
+    if (settingsErr) return true; // fail open
+
+    return (settings?.onboarding_step ?? 0) >= 6;
+  } catch {
+    return true; // fail open — never trap the user
+  }
+}
+
+/**
  * @deprecated Use checkPlanActiveAndRedirect instead.
  * Kept for backwards compatibility but redirects based on plan active status.
  */

@@ -1,6 +1,7 @@
 import { DM_Sans } from "next/font/google";
 import AppShellWrapper from "@/components/horizon-shell/AppShellWrapper";
 import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
+import { getOnboardingComplete } from "@/lib/auth/checkOnboarding";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -21,11 +22,15 @@ export default async function AppLayout({
   // AppShellWrapper conditionally applies HorizonShell (with sidebar) to dashboard routes,
   // but leaves onboarding routes unwrapped so they can use their own header-only layout.
 
+  // While onboarding is incomplete, the app shell renders a focused, sidebar-less
+  // chrome (so the dashboard sidebar never flashes in/out during the setup flow).
+  const onboardingComplete = await getOnboardingComplete();
+
   return (
     <>
       <HorizonStylesheet />
       <div className={`${dmSans.className} w-full`}>
-        <AppShellWrapper>{children}</AppShellWrapper>
+        <AppShellWrapper onboardingComplete={onboardingComplete}>{children}</AppShellWrapper>
       </div>
     </>
   );
