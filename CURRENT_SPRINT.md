@@ -45,25 +45,31 @@ Nothing else should be built until these hold.
 
 **Do in order. Verify-first tasks are prerequisites, not optional (Retrospective §7).**
 
-1. **[VERIFY] R-050** — Read current live Vapi assistant `toolIds` before any code change. A naive
-   re-PATCH could wipe a working manual config. Confirm reality first. *(blocks task 6)*
+1. **[VERIFY] R-050** — ✅ **Done 2026-07-07** (read-only API read of live state). No manual tool
+   config at risk — all tool attachments came from `runActivation`'s merge; both purchase-path
+   lines are live with NO tools (R-050(a) confirmed in prod); the settings-sync strip (b) has not
+   fired yet. **Task 6 unblocked.** Verification filed **R-077** (live assistants'
+   `serverUrl` = `http://localhost:3000/api/tools`).
 2. **[VERIFY] R-001** — Confirm the webhook is actually reachable/unauthenticated in prod (not
-   shielded by an edge rule). *(blocks task 5)*
+   shielded by an edge rule). *(blocks task 5)* **Must also resolve R-077's open question:** is an
+   org-level Server URL configured in the Vapi dashboard, and do customer-line call events
+   actually reach prod today?
 3. **R-037** — Stand up the test harness + CI; write characterization tests (webhook idempotency,
    lease acquire/release at limit, org-scoping). *Foundation — do early; makes tasks 5–6 safe.*
 4. **R-002 + R-003** — Delete `/api/debug/*`; remove `x-auth-*` PII response headers.
    *(then rotate `ADMIN_USER`/`ADMIN_PASS` — external, see Dependencies)*
 5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout.
-6. **R-050** — Shared assistant-config helper: always GET→merge→PATCH with `toolIds` present, on
-   both creation paths and the settings sync; reconcile existing assistants.
+6. **R-050 + R-077** — Shared assistant-config helper: always GET→merge→PATCH with `toolIds`
+   present, on both creation paths and the settings sync; set the canonical webhook `serverUrl`
+   from explicit env (R-077); reconcile existing assistants (tools + serverUrl in one pass).
 7. **R-046 + R-049 + R-012** — Remove fake API-keys screen, fabricated integration statuses,
    no-op "Disable workspace" control, and unreachable placeholder pages.
 8. **R-056** — Add security headers; ship CSP report-only.
 
 ## Roadmap IDs Covered
 
-R-001, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056. *(R-057 admin identity and R-060
-RLS backstop are acknowledged neighbors but out of scope this sprint — see Deferred.)*
+R-001, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056, R-077. *(R-057 admin identity and
+R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — see Deferred.)*
 
 ## Dependencies
 
@@ -76,7 +82,10 @@ RLS backstop are acknowledged neighbors but out of scope this sprint — see Def
 
 ## Risks
 
-- **R-050 config wipe:** fixing before verifying live state could break working lines. → Task 1 gates task 6.
+- **R-050 config wipe:** retired 2026-07-07 — task 1 verification found no manually-configured
+  tools on any bound assistant; task 6 is safe to implement.
+- **R-077 ingestion unknown:** whether customer-line call events reach prod at all is unresolved
+  until task 2's org-level Server URL check + test call. Treat the call→artifact loop as unproven.
 - **Webhook auth drops ingestion:** a bad rollout silently loses live calls. → Stage with logging; verify on a test call before enforcing.
 - **Test coverage on a 3,141-line untyped webhook is hard.** → Characterization tests around behavior only; do not refactor the file this sprint (that's gated on R-074/R-043 later).
 - **CSP over-blocks** third-party origins (Spline/Vapi). → Report-only first; enforce after clean reports.

@@ -25,6 +25,11 @@
    They live in `onboarding/_actions.ts` (`runActivation`). If the Vapi account changes, these break.
 3. Every assistant gets `serverUrl = ${getBaseUrl()}/api/tools` so live tool calls hit our
    `/api/tools/create-ticket` and `/api/tools/create-appointment` routes.
+   ⚠ Two live-state caveats (verified 2026-07-07, R-077): the two tools are account-level
+   `apiRequest` tools carrying their own **absolute prod URLs**, so mid-call tool execution
+   ignores the assistant `serverUrl` entirely; and every assistant created before 2026-07 has
+   `serverUrl = http://localhost:3000/api/tools` frozen in from dev-machine activations — where
+   customer-line webhook events actually go is unresolved until the Sprint 1 Task 2 check.
 4. Two assistant flavors exist:
    - **"Main Line"** (onboarding activation): GPT-4o, templated system prompt interpolating the
      workspace name, first message "Hi — thanks for calling {workspaceName}…".

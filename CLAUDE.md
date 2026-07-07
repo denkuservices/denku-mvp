@@ -118,7 +118,8 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 7. **Internal HTTP self-calls:** purchase → `/api/billing/addons/update` (forwards cookies!),
    webhook → `/api/tools/create-ticket` (uses `DENKU_TOOL_SECRET`). Base URL comes from
    `NEXT_PUBLIC_SITE_URL` → `VERCEL_URL` → localhost (`lib/utils/url.ts`). Changing auth or URL
-   logic breaks these silently.
+   logic breaks these silently. This already bit prod once: live Vapi assistants carry
+   `serverUrl = http://localhost:3000/api/tools` from dev-machine activations (R-077).
 8. **`lib/rateLimit.ts` is an in-memory Map** — a no-op on Vercel. Don't rely on it for anything
    security-relevant.
 9. **Live DB has drifted past the repo migrations** (e.g., RPC `reconcile_call_cost`, the

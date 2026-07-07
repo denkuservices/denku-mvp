@@ -1,6 +1,6 @@
 # Audit 03 — Voice Agent / Call Experience Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-06
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
 - **Lens:** Head of Conversation Design + the customer's most skeptical caller. The question:
   *is the three-minute phone call — the thing businesses actually pay for — excellent, truthful,
   and operationally useful?*
@@ -36,6 +36,13 @@ every path an assistant can take, and found:
      customer personalizes their agent (behavior preset, emphasis points, first message — the
      things we *want* them to do), the onboarding-attached tools are wiped.
 
+  **Live state verified (2026-07-07, Sprint 1 Task 1, read-only API):** part (1) is production
+  fact — both purchase-path (`PL …`) assistants are live on active numbers with `toolIds: null`.
+  Part (2) is latent: no live assistant has been through the settings sync yet (all tool-bearing
+  assistants were last updated ~2s after creation, by `runActivation`'s own merge). No manually-
+  configured tools exist on any bound assistant, so the fix cannot wipe a working setup. The same
+  verification surfaced **R-077** (below).
+
   **Net effect:** for any org that customized its agent or added a line — i.e., most engaged
   customers — the AI can only *talk about* creating tickets and appointments. The prompt
   explicitly instructs it to use `create_ticket` / `create_appointment`, so it will verbally
@@ -46,6 +53,16 @@ every path an assistant can take, and found:
   impossible on affected lines**. This also silently skews analytics: `toolUsed` is always false,
   so completion-state inference marks healthy calls "partial" (feeds R-018).
 
+- **[R-077 — NEW, Critical, filed 2026-07-07 during Sprint 1 Task 1 verification] Live
+  assistants' `serverUrl` points at localhost.** Every app-created assistant carries
+  `serverUrl: http://localhost:3000/api/tools` — the creating dev machine's base URL frozen into
+  live config, and the wrong path for webhook events besides. Mid-call tool execution is
+  unaffected (the two account-level `apiRequest` tools carry their own absolute prod URLs), but
+  unless an org-level Server URL is configured in the Vapi dashboard (not readable via API),
+  end-of-call reports for customer lines have nowhere valid to go — call ingestion for paying
+  customers may be silently dead. Resolution of that open question is folded into the sprint's
+  R-001 reachability check; the fix belongs in the same shared config-assembly helper as R-050.
+
 ## The agent's brain, senses, and judgment
 
 - **[R-013 — enriched] The brain is ~5 generic lines.** The Main Line prompt: be concise, use the
@@ -54,9 +71,10 @@ every path an assistant can take, and found:
   escalation rules, or personality. The prompt-derivation system (presets, emphasis points,
   mandatory fallback line) is a good chassis — it just has almost no fuel.
 
-- **[R-051 — NEW, High] Voice and language settings are decorative.** No `voice` object is ever
-  sent to Vapi (the `"jennifer"` value exists only as a DB column); no `transcriber` config is
-  ever set, and the sync action's own comment concedes it ("Vapi language support may vary…
+- **[R-051 — NEW, High] Voice and language settings are decorative.** *(Confirmed live
+  2026-07-07: every customer assistant has `voice: none`, `transcriber: none`.)* No `voice`
+  object is ever sent to Vapi (the `"jennifer"` value exists only as a DB column); no
+  `transcriber` config is ever set, and the sync action's own comment concedes it ("Vapi language support may vary…
   we'll update what we can" — it updates nothing). Language reaches the call only as prompt text
   ("Primary language: es. Respond naturally…") — meaning a Spanish-configured agent listens
   through a default-language transcriber and speaks in whatever default voice Vapi assigns.
@@ -64,8 +82,9 @@ every path an assistant can take, and found:
   fiction — the in-product sibling of R-004's "20+ languages" claim.
 
 - **[R-052 — NEW, Medium] No duration, silence, or end-of-call configuration on paid lines.**
-  Assistants are created with no `maxDurationSeconds`, no silence timeout, no configured closing
-  behavior — Vapi defaults apply, uncapped. A prank/pocket-dial/hostile caller can burn unbounded
+  *(Confirmed live 2026-07-07: `maxDurationSeconds`/`silenceTimeoutSeconds` unset on every live
+  assistant.)* Assistants are created with no `maxDurationSeconds`, no silence timeout, no
+  configured closing behavior — Vapi defaults apply, uncapped. A prank/pocket-dial/hostile caller can burn unbounded
   billable minutes toward the customer's overage ($0.13–0.22/min). Interlocking technical effect:
   the concurrency lease TTL is 15 minutes, so any call longer than that silently loses its lease
   — long calls stop counting against concurrency while still consuming minutes.
@@ -162,3 +181,4 @@ protocol after the R-050 fix to verify end-to-end.
 | 7 | Execute the Live Test-Call Protocol post-R-050 and re-audit | — (protocol) | High |
 | 8 | Business-context fuel for the prompt chassis (already filed) | R-013 | High |
 | 9 | Real intent detection to un-dead-code the appointment guarantee (already filed) | R-019 | High |
+| 10 | Fix live assistants' localhost serverUrl via the shared config helper + reconciliation; verify event delivery first | R-077 | Critical |

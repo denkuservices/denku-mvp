@@ -99,11 +99,16 @@ The register reflects the author's chosen lenses; these were not examined and ar
 
 ## 7. Human-verification checklist (ordered by cost of being wrong)
 
-1. **R-050 — confirm live Vapi state BEFORE "fixing."** If tools are currently attached via manual
-   dashboard config, a code fix that re-PATCHes the assistant could *wipe a working setup*. Verify
-   reality, then fix.
+1. **R-050 — ✅ VERIFIED 2026-07-07 (Sprint 1 Task 1, read-only API).** No manual dashboard tool
+   config exists to wipe: every tool-bearing assistant got its tools from `runActivation`'s merge,
+   and the only manually-modified assistant is bound to no number. Both purchase-path lines are
+   live with `toolIds: null` (R-050(a) is production fact); the settings-sync strip (b) has not
+   fired on any live assistant yet. The fix is unblocked. Verification also surfaced **R-077**
+   (live assistants' `serverUrl` = localhost) — its event-delivery question moved into item 2.
 2. **R-001 — confirm the webhook is actually reachable/unauthenticated in prod** (not shielded by a
-   WAF/edge rule) and stage the fix so it never drops live call ingestion.
+   WAF/edge rule) and stage the fix so it never drops live call ingestion. Now also covers R-077:
+   confirm whether an org-level Server URL is set in the Vapi dashboard and whether customer-line
+   events reach prod at all (assistant `serverUrl` is localhost on all app-created lines).
 3. **R-075 — pull the real invoice-preview view and reconcile against an actual Stripe invoice
    before touching billing code.** Do not refactor the money path on inference.
 4. **R-031 / R-036 — validate against the real database;** the reconstructed schema and the

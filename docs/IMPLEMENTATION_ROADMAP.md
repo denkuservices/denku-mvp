@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-06 (Audits 09–12 filed) · **Next free ID:** R-077
+> **Last updated:** 2026-07-07 (Sprint 1 Task 1 — R-050 live-state verification; R-077 filed) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -24,14 +24,15 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 14 | 0 | 0 | 14 |
+| Critical | 15 | 0 | 0 | 15 |
 | High | 19 | 0 | 0 | 19 |
 | Medium | 35 | 0 | 0 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **76** | **0** | **0** | **76** |
+| **Total** | **77** | **0** | **0** | **77** |
 
-**Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 (the AI's tools are
-missing/stripped — core product silently broken)**, then the **truth pass** R-004 + R-046
+**Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
+are missing/stripped and live assistants' serverUrl points at localhost — core product silently
+broken)**, then the **truth pass** R-004 + R-046
 (fabricated claims/screens — legal + trust exposure), then R-008/R-009 (retention lifeline +
 bill-shock prevention). Security systemic controls R-056/R-057/R-060 are high-leverage and should
 be scheduled alongside the test foundation (R-037).
@@ -209,6 +210,36 @@ billing view before touching billing code.
   paths and the settings sync: always GET current assistant, merge (never replace) `model` with
   `toolIds` guaranteed present; add a reconciliation pass for existing orgs' assistants. Preserve
   the deterministic fallback untouched — it's the safety net, not the bug.
+- **Live-state verified (2026-07-07, Sprint 1 Task 1, read-only API):** both purchase-path
+  assistants (`PL …`) are live on active numbers with `toolIds: null` — part (a) is production
+  fact. Every tool-bearing assistant got its tools from `runActivation`'s merge (updated ~2s after
+  creation); the only manually-modified assistant is bound to no number, so **no working manual
+  config is at risk — the fix is unblocked**. The settings-sync strip (b) has not fired on any
+  live assistant yet; fix before customers personalize. Both hardcoded tool IDs exist in the
+  account (`apiRequest` tools POSTing to prod `/api/tools/*`). Verification also surfaced R-077.
+
+### R-077 — Live assistants' serverUrl points at localhost (env-coupled creation)
+**Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 03 (filed during Sprint 1 Task 1 live-state verification, 2026-07-07)
+- **Business impact:** Every app-created live assistant (all bound Main Lines + both purchase-path
+  lines) carries `serverUrl: http://localhost:3000/api/tools` — an unreachable host and the wrong
+  path for webhook events. Unless an org-level Server URL is configured in the Vapi dashboard
+  (not readable via API — `GET /org` returns 401 for this key), Vapi has nowhere valid to deliver
+  end-of-call reports for customer lines — i.e. call ingestion for paying customers may be
+  silently dead (no calls, no tickets, no billing minutes). Even best-case, live config is wrong
+  and env-coupled. The dashboard-managed demo line is unaffected (its number carries the prod
+  webhook URL).
+- **Technical impact:** `runActivation` and `api/phone-lines/purchase` set
+  `serverUrl = ${getBaseUrl()}/api/tools` at creation, freezing the *creating machine's* base URL
+  into live config. Two distinct defects: (a) base URL captured from the creation environment;
+  (b) `/api/tools` is not the webhook route (`/api/webhooks/vapi`). Mid-call tool execution is
+  UNAFFECTED — the two tools are account-level `apiRequest` tools carrying their own absolute
+  prod URLs.
+- **Dependencies:** Verify actual event delivery first (org-level dashboard Server URL + a live
+  test call) — folded into Sprint 1 Task 2 (R-001 reachability). Fix belongs in the R-050 shared
+  config-assembly helper.
+- **Recommended solution:** The shared helper sets `serverUrl` to the canonical webhook URL from
+  explicit env (never request-derived); the R-050 reconciliation pass re-PATCHes existing
+  assistants; verify ingestion end-to-end with a test call.
 
 ## HIGH
 
@@ -309,6 +340,8 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   is R-038.
 - **Recommended solution:** Extend the shared assistant-config helper to set voice + transcriber
   (language) from agent settings on create AND sync; verify with test-call protocol scenario 7.
+- **Confirmed live (2026-07-07, Sprint 1 Task 1):** every customer assistant has `voice: none`,
+  `transcriber: none` (read-only API check).
 
 ### R-021 — Raw upstream error strings shown to users
 **Priority:** High · **Status:** Open · **Effort:** S–M · **Related audit:** 00
@@ -649,6 +682,8 @@ must be baselined here before the money math can be reviewed or tested.)
   (e.g. 15 min default, configurable).
 - **Recommended solution:** Set sane per-assistant duration/silence caps with a graceful spoken
   closing; align lease TTL with the max duration; expose the cap in agent settings later.
+- **Confirmed live (2026-07-07, Sprint 1 Task 1):** `maxDurationSeconds` and
+  `silenceTimeoutSeconds` are unset on every live assistant (read-only API check).
 
 ### R-053 — Call guardrails misfire on healthy calls
 **Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 03
