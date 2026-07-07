@@ -26,10 +26,10 @@ export async function sendVerifyEmail(email: string, token: string) {
     const result = await resend.emails.send({
       from: SENDER,
       to: email,
-      subject: "Verify your email – Denku AI",
+      subject: "Verify your email – Denku",
       html: `
         <h2>Verify your email</h2>
-        <p>Welcome to Denku AI.</p>
+        <p>Welcome to Denku.</p>
         <p>Please confirm your email to activate your workspace.</p>
         <a href="${verifyUrl}"
            style="display:inline-block;padding:12px 18px;

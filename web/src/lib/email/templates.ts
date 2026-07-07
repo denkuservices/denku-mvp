@@ -1,10 +1,10 @@
 /**
- * Email templates for Denku AI auth flow
- * All emails use sender: "Denku AI <onboarding@resend.dev>"
+ * Email templates for Denku auth flow
+ * All emails use sender: "Denku <onboarding@resend.dev>"
  */
 
 const BASE_URL = "https://denku-mvp.vercel.app";
-const SENDER = "Denku AI <onboarding@resend.dev>";
+const SENDER = "Denku <onboarding@resend.dev>";
 
 export interface VerificationEmailParams {
   email: string;
@@ -37,12 +37,12 @@ export function getVerificationEmailHtml({ email, token, redirectTo }: Verificat
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify your email - Denku AI</title>
+  <title>Verify your email - Denku</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
     <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">Verify your email</h1>
-    <p style="color: #64748b; font-size: 16px;">Thanks for signing up for Denku AI! Please verify your email address to get started.</p>
+    <p style="color: #64748b; font-size: 16px;">Thanks for signing up for Denku! Please verify your email address to get started.</p>
     
     <div style="margin: 30px 0;">
       <a href="${verifyUrl}" style="display: inline-block; background: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">Verify Email</a>
@@ -52,7 +52,7 @@ export function getVerificationEmailHtml({ email, token, redirectTo }: Verificat
     <p style="color: #4f46e5; font-size: 12px; word-break: break-all; background: #f1f5f9; padding: 12px; border-radius: 4px;">${verifyUrl}</p>
     
     <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-      If you didn't create an account with Denku AI, you can safely ignore this email.
+      If you didn't create an account with Denku, you can safely ignore this email.
     </p>
   </div>
 </body>
@@ -70,7 +70,7 @@ export function getOtpEmailHtml({ email, token }: VerificationEmailParams): stri
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your verification code - Denku AI</title>
+  <title>Your verification code - Denku</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -106,12 +106,12 @@ export function getPasswordResetEmailHtml({ email, token }: PasswordResetEmailPa
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset your password - Denku AI</title>
+  <title>Reset your password - Denku</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
     <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">Reset your password</h1>
-    <p style="color: #64748b; font-size: 16px;">We received a request to reset your password for your Denku AI account.</p>
+    <p style="color: #64748b; font-size: 16px;">We received a request to reset your password for your Denku account.</p>
     
     <div style="margin: 30px 0;">
       <a href="${resetUrl}" style="display: inline-block; background: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">Reset Password</a>
