@@ -1,6 +1,6 @@
 import { Container } from './Container';
 import { Section } from './Section';
-import { Button } from './Button';
+import { Reveal } from './Reveal';
 import Link from 'next/link';
 
 interface SectionHeaderProps {
@@ -15,35 +15,29 @@ export function SectionHeader({ eyebrow, title, description, ctaPrimary, ctaSeco
   return (
     <Section className="py-16 md:py-20">
       <Container>
-        <div className="text-center max-w-3xl mx-auto">
-          {eyebrow && (
-            <p className="text-sm font-bold text-[#64748B] mb-4 uppercase tracking-wide">
-              {eyebrow}
-            </p>
-          )}
-          <h1 className="text-4xl font-bold tracking-tight text-[#0F172A] md:text-5xl lg:text-6xl">
+        <Reveal className="mx-auto max-w-3xl text-center">
+          {eyebrow && <div className="brand-eyebrow centered mb-5 justify-center">{eyebrow}</div>}
+          <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal leading-[1.06] tracking-[-1.5px] text-[#0A1A2F]">
             {title}
           </h1>
           {description && (
-            <p className="mx-auto mt-6 text-base text-[#475569] md:text-lg">
-              {description}
-            </p>
+            <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-relaxed text-[#2C3E54]">{description}</p>
           )}
           {(ctaPrimary || ctaSecondary) && (
-            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               {ctaPrimary && (
-                <Button asChild size="lg" className="text-base">
-                  <Link href={ctaPrimary.href}>{ctaPrimary.label}</Link>
-                </Button>
+                <Link href={ctaPrimary.href} className="inline-flex items-center gap-2 rounded-[10px] bg-[#0A1A2F] px-6 py-3.5 text-sm font-medium text-[#F7F5F1] transition-all hover:-translate-y-0.5 hover:bg-[#1B6E6E]">
+                  {ctaPrimary.label}
+                </Link>
               )}
               {ctaSecondary && (
-                <Button asChild variant="secondary" size="lg" className="text-base">
-                  <Link href={ctaSecondary.href}>{ctaSecondary.label}</Link>
-                </Button>
+                <Link href={ctaSecondary.href} className="inline-flex items-center gap-2 rounded-[10px] border border-[#0A1A2F]/10 px-6 py-3.5 text-sm font-medium text-[#0A1A2F] transition-all hover:border-[#1B6E6E] hover:text-[#1B6E6E]">
+                  {ctaSecondary.label}
+                </Link>
               )}
             </div>
           )}
-        </div>
+        </Reveal>
       </Container>
     </Section>
   );

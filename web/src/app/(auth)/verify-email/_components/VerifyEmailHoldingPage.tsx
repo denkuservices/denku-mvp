@@ -85,7 +85,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
           type="button"
           onClick={handleResend}
           disabled={resendCooldown > 0 || isPending}
-          className="w-full rounded-xl bg-indigo-600 text-white py-3.5 px-4 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl bg-[#0A1A2F] text-white py-3.5 px-4 font-medium hover:bg-[#1B6E6E] active:bg-[#134F4F] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {resendCooldown > 0
             ? `Resend email in ${resendCooldown}s`
@@ -96,7 +96,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
           type="button"
           onClick={handleCheckConfirmed}
           disabled={isCheckingConfirmed || isPending}
-          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {isCheckingConfirmed ? "Checking..." : "I already confirmed"}
         </button>
@@ -108,7 +108,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
             setError(null);
             window.location.href = "/verify-email";
           }}
-          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           Change email
         </button>

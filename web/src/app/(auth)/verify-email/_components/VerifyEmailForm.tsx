@@ -81,7 +81,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
             setError(null);
           }}
           disabled={isPending}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-2xl tracking-widest text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-2xl tracking-widest text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:border-[#1B6E6E] disabled:opacity-60 transition-colors"
           placeholder="00000000"
           autoFocus
         />
@@ -99,7 +99,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
       <button
         type="submit"
         disabled={isPending || code.length !== 8}
-        className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-xl bg-[#0A1A2F] text-white py-3.5 font-medium hover:bg-[#1B6E6E] active:bg-[#134F4F] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Verifying..." : "Verify"}
       </button>

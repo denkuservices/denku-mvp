@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
-import { Button } from '@/components/marketing/Button';
-import { Check, ArrowRight, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { Reveal } from '@/components/marketing/Reveal';
+import { Check, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import React from 'react';
 import { pricingPlans } from '@/components/marketing/pricing-data';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
-const plans = pricingPlans.map(plan => ({
+const plans = pricingPlans.map((plan) => ({
   name: plan.name,
   subtitle: plan.subtitle || plan.bestFor || '',
   price: plan.price || plan.monthlyPrice,
@@ -21,7 +21,6 @@ const plans = pricingPlans.map(plan => ({
   highlight: plan.highlight,
 }));
 
-// Feature groups for comparison table
 const featureGroups = [
   {
     category: 'CAPACITY',
@@ -77,34 +76,22 @@ const featureGroups = [
 ];
 
 function renderCellValue(value: string) {
-  if (value === '✓') {
-    return (
-      <div className="flex items-center justify-center">
-        <Check className="h-5 w-5 text-[#2563EB]" />
-      </div>
-    );
-  }
-  if (value === '—') {
-    return (
-      <div className="flex items-center justify-center">
-        <span className="text-[#CBD5E1] text-lg">—</span>
-      </div>
-    );
-  }
-  return <p className="text-sm font-bold text-[#0F172A]">{value}</p>;
+  if (value === '✓') return <div className="flex justify-center"><Check className="h-4 w-4 text-[#1B6E6E]" /></div>;
+  if (value === '—') return <div className="flex justify-center"><span className="text-lg text-[#0A1A2F]/20">—</span></div>;
+  return <p className="text-sm font-semibold text-[#0A1A2F]">{value}</p>;
 }
 
 export default function PricingPage() {
   const [compareExpanded, setCompareExpanded] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+
   useEffect(() => {
     async function checkAuth() {
       try {
         const supabase = createSupabaseBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         setIsLoggedIn(!!user);
-      } catch (error) {
+      } catch {
         setIsLoggedIn(false);
       }
     }
@@ -113,217 +100,135 @@ export default function PricingPage() {
 
   return (
     <>
-      {/* Hero Section */}
-      <Section className="py-12 md:py-16">
+      {/* Hero */}
+      <Section className="py-16 md:py-20">
         <Container>
-          <div className="text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold text-[#0F172A] md:text-4xl lg:text-5xl mb-4">
-              Simple, transparent pricing.
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <div className="brand-eyebrow centered mb-5 justify-center">Pricing</div>
+            <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal leading-[1.06] tracking-[-1.5px] text-[#0A1A2F]">
+              Simple, transparent <em className="font-medium italic text-[#1B6E6E]">pricing</em>.
             </h1>
-            <div className="space-y-2">
-              <p className="text-base font-semibold text-[#0F172A]">
-                Concurrency + reliability. Unlimited personas.
-              </p>
-              <p className="text-sm text-[#475569]">
-                Concurrent calls define capacity. Personas are unlimited and included.
-              </p>
-            </div>
-          </div>
+            <p className="mx-auto mt-4 max-w-xl text-[17px] leading-relaxed text-[#2C3E54]">
+              Concurrency + reliability. Unlimited personas. Concurrent calls define capacity.
+            </p>
+          </Reveal>
         </Container>
       </Section>
 
-      {/* Plan Cards */}
-      <Section className="py-6 md:py-8">
+      {/* Cards */}
+      <Section className="py-4 md:py-6">
         <Container>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {plans.map((plan) => (
-              <div
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
+            {plans.map((plan, idx) => (
+              <Reveal
                 key={plan.name}
-                className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm transition-all ${
+                delay={(idx % 3) as 0 | 1 | 2}
+                className={`relative flex flex-col rounded-[18px] border p-8 transition-all duration-300 ${
                   plan.highlight
-                    ? 'border-[#2563EB] shadow-md'
-                    : 'border-[#CBD5E1] hover:scale-[1.01] hover:shadow-md'
+                    ? 'border-[#0A1A2F] bg-[#0A1A2F] brand-shadow-lg'
+                    : 'border-[#0A1A2F]/10 bg-[#FBFAF8] hover:-translate-y-1 hover:brand-shadow-md'
                 }`}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full bg-[#2563EB] px-2.5 py-0.5 text-xs font-medium text-white">
-                      Most Popular
-                    </span>
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="rounded-full bg-[#1B6E6E] px-4 py-1 font-brand-mono text-[11px] tracking-wide text-white">MOST POPULAR</span>
                   </div>
                 )}
+                <div className={`font-display text-[22px] font-medium ${plan.highlight ? 'text-[#F7F5F1]' : 'text-[#0A1A2F]'}`}>{plan.name}</div>
+                <p className={`mt-1 text-sm ${plan.highlight ? 'text-[#F7F5F1]/60' : 'text-[#6B7888]'}`}>{plan.subtitle}</p>
 
-                {/* Plan Name & Subtitle */}
-                <div className="mb-6">
-                  <h3 className="text-xl font-bold text-[#0F172A] mb-1">{plan.name}</h3>
-                  <p className="text-sm text-[#64748B]">{plan.subtitle}</p>
-                </div>
-
-                {/* Concurrency line - hero metric */}
                 {plan.concurrencyLine && (
-                  <div className="mb-4">
-                    <p className="text-2xl font-bold text-[#0F172A]">
-                      {plan.concurrencyLine}
-                    </p>
-                  </div>
+                  <div className={`mt-5 font-display text-[22px] font-medium ${plan.highlight ? 'text-[#F7F5F1]' : 'text-[#0A1A2F]'}`}>{plan.concurrencyLine}</div>
                 )}
 
-                {/* Price */}
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-[#0F172A]">{plan.price}</span>
-                    {plan.priceUnit && (
-                      <span className="text-sm text-[#64748B]">{plan.priceUnit}</span>
-                    )}
-                  </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className={`font-display text-[40px] font-medium leading-none ${plan.highlight ? 'text-[#F7F5F1]' : 'text-[#0A1A2F]'}`}>{plan.price}</span>
+                  {plan.priceUnit && <span className={`text-sm ${plan.highlight ? 'text-[#F7F5F1]/50' : 'text-[#6B7888]'}`}>{plan.priceUnit}</span>}
                 </div>
 
-                {/* Bullets */}
-                <ul className="flex-1 space-y-3 mb-6">
-                  {plan.bullets.map((bullet, index) => {
-                    // Handle minutes line with explanation
-                    if (bullet.includes('minutes (capacity bonus)') || bullet.includes('minutes included')) {
-                      const minutesMatch = bullet.match(/(\d+(?:,\d+)?)\s+minutes/);
-                      if (minutesMatch) {
-                        const minutes = minutesMatch[1];
-                        return (
-                          <li key={bullet} className="space-y-1">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
-                                <Check className="h-3.5 w-3.5 text-[#2563EB]" />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium text-[#0F172A] leading-relaxed">{minutes} minutes (capacity bonus)</span>
-                                <span className="text-xs text-[#64748B] mt-0.5">Minutes are a usage allowance for smoother onboarding — overage is pay-as-you-go.</span>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      }
-                    }
-                    
+                <ul className="mt-6 flex-1 space-y-3">
+                  {plan.bullets.map((bullet) => {
+                    const label = bullet.replace(/\s*\(capacity bonus\)/, ' (capacity bonus)');
                     return (
                       <li key={bullet} className="flex items-start gap-3">
-                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5">
-                          <Check className="h-3.5 w-3.5 text-[#2563EB]" />
-                        </div>
-                        <span className="text-sm font-medium text-[#0F172A] leading-relaxed">
-                          {bullet}
-                        </span>
+                        <Check className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${plan.highlight ? 'text-[#3FA3A3]' : 'text-[#1B6E6E]'}`} />
+                        <span className={`text-[14px] ${plan.highlight ? 'text-[#F7F5F1]/85' : 'text-[#2C3E54]'}`}>{label}</span>
                       </li>
                     );
                   })}
                 </ul>
 
-                {/* CTA Button */}
-                <Button
-                  asChild
-                  size="lg"
-                  variant={plan.highlight ? 'default' : 'secondary'}
-                  className="w-full"
+                <Link
+                  href={isLoggedIn ? '/dashboard/settings/workspace/billing' : plan.cta.href}
+                  className={`mt-8 flex h-11 w-full items-center justify-center rounded-[10px] text-sm font-medium transition-all duration-300 ${
+                    plan.highlight
+                      ? 'bg-[#1B6E6E] text-white hover:bg-[#228585]'
+                      : 'border border-[#0A1A2F]/10 text-[#0A1A2F] hover:border-[#1B6E6E] hover:text-[#1B6E6E]'
+                  }`}
                 >
-                  <Link href={isLoggedIn ? '/dashboard/settings/workspace/billing' : plan.cta.href}>
-                    {isLoggedIn ? 'Choose plan' : plan.cta.label}
-                  </Link>
-                </Button>
-              </div>
+                  {isLoggedIn ? 'Choose plan' : plan.cta.label}
+                </Link>
+              </Reveal>
             ))}
           </div>
 
-          {/* Micro Benefits - Inline directly under cards */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 md:gap-8 text-sm text-[#64748B]">
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-[#2563EB]" />
-              <span>No setup fees</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-[#2563EB]" />
-              <span>Go live in minutes</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-[#2563EB]" />
-              <span>Secure by default</span>
-            </div>
+          {/* Trust badges */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-[#6B7888] md:gap-8">
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1B6E6E]" /> No setup fees</div>
+            <div className="flex items-center gap-2"><Zap className="h-4 w-4 text-[#1B6E6E]" /> Go live in minutes</div>
+            <div className="flex items-center gap-2"><Shield className="h-4 w-4 text-[#1B6E6E]" /> Secure by default</div>
           </div>
 
-          {/* Inline Compare Plans Toggle */}
-          <div className="mt-8 text-center">
+          <div id="compare" className="mt-8 scroll-mt-24 text-center">
             <button
               onClick={() => setCompareExpanded(!compareExpanded)}
-              className="flex items-center gap-2 text-sm font-medium text-[#2563EB] hover:text-[#1d4ed8] transition-colors mx-auto"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#1B6E6E] transition-colors hover:text-[#134F4F]"
             >
               <span>View full feature comparison</span>
-              {compareExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
+              {compareExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
           </div>
         </Container>
       </Section>
 
-      {/* Inline Compare Plans Accordion */}
+      {/* Comparison table */}
       <Section className="py-0">
         <Container>
-          <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              compareExpanded ? 'max-h-[2000px] opacity-100 pb-6' : 'max-h-0 opacity-0'
-            }`}
-          >
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${compareExpanded ? 'max-h-[2400px] pb-8 opacity-100' : 'max-h-0 opacity-0'}`}>
             {compareExpanded && (
-              <div className="rounded-2xl border border-[#CBD5E1] bg-white shadow-sm overflow-hidden mt-4">
+              <div className="mt-4 overflow-hidden rounded-[18px] border border-[#0A1A2F]/10 bg-[#FBFAF8]">
                 <div className="overflow-x-auto">
-                  <div className="px-6 pb-6 min-w-[600px] md:min-w-0">
+                  <div className="min-w-[560px] px-6 pb-6 md:min-w-0">
                     <table className="w-full">
                       <thead>
-                        <tr className="!border-px !border-[#CBD5E1]">
-                          <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-start">
-                            <p className="text-sm font-bold text-[#64748B] uppercase">FEATURE</p>
+                        <tr>
+                          <th className="border-b border-[#0A1A2F]/10 pb-3 pr-4 pt-6 text-left">
+                            <p className="font-brand-mono text-xs tracking-wider text-[#6B7888]">FEATURE</p>
                           </th>
-                          <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
-                            <p className="text-sm font-bold text-[#64748B] uppercase">STARTER</p>
-                          </th>
-                          <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <p className="text-sm font-bold text-[#64748B] uppercase">GROWTH</p>
-                              <span className="rounded-full bg-[#2563EB] px-2 py-0.5 text-xs font-bold text-white">
-                                Most Popular
-                              </span>
-                            </div>
-                          </th>
-                          <th className="border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
-                            <p className="text-sm font-bold text-[#64748B] uppercase">SCALE</p>
-                          </th>
+                          {['STARTER', 'GROWTH', 'SCALE'].map((col) => (
+                            <th key={col} className="border-b border-[#0A1A2F]/10 pb-3 pr-4 pt-6 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <p className="font-brand-mono text-xs tracking-wider text-[#6B7888]">{col}</p>
+                                {col === 'GROWTH' && <span className="rounded-full bg-[#E3EEED] px-2 py-0.5 text-xs font-bold text-[#134F4F]">Popular</span>}
+                              </div>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {featureGroups.map((group) => (
                           <React.Fragment key={group.category}>
                             <tr>
-                              <td
-                                colSpan={4}
-                                className="border-white/0 py-2 pr-4 bg-[#F1F5F9]"
-                              >
-                                <p className="text-xs font-bold text-[#64748B] uppercase">
-                                  {group.category}
-                                </p>
+                              <td colSpan={4} className="pb-2 pr-4 pt-5">
+                                <p className="font-brand-mono text-xs tracking-wider text-[#1B6E6E]">{group.category}</p>
                               </td>
                             </tr>
                             {group.features.map((feature) => (
-                              <tr key={feature.name}>
-                                <td className="border-white/0 py-3 pr-4">
-                                  <p className="text-sm font-bold text-[#0F172A]">{feature.name}</p>
-                                </td>
-                                <td className="border-white/0 py-3 pr-4 text-center">
-                                  {renderCellValue(feature.starter)}
-                                </td>
-                                <td className="border-white/0 py-3 pr-4 text-center">
-                                  {renderCellValue(feature.growth)}
-                                </td>
-                                <td className="border-white/0 py-3 pr-4 text-center">
-                                  {renderCellValue(feature.scale)}
-                                </td>
+                              <tr key={feature.name} className="border-t border-[#0A1A2F]/[0.06]">
+                                <td className="py-3 pr-4"><p className="text-sm font-medium text-[#2C3E54]">{feature.name}</p></td>
+                                <td className="py-3 pr-4 text-center">{renderCellValue(feature.starter)}</td>
+                                <td className="py-3 pr-4 text-center">{renderCellValue(feature.growth)}</td>
+                                <td className="py-3 pr-4 text-center">{renderCellValue(feature.scale)}</td>
                               </tr>
                             ))}
                           </React.Fragment>
@@ -336,24 +241,23 @@ export default function PricingPage() {
             )}
           </div>
 
-          {/* Add-ons Section */}
-          <div className="mt-12 rounded-2xl border border-[#CBD5E1] bg-white p-6 md:p-8 shadow-sm max-w-4xl mx-auto">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-bold text-[#0F172A] mb-2">Add-ons</h3>
-              <p className="text-sm text-[#64748B]">Optional capacity extensions for all plans</p>
+          {/* Add-ons */}
+          <div className="mx-auto mb-16 mt-12 max-w-4xl rounded-[18px] border border-[#0A1A2F]/10 bg-[#FBFAF8] p-6 md:p-8">
+            <div className="mb-6 text-center">
+              <h3 className="font-display text-[22px] font-medium text-[#0A1A2F]">Add-ons</h3>
+              <p className="mt-1 text-sm text-[#6B7888]">Optional capacity extensions for all plans</p>
             </div>
-            {/* TODO: Fetch addon prices from /api/billing/summary or a public pricing endpoint for server truth */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-              <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra concurrent call</div>
-                <div className="text-lg font-bold text-[#0F172A] mb-2">+$99 / month per 1</div>
-                <p className="text-xs text-[#64748B]">Add 1 concurrent call to your plan</p>
-              </div>
-              <div className="rounded-lg border border-[#CBD5E1] p-4">
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">Extra phone number</div>
-                <div className="text-lg font-bold text-[#0F172A] mb-2">+$10 / month per 1</div>
-                <p className="text-xs text-[#64748B]">Add 1 phone number to your account</p>
-              </div>
+            <div className="mx-auto grid max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
+              {[
+                { title: 'Extra concurrent call', price: '+$99 / month per 1', desc: 'Add 1 concurrent call to your plan' },
+                { title: 'Extra phone number', price: '+$10 / month per 1', desc: 'Add 1 phone number to your account' },
+              ].map((addon) => (
+                <div key={addon.title} className="rounded-[12px] border border-[#0A1A2F]/[0.08] bg-[#F7F5F1] p-5">
+                  <div className="mb-1 text-sm font-semibold text-[#0A1A2F]">{addon.title}</div>
+                  <div className="mb-2 font-display text-[20px] font-medium text-[#0A1A2F]">{addon.price}</div>
+                  <p className="text-xs text-[#6B7888]">{addon.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </Container>

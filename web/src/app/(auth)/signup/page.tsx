@@ -9,9 +9,9 @@ export default function SignupPage() {
       subtitle="We'll email you an 8-digit code to get started."
       showBackLink
       footer={
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-[#6B7888]">
           Already have an account?{" "}
-          <Link className="underline hover:text-slate-900 transition-colors" href="/login">
+          <Link className="font-medium text-[#1B6E6E] underline-offset-2 hover:underline" href="/login">
             Sign in
           </Link>
         </p>

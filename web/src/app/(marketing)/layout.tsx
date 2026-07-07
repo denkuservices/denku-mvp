@@ -13,9 +13,9 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="marketing min-h-screen flex flex-col bg-[#E3E3E3]">
+    <div className="brand-surface marketing flex min-h-screen flex-col bg-[#F7F5F1] text-[#0A1A2F]">
       <Navbar />
-      <main className="flex-1 w-full">{children}</main>
+      <main className="w-full flex-1">{children}</main>
       <Footer />
     </div>
   );

@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
@@ -206,5 +207,88 @@
   50% {
     opacity: 0.5;
   }
+}
+
+/* ============================================================
+   DENKU LUXURY DESIGN SYSTEM — bone / teal / copper + Fraunces
+   Scoped to marketing + auth surfaces.
+   ============================================================ */
+.brand-surface {
+  --bone: #F7F5F1;
+  --bone-2: #FBFAF8;
+  --bone-3: #EFEBE4;
+  --ink: #0A1A2F;
+  --ink-soft: #2C3E54;
+  --ink-faint: #6B7888;
+  --teal: #1B6E6E;
+  --teal-dark: #134F4F;
+  --teal-soft: #E3EEED;
+  --copper: #B8895A;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+.font-brand-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Editorial eyebrow with leading line */
+.brand-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1B6E6E;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-eyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: #1B6E6E;
+}
+.brand-eyebrow.centered { justify-content: center; }
+
+/* Soft warm shadows */
+.brand-shadow-sm { box-shadow: 0 1px 3px rgba(10,26,47,0.06), 0 1px 2px rgba(10,26,47,0.04); }
+.brand-shadow-md { box-shadow: 0 8px 30px rgba(10,26,47,0.08), 0 2px 8px rgba(10,26,47,0.04); }
+.brand-shadow-lg { box-shadow: 0 24px 60px rgba(10,26,47,0.12), 0 8px 20px rgba(10,26,47,0.06); }
+
+/* Talk-to-Denku mic pulse */
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(27,110,110,0.30); }
+  50% { box-shadow: 0 0 0 8px rgba(27,110,110,0); }
+}
+.mic-pulse { animation: micPulse 2.5s infinite; }
+
+@keyframes brandFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.brand-float { animation: brandFloat 6s ease-in-out infinite; }
+
+@keyframes brandSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* Scroll reveal */
+.brand-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.2,0.8,0.2,1), transform 0.7s cubic-bezier(0.2,0.8,0.2,1);
+}
+.brand-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-pulse, .brand-float { animation: none !important; }
+  .brand-reveal { opacity: 1 !important; transform: none !important; }
 }
 

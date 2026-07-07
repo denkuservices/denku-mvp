@@ -4,38 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Container } from './Container';
 import { Section } from './Section';
-import { Button } from './Button';
-import {
-  Headphones,
-  Phone,
-  Calendar,
-  Package,
-  ArrowRight,
-  CheckCircle2,
-  Database,
-  MessageSquare,
-  Mic,
-} from 'lucide-react';
+import { Headphones, Phone, Calendar, Package, ArrowRight, CheckCircle2, Database, MessageSquare, Mic } from 'lucide-react';
 
 type UseCase = 'support' | 'sales' | 'appointment' | 'order-status';
 
-interface UseCaseData {
-  id: UseCase;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  flow: FlowStep[];
-  bullets: string[];
-}
-
-interface FlowStep {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const useCases: UseCaseData[] = [
+const useCases = [
   {
-    id: 'support',
+    id: 'support' as UseCase,
     title: 'Customer Support',
     description: 'Reduce ticket volume and improve response time.',
     icon: Headphones,
@@ -45,14 +20,10 @@ const useCases: UseCaseData[] = [
       { label: 'Checks system (CRM / Helpdesk)', icon: Database },
       { label: 'Resolves or escalates', icon: CheckCircle2 },
     ],
-    bullets: [
-      'Answers FAQs and product questions instantly',
-      'Creates tickets with structured payloads',
-      'Escalates to humans with full context',
-    ],
+    bullets: ['Answers FAQs and product questions instantly', 'Creates tickets with structured payloads', 'Escalates to humans with full context'],
   },
   {
-    id: 'sales',
+    id: 'sales' as UseCase,
     title: 'Sales Intake',
     description: 'Capture and route leads with structured intake.',
     icon: Phone,
@@ -62,14 +33,10 @@ const useCases: UseCaseData[] = [
       { label: 'Scores and routes', icon: Database },
       { label: 'Pushes to CRM', icon: CheckCircle2 },
     ],
-    bullets: [
-      'Asks qualifying questions automatically',
-      'Scores and routes leads to the right team',
-      'Pushes to CRM via webhook/tool',
-    ],
+    bullets: ['Asks qualifying questions automatically', 'Scores and routes leads to the right team', 'Pushes to CRM via webhook/tool'],
   },
   {
-    id: 'appointment',
+    id: 'appointment' as UseCase,
     title: 'Appointment Booking',
     description: 'Book, reschedule, and confirm through voice or chat.',
     icon: Calendar,
@@ -79,14 +46,10 @@ const useCases: UseCaseData[] = [
       { label: 'Books or suggests times', icon: Calendar },
       { label: 'Sends confirmation', icon: CheckCircle2 },
     ],
-    bullets: [
-      'Checks calendar availability in real-time',
-      'Books or reschedules appointments',
-      'Sends confirmations and reminders',
-    ],
+    bullets: ['Checks calendar availability in real-time', 'Books or reschedules appointments', 'Sends confirmations and reminders'],
   },
   {
-    id: 'order-status',
+    id: 'order-status' as UseCase,
     title: 'Order Status & Updates',
     description: 'Automate "where is my order?" and status requests.',
     icon: Package,
@@ -96,11 +59,7 @@ const useCases: UseCaseData[] = [
       { label: 'Provides update instantly', icon: MessageSquare },
       { label: 'Proactive notifications', icon: CheckCircle2 },
     ],
-    bullets: [
-      'Checks order status via tool/webhook',
-      'Provides proactive updates when needed',
-      'Deflects repetitive inbound queries',
-    ],
+    bullets: ['Checks order status via tool/webhook', 'Provides proactive updates when needed', 'Deflects repetitive inbound queries'],
   },
 ];
 
@@ -110,62 +69,44 @@ export function UseCasesPage() {
 
   const scrollToHero = (e: React.MouseEvent) => {
     e.preventDefault();
-    const element = document.querySelector('#product');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    document.querySelector('#product')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
     <>
-      {/* Hero Section */}
+      {/* Hero */}
       <Section className="py-16 md:py-24">
         <Container>
-          <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-[#0F172A] md:text-4xl lg:text-5xl mb-4">
-              What do you want your AI agent to handle?
+          <div className="mb-12 text-center">
+            <div className="brand-eyebrow centered mb-5 justify-center">Use cases</div>
+            <h1 className="font-display text-[clamp(36px,4.5vw,56px)] font-normal leading-[1.06] tracking-[-1.5px] text-[#0A1A2F]">
+              What do you want your AI employee to <em className="font-medium italic text-[#1B6E6E]">handle</em>?
             </h1>
-            <p className="text-base text-[#475569] md:text-lg max-w-2xl mx-auto">
-              Pick a workflow. See how it works in production.
-            </p>
+            <p className="mx-auto mt-5 max-w-2xl text-[18px] text-[#2C3E54]">Pick a workflow. See how it works in production.</p>
           </div>
 
-          {/* 4 Large Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+          <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
             {useCases.map((useCase) => {
               const Icon = useCase.icon;
               const isActive = activeUseCase === useCase.id;
-
               return (
                 <button
                   key={useCase.id}
                   onClick={() => setActiveUseCase(useCase.id)}
-                  className={`group relative rounded-2xl border bg-white p-6 text-left transition-all hover:shadow-md ${
-                    isActive
-                      ? 'border-[#2563EB] shadow-sm'
-                      : 'border-[#CBD5E1] hover:border-[#94A3B8]'
+                  className={`group relative rounded-[18px] border p-6 text-left transition-all ${
+                    isActive ? 'border-[#1B6E6E]/40 bg-[#E3EEED] brand-shadow-sm' : 'border-[#0A1A2F]/[0.06] bg-[#FBFAF8] hover:border-[#0A1A2F]/15'
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div
-                      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
-                        isActive ? 'bg-[#F1F5F9]' : 'bg-[#F1F5F9] group-hover:bg-[#E2E8F0]'
-                      }`}
-                    >
-                      <Icon className={`h-6 w-6 ${isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}`} />
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] transition-colors ${isActive ? 'bg-white text-[#134F4F]' : 'bg-[#E3EEED] text-[#134F4F]'}`}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-[#0F172A] mb-1">{useCase.title}</h3>
-                      <p className="text-sm text-[#64748B]">{useCase.description}</p>
+                    <div>
+                      <h3 className="font-display text-[17px] font-medium text-[#0A1A2F]">{useCase.title}</h3>
+                      <p className="mt-0.5 text-sm text-[#6B7888]">{useCase.description}</p>
                     </div>
                   </div>
-                  <div
-                    className={`mt-4 flex items-center gap-2 text-sm font-medium transition-opacity ${
-                      isActive
-                        ? 'text-[#2563EB] opacity-100'
-                        : 'text-[#64748B] opacity-0 group-hover:opacity-100'
-                    }`}
-                  >
+                  <div className={`mt-4 flex items-center gap-2 text-sm font-medium transition-opacity ${isActive ? 'text-[#1B6E6E] opacity-100' : 'text-[#6B7888] opacity-0 group-hover:opacity-100'}`}>
                     <span>View flow</span>
                     <ArrowRight className="h-4 w-4" />
                   </div>
@@ -176,55 +117,31 @@ export function UseCasesPage() {
         </Container>
       </Section>
 
-      {/* Interactive Flow Section */}
-      <Section className="py-16 md:py-24 bg-white/50">
+      {/* Flow */}
+      <Section className="border-t border-[#0A1A2F]/[0.06] bg-[#FBFAF8]">
         <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-            {/* Flow Visualization - Left 2 columns */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
             <div className="lg:col-span-2">
-              <h2 className="text-2xl font-bold text-[#0F172A] mb-8">How it works</h2>
-
-              {/* Flow Steps */}
+              <h2 className="mb-8 font-display text-[clamp(24px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">How it works</h2>
               <div className="relative space-y-0">
                 {activeData.flow.map((step, index) => {
                   const StepIcon = step.icon;
                   const isLast = index === activeData.flow.length - 1;
-                  const isActive = index === 0;
-
+                  const isFirst = index === 0;
                   return (
                     <div key={index} className="relative pb-8">
                       <div className="flex items-center gap-4">
-                        {/* Step Icon */}
-                        <div className="relative flex-shrink-0">
-                          <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-[#F1F5F9] border-2 transition-all ${
-                            isActive ? 'border-[#2563EB] shadow-sm' : 'border-[#CBD5E1]'
-                          }`}>
-                            <StepIcon className={`h-7 w-7 transition-colors ${
-                              isActive ? 'text-[#2563EB]' : 'text-[#64748B]'
-                            }`} />
+                        <div className="relative shrink-0">
+                          <div className={`flex h-14 w-14 items-center justify-center rounded-[14px] border-2 transition-all ${isFirst ? 'border-[#1B6E6E]/50 bg-[#E3EEED] text-[#134F4F]' : 'border-[#0A1A2F]/[0.08] bg-[#F7F5F1] text-[#6B7888]'}`}>
+                            <StepIcon className="h-6 w-6" />
                           </div>
-                          {isActive && (
-                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 pulse-dot"></div>
-                          )}
+                          {isFirst && <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#1B6E6E] pulse-dot" />}
                         </div>
-
-                        {/* Step Label */}
-                        <div className="flex-1 pt-1">
-                          <div className={`text-base font-medium transition-colors ${
-                            isActive ? 'text-[#0F172A]' : 'text-[#475569]'
-                          }`}>
-                            {step.label}
-                          </div>
-                        </div>
+                        <div className={`text-base font-medium ${isFirst ? 'text-[#0A1A2F]' : 'text-[#2C3E54]'}`}>{step.label}</div>
                       </div>
-
-                      {/* Connector Line */}
                       {!isLast && (
-                        <div className="absolute left-7 top-14 h-16 w-0.5 border-l border-dashed border-[#CBD5E1]/40 ml-[1px]">
-                          <div 
-                            className="absolute top-0 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full bg-[#2563EB] flow-connector-dot"
-                            style={{ animation: 'flowConnectorVertical 2s ease-in-out infinite' }}
-                          ></div>
+                        <div className="absolute left-7 top-14 ml-[1px] h-16 w-0.5 border-l border-dashed border-[#0A1A2F]/15">
+                          <div className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-[#1B6E6E]" style={{ animation: 'flowConnectorVertical 2s ease-in-out infinite' }} />
                         </div>
                       )}
                     </div>
@@ -232,16 +149,14 @@ export function UseCasesPage() {
                 })}
               </div>
             </div>
-
-            {/* Side Description - Right 1 column */}
             <div className="lg:col-span-1">
-              <div className="rounded-2xl border border-[#CBD5E1] bg-white p-6 shadow-sm sticky top-24">
-                <h3 className="text-lg font-semibold text-[#0F172A] mb-4">What the agent does</h3>
+              <div className="sticky top-24 rounded-[18px] border border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-6">
+                <h3 className="mb-4 font-display text-[16px] font-medium text-[#0A1A2F]">What the agent does</h3>
                 <ul className="space-y-3">
                   {activeData.bullets.map((bullet, index) => (
                     <li key={index} className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-[#2563EB] flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-[#475569] leading-relaxed">{bullet}</span>
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1B6E6E]" />
+                      <span className="text-sm leading-relaxed text-[#2C3E54]">{bullet}</span>
                     </li>
                   ))}
                 </ul>
@@ -251,52 +166,20 @@ export function UseCasesPage() {
         </Container>
       </Section>
 
-      {/* Outcomes Section */}
+      {/* CTA */}
       <Section className="py-16 md:py-24">
         <Container>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Metric 1 */}
-            <div className="rounded-2xl border border-[#CBD5E1] bg-white p-6 shadow-sm text-center">
-              <div className="text-3xl font-bold text-[#2563EB] mb-2">↓</div>
-              <div className="text-xl font-bold text-[#0F172A] mb-2">Support volume</div>
-              <p className="text-sm text-[#64748B]">Reduced repetitive inquiries</p>
-            </div>
-
-            {/* Metric 2 */}
-            <div className="rounded-2xl border border-[#CBD5E1] bg-white p-6 shadow-sm text-center">
-              <div className="text-3xl font-bold text-[#2563EB] mb-2">↑</div>
-              <div className="text-xl font-bold text-[#0F172A] mb-2">Resolution speed</div>
-              <p className="text-sm text-[#64748B]">Instant responses, faster resolution</p>
-            </div>
-
-            {/* Metric 3 */}
-            <div className="rounded-2xl border border-[#CBD5E1] bg-white p-6 shadow-sm text-center">
-              <div className="text-3xl font-bold text-[#2563EB] mb-2">24/7</div>
-              <div className="text-xl font-bold text-[#0F172A] mb-2">Coverage</div>
-              <p className="text-sm text-[#64748B]">Always available, always consistent</p>
-            </div>
-          </div>
-        </Container>
-      </Section>
-
-      {/* CTA Section */}
-      <Section className="py-16 md:py-24">
-        <Container>
-          <div className="rounded-2xl border border-[#CBD5E1] bg-white p-8 md:p-12 text-center shadow-sm max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-[#0F172A] md:text-3xl mb-4">
-              Want to see this live?
-            </h2>
-            <p className="text-base text-[#475569] mb-8 max-w-xl mx-auto">
-              Try the live voice agent now, then we'll help you set up your own workflow.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={scrollToHero} size="lg" className="w-full sm:w-auto">
-                <Mic className="mr-2 h-5 w-5" />
-                Talk to Denku AI
-              </Button>
-              <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
-                <Link href="/signup">Get started</Link>
-              </Button>
+          <div className="mx-auto max-w-3xl overflow-hidden rounded-[24px] border border-[#0A1A2F] bg-[#0A1A2F] p-8 text-center md:p-12 brand-shadow-lg">
+            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[#F7F5F1]">Want to see this live?</h2>
+            <p className="mx-auto mb-8 max-w-xl text-[17px] text-[#F7F5F1]/70">Try the live voice agent now, then we&apos;ll help you set up your own workflow.</p>
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <button onClick={scrollToHero} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#1B6E6E] px-6 text-sm font-medium text-white transition-all hover:bg-[#228585] sm:w-auto">
+                <Mic className="h-4 w-4" />
+                Talk to Denku
+              </button>
+              <Link href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[#F7F5F1]/25 px-6 text-sm font-medium text-[#F7F5F1] transition-all hover:border-[#F7F5F1]/50 sm:w-auto">
+                Get started
+              </Link>
             </div>
           </div>
         </Container>

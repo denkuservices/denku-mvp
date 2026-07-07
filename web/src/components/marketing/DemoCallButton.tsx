@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { Mic, PhoneOff, Loader2 } from 'lucide-react';
 
 /**
  * Premium Call Button Component
@@ -499,47 +499,58 @@ export function DemoCallButton() {
   const isDisabled = !isLive && (callState === 'connecting' || rateLimitCooldown);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <Button
+    <div className="flex flex-col items-center gap-3">
+      <button
         onClick={handleButtonClick}
         disabled={isDisabled}
-        size="lg"
-        variant="default"
-        className="min-w-[180px] bg-black text-white hover:bg-black/90"
+        className={[
+          'group inline-flex items-center gap-3 rounded-full px-7 py-3.5 text-[15px] font-medium transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60',
+          isLive
+            ? 'border border-[#B8895A]/40 bg-white text-[#134F4F] brand-shadow-md hover:-translate-y-0.5 hover:brand-shadow-lg'
+            : 'border border-[#1B6E6E]/25 bg-white text-[#134F4F] brand-shadow-md hover:-translate-y-0.5 hover:border-[#1B6E6E] hover:brand-shadow-lg',
+        ].join(' ')}
       >
-        {callState === 'connecting' ? (
-          'Connecting...'
-        ) : isLive ? (
-          'End call'
-        ) : (
-          'Talk to the agent'
-        )}
-      </Button>
-      
+        <span
+          className={[
+            'flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors',
+            isLive ? 'bg-[#B8895A]' : 'bg-[#1B6E6E] mic-pulse',
+          ].join(' ')}
+        >
+          {callState === 'connecting' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isLive ? (
+            <PhoneOff className="h-4 w-4" />
+          ) : (
+            <Mic className="h-4 w-4" />
+          )}
+        </span>
+        {callState === 'connecting' ? 'Connecting…' : isLive ? 'End call' : 'Talk to Denku now'}
+      </button>
+
       {/* Minimal supporting text - only shown when idle */}
       {callState === 'idle' && !rateLimitCooldown && (
-        <p className="text-sm text-black/60 text-center">
-          Ask anything about our services.
+        <p className="font-brand-mono text-xs tracking-wide text-[#6B7888]">
+          No signup · Takes 30 seconds
         </p>
       )}
-      
+
       {/* Rate limit message - shown when cooldown is active */}
       {rateLimitCooldown && (
-        <p className="text-sm text-black/60 text-center">
+        <p className="font-brand-mono text-xs tracking-wide text-[#6B7888]">
           Please try again in a few minutes.
         </p>
       )}
 
       {/* Soft warning - only shown in last 1 minute */}
       {showWarning && isLive && (
-        <p className="text-sm text-black/50 text-center animate-in fade-in duration-200">
+        <p className="animate-in fade-in font-brand-mono text-xs tracking-wide text-[#6B7888] duration-200">
           This session will end shortly.
         </p>
       )}
 
       {/* Error message - minimal and calm */}
       {error && callState === 'error' && (
-        <p className="text-sm text-black/60 text-center">
+        <p className="font-brand-mono text-xs tracking-wide text-[#B8895A]">
           {error}
         </p>
       )}

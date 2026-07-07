@@ -72,7 +72,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           minLength={8}
           required
           autoComplete="new-password"
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:border-[#1B6E6E] disabled:opacity-60 transition-colors"
           placeholder="Minimum 8 characters"
         />
       </div>
@@ -90,7 +90,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           minLength={8}
           required
           autoComplete="new-password"
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:border-[#1B6E6E] disabled:opacity-60 transition-colors"
           placeholder="Confirm your password"
         />
       </div>
@@ -118,7 +118,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-xl bg-[#0A1A2F] text-white py-3.5 font-medium hover:bg-[#1B6E6E] active:bg-[#134F4F] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Setting password..." : "Set password and continue"}
       </button>

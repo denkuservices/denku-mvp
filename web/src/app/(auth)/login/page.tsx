@@ -36,9 +36,9 @@ export default function LoginPage() {
       subtitle="Enter your email and password to sign in!"
       showBackLink
       footer={
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-[#6B7888]">
           Not registered yet?{" "}
-          <Link className="underline hover:text-slate-900 transition-colors" href="/signup">
+          <Link className="font-medium text-[#1B6E6E] underline-offset-2 hover:underline" href="/signup">
             Create an account
           </Link>
         </p>
@@ -46,7 +46,7 @@ export default function LoginPage() {
     >
       <form action={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-slate-900 mb-1.5">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
             Email
           </label>
           <input
@@ -55,13 +55,13 @@ export default function LoginPage() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 transition-colors"
+            className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15"
             placeholder="you@company.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-slate-900 mb-1.5">
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
             Password
           </label>
           <input
@@ -70,7 +70,7 @@ export default function LoginPage() {
             type="password"
             required
             autoComplete="current-password"
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 transition-colors"
+            className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15"
             placeholder="Your password"
           />
         </div>
@@ -82,15 +82,15 @@ export default function LoginPage() {
               name="remember"
               type="checkbox"
               value="1"
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600/20"
+              className="h-4 w-4 rounded border-[#0A1A2F]/20 text-[#1B6E6E] focus:ring-[#1B6E6E]/20"
             />
-            <label htmlFor="remember" className="ml-2 text-sm text-slate-600">
+            <label htmlFor="remember" className="ml-2 text-sm text-[#6B7888]">
               Keep me logged in
             </label>
           </div>
           <Link
             href="/login?forgot=1"
-            className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
+            className="text-sm text-[#6B7888] underline-offset-2 transition-colors hover:text-[#1B6E6E] hover:underline"
           >
             Forgot Password?
           </Link>
@@ -98,15 +98,15 @@ export default function LoginPage() {
 
         {/* Error message */}
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <div className="rounded-[10px] border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-[10px] bg-[#0A1A2F] py-3.5 font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "Signing in..." : "Sign in"}
         </button>

@@ -1,10 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Check, Phone, ArrowRight, Copy, CheckCircle2, type LucideIcon } from "lucide-react";
+import {
+  Check,
+  Phone,
+  ArrowRight,
+  Copy,
+  CheckCircle2,
+  Headphones,
+  TrendingUp,
+  Settings2,
+  ShieldCheck,
+  HelpCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   saveOnboardingPreferences,
@@ -65,25 +76,36 @@ type OnboardingClientProps = {
 // UI step mapping: 0 = Workspace, 1 = Goal, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
 // DB step mapping: 0 = initial, 1 = Goal, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
 const STEPS = [
-  { id: 0, label: "Workspace" },
-  { id: 1, label: "Goal" },
-  { id: 2, label: "Phone Intent" },
-  { id: 3, label: "Plan" },
-  { id: 4, label: "Activating" },
-  { id: 5, label: "Live" },
+  { id: 0, label: "Workspace", desc: "Your company & identity" },
+  { id: 1, label: "Agent goal", desc: "What your line handles" },
+  { id: 2, label: "Phone number", desc: "Claim your AI line" },
+  { id: 3, label: "Plan", desc: "Choose your capacity" },
+  { id: 4, label: "Activation", desc: "We provision everything" },
+  { id: 5, label: "Go live", desc: "Start taking calls" },
 ];
+
+// Shared brand styling
+const inputClass =
+  "w-full rounded-[10px] border border-[#0A1A2F]/12 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/60 outline-none transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15 disabled:opacity-60";
+const inputErrClass =
+  "w-full rounded-[10px] border border-red-400 bg-red-50/40 px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/60 outline-none transition-colors focus:border-red-500 focus:ring-2 focus:ring-red-500/20 disabled:opacity-60";
+const primaryBtn =
+  "rounded-[10px] bg-[#0A1A2F] px-6 h-11 text-sm font-medium text-[#F7F5F1] hover:bg-[#1B6E6E]";
+const outlineBtn =
+  "rounded-[10px] border border-[#0A1A2F]/12 bg-white px-6 h-11 text-sm font-medium text-[#0A1A2F] hover:border-[#1B6E6E] hover:text-[#1B6E6E]";
+const tealBtn = "rounded-[10px] bg-[#1B6E6E] px-6 h-11 text-sm font-medium text-white hover:bg-[#228585]";
 
 export function OnboardingClient({ initialState, checkoutStatus }: OnboardingClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState(initialState);
-  
+
   // Canonical step mapping: 0 = Workspace, 1 = Goal, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
   // Workspace setup happens during bootstrap - onboarding starts at Goal (step 1)
   // IMPORTANT: initialStep is only used ONCE on first render. Do NOT derive currentStep from state.onboardingStep after mount.
   const initialStep = state.needsOrgSetup || !state.orgId ? 0 : (state.onboardingStep ?? 0);
   const [currentStep, setCurrentStep] = useState(initialStep);
-  
+
   // Guard: Never reset currentStep from initialState after first render
   // The ONLY way currentStep should change after mount is via explicit setCurrentStep() calls after DB updates
   const [isPending, startTransition] = useTransition();
@@ -94,7 +116,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
   const [isConfirming, setIsConfirming] = useState(false); // true when polling for plan activation
   const [paramsCleared, setParamsCleared] = useState(false); // track if query params have been cleared
-  
+
   // Handle checkout return (success or cancel) - deterministic polling without writes
   React.useEffect(() => {
     // Only process if checkoutStatus is set and params not yet cleared
@@ -104,34 +126,34 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       // Show confirming UI immediately
       setIsConfirming(true);
       setCheckoutMessage("Confirming your plan…");
-      
+
       // Poll for plan activation (read-only, no writes)
       let pollCount = 0;
       const maxPolls = 60; // 60 seconds timeout (1s intervals)
       let pollInterval: NodeJS.Timeout | null = null;
-      
+
       const pollForPlanActivation = async () => {
         pollCount++;
         try {
           // Call getOnboardingState() which performs self-heal (writes step=4 if plan active)
           // We only read the result, never write onboarding_step here
           const updatedState = await getOnboardingState();
-          
+
           // Sync state from server (single source of truth)
           setState(updatedState);
           setCurrentStep(updatedState.onboardingStep);
-          
+
           if (updatedState.isPlanActive) {
             // Plan is active - getOnboardingState() already self-healed step to 4 (Activating)
             setIsConfirming(false);
             setCheckoutMessage(null);
-            
+
             // Clear query params (only once)
             if (!paramsCleared) {
               router.replace("/onboarding");
               setParamsCleared(true);
             }
-            
+
             if (pollInterval) {
               clearInterval(pollInterval);
             }
@@ -139,13 +161,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             // Timeout - show calm error
             setIsConfirming(false);
             setCheckoutMessage("We're still confirming. Refresh this page, or check again in a moment.");
-            
+
             // Clear query params even on timeout
             if (!paramsCleared) {
               router.replace("/onboarding");
               setParamsCleared(true);
             }
-            
+
             if (pollInterval) {
               clearInterval(pollInterval);
             }
@@ -154,24 +176,24 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           if (pollCount >= maxPolls) {
             setIsConfirming(false);
             setCheckoutMessage("Failed to confirm plan. Please refresh the page or try again.");
-            
+
             // Clear query params on error
             if (!paramsCleared) {
               router.replace("/onboarding");
               setParamsCleared(true);
             }
-            
+
             if (pollInterval) {
               clearInterval(pollInterval);
             }
           }
         }
       };
-      
+
       // Start polling immediately, then every 1 second
       pollForPlanActivation();
       pollInterval = setInterval(pollForPlanActivation, 1000);
-      
+
       return () => {
         if (pollInterval) {
           clearInterval(pollInterval);
@@ -180,7 +202,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     } else if (checkoutStatus === "cancel") {
       // Cancel flow - show message and clear params
       setCheckoutMessage("Checkout canceled.");
-      
+
       // Clear query params
       if (!paramsCleared) {
         router.replace("/onboarding");
@@ -188,7 +210,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       }
     }
   }, [checkoutStatus, router, paramsCleared]);
-  
+
   // Also handle query params from URL (fallback for direct navigation)
   React.useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -232,7 +254,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const handleFormAction = async (prevState: any, formData: FormData) => {
     const action = formData.get("_action")?.toString();
     let result;
-    
+
     if (action === "bootstrap") {
       result = await bootstrapWorkspaceAction(formData);
     } else if (action === "saveWorkspace") {
@@ -246,25 +268,25 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     } else {
       return { ok: false, error: "Unknown action" };
     }
-    
+
     if (!result.ok) {
       return { ok: false, error: result.error || "Something went wrong." };
     }
-    
+
     // Always refresh from DB (authoritative source of truth)
     const updated = await getOnboardingState();
     setState(updated);
     setCurrentStep(updated.onboardingStep);
-    
+
     if (process.env.NODE_ENV !== "production") {
       console.log("[onboarding] advanced", updated.onboardingStep);
     }
-    
+
     return { ok: true };
   };
-  
+
   const [formState, formAction] = React.useActionState(handleFormAction, { ok: true });
-  
+
   // Update error state from form state
   React.useEffect(() => {
     if (formState && !formState.ok) {
@@ -353,11 +375,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         if (statusResult.ok) {
           const newStatus = statusResult.vapiStatus;
           const newPhoneNumber = statusResult.phoneNumberE164;
-          
+
           if (newPhoneNumber && !displayPhoneNumber) {
             setProvisionedPhoneNumber(newPhoneNumber);
           }
-          
+
           if (newStatus === "active") {
             setPhoneStatus("active");
             setCountdownRemaining(0);
@@ -375,7 +397,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         console.error("[onboarding] Error in initial phone status check:", err);
       }
     };
-    
+
     initialCheck();
 
     // Poll phone status every 5 seconds (max 180s = 36 polls)
@@ -383,18 +405,18 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     const maxPolls = 36;
     const pollInterval = setInterval(async () => {
       pollCount++;
-      
+
       try {
         const statusResult = await checkPhoneStatus();
         if (statusResult.ok) {
           const newStatus = statusResult.vapiStatus;
           const newPhoneNumber = statusResult.phoneNumberE164;
-          
+
           // Update phone number if available
           if (newPhoneNumber && !displayPhoneNumber) {
             setProvisionedPhoneNumber(newPhoneNumber);
           }
-          
+
           // If status becomes active, stop polling and show active UI
           if (newStatus === "active") {
             setPhoneStatus("active");
@@ -407,14 +429,14 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             clearInterval(pollInterval);
             return;
           }
-          
+
           // Update status (activating or null)
           setPhoneStatus(newStatus === "activating" ? "activating" : null);
         }
       } catch (err) {
         console.error("[onboarding] Error polling phone status:", err);
       }
-      
+
       // Stop polling after max attempts
       if (pollCount >= maxPolls) {
         clearInterval(pollInterval);
@@ -446,17 +468,27 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       clearInterval(timer);
     };
   }, [currentStep, countdownRemaining]);
-  
+
   // Submit button component with pending state
-  function SubmitButton({ children, disabled: externalDisabled, ...props }: React.ComponentProps<typeof Button> & { children: React.ReactNode }) {
+  function SubmitButton({
+    children,
+    disabled: externalDisabled,
+    className,
+    ...props
+  }: React.ComponentProps<"button"> & { children: React.ReactNode }) {
     const { pending } = useFormStatus();
     return (
-      <Button type="submit" variant="primary" disabled={pending || externalDisabled} {...props}>
+      <button
+        type="submit"
+        disabled={pending || externalDisabled}
+        className={`inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#0A1A2F] px-6 h-11 text-sm font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] disabled:pointer-events-none disabled:opacity-50 ${className || ""}`}
+        {...props}
+      >
         {pending ? "Please wait…" : children}
         {!pending && typeof children === "string" && !children.includes("wait") && (
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="h-4 w-4" />
         )}
-      </Button>
+      </button>
     );
   }
 
@@ -503,7 +535,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       const result = await activatePhoneNumber(orgId, country, areaCode || undefined);
       if (result.ok) {
         setProvisionedPhoneNumber(result.phoneNumber || null);
-        
+
         // Refresh state from DB to get deterministic step advancement
         const updatedState = await getOnboardingState();
         setState(updatedState);
@@ -560,753 +592,692 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   // SIP URI for provider="vapi" lines (may exist when E164 doesn't)
   const displaySipUri = state.phoneNumberSipUri ?? null;
 
+  const progressPct = Math.min(100, Math.round((currentStep / (STEPS.length - 1)) * 100));
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        {/* Stepper Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {STEPS.map((step, idx) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className="flex items-center">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                      currentStep >= step.id
-                        ? "border-brand-500 bg-brand-500 text-white"
-                        : "border-zinc-300 bg-white text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
-                    }`}
-                  >
-                    {currentStep > step.id ? (
-                      <Check className="h-5 w-5" />
-                    ) : (
-                      <span className="text-sm font-semibold">{step.id + 1}</span>
+    <div className="flex min-h-screen">
+      {/* LEFT RAIL */}
+      <aside className="relative hidden w-[360px] shrink-0 flex-col overflow-hidden bg-[#0A1A2F] px-10 py-12 text-[#F7F5F1] lg:flex">
+        {/* Ambient glow */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-[10%] right-[-15%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(27,110,110,0.28)_0%,transparent_65%)]" />
+          <div className="absolute bottom-[-10%] left-[-20%] h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(184,137,90,0.12)_0%,transparent_65%)]" />
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)", backgroundSize: "30px 30px" }}
+          />
+        </div>
+
+        <div className="relative z-10 flex h-full flex-col">
+          {/* Logo */}
+          <div className="font-display text-[26px] font-semibold tracking-tight">
+            den<span className="text-[#3FA3A3]">ku</span>
+          </div>
+
+          {/* Intro */}
+          <div className="mt-10">
+            <div className="brand-eyebrow !text-[#3FA3A3] before:!bg-[#3FA3A3]">Welcome aboard</div>
+            <h1 className="mt-4 font-display text-[28px] font-normal leading-[1.15] tracking-[-0.5px]">
+              Let&apos;s get your AI voice employee <em className="italic text-[#3FA3A3]">live</em>.
+            </h1>
+          </div>
+
+          {/* Vertical stepper */}
+          <nav className="mt-10 flex-1">
+            {STEPS.map((step, idx) => {
+              const completed = currentStep > step.id;
+              const active = currentStep === step.id;
+              const isLast = idx === STEPS.length - 1;
+              return (
+                <div key={step.id} className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-all ${
+                        completed
+                          ? "bg-[#1B6E6E] text-white"
+                          : active
+                          ? "border-2 border-[#3FA3A3] bg-[#1B6E6E]/15 text-[#3FA3A3]"
+                          : "border border-white/15 text-white/35"
+                      }`}
+                    >
+                      {completed ? <Check className="h-4 w-4" /> : step.id + 1}
+                    </div>
+                    {!isLast && (
+                      <div className={`my-1 w-px flex-1 ${completed ? "bg-[#1B6E6E]" : "bg-white/10"}`} style={{ minHeight: 28 }} />
                     )}
                   </div>
-                  <span
-                    className={`ml-3 text-sm font-medium ${
-                      currentStep >= step.id ? "text-zinc-900 dark:text-white" : "text-zinc-500"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
+                  <div className={`pb-7 ${isLast ? "" : ""}`}>
+                    <div className={`text-sm font-medium ${active ? "text-[#F7F5F1]" : completed ? "text-[#F7F5F1]/80" : "text-white/40"}`}>
+                      {step.label}
+                    </div>
+                    <div className={`mt-0.5 text-xs ${active ? "text-[#F7F5F1]/55" : "text-white/30"}`}>{step.desc}</div>
+                  </div>
                 </div>
-                {idx < STEPS.length - 1 && (
-                  <div
-                    className={`mx-4 h-0.5 flex-1 ${
-                      currentStep > step.id ? "bg-brand-500" : "bg-zinc-200 dark:bg-zinc-800"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
+          </nav>
+
+          {/* Footer reassurance */}
+          <div className="relative z-10 mt-6 space-y-4 border-t border-white/[0.08] pt-6">
+            <div className="flex items-center gap-2.5 text-xs text-[#F7F5F1]/70">
+              <ShieldCheck className="h-4 w-4 text-[#3FA3A3]" />
+              Setup takes about 3 minutes
+            </div>
+            <a href="mailto:hello@denku.io" className="flex items-center gap-2.5 text-xs text-[#F7F5F1]/50 transition-colors hover:text-[#3FA3A3]">
+              <HelpCircle className="h-4 w-4" />
+              Need a hand? Talk to our team
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      {/* RIGHT MAIN */}
+      <main className="flex min-h-screen flex-1 flex-col">
+        {/* Mobile top bar */}
+        <div className="border-b border-[#0A1A2F]/[0.06] bg-[#F7F5F1]/80 px-5 py-4 backdrop-blur-md lg:hidden">
+          <div className="flex items-center justify-between">
+            <div className="font-display text-[22px] font-semibold tracking-tight text-[#0A1A2F]">
+              den<span className="text-[#1B6E6E]">ku</span>
+            </div>
+            <span className="font-brand-mono text-xs text-[#6B7888]">
+              Step {Math.min(currentStep + 1, STEPS.length)} of {STEPS.length}
+            </span>
+          </div>
+          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[#0A1A2F]/[0.08]">
+            <div className="h-full rounded-full bg-[#1B6E6E] transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
 
-        {/* Step Content */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          {error && error !== "BILLING_PAUSED" && error !== "NO_PLAN" && (
-            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-            </div>
-          )}
-
-          {/* Step 0: Workspace + Full name + Phone */}
-          {currentStep === 0 && (
-            <form action={formAction} className="space-y-6">
-              <input type="hidden" name="_action" value={state.needsOrgSetup || !state.orgId ? "bootstrap" : "saveWorkspace"} />
-              {state.orgId && <input type="hidden" name="orgId" value={state.orgId} />}
-              
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Set up your workspace</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Tell us a bit about yourself and your workspace.
-                </p>
+        <div className="flex flex-1 items-start justify-center px-5 py-10 lg:items-center lg:px-16">
+          <div className="w-full max-w-2xl">
+            {error && error !== "BILLING_PAUSED" && error !== "NO_PLAN" && (
+              <div className="mb-6 rounded-[12px] border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-800">{error}</p>
               </div>
+            )}
 
-              <div>
-                <label htmlFor="workspace_name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Workspace name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="workspace_name"
-                  name="workspaceName"
-                  type="text"
-                  value={workspaceName}
-                  onChange={(e) => {
-                    setWorkspaceName(e.target.value);
-                    setError(null);
-                  }}
-                  required
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white disabled:opacity-60 transition-colors"
-                  placeholder="Acme Inc."
-                />
-              </div>
+            {/* Step 0: Workspace + Full name + Phone */}
+            {currentStep === 0 && (
+              <form action={formAction} className="space-y-7">
+                <input type="hidden" name="_action" value={state.needsOrgSetup || !state.orgId ? "bootstrap" : "saveWorkspace"} />
+                {state.orgId && <input type="hidden" name="orgId" value={state.orgId} />}
 
-              <div>
-                <label htmlFor="full_name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Full name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="full_name"
-                  name="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    setError(null);
-                  }}
-                  required
-                  autoComplete="name"
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white disabled:opacity-60 transition-colors"
-                  placeholder="Alex Johnson"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Phone number <span className="text-zinc-500 text-xs">(optional)</span>
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^\d+()-]/g, "");
-                    setPhone(value);
-                    setError(null);
-                    setPhoneFieldError(null);
-                  }}
-                  autoComplete="tel"
-                  className={`w-full rounded-xl border px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 transition-colors dark:bg-zinc-800 dark:text-white disabled:opacity-60 ${
-                    phoneFieldError
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
-                      : "border-zinc-200 focus:border-brand-500 focus:ring-brand-500/20 dark:border-zinc-700"
-                  } bg-white`}
-                  placeholder="+1 (555) 123-4567"
-                />
-                {phoneFieldError ? (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                    {phoneFieldError}
+                <div>
+                  <div className="brand-eyebrow mb-4">Step 1 · Workspace</div>
+                  <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Set up your workspace
+                  </h2>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                    A few details so we can personalize your AI employee and keep your account secure.
                   </p>
-                ) : (
-                  <p className="mt-1 text-xs text-zinc-500">
-                    For recovery and notifications. You can add this later.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex justify-end">
-                <SubmitButton disabled={!workspaceName.trim() || !fullName.trim()}>
-                  Continue
-                </SubmitButton>
-              </div>
-            </form>
-          )}
-
-          {/* Step 1: Goal */}
-          {currentStep === 1 && (
-            <form action={formAction} className="space-y-6">
-              <input type="hidden" name="_action" value="saveGoalLanguage" />
-              <input type="hidden" name="orgId" value={state.orgId || ""} />
-              <input type="hidden" name="goal" value={goal} />
-              
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">What do you want your line to handle?</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Choose the primary use case for your phone line.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {/* Support (ACTIVE, default selected) */}
-                <button
-                  type="button"
-                  onClick={() => setGoal("support")}
-                  className={`rounded-xl border-2 p-6 text-left transition-all ${
-                    goal === "support"
-                      ? "border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-500/10"
-                      : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Customer Support</h3>
-                      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                        Answer questions, create tickets, and schedule appointments.
-                      </p>
-                    </div>
-                    {goal === "support" && (
-                      <CheckCircle2 className="h-5 w-5 text-brand-500 flex-shrink-0" />
-                    )}
-                  </div>
-                </button>
-
-                {/* Sales (DISABLED) */}
-                <button
-                  type="button"
-                  onClick={() => {}}
-                  disabled
-                  className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-zinc-600 dark:text-zinc-400">Sales</h3>
-                        <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-                          Coming soon
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                        Qualify leads and book demos.
-                      </p>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Ops (DISABLED) */}
-                <button
-                  type="button"
-                  onClick={() => {}}
-                  disabled
-                  className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 text-left opacity-60 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-zinc-600 dark:text-zinc-400">Operations</h3>
-                        <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-                          Coming soon
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                        Run workflows and handle operational requests.
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              <div className="flex justify-end">
-                <SubmitButton>
-                  Continue
-                </SubmitButton>
-              </div>
-            </form>
-          )}
-
-          {/* Step 2: Get Phone Number (AI line) */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Get a phone number</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Choose how you want to set up your phone line.
-                </p>
-              </div>
-
-              {/* Billing Paused Block */}
-              {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-2">
-                    Billing pause is active
-                  </p>
-                  <p className="text-sm text-amber-800 dark:text-amber-300 mb-4">
-                    Resolve billing to activate your line.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push("/dashboard/settings/workspace/billing")}
-                  >
-                    Go to Billing
-                  </Button>
                 </div>
-              )}
 
-              {/* Phone Number Options */}
-              {state.workspaceStatus !== "paused" && (
-                <>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border-2 border-brand-500 bg-brand-50 p-6 dark:border-brand-500 dark:bg-brand-500/10">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Get a new phone number</h3>
-                          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            We'll assign you a number.
-                          </p>
-                        </div>
-                        <CheckCircle2 className="h-5 w-5 text-brand-500 flex-shrink-0" />
-                      </div>
-                    </div>
+                <div>
+                  <label htmlFor="workspace_name" className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                    Workspace name <span className="text-[#1B6E6E]">*</span>
+                  </label>
+                  <input
+                    id="workspace_name"
+                    name="workspaceName"
+                    type="text"
+                    value={workspaceName}
+                    onChange={(e) => {
+                      setWorkspaceName(e.target.value);
+                      setError(null);
+                    }}
+                    required
+                    className={inputClass}
+                    placeholder="Acme Inc."
+                  />
+                </div>
 
-                    <div className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 opacity-60 dark:border-zinc-700 dark:bg-zinc-800">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-semibold text-zinc-600 dark:text-zinc-400">Bring my own number</h3>
-                            <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-                              Later
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                            Port your existing number.
-                          </p>
-                        </div>
-                      </div>
+                <div>
+                  <label htmlFor="full_name" className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                    Full name <span className="text-[#1B6E6E]">*</span>
+                  </label>
+                  <input
+                    id="full_name"
+                    name="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      setError(null);
+                    }}
+                    required
+                    autoComplete="name"
+                    className={inputClass}
+                    placeholder="Alex Johnson"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                    Phone number <span className="text-xs text-[#6B7888]">(optional)</span>
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d+()-]/g, "");
+                      setPhone(value);
+                      setError(null);
+                      setPhoneFieldError(null);
+                    }}
+                    autoComplete="tel"
+                    className={phoneFieldError ? inputErrClass : inputClass}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                  {phoneFieldError ? (
+                    <p className="mt-1.5 text-xs text-red-600">{phoneFieldError}</p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-[#6B7888]">For recovery and notifications. You can add this later.</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <SubmitButton disabled={!workspaceName.trim() || !fullName.trim()}>Continue</SubmitButton>
+                </div>
+              </form>
+            )}
+
+            {/* Step 1: Goal */}
+            {currentStep === 1 && (
+              <form action={formAction} className="space-y-7">
+                <input type="hidden" name="_action" value="saveGoalLanguage" />
+                <input type="hidden" name="orgId" value={state.orgId || ""} />
+                <input type="hidden" name="goal" value={goal} />
+
+                <div>
+                  <div className="brand-eyebrow mb-4">Step 2 · Agent goal</div>
+                  <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    What should your line handle?
+                  </h2>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                    Choose the primary role for your AI employee. You can refine its behavior anytime.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Support (ACTIVE, default selected) */}
+                  <button
+                    type="button"
+                    onClick={() => setGoal("support")}
+                    className={`flex items-start gap-4 rounded-[14px] border-2 p-5 text-left transition-all ${
+                      goal === "support" ? "border-[#1B6E6E] bg-[#E3EEED]" : "border-[#0A1A2F]/10 bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                    }`}
+                  >
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] ${goal === "support" ? "bg-white text-[#134F4F]" : "bg-[#E3EEED] text-[#134F4F]"}`}>
+                      <Headphones className="h-5 w-5" />
                     </div>
+                    <div className="flex-1">
+                      <h3 className="font-display text-[17px] font-medium text-[#0A1A2F]">Customer Support</h3>
+                      <p className="mt-1 text-sm text-[#2C3E54]">Answer questions, create tickets, and schedule appointments.</p>
+                    </div>
+                    {goal === "support" && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />}
+                  </button>
+
+                  {/* Sales (DISABLED) */}
+                  <button type="button" disabled className="flex cursor-not-allowed items-start gap-4 rounded-[14px] border-2 border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-5 text-left opacity-70">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#EFEBE4] text-[#6B7888]">
+                      <TrendingUp className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-display text-[17px] font-medium text-[#6B7888]">Sales</h3>
+                        <span className="rounded-full border border-[#0A1A2F]/10 bg-white px-2 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-[#6B7888]">Coming soon</span>
+                      </div>
+                      <p className="mt-1 text-sm text-[#6B7888]">Qualify leads and book demos.</p>
+                    </div>
+                  </button>
+
+                  {/* Ops (DISABLED) */}
+                  <button type="button" disabled className="flex cursor-not-allowed items-start gap-4 rounded-[14px] border-2 border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-5 text-left opacity-70">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#EFEBE4] text-[#6B7888]">
+                      <Settings2 className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-display text-[17px] font-medium text-[#6B7888]">Operations</h3>
+                        <span className="rounded-full border border-[#0A1A2F]/10 bg-white px-2 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-[#6B7888]">Coming soon</span>
+                      </div>
+                      <p className="mt-1 text-sm text-[#6B7888]">Run workflows and handle operational requests.</p>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <SubmitButton>Continue</SubmitButton>
+                </div>
+              </form>
+            )}
+
+            {/* Step 2: Get Phone Number (AI line) */}
+            {currentStep === 2 && (
+              <div className="space-y-7">
+                <div>
+                  <div className="brand-eyebrow mb-4">Step 3 · Phone number</div>
+                  <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Claim your AI number
+                  </h2>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                    This is the line your AI employee answers. We&apos;ll provision it for you instantly.
+                  </p>
+                </div>
+
+                {/* Billing Paused Block */}
+                {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
+                  <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-6">
+                    <p className="mb-2 text-sm font-medium text-amber-900">Billing pause is active</p>
+                    <p className="mb-4 text-sm text-amber-800">Resolve billing to activate your line.</p>
+                    <Button className={outlineBtn} onClick={() => router.push("/dashboard/settings/workspace/billing")}>
+                      Go to Billing
+                    </Button>
                   </div>
+                )}
 
-                  <form action={formAction} className="space-y-4">
-                    <input type="hidden" name="_action" value="savePhonePreferences" />
-                    <input type="hidden" name="orgId" value={state.orgId || ""} />
-                    <input type="hidden" name="country" value={country} />
-                    
+                {/* Phone Number Options */}
+                {state.workspaceStatus !== "paused" && (
+                  <>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                          Country
-                        </label>
-                        <select
-                          value={country}
-                          disabled
-                          className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-sm text-zinc-600 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
-                        >
-                          <option value="US">United States (+1)</option>
-                        </select>
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                          More countries coming soon
-                        </p>
+                      <div className="rounded-[14px] border-2 border-[#1B6E6E] bg-[#E3EEED] p-5">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">Get a new number</h3>
+                            <p className="mt-1 text-sm text-[#2C3E54]">We&apos;ll assign you a number.</p>
+                          </div>
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                          Area code <span className="text-zinc-500">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="areaCode"
-                          value={areaCode}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, "").slice(0, 3);
-                            setAreaCode(value);
-                            // Clear error on change
-                            if (areaCodeError) setAreaCodeError(null);
-                          }}
-                          onBlur={() => {
-                            // Validate on blur
-                            if (areaCode && areaCode.length > 0) {
-                              if (areaCode.length !== 3) {
-                                setAreaCodeError("Enter a valid US area code (3 digits).");
-                              } else if (!isValidUSAreaCode(areaCode)) {
-                                setAreaCodeError("Enter a valid US area code (3 digits).");
+                      <div className="rounded-[14px] border-2 border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-5 opacity-70">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-display text-[16px] font-medium text-[#6B7888]">Bring my own</h3>
+                              <span className="rounded-full border border-[#0A1A2F]/10 bg-white px-2 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-[#6B7888]">Later</span>
+                            </div>
+                            <p className="mt-1 text-sm text-[#6B7888]">Port your existing number.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form action={formAction} className="space-y-5">
+                      <input type="hidden" name="_action" value="savePhonePreferences" />
+                      <input type="hidden" name="orgId" value={state.orgId || ""} />
+                      <input type="hidden" name="country" value={country} />
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">Country</label>
+                          <select value={country} disabled className="w-full cursor-not-allowed rounded-[10px] border border-[#0A1A2F]/10 bg-[#EFEBE4] px-4 py-2.5 text-sm text-[#6B7888]">
+                            <option value="US">United States (+1)</option>
+                          </select>
+                          <p className="mt-1.5 text-xs text-[#6B7888]">More countries coming soon</p>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                            Area code <span className="text-xs text-[#6B7888]">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="areaCode"
+                            value={areaCode}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, "").slice(0, 3);
+                              setAreaCode(value);
+                              if (areaCodeError) setAreaCodeError(null);
+                            }}
+                            onBlur={() => {
+                              if (areaCode && areaCode.length > 0) {
+                                if (areaCode.length !== 3) {
+                                  setAreaCodeError("Enter a valid US area code (3 digits).");
+                                } else if (!isValidUSAreaCode(areaCode)) {
+                                  setAreaCodeError("Enter a valid US area code (3 digits).");
+                                } else {
+                                  setAreaCodeError(null);
+                                }
                               } else {
                                 setAreaCodeError(null);
                               }
-                            } else {
-                              setAreaCodeError(null);
-                            }
-                          }}
-                          placeholder="e.g. 321"
-                          maxLength={3}
-                          className={`w-full rounded-lg border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 dark:bg-zinc-800 dark:text-white ${
-                            areaCodeError
-                              ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                              : "border-zinc-300 focus:border-brand-500 focus:ring-brand-500/20 dark:border-zinc-700"
-                          }`}
-                          disabled={isActivating}
-                        />
-                        {areaCodeError ? (
-                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{areaCodeError}</p>
-                        ) : (
-                          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            We'll try to get a local number. Leave blank for best availability.
-                          </p>
-                        )}
+                            }}
+                            placeholder="e.g. 321"
+                            maxLength={3}
+                            className={areaCodeError ? inputErrClass : inputClass}
+                            disabled={isActivating}
+                          />
+                          {areaCodeError ? (
+                            <p className="mt-1.5 text-xs text-red-600">{areaCodeError}</p>
+                          ) : (
+                            <p className="mt-1.5 text-xs text-[#6B7888]">We&apos;ll try to get a local number. Leave blank for best availability.</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex justify-end">
-                      <SubmitButton disabled={!!areaCodeError}>
-                        Continue
-                      </SubmitButton>
-                    </div>
-                  </form>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Choose Plan (if no plan active) */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Choose a plan</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Select a plan to activate your phone line. You'll be charged now. You can change your plan anytime later.
-                </p>
+                      <div className="flex justify-end pt-2">
+                        <SubmitButton disabled={!!areaCodeError}>Continue</SubmitButton>
+                      </div>
+                    </form>
+                  </>
+                )}
               </div>
+            )}
 
-              {/* Confirming Plan UI - shows when checkout=success and plan not active yet */}
-              {isConfirming && !state.isPlanActive && (
-                <div className="rounded-xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-950">
-                  <h3 className="text-base font-semibold text-brand-900 dark:text-brand-200 mb-2">
-                    Confirming your plan…
-                  </h3>
-                  <p className="text-sm text-brand-800 dark:text-brand-300">
-                    This usually takes a few seconds.
+            {/* Step 3: Choose Plan (if no plan active) */}
+            {currentStep === 3 && (
+              <div className="space-y-7">
+                <div>
+                  <div className="brand-eyebrow mb-4">Step 4 · Plan</div>
+                  <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Choose your capacity
+                  </h2>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                    Select a plan to activate your line. You&apos;re charged now and can change plans anytime.
                   </p>
                 </div>
-              )}
 
-              {/* Billing Paused Block */}
-              {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-2">
-                    Billing pause is active
-                  </p>
-                  <p className="text-sm text-amber-800 dark:text-amber-300 mb-4">
-                    Resolve billing to activate your line.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push("/dashboard/settings/workspace/billing")}
-                  >
-                    Go to billing settings
-                  </Button>
-                </div>
-              )}
-
-              {/* Confirming Plan UI - shows when checkout=success and plan not active yet */}
-              {isConfirming && !state.isPlanActive && (
-                <div className="rounded-xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-950">
-                  <h3 className="text-base font-semibold text-brand-900 dark:text-brand-200 mb-2">
-                    Confirming your plan…
-                  </h3>
-                  <p className="text-sm text-brand-800 dark:text-brand-300">
-                    This usually takes a few seconds.
-                  </p>
-                </div>
-              )}
-
-              {/* Checkout messages (for cancel or other states) */}
-              {checkoutMessage && !isConfirming && (
-                <div className={`rounded-xl border p-6 ${
-                  checkoutMessage.includes("canceled") || checkoutMessage.includes("cancelled")
-                    ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-                    : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950"
-                }`}>
-                  <p className="text-sm text-zinc-900 dark:text-zinc-100">{checkoutMessage}</p>
-                </div>
-              )}
-
-              {/* Plan cards */}
-              {state.workspaceStatus !== "paused" && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Sort plans: Starter → Growth → Scale */}
-                    {state.plans
-                      .sort((a, b) => {
-                        const order: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
-                        return (order[a.plan_code] || 999) - (order[b.plan_code] || 999);
-                      })
-                      .map((plan) => {
-                        const isSelected = selectedPlan === plan.plan_code;
-                        const isGrowth = plan.plan_code === "growth";
-                        return (
-                          <div
-                            key={plan.plan_code}
-                            className={`rounded-xl border p-6 transition-all flex flex-col h-full ${
-                              isSelected
-                                ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950"
-                                : isGrowth
-                                ? "border-brand-300 bg-brand-50/50 dark:border-brand-600 dark:bg-brand-950/50"
-                                : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
-                            }`}
-                          >
-                            {/* Growth badge */}
-                            {isGrowth && (
-                              <div className="mb-2">
-                                <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800 dark:bg-brand-900 dark:text-brand-200">
-                                  Recommended
-                                </span>
-                              </div>
-                            )}
-                            <div className="space-y-4 flex-1 flex flex-col">
-                              <div>
-                                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                                  {plan.display_name}
-                                </h3>
-                                <div className="mt-2">
-                                  <span className="text-3xl font-bold text-zinc-900 dark:text-white">
-                                    {formatUsd(plan.monthly_fee_usd)}
-                                  </span>
-                                  <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
-                                </div>
-                              </div>
-                              <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400 flex-1">
-                                <p>{plan.concurrency_limit} capacity (simultaneous calls)</p>
-                                <p>{plan.included_minutes.toLocaleString()} minutes included</p>
-                                <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
-                                <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
-                              </div>
-                              <Button
-                                className="w-full"
-                                variant={isSelected ? "default" : "outline"}
-                                disabled={isPending}
-                                onClick={() => {
-                                  setSelectedPlan(plan.plan_code);
-                                  setError(null);
-                                  setCheckoutMessage(null);
-                                }}
-                              >
-                                {isSelected ? "Selected" : "Select plan"}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                {/* Confirming Plan UI - shows when checkout=success and plan not active yet */}
+                {isConfirming && !state.isPlanActive && (
+                  <div className="rounded-[14px] border border-[#1B6E6E]/25 bg-[#E3EEED] p-6">
+                    <h3 className="mb-2 font-display text-[16px] font-medium text-[#134F4F]">Confirming your plan…</h3>
+                    <p className="text-sm text-[#2C3E54]">This usually takes a few seconds.</p>
                   </div>
+                )}
 
-                  {/* Action buttons */}
-                  <div className="flex flex-col items-center gap-3 pt-4">
-                    {selectedPlan && (
+                {/* Billing Paused Block */}
+                {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
+                  <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-6">
+                    <p className="mb-2 text-sm font-medium text-amber-900">Billing pause is active</p>
+                    <p className="mb-4 text-sm text-amber-800">Resolve billing to activate your line.</p>
+                    <Button className={outlineBtn} onClick={() => router.push("/dashboard/settings/workspace/billing")}>
+                      Go to billing settings
+                    </Button>
+                  </div>
+                )}
+
+                {/* Checkout messages (for cancel or other states) */}
+                {checkoutMessage && !isConfirming && (
+                  <div className={`rounded-[14px] border p-6 ${
+                    checkoutMessage.includes("canceled") || checkoutMessage.includes("cancelled")
+                      ? "border-[#0A1A2F]/10 bg-[#FBFAF8]"
+                      : "border-amber-200 bg-amber-50"
+                  }`}>
+                    <p className="text-sm text-[#0A1A2F]">{checkoutMessage}</p>
+                  </div>
+                )}
+
+                {/* Plan cards */}
+                {state.workspaceStatus !== "paused" && (
+                  <>
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                      {state.plans
+                        .sort((a, b) => {
+                          const order: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
+                          return (order[a.plan_code] || 999) - (order[b.plan_code] || 999);
+                        })
+                        .map((plan) => {
+                          const isSelected = selectedPlan === plan.plan_code;
+                          const isGrowth = plan.plan_code === "growth";
+                          return (
+                            <div
+                              key={plan.plan_code}
+                              className={`flex h-full flex-col rounded-[16px] border p-6 transition-all ${
+                                isSelected
+                                  ? "border-[#1B6E6E] bg-[#E3EEED] brand-shadow-md"
+                                  : isGrowth
+                                  ? "border-[#1B6E6E]/30 bg-[#FBFAF8]"
+                                  : "border-[#0A1A2F]/10 bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                              }`}
+                            >
+                              {isGrowth && (
+                                <div className="mb-2">
+                                  <span className="inline-flex items-center rounded-full bg-[#1B6E6E] px-2.5 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-white">
+                                    Recommended
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex flex-1 flex-col space-y-4">
+                                <div>
+                                  <h3 className="font-display text-[18px] font-medium text-[#0A1A2F]">{plan.display_name}</h3>
+                                  <div className="mt-2">
+                                    <span className="font-display text-[30px] font-medium text-[#0A1A2F]">{formatUsd(plan.monthly_fee_usd)}</span>
+                                    <span className="text-sm text-[#6B7888]">/month</span>
+                                  </div>
+                                </div>
+                                <div className="flex-1 space-y-2 text-sm text-[#2C3E54]">
+                                  <p>{plan.concurrency_limit} concurrent calls</p>
+                                  <p>{plan.included_minutes.toLocaleString()} minutes included</p>
+                                  <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
+                                  <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
+                                </div>
+                                <Button
+                                  className={`w-full ${isSelected ? tealBtn : outlineBtn}`}
+                                  disabled={isPending}
+                                  onClick={() => {
+                                    setSelectedPlan(plan.plan_code);
+                                    setError(null);
+                                    setCheckoutMessage(null);
+                                  }}
+                                >
+                                  {isSelected ? "Selected" : "Select plan"}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-col items-center gap-3 pt-2">
+                      {selectedPlan && (
+                        <Button
+                          className={`min-w-[220px] ${primaryBtn}`}
+                          disabled={checkoutLoading || isPending || isConfirming}
+                          onClick={() => {
+                            if (!selectedPlan) return;
+                            setCheckoutLoading(true);
+                            setError(null);
+                            setCheckoutMessage(null);
+                            startTransition(async () => {
+                              const result = await startPlanCheckout(selectedPlan as "starter" | "growth" | "scale");
+                              if (result.ok && result.url) {
+                                window.location.href = result.url;
+                              } else {
+                                setCheckoutLoading(false);
+                                if (result.error === "UNAUTH") {
+                                  setError("Authentication error. Please refresh the page and try again.");
+                                } else if (result.error === "BILLING_PAUSED") {
+                                  setError("BILLING_PAUSED");
+                                } else {
+                                  setError(result.error || "Failed to start checkout");
+                                }
+                              }
+                            });
+                          }}
+                        >
+                          {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                        </Button>
+                      )}
+
                       <Button
-                        className="min-w-[200px]"
-                        variant="primary"
-                        disabled={checkoutLoading || isPending || isConfirming}
+                        className={`min-w-[220px] ${outlineBtn}`}
+                        disabled={isPending || isConfirming}
                         onClick={() => {
-                          if (!selectedPlan) return;
-                          setCheckoutLoading(true);
+                          if (!state.orgId) {
+                            setError("Organization ID is missing.");
+                            return;
+                          }
                           setError(null);
                           setCheckoutMessage(null);
                           startTransition(async () => {
-                            const result = await startPlanCheckout(selectedPlan as "starter" | "growth" | "scale");
-                            if (result.ok && result.url) {
-                              // Redirect to Stripe Checkout
-                              window.location.href = result.url;
+                            const result = await continueWithoutPlan(state.orgId!);
+                            if (result.ok) {
+                              router.push("/dashboard/phone-lines");
                             } else {
-                              setCheckoutLoading(false);
-                              if (result.error === "UNAUTH") {
-                                // Server-side auth failed - show error and allow retry
-                                // Do NOT redirect client-side; server-side session exists via httpOnly cookies
-                                // Client Supabase client cannot read httpOnly cookies, so client redirects are unreliable
-                                setError("Authentication error. Please refresh the page and try again.");
-                              } else if (result.error === "BILLING_PAUSED") {
-                                setError("BILLING_PAUSED");
-                              } else {
-                                setError(result.error || "Failed to start checkout");
-                              }
+                              setError(result.error || "Failed to continue without plan");
                             }
                           });
                         }}
                       >
-                        {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                        Continue without plan
                       </Button>
-                    )}
-                    
-                    {/* Continue without plan button */}
-                    <Button
-                      variant="outline"
-                      disabled={isPending || isConfirming}
-                      onClick={() => {
-                        if (!state.orgId) {
-                          setError("Organization ID is missing.");
-                          return;
-                        }
-                        setError(null);
-                        setCheckoutMessage(null);
-                        startTransition(async () => {
-                          const result = await continueWithoutPlan(state.orgId!);
-                          if (result.ok) {
-                            // Redirect to phone lines page
-                            router.push("/dashboard/phone-lines");
-                          } else {
-                            setError(result.error || "Failed to continue without plan");
-                          }
-                        });
-                      }}
-                      className="min-w-[200px]"
-                    >
-                      Continue without plan
-                    </Button>
+                    </div>
+                  </>
+                )}
+
+                {/* Error message */}
+                {error && error !== "BILLING_PAUSED" && (
+                  <div className="rounded-[12px] border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm text-red-900">{error}</p>
                   </div>
-                </>
-              )}
-
-              {/* Error message */}
-              {error && error !== "BILLING_PAUSED" && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-                  <p className="text-sm text-red-900 dark:text-red-200">{error}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 4: Activating your line */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500/10">
-                  {isActivating ? (
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-                  ) : (
-                    <CheckCircle2 className="h-8 w-8 text-brand-500" />
-                  )}
-                </div>
-
-                <h2 className="mt-6 text-2xl font-bold text-zinc-900 dark:text-white">Activating your line</h2>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Provisioning your phone number and setting up your Main Line.
-                </p>
+                )}
               </div>
+            )}
 
-              {/* Progress list */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
-                  <span className="text-sm text-zinc-900 dark:text-white">Provisioning phone number</span>
+            {/* Step 4: Activating your line */}
+            {currentStep === 4 && (
+              <div className="space-y-8">
+                <div className="text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]/10">
+                    {isActivating ? (
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1B6E6E] border-t-transparent" />
+                    ) : (
+                      <CheckCircle2 className="h-8 w-8 text-[#1B6E6E]" />
+                    )}
+                  </div>
+                  <h2 className="mt-6 font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Activating your line
+                  </h2>
+                  <p className="mt-3 text-[15px] text-[#2C3E54]">
+                    Provisioning your phone number and configuring your Main Line.
+                  </p>
                 </div>
-                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
-                  <span className="text-sm text-zinc-900 dark:text-white">Creating Main Line</span>
+
+                <div className="mx-auto max-w-md space-y-3">
+                  {["Provisioning phone number", "Creating Main Line", "Binding number to agent"].map((label) => (
+                    <div key={label} className="flex items-center gap-3 rounded-[12px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-4">
+                      <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-[#0A1A2F]/20" : "bg-[#1B6E6E]"}`} />
+                      <span className="text-sm text-[#0A1A2F]">{label}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-                  <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-zinc-300" : "bg-green-500"}`} />
-                  <span className="text-sm text-zinc-900 dark:text-white">Binding number to agent</span>
-                </div>
+
+                {activationError && (
+                  <div className="mx-auto max-w-md rounded-[12px] border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm text-red-900">{activationError}</p>
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* Error message */}
-              {activationError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-                  <p className="text-sm text-red-900 dark:text-red-200">{activationError}</p>
+            {/* Step 5: You're Live */}
+            {currentStep === 5 && (
+              <div className="space-y-7 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
+                  <CheckCircle2 className={`h-8 w-8 text-white transition-all duration-300 ${showActiveAnimation ? "scale-110 animate-pulse" : ""}`} />
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Step 5: You're Live (only place with dashboard CTA) */}
-          {currentStep === 5 && (
-            <div className="space-y-6 text-center">
-              {/* Icon with animation */}
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-500">
-                <CheckCircle2 
-                  className={`h-8 w-8 text-white transition-all duration-300 ${
-                    showActiveAnimation ? "animate-pulse scale-110" : ""
-                  }`}
-                />
-              </div>
-
-              {/* Header based on status */}
-              {phoneStatus === "active" || (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ? (
-                <>
+                {phoneStatus === "active" || (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ? (
                   <div>
-                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Your AI phone line is live</h2>
-                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                      Your AI phone line is live
+                    </h2>
+                    <p className="mt-3 text-[15px] text-[#2C3E54]">
                       {showActiveAnimation ? "Your number is now active." : "Your phone number is ready to receive calls."}
                     </p>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Activating your number</h2>
-                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                      We've reserved your number. It can take up to ~2 minutes to activate.
-                    </p>
-                  </div>
-
-                  {/* Countdown */}
-                  {countdownRemaining !== null && countdownRemaining > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-3xl font-mono font-semibold text-zinc-900 dark:text-white">
-                        {Math.floor(countdownRemaining / 60)}:{(countdownRemaining % 60).toString().padStart(2, "0")}
-                      </div>
-                      <div className="h-1 w-full max-w-xs mx-auto rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                        <div 
-                          className="h-full bg-brand-500 transition-all duration-1000"
-                          style={{ width: `${((120 - countdownRemaining) / 120) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {countdownRemaining === 0 && phoneStatus === "activating" && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      Still activating… This usually completes within a few moments.
-                    </p>
-                  )}
-
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Once active, you can call the number below to test.
-                  </p>
-                </>
-              )}
-
-              {/* Phone number card (always visible) */}
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
-                <div className="flex flex-col items-center gap-3">
-                  <Phone className="h-6 w-6 text-zinc-600 dark:text-zinc-400" />
-                  {displayPhoneNumber ? (
-                    <span className="text-xl font-semibold text-zinc-900 dark:text-white">
-                      {displayPhoneNumber}
-                    </span>
-                  ) : displaySipUri ? (
-                    <>
-                      <span className="text-xl font-semibold text-zinc-900 dark:text-white break-all text-center">
-                        {displaySipUri}
-                      </span>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                        Use SIP INVITE to test
-                      </p>
-                    </>
-                  ) : (
-                    <span className="text-xl font-semibold text-zinc-900 dark:text-white">
-                      Number will appear here once provisioning completes.
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                {displayPhoneNumber && (
+                ) : (
                   <>
-                    <Button variant="outline" onClick={handleCopyNumber}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy number
-                    </Button>
-                    {/* Only enable call button when status is active */}
-                    {phoneStatus === "active" || (countdownRemaining === 0 && phoneStatus !== "activating") ? (
-                      <Button variant="outline" asChild>
-                        <a href={`tel:${displayPhoneNumber}`}>
-                          <Phone className="mr-2 h-4 w-4" />
-                          Call this number to test
-                        </a>
-                      </Button>
-                    ) : (
-                      <Button variant="outline" disabled>
-                        <Phone className="mr-2 h-4 w-4" />
-                        Activating…
-                      </Button>
+                    <div>
+                      <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                        Activating your number
+                      </h2>
+                      <p className="mt-3 text-[15px] text-[#2C3E54]">
+                        We&apos;ve reserved your number. It can take up to ~2 minutes to activate.
+                      </p>
+                    </div>
+
+                    {countdownRemaining !== null && countdownRemaining > 0 && (
+                      <div className="space-y-2">
+                        <div className="font-brand-mono text-3xl font-medium text-[#0A1A2F]">
+                          {Math.floor(countdownRemaining / 60)}:{(countdownRemaining % 60).toString().padStart(2, "0")}
+                        </div>
+                        <div className="mx-auto h-1 w-full max-w-xs overflow-hidden rounded-full bg-[#0A1A2F]/[0.08]">
+                          <div className="h-full bg-[#1B6E6E] transition-all duration-1000" style={{ width: `${((120 - countdownRemaining) / 120) * 100}%` }} />
+                        </div>
+                      </div>
                     )}
+
+                    {countdownRemaining === 0 && phoneStatus === "activating" && (
+                      <p className="text-sm text-[#6B7888]">Still activating… This usually completes within a few moments.</p>
+                    )}
+
+                    <p className="text-sm text-[#6B7888]">Once active, you can call the number below to test.</p>
                   </>
                 )}
-                {displaySipUri && !displayPhoneNumber && (
-                  <Button variant="outline" onClick={handleCopySipUri}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy SIP URI
+
+                {/* Phone number card */}
+                <div className="rounded-[16px] border border-[#0A1A2F]/[0.08] bg-[#FBFAF8] p-6">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    {displayPhoneNumber ? (
+                      <span className="font-display text-[22px] font-medium text-[#0A1A2F]">{displayPhoneNumber}</span>
+                    ) : displaySipUri ? (
+                      <>
+                        <span className="break-all text-center font-display text-[18px] font-medium text-[#0A1A2F]">{displaySipUri}</span>
+                        <p className="mt-1 text-xs text-[#6B7888]">Use SIP INVITE to test</p>
+                      </>
+                    ) : (
+                      <span className="text-[15px] font-medium text-[#0A1A2F]">Number will appear here once provisioning completes.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  {displayPhoneNumber && (
+                    <>
+                      <Button className={outlineBtn} onClick={handleCopyNumber}>
+                        <Copy className="h-4 w-4" />
+                        Copy number
+                      </Button>
+                      {phoneStatus === "active" || (countdownRemaining === 0 && phoneStatus !== "activating") ? (
+                        <Button className={outlineBtn} asChild>
+                          <a href={`tel:${displayPhoneNumber}`}>
+                            <Phone className="h-4 w-4" />
+                            Call to test
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button className={outlineBtn} disabled>
+                          <Phone className="h-4 w-4" />
+                          Activating…
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {displaySipUri && !displayPhoneNumber && (
+                    <Button className={outlineBtn} onClick={handleCopySipUri}>
+                      <Copy className="h-4 w-4" />
+                      Copy SIP URI
+                    </Button>
+                  )}
+                  <Button className={primaryBtn} onClick={handleComplete} disabled={isPending}>
+                    Go to dashboard
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
-                )}
-                <Button variant="primary" onClick={handleComplete} disabled={isPending}>
-                  Go to dashboard
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

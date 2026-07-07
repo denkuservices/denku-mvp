@@ -53,7 +53,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
           disabled={isPending}
           required
           autoComplete="email"
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-slate-300 disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:border-[#1B6E6E] disabled:opacity-60 transition-colors"
           placeholder="you@company.com"
         />
       </div>
@@ -67,7 +67,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
       <button
         type="submit"
         disabled={isPending || !email.trim()}
-        className="w-full rounded-xl bg-indigo-600 text-white py-3.5 font-medium hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-xl bg-[#0A1A2F] text-white py-3.5 font-medium hover:bg-[#1B6E6E] active:bg-[#134F4F] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? "Sending..." : "Send verification email"}
       </button>
