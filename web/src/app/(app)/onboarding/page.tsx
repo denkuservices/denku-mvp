@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOnboardingState } from "./_actions";
 import { OnboardingClient } from "./OnboardingClient";
+import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Stripe from "stripe";
@@ -147,7 +148,12 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     if (state.onboardingStep === 5) {
       redirect("/dashboard");
     }
-    
+
+    // Send welcome email exactly once when user lands on onboarding (idempotent; conditional UPDATE in action)
+    console.log("[WELCOME] before sendWelcomeOnOnboardingStart"); // TEMP DEBUG
+    const welcomeResult = await sendWelcomeOnOnboardingStart();
+    console.log("[WELCOME] after sendWelcomeOnOnboardingStart", welcomeResult); // TEMP DEBUG
+
     // Pass checkout status to client for UI handling (no server-side writes)
     // Client handles "Confirming your plan..." UI and polling if plan is not yet active
     const checkoutStatus = checkoutParam === "success" ? "success" : checkoutParam === "cancel" ? "cancel" : null;
@@ -167,13 +173,14 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     const errorMessage = error instanceof Error ? error.message : "An error occurred. Please refresh the page.";
     
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-        <div className="rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 max-w-md">
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Setup required</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">{errorMessage}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500">
-            Please refresh the page or try again.
-          </p>
+      <div className="brand-surface flex min-h-screen items-center justify-center bg-[#F7F5F1] p-4">
+        <div className="max-w-md rounded-[18px] border border-[#0A1A2F]/[0.08] bg-white p-8 brand-shadow-md">
+          <div className="mb-5 font-display text-[24px] font-semibold tracking-tight text-[#0A1A2F]">
+            den<span className="text-[#1B6E6E]">ku</span>
+          </div>
+          <h2 className="mb-2 font-display text-[20px] font-medium text-[#0A1A2F]">Setup required</h2>
+          <p className="mb-4 text-sm text-[#2C3E54]">{errorMessage}</p>
+          <p className="text-xs text-[#6B7888]">Please refresh the page or try again.</p>
         </div>
       </div>
     );

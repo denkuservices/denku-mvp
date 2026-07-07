@@ -3,6 +3,10 @@
 import { resend, SENDER } from "./resend";
 import { getVerificationEmailHtml, getOtpEmailHtml, getPasswordResetEmailHtml } from "./templates";
 import type { VerificationEmailParams, PasswordResetEmailParams } from "./templates";
+import { welcomeTemplate } from "./templates/welcome";
+
+/** From address for welcome email only (Resend). */
+const WELCOME_FROM = "Denku <hello@denku.io>";
 
 /**
  * Send email verification email after signup
@@ -18,7 +22,7 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
     const { data, error } = await resend.emails.send({
       from: SENDER,
       to: params.email,
-      subject: "Verify your email - Denku AI",
+      subject: "Verify your email - Denku",
       html: getVerificationEmailHtml(params),
     });
 
@@ -50,7 +54,7 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
     const { data, error } = await resend.emails.send({
       from: SENDER,
       to: params.email,
-      subject: "Your verification code - Denku AI",
+      subject: "Your verification code - Denku",
       html: getOtpEmailHtml(params),
     });
 
@@ -82,7 +86,7 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
     const { data, error } = await resend.emails.send({
       from: SENDER,
       to: params.email,
-      subject: "Reset your password - Denku AI",
+      subject: "Reset your password - Denku",
       html: getPasswordResetEmailHtml(params),
     });
 
@@ -97,5 +101,38 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
     console.error("[sendPasswordResetEmail] Exception:", err);
     // Don't throw - allow Supabase emails to be the source of truth
     return { ok: true, skipped: true, error: err };
+  }
+}
+
+/**
+ * Send "Welcome to Denku" email (Resend). Server-only.
+ * Called once when onboarding starts after verified login.
+ */
+export async function sendWelcomeEmail(toEmail: string): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    console.log("[sendWelcomeEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const { subject, html } = welcomeTemplate();
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: WELCOME_FROM,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error("[sendWelcomeEmail] Resend error:", error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[sendWelcomeEmail] Exception:", message);
+    return { ok: false, error: message };
   }
 }
