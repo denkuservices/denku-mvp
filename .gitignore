@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local AI tooling (never commit — may contain secrets)
+.mcp.json
+.claude/settings.local.json
+.claude/skills/ui-ux-pro-max/
+__pycache__/
+
 # vercel
 .vercel
 
