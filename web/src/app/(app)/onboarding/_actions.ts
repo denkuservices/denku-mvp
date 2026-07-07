@@ -751,7 +751,11 @@ export async function saveWorkspaceAndProfile(
 }
 
 /**
- * Activate phone number (placeholder - will be wired in next task).
+ * Activate phone number for onboarding.
+ *
+ * This server action keeps the legacy UI contract (`{ ok, phoneNumber }`)
+ * but delegates the real provisioning work to `runActivation()`, which is
+ * our idempotent activation pipeline.
  */
 export async function activatePhoneNumber(
   orgId: string,
@@ -802,38 +806,58 @@ export async function activatePhoneNumber(
     return { ok: false, error: "NO_PLAN" };
   }
 
-  // Ensure settings row exists
-  // Check if exists first, then insert if missing
-  const { data: existingSettings } = await supabaseAdmin
-    .from("organization_settings")
-    .select("org_id")
-    .eq("org_id", orgId)
-    .maybeSingle();
-  
-  if (!existingSettings) {
-    await supabaseAdmin
-      .from("organization_settings")
-      .insert({ org_id: orgId });
+  if (country !== "US") {
+    return { ok: false, error: "Only US phone numbers are supported right now." };
   }
 
-  // TODO: Wire actual phone number provisioning here
-  // Provision phone number via VAPI, create "Main Line" agent, bind number to agent
-  // DB step mapping: 5 = Activating, 6 = Live
-  // After activation completes, move to step 6 (Live) and mark as completed
-  const { error: updateError } = await supabaseAdmin
-    .from("organization_settings")
+  const normalizedAreaCode =
+    typeof areaCode === "string" && /^\d{3}$/.test(areaCode.trim())
+      ? areaCode.trim()
+      : null;
+
+  // Persist latest phone preferences so the activation pipeline provisions
+  // against the number the user just selected in onboarding.
+  const { error: orgUpdateError } = await supabaseAdmin
+    .from("orgs")
     .update({
-      onboarding_step: 6, // Step 6 = Live
-      onboarding_completed_at: new Date().toISOString(),
+      phone_country_code: "US",
+      phone_desired_area_code: normalizedAreaCode,
     })
-    .eq("org_id", orgId);
+    .eq("id", orgId);
 
-  if (updateError) {
-    console.error("[activatePhoneNumber] Error updating settings:", updateError);
-    return { ok: false, error: updateError.message };
+  if (
+    orgUpdateError &&
+    orgUpdateError.code !== "PGRST204" &&
+    !orgUpdateError.message?.includes("column") &&
+    !orgUpdateError.message?.includes("does not exist")
+  ) {
+    console.error("[activatePhoneNumber] Error saving phone preferences:", orgUpdateError);
+    return { ok: false, error: "Failed to save phone preferences." };
   }
 
-  return { ok: true, phoneNumber: "+1234567890" }; // Placeholder
+  // Ensure onboarding shows Activating while the real pipeline runs.
+  const { error: stepError } = await supabaseAdmin
+    .from("organization_settings")
+    .upsert(
+      {
+        org_id: orgId,
+        onboarding_step: 5,
+      },
+      { onConflict: "org_id" }
+    );
+
+  if (stepError) {
+    console.error("[activatePhoneNumber] Error setting onboarding step to activating:", stepError);
+    return { ok: false, error: "Failed to start activation." };
+  }
+
+  const activationResult = await runActivation();
+
+  if (!activationResult.ok) {
+    return activationResult;
+  }
+
+  return { ok: true, phoneNumber: activationResult.phoneNumberE164 ?? null };
 }
 
 type VapiCreateAssistantResponse = { id: string };
