@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (Sprint 1 Task 7 — R-046/R-049/R-012 fabricated & placeholder screens removed) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (Sprint 1 Task 8 — R-056 security headers + CSP report-only shipped) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -25,10 +25,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 8 | 1 | 6 | 15 |
-| High | 19 | 0 | 0 | 19 |
+| High | 18 | 0 | 1 | 19 |
 | Medium | 33 | 0 | 2 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **68** | **1** | **8** | **77** |
+| **Total** | **67** | **1** | **9** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -510,7 +510,7 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   rename `estimated_*` billed fields.
 
 ### R-056 — No HTTP security headers (CSP / HSTS / X-Frame-Options / etc.)
-**Priority:** High · **Status:** Open · **Effort:** S · **Related audit:** 04
+**Priority:** High · **Status:** Completed (2026-07-08; CSP report-only, enforce is follow-up) · **Effort:** S · **Related audit:** 04
 - **Business impact:** Baseline miss that fails any customer/enterprise security review; dashboard
   is clickjackable, no TLS-downgrade protection, and any XSS has maximum blast radius on a product
   holding call-transcript PII.
@@ -521,6 +521,19 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   fonts) — start report-only.
 - **Recommended solution:** Add a headers policy (Next `headers()` or middleware); ship CSP in
   report-only first, then enforce.
+- **Completed 2026-07-08 (Sprint 1 Task 8).** Added `headers()` to `web/next.config.ts` (applies
+  to all routes, unlike the scoped middleware). **Enforced now:** `Strict-Transport-Security`
+  (2y + includeSubDomains), `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(),
+  microphone=(self), geolocation=()` (mic kept for the in-page Vapi/Daily demo call). **CSP shipped
+  REPORT-ONLY** (`Content-Security-Policy-Report-Only`) so it never blocks — allowlist built from
+  the origins the app actually loads (Google Fonts, Spline `prod.spline.design`, Vapi `api.vapi.ai`
+  + Daily `*.daily.co` wss, Supabase `*.supabase.co` wss; Stripe included defensively though it's
+  server-only today). Violations post to a new `POST /api/csp-report` collector (public, no DB,
+  204). Verified locally: all six headers present on `/` and `/login`; report endpoint returns 204.
+  **Remaining (follow-up, not this task):** watch `[CSP][REPORT_ONLY][VIOLATION]` logs on real
+  traffic, tune the allowlist, then switch the header key to enforcing `Content-Security-Policy`
+  (ideally with a per-request nonce to drop `'unsafe-inline'`).
 
 ### R-057 — Platform admin is a single shared, MFA-less Basic-Auth credential
 **Priority:** High · **Status:** Open · **Effort:** M–L · **Related audit:** 04

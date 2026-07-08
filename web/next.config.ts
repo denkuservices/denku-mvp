@@ -5,8 +5,48 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
+/**
+ * Security headers (R-056).
+ *
+ * CSP ships in REPORT-ONLY first (per the sprint risk note): it never blocks, only
+ * reports violations to /api/csp-report, so we can watch real traffic and tune the
+ * allowlist before switching to an enforcing `Content-Security-Policy`. The allowlist
+ * is built from the origins the app actually loads (verified 2026-07-08): Google Fonts,
+ * Spline (prod.spline.design), Vapi + Daily (WebRTC transport), Supabase (REST + wss).
+ * Stripe is client-unused today (server SDK only; checkout/portal are top-level
+ * redirects) but included defensively. The remaining headers are safe to ENFORCE now.
+ */
+const contentSecurityPolicyReportOnly = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https://*.daily.co",
+  "worker-src 'self' blob:",
+  "connect-src 'self' https://api.vapi.ai wss://*.vapi.ai https://*.daily.co wss://*.daily.co https://*.supabase.co wss://*.supabase.co https://prod.spline.design https://*.spline.design https://api.stripe.com",
+  "frame-src 'self' https://*.daily.co https://js.stripe.com https://checkout.stripe.com",
+  "report-uri /api/csp-report",
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicyReportOnly },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+];
+
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   async rewrites() {
     return [
       // Map Horizon asset paths
@@ -40,4 +80,3 @@ const nextConfig: NextConfig = {
 };
 
 export default withBundleAnalyzer(nextConfig);
-

@@ -11,6 +11,14 @@
   (baseline ~72 pages). `ANALYZE=true npm run build` enables bundle analyzer.
 - Middleware uses the service-role client → **Node runtime middleware** (not Edge). Keep it that way
   or remove the service-role usage first.
+- **Security headers (R-056, 2026-07-08):** `next.config.ts` `headers()` applies to **all** routes
+  (`/:path*`) — enforced: HSTS (2y+includeSubDomains), `X-Frame-Options: SAMEORIGIN`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy` (mic kept `self` for the demo call). CSP is **report-only**
+  (`Content-Security-Policy-Report-Only`) → violations post to `POST /api/csp-report` (public, logs
+  `[CSP][REPORT_ONLY][VIOLATION]`, no DB). ⚠ Before enforcing CSP, update the allowlist in
+  `next.config.ts` for any NEW external origin (fonts/Spline/Vapi+Daily/Supabase/Stripe are already
+  listed) — and prefer a nonce over `'unsafe-inline'`. The headers are in `next.config`, NOT
+  middleware (middleware is scoped to dashboard/onboarding/admin).
 - **CI:** `.github/workflows/ci.yml` (R-037) runs on every push/PR to `main` → `npm ci` +
   `npm run test` (vitest, **blocking**) + `npm run lint` (**non-blocking** — ~216 pre-existing
   errors are tracked debt). **The build gate is Vercel**, which builds/deploys every push — CI

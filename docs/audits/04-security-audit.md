@@ -67,12 +67,14 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 
 ### New findings
 
-- **[R-056 — NEW, High] No HTTP security headers anywhere.** `next.config.ts` and `middleware.ts`
-  set no `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`/`frame-ancestors`,
-  `X-Content-Type-Options`, `Referrer-Policy`, or `Permissions-Policy`. Consequences: the dashboard
-  is clickjackable (no frame protection), no HSTS to prevent TLS downgrade, and any XSS has maximum
-  blast radius (no CSP). For a product handling call transcripts (PII) this is a baseline miss and
-  a guaranteed finding in any customer security review.
+- **[R-056 — High — RESOLVED 2026-07-08, Task 8] No HTTP security headers anywhere.**
+  `next.config.ts` and `middleware.ts` set no security headers — dashboard clickjackable, no HSTS,
+  any XSS unconstrained (no CSP). **Fixed:** `next.config.ts` `headers()` now enforces HSTS,
+  `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and
+  `Permissions-Policy`, and ships CSP **report-only** (`Content-Security-Policy-Report-Only` +
+  `/api/csp-report` collector) so the allowlist can be tuned on real traffic before enforcing.
+  Clickjacking/HSTS/nosniff are closed now; the XSS-blast-radius reduction lands when CSP flips to
+  enforcing (follow-up). See roadmap R-056.
 
 - **[R-057 — NEW, High] Platform admin is a single shared static Basic-Auth credential.**
   `/admin` + `/api/admin/*` gate on one `ADMIN_USER`/`ADMIN_PASS` pair (`middleware.ts` +
@@ -115,7 +117,7 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 | R-060 | Cross-tenant leak via missed `org_id` filter | **Critical** | Medium | One future query without `.eq(org_id)` on the service-role client → reads/writes across all tenants; no RLS/test catches it |
 | R-002 | Admin creds/env disclosure | High | High | GET `/api/debug/headers` → `ADMIN_USER` + env booleans |
 | R-057 | Shared admin credential compromise | High | Medium | Leaked/brute-forced single Basic-Auth pair → full platform admin, unattributable |
-| R-056 | Clickjacking / XSS amplification / TLS downgrade | High | Medium | Frame the dashboard for UI-redress; any XSS runs unconstrained (no CSP) |
+| R-056 | Clickjacking / XSS amplification / TLS downgrade | High | Medium | ✅ Headers added 2026-07-08 (Task 8): clickjacking/HSTS/nosniff closed; CSP report-only (XSS blast-radius closes when enforced) |
 | R-030 | Credential stuffing / demo-minute farming / contact spam | Medium | High | Automated login attempts (no lockout); scripted demo calls; form spam |
 | R-059 | Cross-org tool writes via static secret / forged caller | Medium | Medium | With R-001 open, forge webhook → tool route writes to org chosen by `to_phone` |
 | R-058 | Unauth plan-activation endpoint | Medium | Low | Replay a known `session_id` to (re)activate a paid plan; bounded impact |
@@ -142,7 +144,7 @@ is a scoped-query helper plus RLS safety-net policies, done alongside the R-037 
 | 1 | Authenticate the Vapi webhook (secret/HMAC); reject unsigned | R-001 | Critical |
 | 2 | Delete/protect `/api/debug/*` and rotate `ADMIN_USER`/`ADMIN_PASS` after | R-002 | Critical |
 | 3 | Add RLS backstop + scoped-query helper for tenant isolation | R-060 | High |
-| 4 | Add security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer/Permissions-Policy) | R-056 | High |
+| 4 | ✅ Done 2026-07-08 — added HSTS/X-Frame-Options/X-Content-Type-Options/Referrer/Permissions-Policy (enforced) + CSP report-only | R-056 | High |
 | 5 | Per-operator admin identity + MFA (replace shared Basic Auth) | R-057 | High |
 | 6 | Remove `x-auth-*` PII response headers | R-003 | Critical |
 | 7 | Real, shared-store rate limiting incl. login lockout + contact-form bot protection | R-030 | Medium |

@@ -94,6 +94,9 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
   logging** — wrap in try/catch like the existing code.
 - Next.js 16 specifics: `params`/`searchParams` are **Promises — always `await`**; `cookies()` is
   async; pages that read org state export `dynamic = "force-dynamic"`.
+- Security headers live in `next.config.ts` `headers()` (R-056). CSP is **report-only** for now, so
+  a new external origin (script/style/img/connect) won't break yet — but add it to the CSP
+  allowlist there before anyone flips CSP to enforcing. Violations log via `/api/csp-report`.
 - Errors from Supabase/Vapi/Stripe: log full detail server-side, return a safe message to the user
   (existing code sometimes leaks raw messages — don't copy that pattern).
 - Phone numbers are normalized E.164-ish via local `normalizePhone` helpers (duplicated in several

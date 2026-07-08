@@ -39,7 +39,8 @@ Nothing else should be built until these hold.
 3. Shared assistant-config helper guaranteeing tool attachment on all creation + sync paths.
 4. Fabricated screens removed (fake API keys, fake integration statuses, no-op danger zone,
    placeholder pages).
-5. Security headers (CSP report-only → enforce plan).
+5. Security headers (CSP report-only → enforce plan). ✅ **Done (Task 8, R-056)** — report-only
+   shipped + collector; enforce is the documented follow-up.
 6. Test harness + CI with the three foundational suites. ✅ **Done (Task 3, R-037).**
 
 ## Prioritized Tasks
@@ -88,7 +89,11 @@ Nothing else should be built until these hold.
    "Disable workspace" DangerZoneCard (found already orphaned); deleted the 5 placeholder route
    trees (`dashboard/{knowledge,tools,risk,activity,billing}` + stub sub-routes) and the dead
    `QuickActionsCard` that linked to them. No dead links; build green.
-8. **R-056** — Add security headers; ship CSP report-only.
+8. **R-056** — ✅ **Done 2026-07-08.** `next.config.ts` `headers()` adds HSTS, X-Frame-Options,
+   X-Content-Type-Options, Referrer-Policy, Permissions-Policy (enforced) + CSP **report-only**
+   (allowlist from real origins: fonts/Spline/Vapi+Daily/Supabase/Stripe) with a `/api/csp-report`
+   collector. Verified headers present locally. **⚠ Follow-up (not this task):** observe reports,
+   tune, then flip CSP to enforcing.
 
 ## Roadmap IDs Covered
 
@@ -133,7 +138,8 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
   *(Task 7, R-046/R-049/R-012. Note: marketing-surface fabrication is R-004, a separate deferred
   truth-pass — this covers the in-product screens.)*
 - [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
-- [ ] Security headers present; CSP in report-only with a clean report.
+- [x] Security headers present; CSP in report-only *(Task 8, R-056; six headers verified on
+  responses)*. ⚠ "Clean report" observation on real traffic is the pre-enforce follow-up.
 - [ ] No regression to the "do not regress" core (deterministic artifacts, leases, compensation, pause).
 
 ## Definition of Done
