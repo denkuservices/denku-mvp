@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (Sprint 1 Task 6 — R-050 + R-077 shared assistant-config helper shipped) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (Sprint 1 Task 7 — R-046/R-049/R-012 fabricated & placeholder screens removed) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -24,11 +24,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 10 | 1 | 4 | 15 |
+| Critical | 8 | 1 | 6 | 15 |
 | High | 19 | 0 | 0 | 19 |
-| Medium | 34 | 0 | 1 | 35 |
+| Medium | 33 | 0 | 2 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **71** | **1** | **5** | **77** |
+| **Total** | **68** | **1** | **8** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -202,7 +202,7 @@ billing view before touching billing code.
   form; repoint the login link (or remove it until the flow ships — never a dead loop).
 
 ### R-012 — Placeholder pages reachable in production
-**Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 01 (C7), 02 (Persona 3)
+**Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 01 (C7), 02 (Persona 3)
 - **Business impact:** "Risk & Compliance → Placeholder page." kills enterprise evaluations;
   five dead ends signal unfinished product.
 - **Technical impact:** `dashboard/{knowledge,tools,risk,activity,billing}/page.tsx` stubs.
@@ -211,9 +211,16 @@ billing view before touching billing code.
 - **Dependencies:** Decide per page: delete route vs "coming soon" with substance.
 - **Recommended solution:** Remove routes not in the 8-item sidebar; for Knowledge (future R-013+)
   ship a real "what's coming + notify me" page instead of a stub.
+- **Completed 2026-07-08 (Sprint 1 Task 7):** deleted the stub routes `dashboard/{knowledge,tools,
+  risk,activity,billing}` (incl. the `knowledge/[sourceId]` and `tools/[toolId]` stub sub-routes) —
+  all rendered "Placeholder page." and none are in the 8-item sidebar. Also deleted the orphaned
+  `(app)/QuickActionsCard.tsx` (its only purpose was linking to the now-deleted knowledge/tools/risk
+  stubs; it was already unrendered). No dead links remain (grep-verified). A real Knowledge surface
+  is future work (R-013+); `dashboard/usage` (a redirect to settings usage) and the real
+  `settings/workspace/billing` are untouched.
 
 ### R-046 — Potemkin screens in the paid product: fake API keys + fabricated integration health
-**Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 02 (Persona 3)
+**Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 02 (Persona 3)
 - **Business impact:** In-product deception — worse than marketing fiction because paying
   customers rely on it. Settings → API keys renders hardcoded fake credentials
   (`pk_live_1234567890abcdef` / `sk_live_abcdef1234567890`) masked to look real with a disabled
@@ -229,6 +236,12 @@ billing view before touching billing code.
 - **Recommended solution:** Delete the fake keys screen (or replace with an honest "API access is
   coming — join the waitlist"); make integration statuses either real (trivial Vapi ping) or
   remove the status chips. Pair with the R-004 truth pass.
+- **Completed 2026-07-08 (Sprint 1 Task 7):** deleted `settings/workspace/keys/page.tsx` (the
+  hardcoded `pk_live_…`/`sk_live_…` fake credentials + disabled "Rotate keys" button; the route was
+  unlinked from any nav). Removed the two fabricated health cards from
+  `settings/integrations/page.tsx` ("Voice infrastructure: Connected" / "Webhooks: Healthy" — they
+  checked nothing) and dropped the "monitor infrastructure health" claim from the subtitle; kept
+  the two honest "Coming soon" CRM/Calendar cards. Real API keys remain future work (R-045).
 
 ### R-050 — The AI's tools are missing on most lines, and silently stripped from the rest
 **Priority:** Critical · **Status:** Completed (2026-07-08; existing assistants need reconcile run) · **Effort:** M · **Related audit:** 03 (headline)
@@ -741,7 +754,7 @@ must be baselined here before the money math can be reviewed or tested.)
   pages (cards + table rows), spinner only for sub-second actions.
 
 ### R-049 — Danger zone "Disable workspace" is a no-op safety control
-**Priority:** Medium · **Status:** Open · **Effort:** S (remove) / M (implement) · **Related audit:** 02 (Persona 3)
+**Priority:** Medium · **Status:** Completed (2026-07-08) · **Effort:** S (remove) / M (implement) · **Related audit:** 02 (Persona 3)
 - **Business impact:** A safety-critical control that's theater: the customer types DISABLE,
   confirms, and receives "Workspace disable is not yet available in MVP." Same trust family as
   R-046. Also: no account/data deletion path exists at all (enterprise/GDPR side tracked in
@@ -752,6 +765,11 @@ must be baselined here before the money math can be reviewed or tested.)
   (`enforceTelephonyPause`) + Stripe subscription cancel.
 - **Recommended solution:** Short term: remove the card (never ship a fake destructive control).
   Later: implement disable = pause + cancel + export offer, with the existing typed-confirmation UX.
+- **Completed 2026-07-08 (Sprint 1 Task 7):** deleted `DangerZoneCard.tsx`. Note discovered while
+  fixing: the component was already **orphaned** — not rendered by the general settings page (which
+  renders the *real* `WorkspaceControlsCard` pause/resume), so the fake "not yet available in MVP"
+  control wasn't actually reachable; the file is now gone so it can't be re-wired. Real
+  disable/delete (pause + Stripe cancel + data export) remains future work — see R-073.
 
 ### R-052 — No duration/silence/abuse caps on paid-line calls
 **Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 03

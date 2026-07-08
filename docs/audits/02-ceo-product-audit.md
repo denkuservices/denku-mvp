@@ -1,6 +1,6 @@
 # Audit 02 — CEO / Product Audit: Premium Experience
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-06
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-08
 - **Lens:** CEO + Founder + CPO + Head of CX of a >$100M ARR B2B SaaS. Core question: *does Denku
   feel like a premium product a business would happily trust with its customer communication?*
 - **Method:** four-persona walkthrough — (1) first-time visitor, (2) new paying customer in
@@ -66,17 +66,21 @@ Account security genuinely works (password change, sign-out-all-devices via real
 These deserve protection as strengths.
 
 **What corrodes daily trust:**
-- **Potemkin screens inside the paid product** (NEW — **R-046**, Critical):
-  - Settings → API keys renders **hardcoded fake credentials** — `pk_live_1234567890abcdef` /
+- **Potemkin screens inside the paid product** (**R-046**, Critical — **RESOLVED 2026-07-08, Task 7**):
+  - Settings → API keys rendered **hardcoded fake credentials** — `pk_live_1234567890abcdef` /
     `sk_live_abcdef1234567890`, masked to look real, with a disabled "Rotate keys" button
     (`settings/workspace/keys/page.tsx`). A customer who copies these into their stack gets
     silent failure; a customer who recognizes them as fake never trusts a screen again.
-  - Settings → Integrations displays **fabricated health statuses** — "Voice infrastructure:
+    **→ screen deleted.**
+  - Settings → Integrations displayed **fabricated health statuses** — "Voice infrastructure:
     Connected", "Webhooks: Healthy" — hardcoded strings checking nothing
     (`settings/integrations/page.tsx`). Fake observability is worse than none: during a real
-    incident this screen will say "Healthy."
+    incident this screen will say "Healthy." **→ fake cards removed; honest CRM/Calendar
+    "coming soon" kept.**
   - Workspace → Danger zone: type DISABLE, confirm — and receive "Workspace disable is not yet
-    available in MVP" (NEW — **R-049**). A safety-critical control that's theater.
+    available in MVP" (**R-049** — **RESOLVED 2026-07-08**; the control was in fact already orphaned
+    (unrendered), and the `DangerZoneCard` file is now deleted). A safety-critical control that was
+    theater.
 - **Support is a dead end** (NEW — **R-047**): the profile menu's "Help / Support" drops a paying
   customer onto the *marketing contact form*. No in-app help, no docs from the dashboard, and the
   fictional support tiers (R-004) route nowhere. For $149–899/mo this is below the floor.
@@ -152,7 +156,7 @@ alone, and past 7.5 with the activation trilogy (R-013/014/015).
 | # | Improvement | R-ID | Why it's top-10 |
 |---|---|---|---|
 | 1 | Truth pass on all marketing pages (pricing, docs, support, security) | R-004 | S effort, removes legal risk + biggest trust leak |
-| 2 | Remove fake API keys + fabricated integration statuses | R-046 | S effort, ends in-product deception |
+| 2 | ✅ Done — removed fake API keys + fabricated integration statuses | R-046 | S effort, ends in-product deception |
 | 3 | Ticket/appointment notification emails | R-008 | M effort, makes the core value visible |
 | 4 | Fix forgot-password (link currently dead-loops) | R-011 | M effort, unblocks locked-out customers |
 | 5 | Business-context questions → agent prompt | R-013 | M effort, transforms the decisive first call |
@@ -160,7 +164,7 @@ alone, and past 7.5 with the activation trilogy (R-013/014/015).
 | 7 | Overage warnings + pause-vs-bill choice | R-009 | M effort, prevents catastrophic silent shutdowns |
 | 8 | Real support path from the dashboard | R-047 | S–M effort, floor-level expectation at this price |
 | 9 | Fix hero CTA / make demo primary | R-007 | S effort, direct conversion lift |
-| 10 | Remove placeholder pages + no-op danger zone | R-012, R-049 | S effort, stops advertising unfinishedness |
+| 10 | ✅ Done — removed placeholder pages + no-op danger zone | R-012, R-049 | S effort, stops advertising unfinishedness |
 
 ## What would prevent a $100M SaaS from shipping this today?
 
@@ -196,11 +200,11 @@ alone, and past 7.5 with the activation trilogy (R-013/014/015).
 | # | Action | R-ID | Priority |
 |---|---|---|---|
 | 1 | Truth-align pricing, docs, support, and security marketing pages | R-004 | Critical |
-| 2 | Remove fake API keys screen + fabricated integration statuses | R-046 | Critical |
+| 2 | ✅ Done 2026-07-08 — removed fake API keys screen + fabricated integration statuses | R-046 | Critical |
 | 3 | Fix forgot-password dead loop with a real reset flow | R-011 | Critical |
 | 4 | Ship ticket/appointment notifications | R-008 | Critical |
 | 5 | Overage warnings + explicit hard-cap choice | R-009 | Critical |
-| 6 | Remove/replace placeholder pages and no-op danger zone | R-012, R-049 | Critical / Medium |
+| 6 | ✅ Done 2026-07-08 — removed placeholder pages and the no-op danger zone | R-012, R-049 | Critical / Medium |
 | 7 | Real dashboard support path (help link, docs, plan-appropriate contact) | R-047 | Medium |
 | 8 | Business-context onboarding → agent prompt | R-013 | High |
 | 9 | Orchestrated go-live call moment | R-014 | High |

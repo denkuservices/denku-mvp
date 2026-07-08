@@ -1,6 +1,6 @@
 # Audit 01 — CEO / Product Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-06
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-08
 - **Lens:** CEO/CPO of a $100M ARR SaaS reviewing Denku purely as a product — conversion,
   activation, retention, trust, perceived value, usability, enterprise readiness. Code quality
   deliberately out of scope (see [Audit 00](00-technical-architecture-audit.md) for that).
@@ -56,8 +56,10 @@ it did, clicks into placeholder pages, and churns by day 10 — after being char
   a dead phone line without warning is a catastrophic trust event.
 - **C7 [R-010, R-011, R-012] — Broken basics that read as negligence.** Team invite throws an auth
   error (see Audit 00, R-010); no "Forgot password" (R-011); five reachable placeholder pages —
-  Knowledge, Tools, Risk & Compliance, Activity, dashboard-level Billing — render "Placeholder
+  Knowledge, Tools, Risk & Compliance, Activity, dashboard-level Billing — rendered "Placeholder
   page." (R-012). An enterprise evaluator clicking Risk & Compliance and seeing that is a lost deal.
+  **Update 2026-07-08:** the five placeholder pages are **deleted (R-012 Completed, Task 7)**;
+  R-010 (invites) and R-011 (forgot-password) remain open.
 
 ## HIGH findings (activation & retention engine)
 

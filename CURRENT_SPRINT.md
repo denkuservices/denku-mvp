@@ -83,8 +83,11 @@ Nothing else should be built until these hold.
    /api/internal/reconcile-vapi-assistants` (Basic Auth, idempotent). 12 unit tests. **⚠ Remaining
    (external):** set `VAPI_WEBHOOK_BASE_URL` in Vercel, run the reconcile endpoint for existing
    assistants, verify with a live test call.
-7. **R-046 + R-049 + R-012** — Remove fake API-keys screen, fabricated integration statuses,
-   no-op "Disable workspace" control, and unreachable placeholder pages.
+7. **R-046 + R-049 + R-012** — ✅ **Done 2026-07-08.** Deleted the fake API-keys screen and the two
+   fabricated integration health cards (kept honest CRM/Calendar "coming soon"); deleted the no-op
+   "Disable workspace" DangerZoneCard (found already orphaned); deleted the 5 placeholder route
+   trees (`dashboard/{knowledge,tools,risk,activity,billing}` + stub sub-routes) and the dead
+   `QuickActionsCard` that linked to them. No dead links; build green.
 8. **R-056** — Add security headers; ship CSP report-only.
 
 ## Roadmap IDs Covered
@@ -126,7 +129,9 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
   reconcile run + a settings edit on a real assistant.)*
 - [x] `/api/debug/*` removed; responses carry no `x-auth-*` headers *(Task 4, R-002/R-003)*. ⚠ Admin
   creds rotation still pending (external/Vercel).
-- [ ] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).
+- [x] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).
+  *(Task 7, R-046/R-049/R-012. Note: marketing-surface fabrication is R-004, a separate deferred
+  truth-pass — this covers the in-product screens.)*
 - [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
 - [ ] Security headers present; CSP in report-only with a clean report.
 - [ ] No regression to the "do not regress" core (deterministic artifacts, leases, compensation, pause).

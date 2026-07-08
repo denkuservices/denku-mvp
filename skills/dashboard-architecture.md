@@ -33,9 +33,11 @@ app/(app)/layout.tsx                 → DM Sans font, HorizonStylesheet, getOnb
 (+ new + detail), analytics (calls + tickets analytics component suites), settings tree (account
 profile/security, agents + advanced, workspace general/billing/usage/members/audit).
 
-**Placeholders (render "Placeholder page."):** `knowledge`, `tools`, `risk`, `activity`,
-`billing` (dashboard-level; the REAL billing page is `settings/workspace/billing`).
-`usage/page.tsx` just redirects to `settings/workspace/usage`.
+**Placeholder routes removed (R-012, 2026-07-08):** `dashboard/{knowledge,tools,risk,activity,
+billing}` (all rendered "Placeholder page.", none in the 8-item sidebar) are deleted. `usage/page.tsx`
+still just redirects to `settings/workspace/usage`; the REAL billing page is `settings/workspace/billing`.
+Also removed (Task 7): the fake API-keys screen (`settings/workspace/keys`), the fabricated
+integration health cards, and the orphaned no-op `DangerZoneCard` / `QuickActionsCard`.
 
 ## Data-fetching pattern (the house pattern — copy exactly)
 

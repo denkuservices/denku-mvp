@@ -6,7 +6,7 @@ export default function IntegrationsPage() {
   return (
     <SettingsShell
       title="Integrations"
-      subtitle="Connect external services and monitor infrastructure health."
+      subtitle="Connect external services to Denku."
       crumbs={[
         { label: "Dashboard", href: "/dashboard" },
         { label: "Settings", href: "/dashboard/settings" },
@@ -14,10 +14,8 @@ export default function IntegrationsPage() {
       ]}
     >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title="Voice infrastructure" desc="Connection status and call delivery health." status="Connected" />
-        <Card title="Webhooks" desc="Delivery status and recent failures." status="Healthy" />
-        <Card title="CRM" desc="Sync leads and outcomes (coming soon)." status="Coming soon" />
-        <Card title="Calendar" desc="Scheduling integration (coming soon)." status="Coming soon" />
+        <Card title="CRM" desc="Sync leads and outcomes to your CRM." status="Coming soon" />
+        <Card title="Calendar" desc="Book appointments straight into your calendar." status="Coming soon" />
       </div>
     </SettingsShell>
   );
