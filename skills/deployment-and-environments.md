@@ -11,7 +11,11 @@
   (baseline ~72 pages). `ANALYZE=true npm run build` enables bundle analyzer.
 - Middleware uses the service-role client → **Node runtime middleware** (not Edge). Keep it that way
   or remove the service-role usage first.
-- No CI pipeline for build/lint/tests. Only scheduled job automation exists (below).
+- **CI:** `.github/workflows/ci.yml` (R-037) runs on every push/PR to `main` → `npm ci` +
+  `npm run test` (vitest, **blocking**) + `npm run lint` (**non-blocking** — ~216 pre-existing
+  errors are tracked debt). **The build gate is Vercel**, which builds/deploys every push — CI
+  intentionally does not duplicate `next build` (it would need injected env to satisfy the
+  fail-fast service-role client). Tests mock all Supabase access, so CI needs no secrets.
 
 ## Scheduled jobs
 

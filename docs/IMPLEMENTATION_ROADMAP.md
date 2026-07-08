@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-07 (Sprint 1 Task 2 — R-001 confirmed unauth in prod by live probe; R-077 refined; R-002 prod-404 noted) · **Next free ID:** R-078
+> **Last updated:** 2026-07-07 (Sprint 1 Task 3 — R-037 test harness + CI shipped, 3 seed suites) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -26,9 +26,9 @@
 |---|---|---|---|---|
 | Critical | 15 | 0 | 0 | 15 |
 | High | 19 | 0 | 0 | 19 |
-| Medium | 35 | 0 | 0 | 35 |
+| Medium | 34 | 0 | 1 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **77** | **0** | **0** | **77** |
+| **Total** | **76** | **0** | **1** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -624,7 +624,7 @@ must be baselined here before the money math can be reviewed or tested.)
   drop legacy artifacts.
 
 ### R-037 — Test suite foundation + CI
-**Priority:** Medium · **Status:** Open · **Effort:** L · **Related audit:** 00, 04, 11, 12
+**Priority:** Medium · **Status:** Completed (2026-07-07) · **Effort:** L · **Related audit:** 00, 04, 11, 12
 - **Business impact:** Tenant isolation is discipline-only today; one missed org filter is a
   cross-tenant leak with no safety net. Audit 04: pair this with R-060 (RLS backstop) — tests
   prove the policies and catch unscoped queries; neither alone is sufficient. Audit 11: tests are
@@ -635,6 +635,19 @@ must be baselined here before the money math can be reviewed or tested.)
 - **Dependencies:** None.
 - **Recommended solution:** First three suites: org-scoping on API routes, Vapi webhook
   idempotency (same `vapi_call_id` twice), lease acquire/release at limit.
+- **Completed 2026-07-07 (Sprint 1 Task 3):** vitest added to `web/` (`npm run test`), config at
+  `web/vitest.config.ts` (node env, `@`/`server-only` aliases, all Supabase access mocked — no
+  live DB). Three seed suites under `web/test/` (19 tests, green): `concurrency-leases.test.ts`
+  (acquire at limit / paused / rpc_no_row / fallback; idempotent release),
+  `webhook-idempotency.test.ts` (the deterministic-artifact check-then-insert path via
+  `checkCallGuardrails` — repeated event ⇒ no duplicate ticket; determinism; never-throw; plus an
+  R-053-misfire characterization), `org-scoping.test.ts` (read/write/update all carry
+  `.eq("org_id", …)`). CI at `.github/workflows/ci.yml` runs the suite on every push/PR (blocking);
+  lint runs non-blocking (216 pre-existing errors = tracked debt); **Vercel remains the build
+  gate.** *Honest scope:* org-scoping is verified on representative importable lib functions (not
+  every API route), and the calls-table upsert-on-`vapi_call_id` idempotency is verified
+  structurally but not yet integration-tested — a route-level webhook test awaits testability
+  refactor (R-043/R-074). Foundation to expand suite-by-suite as those land.
 
 ### R-058 — Unauthenticated state-changing endpoint: `billing/checkout/complete`
 **Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 04

@@ -48,7 +48,11 @@ skills/               engineering deep-dives (this knowledge system)
 ```
 
 Build/run: `cd web && npm run dev` / `npm run build` (baseline ~72 static+dynamic pages passing).
-Lint: `npm run lint`. **There are no tests and no CI** (only a billing-cron GitHub Action).
+Lint: `npm run lint` (⚠ ~216 pre-existing errors — tracked debt, non-blocking in CI). Tests:
+`npm run test` (vitest, `web/test/`, all Supabase mocked — no live DB). CI:
+`.github/workflows/ci.yml` runs the suite on every push/PR (test blocking, lint non-blocking);
+**Vercel is the build gate.** Seed suites = leases, webhook-artifact idempotency, org-scoping
+(R-037). Plus a billing-cron GitHub Action.
 
 ## Architecture in one paragraph
 

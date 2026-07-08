@@ -39,7 +39,7 @@ Nothing else should be built until these hold.
 4. Fabricated screens removed (fake API keys, fake integration statuses, no-op danger zone,
    placeholder pages).
 5. Security headers (CSP report-only → enforce plan).
-6. Test harness + CI with the three foundational suites.
+6. Test harness + CI with the three foundational suites. ✅ **Done (Task 3, R-037).**
 
 ## Prioritized Tasks
 
@@ -57,8 +57,11 @@ Nothing else should be built until these hold.
    account has **zero call history** (test/staging account) → R-077 is latent, not actively
    dropping traffic; prod DB not inspectable from here (local Supabase project dead). Per user
    decision, R-077 is fixed via Task 6, not emergency-remediated.
-3. **R-037** — Stand up the test harness + CI; write characterization tests (webhook idempotency,
-   lease acquire/release at limit, org-scoping). *Foundation — do early; makes tasks 5–6 safe.*
+3. **R-037** — ✅ **Done 2026-07-07.** vitest + `.github/workflows/ci.yml` (test blocking, lint
+   non-blocking, Vercel = build gate); 3 seed suites under `web/test/` (19 tests green):
+   leases (acquire-at-limit/release), webhook artifact idempotency (check-then-insert path),
+   org-scoping (read/write/update). *Foundation for tasks 5–6.* See roadmap R-037 for honest scope
+   (route-level webhook integration test deferred to R-043/R-074).
 4. **R-002 + R-003** — Delete `/api/debug/*`; remove `x-auth-*` PII response headers.
    *(then rotate `ADMIN_USER`/`ADMIN_PASS` — external, see Dependencies)*
 5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout. *(An unused
@@ -104,7 +107,7 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 - [ ] Personalizing an agent in Settings does **not** remove its tools (re-check live `toolIds`).
 - [ ] `/api/debug/*` returns 404/removed; responses carry no `x-auth-*` headers; admin creds rotated.
 - [ ] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).
-- [ ] CI runs on every push; the three foundational suites pass.
+- [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
 - [ ] Security headers present; CSP in report-only with a clean report.
 - [ ] No regression to the "do not regress" core (deterministic artifacts, leases, compensation, pause).
 

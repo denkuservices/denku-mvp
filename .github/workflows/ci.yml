@@ -1,0 +1,39 @@
+name: CI
+
+# Runs on every push and PR to main. Foundation from R-037 (Sprint 1, Task 3).
+#
+# Division of labour:
+#   - Build gate  → Vercel (deploys/builds every push; verified READY per commit).
+#   - Test + lint → here. `test` is the blocking gate (the three foundational
+#     characterization suites: leases, webhook artifact idempotency, org-scoping).
+#     `lint` is non-blocking for now — the repo has ~216 pre-existing lint errors
+#     tracked as debt (R-074 and general cleanup); wiring it as a blocking gate is
+#     deferred until that backlog is paid down so CI stays honest and green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm run test
+      - name: Lint (non-blocking — tracked debt, see R-074)
+        run: npm run lint
+        continue-on-error: true

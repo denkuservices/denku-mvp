@@ -1,6 +1,6 @@
 # Audit 00 — Technical Architecture Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-06
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
 - **Lens:** full-stack engineering review (architecture, security, data, integrations, code quality)
 - **Scope:** entire repository — `web/` app, API routes, Supabase migrations, Vapi/Stripe/Resend
   integrations, middleware, frontend surfaces
@@ -75,8 +75,12 @@ files, shipped debug artifacts, and a total absence of tests.
   `tsconfig.tsbuildinfo`, duplicate legacy marketing components.
 - **[R-035] Stripe checkout uses inline `price_data`** instead of catalog Prices — plan changes /
   prorations / annual billing get harder the longer this lasts (blocks Audit 01's R-005).
-- **[R-037] Zero automated tests, no CI** beyond the billing-cron GitHub Action. Highest-value
-  first tests: org-scoping on API routes, webhook idempotency, lease acquire/release at limit.
+- **[R-037] ~~Zero automated tests, no CI~~ — RESOLVED (foundation) 2026-07-07.** Beyond the
+  billing-cron Action there were no tests/CI. Sprint 1 Task 3 added vitest (`web/test/`, 19 tests,
+  Supabase mocked) with the three highest-value seed suites — org-scoping, webhook-artifact
+  idempotency, lease acquire/release at limit — and `.github/workflows/ci.yml` (test blocking,
+  lint non-blocking; Vercel = build gate). Foundation to expand; a route-level webhook integration
+  test awaits the testability refactor (R-043/R-074). See roadmap R-037.
 - **[R-043] Monster files:** Vapi webhook 3,142 lines; onboarding `_actions.ts` 1,948; billing
   settings page 1,432 (client component with private primitives). Refactor opportunistically.
 - **[R-044] Middleware runs 2–3 DB queries per dashboard request** (profile + settings) — latency
