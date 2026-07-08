@@ -1,6 +1,6 @@
 # Audit 04 — Security Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-06
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
 - **Lens:** offensive + appsec engineer. Question: *where can an attacker read/write another
   tenant's data, forge trusted input, escalate, or degrade availability?*
 - **Method:** full sweep of all ~43 API route handlers for authentication + tenant scoping; review
@@ -27,8 +27,8 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 | `/api/webhooks/stripe` | HMAC signature (`constructEvent`) | ✅ Correct |
 | `/api/tools/*` | Shared static header `x-denku-secret` | ⚠ Static, unrotatable, org derived from input — R-059 |
 | `/api/billing/cron/close-month` | `Bearer CRON_SECRET` | ✅ Correct |
-| **`/api/webhooks/vapi`** | **NONE** | 🔴 R-001 — forge any call event |
-| **`/api/debug/basic-auth`, `/api/debug/headers`** | Public; leak `ADMIN_USER` | 🔴 R-002 |
+| **`/api/webhooks/vapi`** | **NONE** | 🔴 R-001 — **live-probe-confirmed unauth in prod (2026-07-07):** 200 with no/bogus secret alike |
+| **`/api/debug/basic-auth`, `/api/debug/headers`** | Public; leak `ADMIN_USER` | 🔴 R-002 — ⚠ but both returned **404** on the 2026-07-07 prod probe; verify before assuming still live |
 | **`/api/billing/checkout/complete`** | **NONE** (takes `session_id` from body) | 🟠 R-058 — unauth state change |
 | `/api/vapi/start` | None; returns marketing assistant id | ✅ Acceptable (semi-public by design) |
 | `/api/marketing/contact` | None (public form) | ⚠ No bot/rate protection — R-030 |
@@ -38,7 +38,12 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 
 ### Confirmed from prior audits (still open — re-verified, not re-filed)
 - **[R-001] Vapi webhook unauthenticated.** Re-confirmed: the only secret references in the file
-  are *outbound* (`x-denku-secret` when it calls the tool routes). Inbound is wide open. This is
+  are *outbound* (`x-denku-secret` when it calls the tool routes). Inbound is wide open.
+  **Empirically confirmed on prod 2026-07-07 (Sprint 1 Task 2):** a benign `POST` (no call id)
+  returns `200 {"ok":true,"ignored":"no_call_id"}` with no secret header and with a bogus
+  `x-vapi-secret` alike — no 401, no edge/WAF shield. Note for the fix (Task 5/R-001): a
+  `VAPI_WEBHOOK_SECRET` env var already exists but is never read in code — likely already
+  configured on the Vapi side, so wiring a check should be low-friction. This is
   the master key to most cross-tenant writes below, because a forged event resolves an org by
   guessable assistant/phone-number IDs and then creates tickets/leads/appointments in it, burns
   concurrency leases (inbound DoS), and injects billable minutes/cost. **Highest severity in the

@@ -50,15 +50,20 @@ Nothing else should be built until these hold.
    lines are live with NO tools (R-050(a) confirmed in prod); the settings-sync strip (b) has not
    fired yet. **Task 6 unblocked.** Verification filed **R-077** (live assistants'
    `serverUrl` = `http://localhost:3000/api/tools`).
-2. **[VERIFY] R-001** — Confirm the webhook is actually reachable/unauthenticated in prod (not
-   shielded by an edge rule). *(blocks task 5)* **Must also resolve R-077's open question:** is an
-   org-level Server URL configured in the Vapi dashboard, and do customer-line call events
-   actually reach prod today?
+2. **[VERIFY] R-001** — ✅ **Done 2026-07-07** (benign prod probe). Confirmed unauthenticated &
+   reachable: `POST /api/webhooks/vapi` returns `200 ignored:no_call_id` with no secret and with a
+   bogus secret alike — no 401, no edge shield. **Task 5 unblocked.** Fix input: an unused
+   `VAPI_WEBHOOK_SECRET` already exists in env (never read by code). **R-077 sub-check:** Vapi
+   account has **zero call history** (test/staging account) → R-077 is latent, not actively
+   dropping traffic; prod DB not inspectable from here (local Supabase project dead). Per user
+   decision, R-077 is fixed via Task 6, not emergency-remediated.
 3. **R-037** — Stand up the test harness + CI; write characterization tests (webhook idempotency,
    lease acquire/release at limit, org-scoping). *Foundation — do early; makes tasks 5–6 safe.*
 4. **R-002 + R-003** — Delete `/api/debug/*`; remove `x-auth-*` PII response headers.
    *(then rotate `ADMIN_USER`/`ADMIN_PASS` — external, see Dependencies)*
-5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout.
+5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout. *(An unused
+   `VAPI_WEBHOOK_SECRET` already exists in env — check whether it's set on the Vapi side and reuse
+   it rather than provisioning a new secret.)*
 6. **R-050 + R-077** — Shared assistant-config helper: always GET→merge→PATCH with `toolIds`
    present, on both creation paths and the settings sync; set the canonical webhook `serverUrl`
    from explicit env (R-077); reconcile existing assistants (tools + serverUrl in one pass).
@@ -84,8 +89,10 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 
 - **R-050 config wipe:** retired 2026-07-07 — task 1 verification found no manually-configured
   tools on any bound assistant; task 6 is safe to implement.
-- **R-077 ingestion unknown:** whether customer-line call events reach prod at all is unresolved
-  until task 2's org-level Server URL check + test call. Treat the call→artifact loop as unproven.
+- **R-077 ingestion:** partially resolved 2026-07-07 — Vapi has zero call history (test/staging
+  account), so nothing is being dropped today; the localhost `serverUrl` is a latent defect fixed
+  by task 6. Still unproven end-to-end (prod DB unreachable from local env; org-level Server URL
+  unknown) — the call→artifact loop must be verified with a live test call during task 6.
 - **Webhook auth drops ingestion:** a bad rollout silently loses live calls. → Stage with logging; verify on a test call before enforcing.
 - **Test coverage on a 3,141-line untyped webhook is hard.** → Characterization tests around behavior only; do not refactor the file this sprint (that's gated on R-074/R-043 later).
 - **CSP over-blocks** third-party origins (Spline/Vapi). → Report-only first; enforce after clean reports.

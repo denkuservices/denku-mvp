@@ -62,6 +62,11 @@ every path an assistant can take, and found:
   end-of-call reports for customer lines have nowhere valid to go — call ingestion for paying
   customers may be silently dead. Resolution of that open question is folded into the sprint's
   R-001 reachability check; the fix belongs in the same shared config-assembly helper as R-050.
+  **Update (2026-07-07, Sprint 1 Task 2):** the Vapi account has **zero call history** and is a
+  test/staging account, so this is a **latent** defect (it will break the first real call), not an
+  active incident dropping live traffic. The prod DB was not inspectable (local env's Supabase
+  project no longer resolves). Fix deferred to Task 6 (shared config helper + reconciliation), to
+  be verified with a live test call — no emergency Vapi PATCH (user decision 2026-07-07).
 
 ## The agent's brain, senses, and judgment
 

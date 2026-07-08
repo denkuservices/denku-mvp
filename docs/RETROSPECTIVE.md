@@ -30,6 +30,9 @@ scale, money, or law.**
   past the migration files, and this workspace's Supabase MCP points at the **wrong project**
   (BondAI), so no Denku data was ever queried. `skills/database-schema.md` is reconstructed from
   calling code and may be wrong in specifics. Directly limits R-031, R-036, R-075.
+  *(Reconfirmed 2026-07-07: the local env's Supabase project `kebqwsdguxxjsijahrox` no longer
+  resolves via DNS — the DB is unreachable from this workspace entirely, so even a direct REST
+  query is impossible; prod must run on separate live Vercel env not available here.)*
 - **No production/runtime reality.** No visibility into the Vapi dashboard (actual assistant
   configs, tool attachment, webhook settings), the Stripe dashboard (real prices, configured
   events, live subscriptions), Vercel env vars (are secrets even set?), or logs/error-rates/
@@ -105,10 +108,13 @@ The register reflects the author's chosen lenses; these were not examined and ar
    live with `toolIds: null` (R-050(a) is production fact); the settings-sync strip (b) has not
    fired on any live assistant yet. The fix is unblocked. Verification also surfaced **R-077**
    (live assistants' `serverUrl` = localhost) — its event-delivery question moved into item 2.
-2. **R-001 — confirm the webhook is actually reachable/unauthenticated in prod** (not shielded by a
-   WAF/edge rule) and stage the fix so it never drops live call ingestion. Now also covers R-077:
-   confirm whether an org-level Server URL is set in the Vapi dashboard and whether customer-line
-   events reach prod at all (assistant `serverUrl` is localhost on all app-created lines).
+2. **R-001 — ✅ CONFIRMED unauthenticated in prod 2026-07-07 (Sprint 1 Task 2, benign probe).**
+   `POST /api/webhooks/vapi` processes with no secret and with a bogus secret alike (`200
+   ignored:no_call_id`) — no 401, no WAF/edge shield. Stage the fix (Task 5) so it never drops
+   live ingestion; an unused `VAPI_WEBHOOK_SECRET` already exists in env. **R-077 sub-question
+   partly answered:** Vapi has zero call history (test/staging), so nothing is dropped today; but
+   whether an org-level Server URL is set, and which Supabase project prod uses, stay open — the
+   local env's DB project no longer resolves, so the live DB remained invisible again (see §2).
 3. **R-075 — pull the real invoice-preview view and reconcile against an actual Stripe invoice
    before touching billing code.** Do not refactor the money path on inference.
 4. **R-031 / R-036 — validate against the real database;** the reconstructed schema and the

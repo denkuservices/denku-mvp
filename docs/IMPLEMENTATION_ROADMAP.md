@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-07 (Sprint 1 Task 1 — R-050 live-state verification; R-077 filed) · **Next free ID:** R-078
+> **Last updated:** 2026-07-07 (Sprint 1 Task 2 — R-001 confirmed unauth in prod by live probe; R-077 refined; R-002 prod-404 noted) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -56,6 +56,14 @@ billing view before touching billing code.
   live calls don't drop events.
 - **Recommended solution:** Require a shared-secret header (Vapi `serverUrl` secret) or HMAC on
   every webhook request; reject with 401 otherwise; add a canary log for rejected attempts.
+- **Live-state verified (2026-07-07, Sprint 1 Task 2, benign probe):** `POST /api/webhooks/vapi`
+  on prod returns `200 {"ok":true,"ignored":"no_call_id"}` with **no** secret header and with a
+  **bogus** `x-vapi-secret` alike — no 401, no edge/WAF shield. Confirmed unauthenticated and
+  reachable in production; the POST handler has zero auth before `req.json()` + `webhook_debug`
+  insert. **Fix input for Task 5:** an unused `VAPI_WEBHOOK_SECRET` already exists in the env
+  (present in `.env.local`, never referenced in code) — the secret may already be configured on
+  the Vapi side, so wiring a header/HMAC check is likely low-friction. The benign probe wrote only
+  self-tagged `webhook_debug` ops rows (no tenant data).
 
 ### R-002 — Public debug endpoints leak admin credentials material
 **Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 00
@@ -65,6 +73,11 @@ billing view before touching billing code.
 - **Dependencies:** None.
 - **Recommended solution:** Delete both routes (preferred) or gate behind `requireBasicAuth` +
   non-production check. Rotate `ADMIN_USER`/`ADMIN_PASS` after removal.
+- **Prod probe note (2026-07-07, Sprint 1 Task 2):** `GET /api/debug/basic-auth` and
+  `/api/debug/headers` both returned **404** on prod, despite the route files still existing in
+  the repo (`web/src/app/api/debug/*/route.ts`). Unexplained — possibly a stale deploy, a runtime
+  guard, or routing. **Verify during Task 4** whether R-002 is still exploitable before treating
+  the routes as live; delete the source files regardless (they must not exist).
 
 ### R-003 — PII debug headers on every dashboard response
 **Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 00
@@ -240,6 +253,18 @@ billing view before touching billing code.
 - **Recommended solution:** The shared helper sets `serverUrl` to the canonical webhook URL from
   explicit env (never request-derived); the R-050 reconciliation pass re-PATCHes existing
   assistants; verify ingestion end-to-end with a test call.
+- **Verified & downgraded from "possibly-active" to LATENT (2026-07-07, Sprint 1 Task 2):** the
+  Vapi account has **zero call history** (`GET /call` → 0 calls), and is plainly a test/staging
+  account (test-data org names, all `321` numbers). So the localhost `serverUrl` is **not
+  currently dropping any live traffic — there is none to drop.** It remains Critical because it
+  will break the first real customer call, but it is a latent defect, not an active incident.
+  The prod DB could **not** be inspected: the local env's Supabase project
+  (`kebqwsdguxxjsijahrox`) no longer resolves (DNS ENOTFOUND); prod serves marketing/login and
+  bounces `/dashboard`→`/login`, so it runs on separate live Vercel env not available here. The
+  two open sub-questions — is an org-level Vapi Server URL configured, and which Supabase project
+  does prod use — remain for whoever has dashboard/Vercel access. **Decision (2026-07-07, user):**
+  do **not** emergency-remediate via ad-hoc Vapi PATCH; fix through the Task 6 shared config helper
+  + reconciliation pass, verified with a live test call. (Sprint 1 Task 2 outcome.)
 
 ## HIGH
 

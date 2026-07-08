@@ -98,7 +98,9 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 ## Landmines — read before you step
 
 1. **`/api/webhooks/vapi` has NO authentication** (no signature/secret). Known P0 — R-001, in the
-   current sprint. Anything you build on the webhook inherits this exposure.
+   current sprint. Anything you build on the webhook inherits this exposure. Confirmed unauth on
+   prod by live probe 2026-07-07. Note: a `VAPI_WEBHOOK_SECRET` env var exists but is **never read
+   by code** — wire it in (Task 5), don't assume the webhook is protected because the var is set.
 2. **`/api/debug/basic-auth` and `/api/debug/headers` are public** and leak `ADMIN_USER` + env
    info (outside the middleware matcher). Do not add more debug routes; these must die.
 3. **`/api/admin/*` requires HTTP Basic Auth via middleware** — it is for platform operators.

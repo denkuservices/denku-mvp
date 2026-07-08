@@ -46,6 +46,8 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
   (`TOOL_SECRET`/`DENKU_SECRET`/`X_DENKU_SECRET` appear only in a debug presence-dump — ignore.)
 - `CRON_SECRET` — close-month auth (Bearer or `x-cron-secret`).
 - `ADMIN_USER`, `ADMIN_PASS` — HTTP Basic Auth for `/admin`, `/api/admin`, `/api/internal/*`.
+- `VAPI_WEBHOOK_SECRET` — present in `.env.local` but ⚠ **never read by any code** (the Vapi
+  webhook is unauthenticated — R-001). Provisioned-but-unwired; Task 5 should consume it.
 
 ### Email (Resend)
 - `RESEND_API_KEY` — optional; without it all email helpers no-op with `{ ok, skipped }`
@@ -73,9 +75,11 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
 1. **Supabase project** — base schema + RPCs (`reconcile_call_cost`, TABLE-returning
    `acquire_org_concurrency_lease`) exist only in the live DB; Auth settings need Site URL +
    redirect URLs (`{base}/auth/callback`, plus localhost) per the docstring in `lib/utils/url.ts`.
-   ⚠ The workspace's Supabase MCP points at the WRONG project ("BondAI"); the real project was
-   `kebqwsdguxxjsijahrox` (status INACTIVE via API as of 2026-07-06 — verify before assuming prod
-   is alive).
+   ⚠ The workspace's Supabase MCP points at the WRONG project ("BondAI"); the project referenced by
+   the local `.env.local` is `kebqwsdguxxjsijahrox`, which **no longer resolves via DNS as of
+   2026-07-07** (ENOTFOUND — dead/paused/deleted). The local env therefore cannot reach any DB;
+   prod runs on separate live Vercel env not present in this repo. Do not assume `.env.local`
+   Supabase creds work.
 2. **Vapi dashboard** — the two tools (create_ticket, create_appointment) whose IDs are hardcoded;
    the marketing demo assistant; webhook/serverUrl configuration. Vapi must be able to reach
    `{base}/api/webhooks/vapi` and `{base}/api/tools/*`.
