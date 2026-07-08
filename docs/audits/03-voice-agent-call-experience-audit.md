@@ -1,6 +1,6 @@
 # Audit 03 — Voice Agent / Call Experience Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-08
 - **Lens:** Head of Conversation Design + the customer's most skeptical caller. The question:
   *is the three-minute phone call — the thing businesses actually pay for — excellent, truthful,
   and operationally useful?*
@@ -22,8 +22,12 @@ agent's ability to *act* on that promise depends entirely on two Vapi tools (cre
 create_appointment) being attached to its assistant. This audit traced tool attachment through
 every path an assistant can take, and found:
 
-- **[R-050 — NEW, Critical] The AI's tools are missing on most real-world lines, and silently
-  stripped from the rest.**
+- **[R-050 — Critical — RESOLVED 2026-07-08 (code)] The AI's tools were missing on most real-world
+  lines, and silently stripped from the rest.** Fixed via the shared
+  `lib/vapi/assistantConfig.ts#ensureAssistantConfig` helper (GET→merge→PATCH, toolIds merged never
+  replaced) wired into all three paths below; 12 unit tests lock the merge behavior. Existing
+  assistants need `POST /api/internal/reconcile-vapi-assistants` run; end-to-end needs a live test
+  call. See roadmap R-050. The two original defects were:
   1. **Phone-line purchase path never attaches tools.** `api/phone-lines/purchase/route.ts`
      creates the backing assistant with model + firstMessage only; there is no GET+PATCH
      `toolIds` merge anywhere in the file (the comment even says "Tools will be configured
@@ -53,8 +57,11 @@ every path an assistant can take, and found:
   impossible on affected lines**. This also silently skews analytics: `toolUsed` is always false,
   so completion-state inference marks healthy calls "partial" (feeds R-018).
 
-- **[R-077 — NEW, Critical, filed 2026-07-07 during Sprint 1 Task 1 verification] Live
-  assistants' `serverUrl` points at localhost.** Every app-created assistant carries
+- **[R-077 — Critical — RESOLVED 2026-07-08 (code)] Live assistants' `serverUrl` pointed at
+  localhost.** Fixed in the same shared helper: `server.url` is now built from explicit
+  `VAPI_WEBHOOK_BASE_URL` (localhost/`VERCEL_URL` refused) and points at `/api/webhooks/vapi`.
+  Existing assistants need the reconcile endpoint run + `VAPI_WEBHOOK_BASE_URL` set in Vercel. The
+  original defect: every app-created assistant carried
   `serverUrl: http://localhost:3000/api/tools` — the creating dev machine's base URL frozen into
   live config, and the wrong path for webhook events besides. Mid-call tool execution is
   unaffected (the two account-level `apiRequest` tools carry their own absolute prod URLs), but
@@ -177,7 +184,7 @@ protocol after the R-050 fix to verify end-to-end.
 
 | # | Action | R-ID | Priority |
 |---|---|---|---|
-| 1 | Guarantee tool attachment on BOTH creation paths + make settings sync merge (never replace) model config | R-050 | Critical |
+| 1 | ✅ Done 2026-07-08 — shared `ensureAssistantConfig` helper guarantees tool attachment on both creation paths + settings sync merges (never replaces) | R-050 | Critical |
 | 2 | Make voice + language real: send voice/transcriber config to Vapi; wire pickers to it | R-051 | High |
 | 3 | Set max duration, silence timeout, and closing behavior on all assistants | R-052 | Medium |
 | 4 | Fix GR-1 to count agent-lines only; remove "how to make" from off-topic list | R-053 | Medium |
@@ -186,4 +193,4 @@ protocol after the R-050 fix to verify end-to-end.
 | 7 | Execute the Live Test-Call Protocol post-R-050 and re-audit | — (protocol) | High |
 | 8 | Business-context fuel for the prompt chassis (already filed) | R-013 | High |
 | 9 | Real intent detection to un-dead-code the appointment guarantee (already filed) | R-019 | High |
-| 10 | Fix live assistants' localhost serverUrl via the shared config helper + reconciliation; verify event delivery first | R-077 | Critical |
+| 10 | ✅ Done 2026-07-08 — shared helper sets canonical webhook `server.url` from explicit env; reconcile endpoint added (run it + verify event delivery) | R-077 | Critical |

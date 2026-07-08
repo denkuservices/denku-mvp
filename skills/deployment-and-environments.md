@@ -58,6 +58,10 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
   Default `log` when a secret is present (observe-only — logs `[VAPI][WEBHOOK][AUTH][…]`, never
   rejects), else `off`. Set to `enforce` **only after** a real call is confirmed logging
   `[…][OK]`, or forged-request rejection would also drop legitimate calls that lack the header.
+- `VAPI_WEBHOOK_BASE_URL` — canonical origin used to build the assistant's webhook `server.url`
+  (`{base}/api/webhooks/vapi`) in `lib/vapi/assistantConfig.ts` (R-077). Falls back to
+  `NEXT_PUBLIC_SITE_URL`; localhost/`VERCEL_URL` are refused (returns "" → no server set). **Set
+  this in Vercel** to the canonical prod origin so new assistants get a correct webhook URL.
 
 ### Email (Resend)
 - `RESEND_API_KEY` — optional; without it all email helpers no-op with `{ ok, skipped }`

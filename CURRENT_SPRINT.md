@@ -76,9 +76,13 @@ Nothing else should be built until these hold.
    `[VAPI][WEBHOOK][AUTH][OK]` on a real call, then set `VAPI_WEBHOOK_AUTH_MODE=enforce`. Until
    then the webhook still processes forged requests — R-001 stays **In Progress**. **Task 6 must
    also set the `x-vapi-secret` header when it repoints customer `serverUrl`s (R-077).**
-6. **R-050 + R-077** — Shared assistant-config helper: always GET→merge→PATCH with `toolIds`
-   present, on both creation paths and the settings sync; set the canonical webhook `serverUrl`
-   from explicit env (R-077); reconcile existing assistants (tools + serverUrl in one pass).
+6. **R-050 + R-077** — ✅ **Code shipped 2026-07-08.** New `lib/vapi/assistantConfig.ts`
+   (GET→merge→PATCH, toolIds merged never replaced; canonical webhook `server.url` from explicit
+   env, localhost-rejecting; `x-vapi-secret` header when secret set). Wired into `runActivation`,
+   the purchase route (R-050a), and `syncAgentToVapi` (R-050b). Reconciliation endpoint `POST
+   /api/internal/reconcile-vapi-assistants` (Basic Auth, idempotent). 12 unit tests. **⚠ Remaining
+   (external):** set `VAPI_WEBHOOK_BASE_URL` in Vercel, run the reconcile endpoint for existing
+   assistants, verify with a live test call.
 7. **R-046 + R-049 + R-012** — Remove fake API-keys screen, fabricated integration statuses,
    no-op "Disable workspace" control, and unreachable placeholder pages.
 8. **R-056** — Add security headers; ship CSP report-only.
@@ -114,8 +118,12 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 - [~] Forged webhook POST (no/invalid secret) is rejected; a valid one still processes. *(Auth
   mechanism shipped staged, Task 5 — but rejection only happens once `VAPI_WEBHOOK_AUTH_MODE=enforce`
   is set after a verified test call. Not yet enforcing in prod.)*
-- [ ] A real test call produces a ticket **and** (for booking intent) an appointment — verified end to end.
-- [ ] Personalizing an agent in Settings does **not** remove its tools (re-check live `toolIds`).
+- [~] A real test call produces a ticket **and** (for booking intent) an appointment — verified end
+  to end. *(Code path fixed Task 6; needs a human live test call — I can't place one. Appointment
+  path also needs R-019 intent detection, out of this sprint.)*
+- [x] Personalizing an agent in Settings does **not** remove its tools *(Task 6 — `syncAgentToVapi`
+  now merges toolIds via the shared helper; unit-tested. Live re-check of `toolIds` pending the
+  reconcile run + a settings edit on a real assistant.)*
 - [x] `/api/debug/*` removed; responses carry no `x-auth-*` headers *(Task 4, R-002/R-003)*. ⚠ Admin
   creds rotation still pending (external/Vercel).
 - [ ] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).

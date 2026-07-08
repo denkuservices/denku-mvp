@@ -45,6 +45,7 @@ Order matters — Stripe first, then Vapi, then DB, with explicit compensation:
 ```
 +1 extra_phone via internal fetch → /api/billing/addons/update  (forwards request cookies!)
 → create Vapi assistant                  (fail ⇒ Stripe decrement, return)
+→ attach tools + webhook server.url via ensureAssistantConfig  (non-fatal — no rollback; R-050/R-077)
 → insert agents row                      (fail ⇒ delete Vapi assistant, Stripe decrement)
 → provision Vapi number (area code, fallback 321)  (fail ⇒ Stripe decrement)
 → poll number E164 → insert phone_lines row

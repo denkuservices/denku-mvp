@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log";
-import { vapiFetch } from "@/lib/vapi/server";
+import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { deriveEffectivePrompt } from "../_lib/prompt-derivation";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 
@@ -268,7 +268,15 @@ export async function updateAgentConfiguration(
 }
 
 /**
- * Sync agent configuration to Vapi assistant
+ * Sync agent configuration to Vapi assistant.
+ *
+ * Delegates to the shared `ensureAssistantConfig` helper (R-050): it does a
+ * GET→merge→PATCH that ALWAYS keeps `model.toolIds` present. The previous inline
+ * implementation PATCHed a fresh `model` object with no toolIds, so personalizing an
+ * agent in Settings silently wiped its create_ticket / create_appointment tools.
+ * The helper also sets the canonical webhook `server.url` (R-077).
+ * (`language` is intentionally still not mapped to voice/transcriber here — that is
+ * R-051, out of this change's scope.)
  */
 async function syncAgentToVapi(input: {
   assistantId: string;
@@ -276,29 +284,14 @@ async function syncAgentToVapi(input: {
   firstMessage: string | null;
   language: string | null;
 }): Promise<void> {
-  const updatePayload: Record<string, unknown> = {};
-
-  // Update system prompt in model.messages
-  if (input.systemPrompt) {
-    updatePayload.model = {
-      provider: "openai",
-      model: "gpt-4o",
-      messages: [{ role: "system", content: input.systemPrompt }],
-    };
-  }
-
-  // Update first message
-  if (input.firstMessage) {
-    updatePayload.firstMessage = input.firstMessage;
-  }
-
-  // Note: Vapi language support may vary; include if supported
-  // For now, we'll update what we can
-
-  await vapiFetch(`/assistant/${input.assistantId}`, {
-    method: "PATCH",
-    body: JSON.stringify(updatePayload),
+  const result = await ensureAssistantConfig({
+    assistantId: input.assistantId,
+    systemPrompt: input.systemPrompt || null,
+    firstMessage: input.firstMessage,
   });
+  if (!result.ok) {
+    throw new Error(result.error || "Failed to sync assistant configuration to Vapi");
+  }
 }
 
 // Validation schema for system prompt override update

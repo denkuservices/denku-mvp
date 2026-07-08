@@ -9,6 +9,7 @@ import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/
 import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
+import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import Stripe from "stripe";
 
 /**
@@ -961,12 +962,9 @@ export async function runActivation(): Promise<
       
       const workspaceName = org?.name?.trim() || "your company"; // Safe fallback
 
-      // Get base URL for tools serverUrl
-      const baseUrl = getBaseUrl();
-      const toolsServerUrl = `${baseUrl}/api/tools`;
-
-      // Create assistant in Vapi with Main Line defaults
-      // Note: Do NOT send top-level "tools" field (it causes 400). ToolIds will be merged via PATCH after creation.
+      // Create assistant in Vapi with Main Line defaults.
+      // Note: Do NOT send top-level "tools" field (it causes 400). Tools + the canonical
+      // webhook server.url are attached right after creation via ensureAssistantConfig (R-050/R-077).
       const assistantPayload = {
         name: "Main Line",
         firstMessage: `Hi — thanks for calling ${workspaceName}. How can I help today?`,
@@ -984,8 +982,6 @@ Always confirm the caller's name, phone number, and a short summary before submi
             },
           ],
         },
-        serverUrl: toolsServerUrl,
-        // Tools will be added via model.toolIds in PATCH after creation (see toolIds merge below)
       };
 
       assistant = await vapiFetch<VapiCreateAssistantResponse>("/assistant", {
@@ -1010,57 +1006,13 @@ Always confirm the caller's name, phone number, and a short summary before submi
       console.log("[runActivation] Created and persisted new assistant:", assistant.id);
     }
 
-    // Ensure toolIds are merged into assistant model config (idempotent)
-    const defaultToolIds = [
-      "6c9b0279-dd71-4511-827f-a3e75b884773", // create_ticket
-      "5373add8-b7d2-49f0-a866-f60167a1e624", // create_appointment
-    ];
-    
-    try {
-      // 1) GET /assistant/{assistantId} to read current model config
-      const currentAssistant = await vapiFetch<any>(`/assistant/${assistant.id}`, {
-        method: "GET",
-      });
-
-      if (!currentAssistant?.model) {
-        console.warn("[runActivation] Assistant model config not found, skipping toolIds merge");
-      } else {
-        // 2) Merge toolIds with defaults (ensure uniqueness)
-        const existingToolIds = (currentAssistant.model.toolIds || []) as string[];
-        const mergedToolIds = Array.from(new Set([...existingToolIds, ...defaultToolIds]));
-        
-        // Only update if toolIds actually changed (idempotent)
-        const needsUpdate = mergedToolIds.length !== existingToolIds.length || 
-          !defaultToolIds.every(id => existingToolIds.includes(id));
-        
-        if (needsUpdate) {
-          // 3) PATCH /assistant/{assistantId} with model = existingModel + merged toolIds
-          // Do NOT send top-level "tools" field (it causes 400)
-          const updatePayload = {
-            model: {
-              ...currentAssistant.model,
-              toolIds: mergedToolIds,
-            },
-          };
-
-          await vapiFetch(`/assistant/${assistant.id}`, {
-            method: "PATCH",
-            body: JSON.stringify(updatePayload),
-          });
-
-          console.log("[runActivation] Merged toolIds into assistant model config:", {
-            assistantId: assistant.id,
-            mergedToolIds,
-            existingToolIds: existingToolIds.length > 0 ? existingToolIds : "none",
-          });
-        } else {
-          console.log("[runActivation] Assistant toolIds already up-to-date, skipping merge");
-        }
-      }
-    } catch (toolIdsErr) {
-      const errorText = toolIdsErr instanceof Error ? toolIdsErr.message : String(toolIdsErr);
-      console.error("[runActivation] Error merging toolIds (non-fatal, continuing):", errorText);
-      // Continue anyway - activation can proceed without toolIds merge
+    // Attach tools (create_ticket / create_appointment) and the canonical webhook
+    // server.url via the shared config helper (R-050 + R-077). Non-fatal: the
+    // deterministic post-call fallback still produces artifacts if this hiccups, and
+    // the reconciliation endpoint can re-apply later.
+    const configResult = await ensureAssistantConfig({ assistantId: assistant.id });
+    if (!configResult.ok) {
+      console.error("[runActivation] ensureAssistantConfig failed (non-fatal, continuing):", configResult.error);
     }
 
     // 2) Provision PSTN number using: POST /phone-number { provider:'vapi', numberDesiredAreaCode:'321', assistantId:<vapi_assistant_id> }

@@ -16,20 +16,27 @@
 
 ## Assistants — creation rules (hard-won)
 
-1. **NEVER send a top-level `tools` field on `POST /assistant`** — Vapi returns 400. The pattern is:
-   create assistant → `GET /assistant/{id}` → merge `model.toolIds` → `PATCH /assistant/{id}` with
-   the full `model` object + merged `toolIds`.
-2. Tool IDs are **hardcoded** (created once in the Vapi dashboard):
+**Since 2026-07-08 (R-050/R-077): assemble assistant config through ONE helper —
+`lib/vapi/assistantConfig.ts#ensureAssistantConfig` — never hand-roll a `model` PATCH.** It does
+GET→merge→PATCH, always keeping `model.toolIds` merged (never replaced) and setting the webhook
+`server.url`. All three paths call it: `runActivation`, the purchase route, and `syncAgentToVapi`.
+
+1. **NEVER send a top-level `tools` field on `POST /assistant`** — Vapi returns 400. Create the
+   assistant with model+firstMessage only, then call `ensureAssistantConfig` to attach tools +
+   server. (The helper's `buildAssistantConfigPatch` is the pure, unit-tested core.)
+2. Tool IDs are **hardcoded** (created once in the Vapi dashboard), now centralized as
+   `DENKU_TOOL_IDS` in `assistantConfig.ts`:
    - `create_ticket` = `6c9b0279-dd71-4511-827f-a3e75b884773`
    - `create_appointment` = `5373add8-b7d2-49f0-a866-f60167a1e624`
-   They live in `onboarding/_actions.ts` (`runActivation`). If the Vapi account changes, these break.
-3. Every assistant gets `serverUrl = ${getBaseUrl()}/api/tools` so live tool calls hit our
-   `/api/tools/create-ticket` and `/api/tools/create-appointment` routes.
-   ⚠ Two live-state caveats (verified 2026-07-07, R-077): the two tools are account-level
-   `apiRequest` tools carrying their own **absolute prod URLs**, so mid-call tool execution
-   ignores the assistant `serverUrl` entirely; and every assistant created before 2026-07 has
-   `serverUrl = http://localhost:3000/api/tools` frozen in from dev-machine activations — where
-   customer-line webhook events actually go is unresolved until the Sprint 1 Task 2 check.
+   If the Vapi account changes, these break.
+3. The assistant's `server.url` is the **webhook** (`/api/webhooks/vapi`), set from explicit env
+   (`VAPI_WEBHOOK_BASE_URL` → `NEXT_PUBLIC_SITE_URL`; localhost/`VERCEL_URL` refused). When
+   `VAPI_WEBHOOK_SECRET` is set, the helper also sends the `x-vapi-secret` header (Task 5 auth).
+   ⚠ Note: the two tools are account-level `apiRequest` tools carrying their own **absolute prod
+   URLs**, so mid-call tool execution is independent of the assistant `server.url` — the latter is
+   only for call events (end-of-call reports → the webhook). ⚠ Assistants created before 2026-07-08
+   still carry the old `serverUrl = localhost/api/tools` until the reconcile endpoint is run
+   (`POST /api/internal/reconcile-vapi-assistants`).
 4. Two assistant flavors exist:
    - **"Main Line"** (onboarding activation): GPT-4o, templated system prompt interpolating the
      workspace name, first message "Hi — thanks for calling {workspaceName}…".
@@ -133,8 +140,10 @@ post-hoc only (no pre-call gating besides in-memory rate limiting, which is inef
 
 ## When you change Vapi behavior
 
-- Test both entry points: onboarding activation AND phone-line purchase (they create assistants
-  independently and must stay consistent).
-- Any new assistant field → update BOTH creation payloads + the settings sync action.
+- Both entry points (onboarding activation AND phone-line purchase) now attach tools/server via the
+  same `ensureAssistantConfig` helper, so they stay consistent by construction.
+- **Any new assistant config field (tools, server, voice, transcriber, duration caps…) → add it to
+  `buildAssistantConfigPatch` in `lib/vapi/assistantConfig.ts`**, not to individual call sites.
+  That single helper is where R-051 (voice/transcriber) and R-052 (duration caps) should land next.
 - Any webhook change → preserve return-200-on-ignore semantics (Vapi retries on non-200; we rely
   on 200 + `ignored`/`rejected` JSON).

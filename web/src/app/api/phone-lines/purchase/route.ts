@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
+import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 import { logEvent } from "@/lib/observability/logEvent";
 import { randomUUID } from "crypto";
@@ -172,16 +173,6 @@ export async function POST(req: NextRequest) {
     // 7) Create backing agent and provision phone number
     // Wrap in try/catch for rollback on failure
     try {
-      // Helper function for base URL
-      function getBaseUrl(): string {
-        if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-        if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-        return "http://localhost:3000";
-      }
-
-      const baseUrl = getBaseUrl();
-      const toolsServerUrl = `${baseUrl}/api/tools`;
-
       // Create Vapi assistant for backing agent
       // Generate short name <= 40 chars: "PL {orgId first 4} {timestamp last 6}"
       const orgIdShort = org_id.slice(0, 4);
@@ -208,9 +199,8 @@ export async function POST(req: NextRequest) {
               ],
             },
             firstMessage: "Hi, thanks for calling. How can I help you today?",
-            serverUrl: toolsServerUrl,
-            // Note: tools are NOT sent here - Vapi doesn't accept tools in assistant creation
-            // Tools will be configured separately if needed, or stored in our DB only
+            // Tools + canonical webhook server.url are attached after creation via
+            // ensureAssistantConfig (Vapi rejects a top-level "tools" field on create).
           }),
         });
       } catch (assistantErr) {
@@ -279,6 +269,15 @@ export async function POST(req: NextRequest) {
         { status: 502 }
       );
     }
+
+      // Attach create_ticket / create_appointment tools + the canonical webhook
+      // server.url to the backing assistant (R-050 + R-077). Non-fatal — a line whose
+      // tool-merge hiccups still gets the deterministic post-call fallback, and the
+      // reconciliation endpoint can re-apply; don't roll back a paid purchase over it.
+      const backingConfig = await ensureAssistantConfig({ assistantId: backingAssistantId });
+      if (!backingConfig.ok) {
+        console.error("[purchase] ensureAssistantConfig failed (non-fatal):", backingConfig.error);
+      }
 
       // Insert backing agent into agents table
       // Required fields: org_id, name, created_by, language, voice, timezone

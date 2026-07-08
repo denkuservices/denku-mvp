@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (Sprint 1 Task 5 — R-001 staged webhook auth shipped, enforcement pending verify) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (Sprint 1 Task 6 — R-050 + R-077 shared assistant-config helper shipped) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -24,11 +24,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 12 | 1 | 2 | 15 |
+| Critical | 10 | 1 | 4 | 15 |
 | High | 19 | 0 | 0 | 19 |
 | Medium | 34 | 0 | 1 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **73** | **1** | **3** | **77** |
+| **Total** | **71** | **1** | **5** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -231,7 +231,7 @@ billing view before touching billing code.
   remove the status chips. Pair with the R-004 truth pass.
 
 ### R-050 — The AI's tools are missing on most lines, and silently stripped from the rest
-**Priority:** Critical · **Status:** Open · **Effort:** M · **Related audit:** 03 (headline)
+**Priority:** Critical · **Status:** Completed (2026-07-08; existing assistants need reconcile run) · **Effort:** M · **Related audit:** 03 (headline)
 - **Business impact:** The core promise ("book every appointment", tickets filed live on the
   call) is broken on most realistic configurations: (a) dashboard-purchased phone lines get
   assistants with NO create_ticket/create_appointment tools; (b) the Main Line loses its tools
@@ -255,9 +255,19 @@ billing view before touching billing code.
   config is at risk — the fix is unblocked**. The settings-sync strip (b) has not fired on any
   live assistant yet; fix before customers personalize. Both hardcoded tool IDs exist in the
   account (`apiRequest` tools POSTing to prod `/api/tools/*`). Verification also surfaced R-077.
+- **Completed 2026-07-08 (Sprint 1 Task 6).** One shared config-assembly helper
+  `web/src/lib/vapi/assistantConfig.ts` (`buildAssistantConfigPatch` pure + `ensureAssistantConfig`
+  I/O + `DENKU_TOOL_IDS`) always GET→merge→PATCH with `model.toolIds` **merged, never replaced**.
+  Wired into all three paths: `runActivation`, the phone-line purchase route (attached NO tools —
+  R-050a), and `syncAgentToVapi` (wiped tools on personalization — R-050b). Pure merge logic
+  unit-tested (12 tests incl. the "personalize must not drop tools" regression). Deterministic
+  fallback untouched; the hardcoded tool IDs are now centralized in the helper (was landmine #5).
+  **Remaining (external):** existing pre-fix assistants need the reconciliation pass — `POST
+  /api/internal/reconcile-vapi-assistants` (Basic Auth, idempotent) — and end-to-end confirmation
+  needs a live test call (Audit 03 protocol 1–2). R-051/R-052 can extend this same helper.
 
 ### R-077 — Live assistants' serverUrl points at localhost (env-coupled creation)
-**Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 03 (filed during Sprint 1 Task 1 live-state verification, 2026-07-07)
+**Priority:** Critical · **Status:** Completed (2026-07-08; existing assistants need reconcile run) · **Effort:** S–M · **Related audit:** 03 (filed during Sprint 1 Task 1 live-state verification, 2026-07-07)
 - **Business impact:** Every app-created live assistant (all bound Main Lines + both purchase-path
   lines) carries `serverUrl: http://localhost:3000/api/tools` — an unreachable host and the wrong
   path for webhook events. Unless an org-level Server URL is configured in the Vapi dashboard
@@ -290,6 +300,16 @@ billing view before touching billing code.
   does prod use — remain for whoever has dashboard/Vercel access. **Decision (2026-07-07, user):**
   do **not** emergency-remediate via ad-hoc Vapi PATCH; fix through the Task 6 shared config helper
   + reconciliation pass, verified with a live test call. (Sprint 1 Task 2 outcome.)
+- **Completed 2026-07-08 (Sprint 1 Task 6).** The shared helper `assistantConfig.ts` now sets
+  `server.url` to the canonical webhook (`/api/webhooks/vapi`, not `/api/tools`) from **explicit
+  env** — `getVapiWebhookServerUrl` reads `VAPI_WEBHOOK_BASE_URL` → `NEXT_PUBLIC_SITE_URL` and
+  **refuses localhost/`VERCEL_URL`** (returns "" → skips `server`, never freezing a dev URL). Both
+  defects fixed: (a) no more creation-env capture; (b) correct webhook path. When `VAPI_WEBHOOK_SECRET`
+  is set it also attaches the `x-vapi-secret` header (Task 5 enforcement cross-dep). All new
+  assistants get this on create; unit-tested (localhost-rejection + URL assembly). **Remaining
+  (external):** set `VAPI_WEBHOOK_BASE_URL` in Vercel to the canonical prod origin, run `POST
+  /api/internal/reconcile-vapi-assistants` to fix existing assistants, and verify ingestion with a
+  live test call.
 
 ## HIGH
 

@@ -121,18 +121,25 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    `lib/org/ensureDefaultOrg.ts` uses deterministic `orgId = userId`. Both dual-write `orgs` +
    `organizations_legacy` (half-finished migration; `organizations` is now a read-only VIEW).
 5. **Hardcoded Vapi artifacts:** tool IDs `6c9b0279-…` (create_ticket) and `5373add8-…`
-   (create_appointment) in `onboarding/_actions.ts`; marketing demo assistant fallback in
+   (create_appointment) are now centralized as `DENKU_TOOL_IDS` in `lib/vapi/assistantConfig.ts`
+   (was duplicated in `onboarding/_actions.ts`); marketing demo assistant fallback in
    `api/vapi/start/route.ts`. These are environment-coupled — breaking them breaks activation.
-6. **Vapi API quirk:** never send top-level `tools` on assistant create (400). Create assistant,
-   then GET + PATCH `model.toolIds` merge. Phone routing is controlled ONLY by the phone number's
-   `assistantId` field. **Any PATCH that sends a `model` object without merging first WIPES
-   `toolIds`** — `syncAgentToVapi` currently does exactly this (R-050), and the phone-line
-   purchase path never attaches tools at all. Fix via one shared config-assembly helper.
+6. **Vapi API quirk:** never send top-level `tools` on assistant create (400). **Always attach
+   tools + webhook `server.url` via the shared `ensureAssistantConfig` helper**
+   (`lib/vapi/assistantConfig.ts`) — it does GET→merge→PATCH keeping `model.toolIds` merged (never
+   replaced). All three paths (onboarding `runActivation`, phone-line purchase, Settings
+   `syncAgentToVapi`) go through it as of 2026-07-08 (R-050/R-077 fixed). Do NOT hand-roll a
+   `model` PATCH — that's the strip bug. Phone routing is still controlled ONLY by the phone
+   number's `assistantId` field. Existing pre-fix assistants: reconcile via `POST
+   /api/internal/reconcile-vapi-assistants`.
 7. **Internal HTTP self-calls:** purchase → `/api/billing/addons/update` (forwards cookies!),
    webhook → `/api/tools/create-ticket` (uses `DENKU_TOOL_SECRET`). Base URL comes from
    `NEXT_PUBLIC_SITE_URL` → `VERCEL_URL` → localhost (`lib/utils/url.ts`). Changing auth or URL
-   logic breaks these silently. This already bit prod once: live Vapi assistants carry
-   `serverUrl = http://localhost:3000/api/tools` from dev-machine activations (R-077).
+   logic breaks these silently. This already bit prod once: live Vapi assistants carried
+   `serverUrl = http://localhost:3000/api/tools` from dev-machine activations (R-077, **fixed
+   2026-07-08** — the assistant `server.url` now comes from explicit `VAPI_WEBHOOK_BASE_URL` via
+   `assistantConfig.ts`, which refuses localhost/`VERCEL_URL`; existing assistants need the
+   reconcile endpoint run).
 8. **`lib/rateLimit.ts` is an in-memory Map** — a no-op on Vercel. Don't rely on it for anything
    security-relevant.
 9. **Live DB has drifted past the repo migrations** (e.g., RPC `reconcile_call_cost`, the
