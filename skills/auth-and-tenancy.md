@@ -88,7 +88,8 @@ NOT live under `/api/admin/` — use a session-authed namespace and check `profi
 | Stripe signature | `/api/webhooks/stripe` | `stripe.webhooks.constructEvent` + `STRIPE_WEBHOOK_SECRET` |
 | Cron secret | `/api/billing/cron/close-month` | `Bearer ${CRON_SECRET}` or `x-cron-secret` |
 | Basic Auth | `/admin`, `/api/admin`, `/api/internal/*` | middleware or `requireBasicAuth` |
-| **NOTHING (bug)** | `/api/webhooks/vapi`, `/api/dev/test-welcome` (prod-404s but exists) | P0 fixes pending |
+| Shared secret (STAGED) | `/api/webhooks/vapi` | `x-vapi-secret === VAPI_WEBHOOK_SECRET` via `lib/vapi/webhookAuth.ts` — **observe-only `log` mode by default; enforces only when `VAPI_WEBHOOK_AUTH_MODE=enforce`** (R-001, In Progress) |
+| **NOTHING (bug)** | `/api/dev/test-welcome` (prod-404s but exists) | P0 fixes pending |
 
 *(`/api/debug/*` deleted 2026-07-08 — R-002. It was gitignored/local-only, never deployed; the
 files and the `.gitignore` rule that hid them are both gone. Do not recreate debug routes here.)*

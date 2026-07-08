@@ -101,10 +101,14 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 
 ## Landmines — read before you step
 
-1. **`/api/webhooks/vapi` has NO authentication** (no signature/secret). Known P0 — R-001, in the
-   current sprint. Anything you build on the webhook inherits this exposure. Confirmed unauth on
-   prod by live probe 2026-07-07. Note: a `VAPI_WEBHOOK_SECRET` env var exists but is **never read
-   by code** — wire it in (Task 5), don't assume the webhook is protected because the var is set.
+1. **`/api/webhooks/vapi` auth is STAGED, not yet enforcing** (R-001, In Progress). As of
+   2026-07-08 the POST handler checks the `x-vapi-secret` header against `VAPI_WEBHOOK_SECRET` via
+   `lib/vapi/webhookAuth.ts`, but runs in observe-only `log` mode by default — it logs
+   `[VAPI][WEBHOOK][AUTH][…]` and **still processes forged requests**. It only rejects (401) when
+   `VAPI_WEBHOOK_AUTH_MODE=enforce`. Until an operator sets the secret in Vercel, verifies a real
+   call logs `[…][OK]`, and flips to enforce, treat the webhook as **still unauthenticated** —
+   don't assume it's protected. When enforcement lands, any new path that makes Vapi POST here
+   (e.g. Task 6 repointing `serverUrl`) MUST also send the `x-vapi-secret` header.
 2. ~~`/api/debug/basic-auth` and `/api/debug/headers`~~ **deleted 2026-07-08 (R-002).** They were
    gitignored/local-only (never deployed — prod 404'd), but leaked `ADMIN_USER` to any local
    requester; the files and the `.gitignore` rule that hid them are both gone. **Do not add debug

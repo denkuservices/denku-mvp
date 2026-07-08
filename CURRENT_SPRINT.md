@@ -33,7 +33,8 @@ Nothing else should be built until these hold.
 
 ## Deliverables
 
-1. Authenticated Vapi webhook (secret/HMAC), staged so live call ingestion never drops.
+1. Authenticated Vapi webhook (secret/HMAC), staged so live call ingestion never drops. ✅ **Code
+   shipped staged (Task 5, R-001)** — default observe-only; enforcement is an ops flip.
 2. Debug/PII exposure removed; admin credentials rotated.
 3. Shared assistant-config helper guaranteeing tool attachment on all creation + sync paths.
 4. Fabricated screens removed (fake API keys, fake integration statuses, no-op danger zone,
@@ -67,9 +68,14 @@ Nothing else should be built until these hold.
    which explains the Task 2 prod-404); removed all `x-auth-*` PII response headers from
    `middleware.ts` (behavior-preserving). **⚠ Still external/pending:** rotate
    `ADMIN_USER`/`ADMIN_PASS` in Vercel (Category C — not code).
-5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout. *(An unused
-   `VAPI_WEBHOOK_SECRET` already exists in env — check whether it's set on the Vapi side and reuse
-   it rather than provisioning a new secret.)*
+5. **R-001** — ✅ **Code shipped 2026-07-08 (staged).** `lib/vapi/webhookAuth.ts` verifies the
+   `x-vapi-secret` header against `VAPI_WEBHOOK_SECRET`, wired into the webhook before body parse.
+   Confirmed the demo assistant already sends that header (reused, no new secret). Deployed in
+   observe-only `log` mode by default (canary logs, never rejects) so ingestion can't drop.
+   **⚠ Enforcement pending (ops/Category C):** set `VAPI_WEBHOOK_SECRET` in Vercel, verify
+   `[VAPI][WEBHOOK][AUTH][OK]` on a real call, then set `VAPI_WEBHOOK_AUTH_MODE=enforce`. Until
+   then the webhook still processes forged requests — R-001 stays **In Progress**. **Task 6 must
+   also set the `x-vapi-secret` header when it repoints customer `serverUrl`s (R-077).**
 6. **R-050 + R-077** — Shared assistant-config helper: always GET→merge→PATCH with `toolIds`
    present, on both creation paths and the settings sync; set the canonical webhook `serverUrl`
    from explicit env (R-077); reconcile existing assistants (tools + serverUrl in one pass).
@@ -105,7 +111,9 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 
 ## Validation Checklist
 
-- [ ] Forged webhook POST (no/invalid secret) is rejected; a valid one still processes.
+- [~] Forged webhook POST (no/invalid secret) is rejected; a valid one still processes. *(Auth
+  mechanism shipped staged, Task 5 — but rejection only happens once `VAPI_WEBHOOK_AUTH_MODE=enforce`
+  is set after a verified test call. Not yet enforcing in prod.)*
 - [ ] A real test call produces a ticket **and** (for booking intent) an appointment — verified end to end.
 - [ ] Personalizing an agent in Settings does **not** remove its tools (re-check live `toolIds`).
 - [x] `/api/debug/*` removed; responses carry no `x-auth-*` headers *(Task 4, R-002/R-003)*. ⚠ Admin

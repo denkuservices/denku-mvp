@@ -50,8 +50,14 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
   (`TOOL_SECRET`/`DENKU_SECRET`/`X_DENKU_SECRET` appear only in a debug presence-dump — ignore.)
 - `CRON_SECRET` — close-month auth (Bearer or `x-cron-secret`).
 - `ADMIN_USER`, `ADMIN_PASS` — HTTP Basic Auth for `/admin`, `/api/admin`, `/api/internal/*`.
-- `VAPI_WEBHOOK_SECRET` — present in `.env.local` but ⚠ **never read by any code** (the Vapi
-  webhook is unauthenticated — R-001). Provisioned-but-unwired; Task 5 should consume it.
+- `VAPI_WEBHOOK_SECRET` — the shared secret the Vapi webhook checks against the inbound
+  `x-vapi-secret` header (`lib/vapi/webhookAuth.ts`, R-001, since 2026-07-08). Must equal the value
+  Vapi sends (configured as a custom header in the assistant's `server.headers`). Must be set in
+  **Vercel** for auth to function.
+- `VAPI_WEBHOOK_AUTH_MODE` — staged-rollout switch for webhook auth: `off` | `log` | `enforce`.
+  Default `log` when a secret is present (observe-only — logs `[VAPI][WEBHOOK][AUTH][…]`, never
+  rejects), else `off`. Set to `enforce` **only after** a real call is confirmed logging
+  `[…][OK]`, or forged-request rejection would also drop legitimate calls that lack the header.
 
 ### Email (Resend)
 - `RESEND_API_KEY` — optional; without it all email helpers no-op with `{ ok, skipped }`
@@ -100,7 +106,8 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
 - `cd web && npm run dev` (Turbopack). Cookies work on http://localhost because `secure` follows
   `NODE_ENV`.
 - Stripe/Vapi webhooks need tunneling (e.g. `stripe listen --forward-to
-  localhost:3000/api/webhooks/stripe`); Vapi webhook has no signature yet so any POST works
-  locally (and, unfortunately, in prod — R-001, see `docs/IMPLEMENTATION_ROADMAP.md`).
+  localhost:3000/api/webhooks/stripe`); the Vapi webhook now checks `x-vapi-secret` but defaults to
+  observe-only `log` mode, so any POST still works locally unless you set
+  `VAPI_WEBHOOK_AUTH_MODE=enforce` + `VAPI_WEBHOOK_SECRET` (R-001, staged — see the env inventory).
 - Email: leave `RESEND_API_KEY` unset to no-op sends; Supabase still sends its own auth emails.
 - Test welcome email: `POST /api/dev/test-welcome {"email": "..."}` (dev only).

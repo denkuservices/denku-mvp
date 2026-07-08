@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (Sprint 1 Task 4 — R-002 debug routes deleted, R-003 PII headers removed) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (Sprint 1 Task 5 — R-001 staged webhook auth shipped, enforcement pending verify) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -24,11 +24,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 13 | 0 | 2 | 15 |
+| Critical | 12 | 1 | 2 | 15 |
 | High | 19 | 0 | 0 | 19 |
 | Medium | 34 | 0 | 1 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **74** | **0** | **3** | **77** |
+| **Total** | **73** | **1** | **3** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -47,7 +47,7 @@ billing view before touching billing code.
 ## CRITICAL
 
 ### R-001 — Vapi webhook has no authentication
-**Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00
+**Priority:** Critical · **Status:** In Progress (staged 2026-07-08; enforcement pending verify) · **Effort:** S–M · **Related audit:** 00
 - **Business impact:** Attackers can forge call data in any org, DoS inbound calls via lease
   exhaustion, and corrupt billing minutes — existential trust/billing risk.
 - **Technical impact:** `web/src/app/api/webhooks/vapi/route.ts` processes any POST; everything
@@ -64,6 +64,20 @@ billing view before touching billing code.
   (present in `.env.local`, never referenced in code) — the secret may already be configured on
   the Vapi side, so wiring a header/HMAC check is likely low-friction. The benign probe wrote only
   self-tagged `webhook_debug` ops rows (no tenant data).
+- **In Progress — staged auth shipped (2026-07-08, Sprint 1 Task 5).** Added
+  `web/src/lib/vapi/webhookAuth.ts` (pure, unit-tested — 11 tests) and wired it into the webhook
+  POST handler *before* body parse / debug insert. It verifies the `x-vapi-secret` header
+  (constant-time) against `VAPI_WEBHOOK_SECRET`. **Confirmed via live Vapi read (Task 5):** the
+  demo assistant `155b21ad` + its bound number already send a custom `x-vapi-secret` header
+  (`server.headers`), so this reuses the existing mechanism — no new secret provisioned.
+  **Staged rollout** via `VAPI_WEBHOOK_AUTH_MODE` (`off`|`log`|`enforce`; default `log` when a
+  secret is present, else `off`) so deploying this **does not change behavior** — it observes and
+  emits a `[VAPI][WEBHOOK][AUTH][…]` canary, never rejecting. **Still OPEN until enforcement**, an
+  ops sequence (Category C): (1) confirm `VAPI_WEBHOOK_SECRET` is set in Vercel and equals the
+  value in the Vapi assistant's `x-vapi-secret` header; (2) deploy, place a real/demo call, confirm
+  `[VAPI][WEBHOOK][AUTH][OK]` in logs; (3) set `VAPI_WEBHOOK_AUTH_MODE=enforce`. **Cross-dep:** the
+  R-077/Task-6 fix that repoints customer assistants' `serverUrl` at the prod webhook MUST also set
+  the `x-vapi-secret` header, or enforcement will drop those lines.
 
 ### R-002 — Public debug endpoints leak admin credentials material
 **Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 00

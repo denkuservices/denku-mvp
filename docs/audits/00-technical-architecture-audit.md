@@ -1,6 +1,6 @@
 # Audit 00 — Technical Architecture Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-08
 - **Lens:** full-stack engineering review (architecture, security, data, integrations, code quality)
 - **Scope:** entire repository — `web/` app, API routes, Supabase migrations, Vapi/Stripe/Resend
   integrations, middleware, frontend surfaces
@@ -22,10 +22,14 @@ files, shipped debug artifacts, and a total absence of tests.
 
 ### Security (Critical)
 
-- **[R-001] Vapi webhook is unauthenticated.** `web/src/app/api/webhooks/vapi/route.ts` accepts
-  any POST — no signature or secret. Forged events can create tickets/leads in any org (assistant
-  IDs are discoverable), exhaust concurrency leases (inbound-call DoS), and pollute call/billing
-  data. The single most serious issue in the codebase.
+- **[R-001] Vapi webhook is unauthenticated — auth STAGED 2026-07-08 (In Progress).**
+  `web/src/app/api/webhooks/vapi/route.ts` accepted any POST — no signature or secret. Forged
+  events can create tickets/leads in any org (assistant IDs are discoverable), exhaust concurrency
+  leases (inbound-call DoS), and pollute call/billing data. The single most serious issue in the
+  codebase. Task 5 shipped an `x-vapi-secret`/`VAPI_WEBHOOK_SECRET` check
+  (`lib/vapi/webhookAuth.ts`) in observe-only `log` mode; it does **not yet reject** forged
+  requests — enforcement is an ops flip (`VAPI_WEBHOOK_AUTH_MODE=enforce`) after a verified test
+  call. See roadmap R-001.
 - **[R-002] ~~Public debug endpoints leak admin material~~ — RESOLVED 2026-07-08.**
   `api/debug/basic-auth` and `api/debug/headers` returned `ADMIN_USER`, password length, and env
   details. Correction from Task 2/4 verification: they were **gitignored/local-only**, so *not*

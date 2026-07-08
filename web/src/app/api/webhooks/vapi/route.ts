@@ -10,6 +10,7 @@ import {
 } from "@/lib/concurrency/leases";
 import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
 import { logEvent } from "@/lib/observability/logEvent";
+import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 
 const VapiWebhookSchema = z
   .object({
@@ -1530,6 +1531,27 @@ export async function POST(req: NextRequest) {
     req.headers.forEach((value, key) => {
       headersObj[key] = value;
     });
+
+    // R-001: authenticate the Vapi webhook (staged via VAPI_WEBHOOK_AUTH_MODE).
+    // Done before body parse / debug insert so an enforced rejection does zero DB work.
+    const webhookAuth = checkVapiWebhookAuth((name) => req.headers.get(name));
+    if (!webhookAuth.matched) {
+      // Canary: record every non-matching request. In log/off mode we STILL process
+      // (a mis-staged rollout must never drop live calls); in enforce mode we reject.
+      console.warn(
+        `[VAPI][WEBHOOK][AUTH][${webhookAuth.shouldReject ? "REJECTED" : "WOULD_REJECT"}]`,
+        {
+          mode: webhookAuth.mode,
+          hasSecret: webhookAuth.hasSecret,
+          headerPresent: webhookAuth.headerPresent,
+        }
+      );
+      if (webhookAuth.shouldReject) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+    } else {
+      console.info("[VAPI][WEBHOOK][AUTH][OK]", { mode: webhookAuth.mode });
+    }
 
     const body = await req.json();
     

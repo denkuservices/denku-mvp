@@ -63,8 +63,14 @@
 
 ## The webhook pipeline — `web/src/app/api/webhooks/vapi/route.ts` (3,142 lines)
 
-**⚠ P0: this route currently has NO authentication.** Tracked as R-001 (see
-`docs/IMPLEMENTATION_ROADMAP.md`; verify-first steps in `docs/EXECUTION_PLAN.md`) before building on it.
+**⚠ P0: webhook auth is STAGED, not yet enforcing (R-001, In Progress).** Since 2026-07-08 the POST
+handler verifies the `x-vapi-secret` header against `VAPI_WEBHOOK_SECRET` (`lib/vapi/webhookAuth.ts`),
+but defaults to observe-only `log` mode — it emits a `[VAPI][WEBHOOK][AUTH][…]` canary and **still
+processes forged requests**. It rejects with 401 only when `VAPI_WEBHOOK_AUTH_MODE=enforce`. The
+check runs before body parse / debug insert, so an enforced reject does zero DB work. Vapi already
+sends `x-vapi-secret` from the demo assistant's `server.headers` (confirmed live) — that's the
+mechanism this reuses. Enforcement is an ops flip after a verified test call; until then, treat the
+webhook as unauthenticated.
 
 Processing order (keep this order when editing):
 

@@ -27,7 +27,7 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 | `/api/webhooks/stripe` | HMAC signature (`constructEvent`) | ✅ Correct |
 | `/api/tools/*` | Shared static header `x-denku-secret` | ⚠ Static, unrotatable, org derived from input — R-059 |
 | `/api/billing/cron/close-month` | `Bearer CRON_SECRET` | ✅ Correct |
-| **`/api/webhooks/vapi`** | **NONE** | 🔴 R-001 — **live-probe-confirmed unauth in prod (2026-07-07):** 200 with no/bogus secret alike |
+| `/api/webhooks/vapi` | Shared secret (STAGED) | 🟠 R-001 — `x-vapi-secret` check shipped 2026-07-08 in observe-only `log` mode; **still processes forged requests** until `VAPI_WEBHOOK_AUTH_MODE=enforce` |
 | ~~`/api/debug/basic-auth`, `/api/debug/headers`~~ | — | ✅ R-002 **deleted 2026-07-08** (were gitignored/local-only; never in prod) |
 | **`/api/billing/checkout/complete`** | **NONE** (takes `session_id` from body) | 🟠 R-058 — unauth state change |
 | `/api/vapi/start` | None; returns marketing assistant id | ✅ Acceptable (semi-public by design) |
@@ -47,7 +47,11 @@ where it's applied. The problems are the gaps and the missing systemic controls.
   the master key to most cross-tenant writes below, because a forged event resolves an org by
   guessable assistant/phone-number IDs and then creates tickets/leads/appointments in it, burns
   concurrency leases (inbound DoS), and injects billable minutes/cost. **Highest severity in the
-  product.**
+  product.** **Update (2026-07-08, Task 5 — In Progress):** staged
+  `x-vapi-secret`/`VAPI_WEBHOOK_SECRET` auth shipped (`lib/vapi/webhookAuth.ts`) in observe-only
+  `log` mode; the header is confirmed live (Vapi's demo assistant sends it via `server.headers`).
+  Still exploitable until an operator flips `VAPI_WEBHOOK_AUTH_MODE=enforce` after a verified test
+  call — enforcement is staged so ingestion never drops.
 - **[R-002] ~~Public debug endpoints leak `ADMIN_USER` + env~~ — RESOLVED 2026-07-08.** Deleted
   (Task 4). They were gitignored/local-only (never in prod — corrects the "public" framing), but
   leaked `ADMIN_USER` locally. Rotating `ADMIN_USER`/`ADMIN_PASS` (external) still recommended,
