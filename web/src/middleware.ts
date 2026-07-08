@@ -145,19 +145,13 @@ export async function middleware(request: NextRequest) {
         error: authError,
       } = await supabase.auth.getUser();
 
-      // Debug headers (temporary for verification)
-      const userId = user?.id || "none";
       const userEmail = user?.email || "";
-      let confirmedStatus: "true" | "false" | "unknown" = "unknown";
 
       if (!user) {
         // No user → redirect to login
         if (pathname === "/dashboard/phone-lines") {
           console.log("[mw] /dashboard/phone-lines -> redirect to /login (no user)");
         }
-        response.headers.set("x-auth-user", "none");
-        response.headers.set("x-auth-confirmed", "false");
-        response.headers.set("x-auth-email", "");
 
         const url = request.nextUrl.clone();
         url.pathname = "/login";
@@ -167,12 +161,6 @@ export async function middleware(request: NextRequest) {
 
       // Check email confirmation status
       const emailConfirmed = (user as any).email_confirmed_at || (user as any).confirmed_at;
-      confirmedStatus = emailConfirmed ? "true" : "false";
-
-      // Set debug headers
-      response.headers.set("x-auth-user", userId);
-      response.headers.set("x-auth-confirmed", confirmedStatus);
-      response.headers.set("x-auth-email", userEmail);
 
       if (!emailConfirmed) {
         // Email not confirmed → redirect to verify-email
@@ -273,9 +261,6 @@ export async function middleware(request: NextRequest) {
     } catch (err) {
       // Error creating Supabase client or fetching user
       console.error("[middleware] Auth check error:", err);
-      response.headers.set("x-auth-user", "error");
-      response.headers.set("x-auth-confirmed", "unknown");
-      response.headers.set("x-auth-email", "");
 
       const url = request.nextUrl.clone();
       url.pathname = "/login";

@@ -26,11 +26,15 @@ files, shipped debug artifacts, and a total absence of tests.
   any POST — no signature or secret. Forged events can create tickets/leads in any org (assistant
   IDs are discoverable), exhaust concurrency leases (inbound-call DoS), and pollute call/billing
   data. The single most serious issue in the codebase.
-- **[R-002] Public debug endpoints leak admin material.** `api/debug/basic-auth` and
-  `api/debug/headers` return `ADMIN_USER` plaintext, password length, and env details; both sit
-  outside the middleware matcher, i.e. publicly reachable in production.
-- **[R-003] PII response headers.** Middleware sets `x-auth-user` / `x-auth-email` /
-  `x-auth-confirmed` on every dashboard response.
+- **[R-002] ~~Public debug endpoints leak admin material~~ — RESOLVED 2026-07-08.**
+  `api/debug/basic-auth` and `api/debug/headers` returned `ADMIN_USER`, password length, and env
+  details. Correction from Task 2/4 verification: they were **gitignored/local-only**, so *not*
+  publicly reachable in production (this audit's "publicly reachable in production" was a
+  static-read error) — but `/api/debug/headers` still leaked `ADMIN_USER` to any local requester.
+  Deleted both routes and the `.gitignore` rule that hid them (Task 4). See roadmap R-002.
+- **[R-003] ~~PII response headers~~ — RESOLVED 2026-07-08.** Middleware set `x-auth-user` /
+  `x-auth-email` / `x-auth-confirmed` on dashboard responses; all removed (behavior-preserving),
+  Task 4. See roadmap R-003.
 
 ### Broken behavior (High)
 

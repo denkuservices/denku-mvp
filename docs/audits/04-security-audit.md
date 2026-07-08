@@ -1,6 +1,6 @@
 # Audit 04 — Security Audit
 
-- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-07
+- **Date:** 2026-07-06 · **Findings current as of:** 2026-07-08
 - **Lens:** offensive + appsec engineer. Question: *where can an attacker read/write another
   tenant's data, forge trusted input, escalate, or degrade availability?*
 - **Method:** full sweep of all ~43 API route handlers for authentication + tenant scoping; review
@@ -28,7 +28,7 @@ where it's applied. The problems are the gaps and the missing systemic controls.
 | `/api/tools/*` | Shared static header `x-denku-secret` | ⚠ Static, unrotatable, org derived from input — R-059 |
 | `/api/billing/cron/close-month` | `Bearer CRON_SECRET` | ✅ Correct |
 | **`/api/webhooks/vapi`** | **NONE** | 🔴 R-001 — **live-probe-confirmed unauth in prod (2026-07-07):** 200 with no/bogus secret alike |
-| **`/api/debug/basic-auth`, `/api/debug/headers`** | Public; leak `ADMIN_USER` | 🔴 R-002 — ⚠ but both returned **404** on the 2026-07-07 prod probe; verify before assuming still live |
+| ~~`/api/debug/basic-auth`, `/api/debug/headers`~~ | — | ✅ R-002 **deleted 2026-07-08** (were gitignored/local-only; never in prod) |
 | **`/api/billing/checkout/complete`** | **NONE** (takes `session_id` from body) | 🟠 R-058 — unauth state change |
 | `/api/vapi/start` | None; returns marketing assistant id | ✅ Acceptable (semi-public by design) |
 | `/api/marketing/contact` | None (public form) | ⚠ No bot/rate protection — R-030 |
@@ -48,9 +48,12 @@ where it's applied. The problems are the gaps and the missing systemic controls.
   guessable assistant/phone-number IDs and then creates tickets/leads/appointments in it, burns
   concurrency leases (inbound DoS), and injects billable minutes/cost. **Highest severity in the
   product.**
-- **[R-002] Public debug endpoints leak `ADMIN_USER` + env.** Directly enables R-057 (the leaked
-  username is half of the single shared admin credential).
-- **[R-003] Middleware sets `x-auth-user` / `x-auth-email` PII response headers.**
+- **[R-002] ~~Public debug endpoints leak `ADMIN_USER` + env~~ — RESOLVED 2026-07-08.** Deleted
+  (Task 4). They were gitignored/local-only (never in prod — corrects the "public" framing), but
+  leaked `ADMIN_USER` locally. Rotating `ADMIN_USER`/`ADMIN_PASS` (external) still recommended,
+  and shrinks R-057's blast radius.
+- **[R-003] ~~Middleware sets `x-auth-user` / `x-auth-email` PII response headers~~ — RESOLVED
+  2026-07-08.** All `x-auth-*` header writes removed from `middleware.ts` (Task 4).
 - **[R-030] Rate limiting is an in-memory no-op on Vercel.** Security consequence made concrete
   here: **login has no throttle or lockout** (credential stuffing/brute force), the public contact
   form has no bot protection (spam/abuse), and the demo-call limiter (`webcall/event`, the only

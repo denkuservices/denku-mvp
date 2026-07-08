@@ -62,8 +62,11 @@ Nothing else should be built until these hold.
    leases (acquire-at-limit/release), webhook artifact idempotency (check-then-insert path),
    org-scoping (read/write/update). *Foundation for tasks 5–6.* See roadmap R-037 for honest scope
    (route-level webhook integration test deferred to R-043/R-074).
-4. **R-002 + R-003** — Delete `/api/debug/*`; remove `x-auth-*` PII response headers.
-   *(then rotate `ADMIN_USER`/`ADMIN_PASS` — external, see Dependencies)*
+4. **R-002 + R-003** — ✅ **Done 2026-07-08.** Deleted `web/src/app/api/debug/` (both routes) +
+   removed the `.gitignore` rule that hid them (they were gitignored/local-only — never deployed,
+   which explains the Task 2 prod-404); removed all `x-auth-*` PII response headers from
+   `middleware.ts` (behavior-preserving). **⚠ Still external/pending:** rotate
+   `ADMIN_USER`/`ADMIN_PASS` in Vercel (Category C — not code).
 5. **R-001** — Authenticate the webhook; reject unsigned requests; stage the rollout. *(An unused
    `VAPI_WEBHOOK_SECRET` already exists in env — check whether it's set on the Vapi side and reuse
    it rather than provisioning a new secret.)*
@@ -105,7 +108,8 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 - [ ] Forged webhook POST (no/invalid secret) is rejected; a valid one still processes.
 - [ ] A real test call produces a ticket **and** (for booking intent) an appointment — verified end to end.
 - [ ] Personalizing an agent in Settings does **not** remove its tools (re-check live `toolIds`).
-- [ ] `/api/debug/*` returns 404/removed; responses carry no `x-auth-*` headers; admin creds rotated.
+- [x] `/api/debug/*` removed; responses carry no `x-auth-*` headers *(Task 4, R-002/R-003)*. ⚠ Admin
+  creds rotation still pending (external/Vercel).
 - [ ] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).
 - [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
 - [ ] Security headers present; CSP in report-only with a clean report.

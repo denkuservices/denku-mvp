@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-07 (Sprint 1 Task 3 — R-037 test harness + CI shipped, 3 seed suites) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (Sprint 1 Task 4 — R-002 debug routes deleted, R-003 PII headers removed) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -24,11 +24,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 15 | 0 | 0 | 15 |
+| Critical | 13 | 0 | 2 | 15 |
 | High | 19 | 0 | 0 | 19 |
 | Medium | 34 | 0 | 1 | 35 |
 | Low | 8 | 0 | 0 | 8 |
-| **Total** | **76** | **0** | **1** | **77** |
+| **Total** | **74** | **0** | **3** | **77** |
 
 **Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
 are missing/stripped and live assistants' serverUrl points at localhost — core product silently
@@ -66,25 +66,36 @@ billing view before touching billing code.
   self-tagged `webhook_debug` ops rows (no tenant data).
 
 ### R-002 — Public debug endpoints leak admin credentials material
-**Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 00
+**Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 00
 - **Business impact:** Weakens the Basic-Auth-protected admin surface; trivially discoverable.
 - **Technical impact:** `api/debug/basic-auth` + `api/debug/headers` return `ADMIN_USER`,
   password length, env details; both outside the middleware matcher.
 - **Dependencies:** None.
 - **Recommended solution:** Delete both routes (preferred) or gate behind `requireBasicAuth` +
   non-production check. Rotate `ADMIN_USER`/`ADMIN_PASS` after removal.
-- **Prod probe note (2026-07-07, Sprint 1 Task 2):** `GET /api/debug/basic-auth` and
-  `/api/debug/headers` both returned **404** on prod, despite the route files still existing in
-  the repo (`web/src/app/api/debug/*/route.ts`). Unexplained — possibly a stale deploy, a runtime
-  guard, or routing. **Verify during Task 4** whether R-002 is still exploitable before treating
-  the routes as live; delete the source files regardless (they must not exist).
+- **Prod probe note (2026-07-07, Sprint 1 Task 2):** both routes returned **404** on prod.
+- **Root cause & resolution (2026-07-08, Sprint 1 Task 4):** the 404 is explained — the routes
+  were **gitignored** (`web/.gitignore: src/app/api/debug/`), so they were never committed, never
+  deployed, and only ever existed on local dev machines. The audit's "reachable in production"
+  was therefore **incorrect** (a static-read miss) — real exposure was local-dev only, though
+  `/api/debug/headers` still leaked `ADMIN_USER` to any local requester. **Fixed:** deleted
+  `web/src/app/api/debug/` (both routes) AND removed the `.gitignore` rule that hid them, so the
+  anti-pattern (auto-ignored, unreviewable local debug routes — CLAUDE.md landmine #2) can't
+  recur silently. Note (external, unchanged): rotate `ADMIN_USER`/`ADMIN_PASS` in Vercel.
 
 ### R-003 — PII debug headers on every dashboard response
-**Priority:** Critical · **Status:** Open · **Effort:** S · **Related audit:** 00
+**Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 00
 - **Business impact:** User ID/email disclosure to intermediaries; unprofessional.
 - **Technical impact:** `web/src/middleware.ts` sets `x-auth-user`/`x-auth-email`/`x-auth-confirmed`.
 - **Dependencies:** None.
 - **Recommended solution:** Remove the header writes; keep decisions in logs only.
+- **Completed 2026-07-08 (Sprint 1 Task 4):** removed all three `x-auth-*` `response.headers.set`
+  calls from `middleware.ts` (authenticated pass-through branch — the only one that actually
+  emitted them; the no-user and catch branches set them on `response` but return a separate
+  `NextResponse.redirect`, so those were already dead code). Also removed the now-unused `userId`
+  and `confirmedStatus` locals; `userEmail`/`emailConfirmed` retained (still used by the
+  verify-email redirect + gate). Behavior-preserving: no change to auth, gating, or redirects.
+  Confirmed no code reads `x-auth-*` (grep) before removal.
 
 ### R-004 — Marketing trust surfaces sell a fictional product (pricing, docs, support, security)
 **Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 01 (C1), 02 (Persona 1)

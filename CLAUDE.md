@@ -105,8 +105,11 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    current sprint. Anything you build on the webhook inherits this exposure. Confirmed unauth on
    prod by live probe 2026-07-07. Note: a `VAPI_WEBHOOK_SECRET` env var exists but is **never read
    by code** — wire it in (Task 5), don't assume the webhook is protected because the var is set.
-2. **`/api/debug/basic-auth` and `/api/debug/headers` are public** and leak `ADMIN_USER` + env
-   info (outside the middleware matcher). Do not add more debug routes; these must die.
+2. ~~`/api/debug/basic-auth` and `/api/debug/headers`~~ **deleted 2026-07-08 (R-002).** They were
+   gitignored/local-only (never deployed — prod 404'd), but leaked `ADMIN_USER` to any local
+   requester; the files and the `.gitignore` rule that hid them are both gone. **Do not add debug
+   routes under `/api/debug/*`** — there is no longer an ignore rule, so any such route would be
+   committed and reviewable, but the rule stands: these must not exist.
 3. **`/api/admin/*` requires HTTP Basic Auth via middleware** — it is for platform operators.
    Customer browser code must NEVER call it (the member-invite form does, and is therefore broken).
    Exception already carved out: `/api/admin/analytics/export` (session auth).

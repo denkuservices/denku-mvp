@@ -75,8 +75,8 @@ NOT live under `/api/admin/` — use a session-authed namespace and check `profi
 - Dashboard chain: session → email confirmed → org lookup → `onboarding_step >= 6`
   (billing path allowlisted). Runs 2–3 DB queries per request (profiles via session client,
   settings via service role) — known perf debt.
-- Sets debug headers `x-auth-user` / `x-auth-confirmed` / `x-auth-email` on responses —
-  **PII leak, slated for removal** (R-003 — see `docs/IMPLEMENTATION_ROADMAP.md`). Don't build on them.
+- ~~Sets debug headers `x-auth-user` / `x-auth-confirmed` / `x-auth-email`~~ **removed 2026-07-08
+  (R-003)** — the middleware no longer emits any `x-auth-*` PII headers. Don't reintroduce them.
 - Fail-open on settings errors (documented anti-lockout policy).
 
 ## Route-level auth patterns (choose the right one)
@@ -88,7 +88,10 @@ NOT live under `/api/admin/` — use a session-authed namespace and check `profi
 | Stripe signature | `/api/webhooks/stripe` | `stripe.webhooks.constructEvent` + `STRIPE_WEBHOOK_SECRET` |
 | Cron secret | `/api/billing/cron/close-month` | `Bearer ${CRON_SECRET}` or `x-cron-secret` |
 | Basic Auth | `/admin`, `/api/admin`, `/api/internal/*` | middleware or `requireBasicAuth` |
-| **NOTHING (bug)** | `/api/webhooks/vapi`, `/api/debug/*`, `/api/dev/test-welcome` (prod-404s but exists) | P0 fixes pending |
+| **NOTHING (bug)** | `/api/webhooks/vapi`, `/api/dev/test-welcome` (prod-404s but exists) | P0 fixes pending |
+
+*(`/api/debug/*` deleted 2026-07-08 — R-002. It was gitignored/local-only, never deployed; the
+files and the `.gitignore` rule that hid them are both gone. Do not recreate debug routes here.)*
 
 ## Known sharp edges
 
