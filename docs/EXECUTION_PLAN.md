@@ -139,17 +139,26 @@ production** before shipping.
 
 ## Recommended cross-category sequencing
 
+> **Progress note (2026-07-08 — Sprint 1 closed).** Steps 1–3 below are **done in code** (R-050
+> verify, R-001 reachability, Wave A0 R-037/tests, Wave A1 R-002/R-003/R-056/R-046/R-049/R-012,
+> and the R-001/R-050/R-077 externals). What remains before those are *operationally* closed is the
+> **operator handoff** (rotate creds, set `VAPI_WEBHOOK_BASE_URL` + run the reconcile endpoint, live
+> test call, flip webhook `enforce`, enforce CSP) — see `docs/SPRINT_1_REVIEW.md` §3. The live front
+> now starts at **step 4** (R-004 truth pass). Wave A0's R-034/R-033 (dead-code delete, client
+> converge) were **not** taken this sprint and remain open.
+
 Reality interleaves the categories. A sane order:
 
-1. **Verify the two dangerous unknowns immediately** (cheap, high-consequence): R-050 live Vapi
-   state, and R-001 prod reachability. These are hours of checking that prevent a wiped config or a
-   dropped-ingestion incident.
-2. **Ship Category A Wave A0 + A1** (foundations + security quick wins) — safe, high-confidence,
-   no decisions needed.
-3. **Close the two verified externals:** R-001 (webhook auth) and R-050 (tool attachment) — the two
-   findings that most damage the *actual product* once their live state is confirmed.
-4. **Run the R-004 truth-pass decision** (with counsel) and ship the copy across A2 + the Category B
-   copy items — stops the trust bleed at the funnel.
+1. ✅ **Done (Sprint 1).** Verify the two dangerous unknowns: R-050 live Vapi state, R-001 prod
+   reachability. Both confirmed; the verification also surfaced R-077.
+2. ✅ **Done (Sprint 1) for the security slice.** Wave A0 R-037 (tests + CI) and Wave A1
+   (R-002/R-003/R-056/R-046/R-049/R-012) shipped. *Still open in A0:* R-034 (dead code), R-033
+   (client converge).
+3. ⏳ **Code done, operator-gated.** R-001 (webhook auth — staged, needs `enforce` flip) and
+   R-050/R-077 (tool attachment + serverUrl — needs `VAPI_WEBHOOK_BASE_URL` + reconcile run + a live
+   test call). See the review's handoff.
+4. **← LIVE FRONT: Run the R-004 truth-pass decision** (with counsel) and ship the copy across A2 +
+   the Category B copy items — stops the trust bleed at the funnel.
 5. **Land R-066 (analytics)** so every subsequent product bet is measurable, then re-rank Audits
    01/02/07 priorities against real data.
 6. **Billing verifiability:** R-031 → R-075 → R-076, in that order (schema in repo → prove the math

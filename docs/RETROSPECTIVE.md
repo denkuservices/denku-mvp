@@ -140,6 +140,36 @@ The register reflects the author's chosen lenses; these were not examined and ar
 - **Separate "found by reading" from "confirmed by running" in every future finding.** This
   retrospective exists because that separation was implicit; make it explicit going forward.
 
+## 9. Sprint 1 execution retrospective (2026-07-08)
+
+The first *execution* pass (not audit) against the do-first shortlist. Full review:
+`docs/SPRINT_1_REVIEW.md`. What running the work taught us, feeding back into §1–8:
+
+- **Running the code corrected three static-read findings** — exactly the §1 hazard, now with
+  receipts: R-002's debug routes were **gitignored/local-only**, never in prod (audit said
+  "reachable in production"); R-049's danger-zone control was already **orphaned** (unrendered);
+  R-050's "manual config at risk" fear was false (all tool attachments came from `runActivation`).
+  Each was corrected in the roadmap + originating audit. Lesson reinforced: treat every "reachable/
+  exploitable/live" claim as a hypothesis until a probe confirms it.
+- **Verify-before-write earned its cost and found a new Critical.** The Task 1/2 read-only checks
+  cost ~an hour and surfaced **R-077** (localhost `serverUrl`) that would otherwise have shipped
+  silently. Keep the §7 verify-first checklist as a hard gate, not a nicety.
+- **Assumptions graduated:** §7 items 1 (R-050 live tool state) and 2 (R-001 prod reachability) are
+  now **confirmed**, not inferred. R-077 downgraded from "possibly-active" to **latent** (Vapi
+  account has zero call history — a test/staging account). These are annotated in §7 and the roadmap.
+- **The invisibility of prod (§2) directly capped the sprint.** The `.env.local` Supabase project is
+  **dead (DNS ENOTFOUND)** and `GET /org` is 401 for the API key, so the prod DB and org-level Vapi
+  config stayed unobservable. This is why R-077's ingestion question and the end-to-end call loop
+  couldn't be closed from the repo, and why several DoD items became an operator handoff. **The
+  single highest-value process fix for Sprint 2 is closing this gap** (real dashboard access or a
+  reachable staging env; R-031 is the repo-side half).
+- **Staging beats big-bang for anything touching live ingestion or the browser.** R-001 (observe-only
+  default) and R-056 (CSP report-only) both shipped the mechanism with zero risk and deferred the
+  risky flip to a verified operator step. Adopt this shape by default for Category C.
+- **DoD needs a "done vs. operationally-verified" split.** Sprint 1's DoD conflated the two, so a
+  code-complete sprint reads as "not done." Future sprint DoDs should state which items are
+  engineer-closable and which are operator-gated up front.
+
 ---
 
 *Living document. If a future contributor verifies (or refutes) an assumption here, update this

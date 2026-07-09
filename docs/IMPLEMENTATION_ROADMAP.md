@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (Sprint 1 Task 8 — R-056 security headers + CSP report-only shipped) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (**Sprint 1 CLOSED** — 9 IDs Completed, R-001 In Progress; review in `docs/SPRINT_1_REVIEW.md`) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -30,12 +30,14 @@
 | Low | 8 | 0 | 0 | 8 |
 | **Total** | **67** | **1** | **9** | **77** |
 
-**Do-first shortlist:** R-001, R-002, R-003 (same-day security), **R-050 + R-077 (the AI's tools
-are missing/stripped and live assistants' serverUrl points at localhost — core product silently
-broken)**, then the **truth pass** R-004 + R-046
-(fabricated claims/screens — legal + trust exposure), then R-008/R-009 (retention lifeline +
-bill-shock prevention). Security systemic controls R-056/R-057/R-060 are high-leverage and should
-be scheduled alongside the test foundation (R-037).
+**Do-first shortlist (post-Sprint-1, 2026-07-08):** Sprint 1 closed the same-day security items and
+the in-product truth pass (R-001 staged, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056,
+R-077). **Next: (1) the operator handoff** that finalizes Sprint 1 — rotate `ADMIN_USER`/`ADMIN_PASS`,
+set `VAPI_WEBHOOK_BASE_URL` + run `POST /api/internal/reconcile-vapi-assistants`, place a live test
+call, flip `VAPI_WEBHOOK_AUTH_MODE=enforce`, then enforce CSP (see `docs/SPRINT_1_REVIEW.md` §3).
+**(2) Sprint 2** — the **R-004 truth pass** (marketing, needs counsel) + retention lifeline
+R-008/R-009 + R-011 forgot-password. **(3)** land R-066 (analytics) early so later bets are
+measurable; keep R-057/R-060 (admin identity, RLS backstop) queued now the test foundation exists.
 
 **Before acting on any finding, read `docs/EXECUTION_PLAN.md` (implement-now / decide-first /
 external-dependency) and `docs/RETROSPECTIVE.md` (confidence + verify-first).** Notably: R-050 and

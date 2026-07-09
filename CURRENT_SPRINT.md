@@ -5,7 +5,16 @@
 > `docs/EXECUTION_PLAN.md` + `docs/RETROSPECTIVE.md`. Update task status here as you ship; mark the
 > roadmap entry `Completed` (date + how) in the same change.
 
-**Sprint 1 · Started 2026-07-07 · Target 2 weeks**
+**Sprint 1 · Started 2026-07-07 · Closed 2026-07-08**
+
+> ✅ **SPRINT 1 CLOSED — code-complete (all 8 tasks shipped, CI-green, deployed).** Full review &
+> retrospective: **[`docs/SPRINT_1_REVIEW.md`](docs/SPRINT_1_REVIEW.md)**. The Definition of Done is
+> **not fully signed off** — a short operator/external handoff remains (rotate admin creds; set
+> `VAPI_WEBHOOK_BASE_URL` + run the assistant reconcile; place a live test call; flip webhook auth to
+> `enforce`; enforce CSP after clean reports). Those are code-impossible from the repo; see the
+> review §3. Completed: R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056, R-077. In Progress:
+> R-001 (staged). **Sprint 2 ("Trust & Value Made Visible") is queued — see Next Sprint Preview; open
+> it with the operator handoff.**
 
 ## Sprint Goal
 
@@ -140,7 +149,10 @@ R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — s
 - [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
 - [x] Security headers present; CSP in report-only *(Task 8, R-056; six headers verified on
   responses)*. ⚠ "Clean report" observation on real traffic is the pre-enforce follow-up.
-- [ ] No regression to the "do not regress" core (deterministic artifacts, leases, compensation, pause).
+- [x] No regression to the "do not regress" core (deterministic artifacts, leases, compensation,
+  pause) *(no behavioral edits to those paths; Task 6's purchase-flow addition is non-fatal and
+  leaves the rollback chain intact; 42 characterization tests green). ⚠ Confirmed by review + tests,
+  not yet by a live call — same operator step as the test-call item.*
 
 ## Definition of Done
 
@@ -148,6 +160,13 @@ Every Prioritized Task shipped and its roadmap entry marked `Completed` (date + 
 Validation Checklist fully green (incl. the live test-call verification); CI green; and any
 assumption confirmed during verification graduated out of `RETROSPECTIVE.md` §3/§7. A change is not
 done until docs are synchronized.
+
+**DoD status at close (2026-07-08):** engineering side ✅ (all tasks shipped + roadmap-marked, CI
+green, docs synchronized, assumptions graduated from Retrospective §3/§7). Operational side ⏳ — the
+two `[~]` checklist items (forged-POST rejection, live test-call verification) require the operator
+handoff in [`docs/SPRINT_1_REVIEW.md`](docs/SPRINT_1_REVIEW.md) §3. **The sprint is closed as
+code-complete; final DoD sign-off is gated on that handoff, deliberately separated so "shipped" and
+"operationally verified" are not conflated.**
 
 ## Deferred Work
 
