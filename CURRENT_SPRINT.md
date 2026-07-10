@@ -1,190 +1,98 @@
-# CURRENT SPRINT — Security & Trust Foundation
+# CURRENT SPRINT — Trust & Value Made Visible
 
 > The active implementation sprint. Open this every morning to know what to build next. Finding
 > detail lives in `docs/IMPLEMENTATION_ROADMAP.md`; safe-sequencing and verify-first rules in
 > `docs/EXECUTION_PLAN.md` + `docs/RETROSPECTIVE.md`. Update task status here as you ship; mark the
-> roadmap entry `Completed` (date + how) in the same change.
+> roadmap entry `Completed` (date + how) in the same change. Sprint lifecycle: `PROJECT_CHARTER.md`
+> → Sprint Lifecycle.
 
-**Sprint 1 · Started 2026-07-07 · Closed 2026-07-08**
+**Sprint 2 · Prepared 2026-07-08 · Status: 🟡 `PROPOSED — awaiting approval`**
 
-> ✅ **SPRINT 1 CLOSED — code-complete (all 8 tasks shipped, CI-green, deployed).** Full review &
-> retrospective: **[`docs/SPRINT_1_REVIEW.md`](docs/SPRINT_1_REVIEW.md)**. The Definition of Done is
-> **not fully signed off** — a short operator/external handoff remains (rotate admin creds; set
-> `VAPI_WEBHOOK_BASE_URL` + run the assistant reconcile; place a live test call; flip webhook auth to
-> `enforce`; enforce CSP after clean reports). Those are code-impossible from the repo; see the
-> review §3. Completed: R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056, R-077. In Progress:
-> R-001 (staged). **Sprint 2 ("Trust & Value Made Visible") is queued — see Next Sprint Preview; open
-> it with the operator handoff.**
+> ⚠️ **This sprint is PREPARED, not started.** It was drafted automatically from the roadmap after
+> Sprint 1 closed (per the charter's Sprint Lifecycle ritual). **No implementation begins until the
+> owner explicitly approves** — and may adjust scope first. Sprint 1 (Security & Trust Foundation)
+> is closed code-complete; its review is **[`docs/SPRINT_1_REVIEW.md`](docs/SPRINT_1_REVIEW.md)**.
 
 ## Sprint Goal
 
-Close the critical security holes and remove every in-product falsehood, so Denku is safe to run
-and honest to look at. When this sprint ends, no forged request can write to a tenant, no screen
-shows fabricated data, and the core call → artifact loop provably works.
+Sprint 1 made Denku **safe and honest**. Sprint 2 makes its **value visible and its trust surfaces
+truthful**: the business sees what the AI did for it between logins, is never surprised by cost or a
+service cut, can recover access, and reads marketing that matches the product. When this sprint
+ends, a completed call reaches the owner promptly, overage never shocks, a locked-out customer can
+get back in, and no marketing page oversells.
 
-## Why This Sprint Exists
+## Prerequisite — Task 0: finalize Sprint 1 (operator handoff)
 
-Denku's engine is sound but its perimeter and its honesty are not: the call-ingestion webhook
-accepts unauthenticated requests, debug endpoints leak admin info, the AI's tools are missing or
-silently stripped on most lines (so the product's core promise quietly fails), and several screens
-display fake data. These are the highest-consequence, mostly code-only fixes — and they directly
-serve the vision's non-negotiables: **truth, tenant isolation, and the never-dead-end guarantee.**
-Nothing else should be built until these hold.
+**Do first.** These close Sprint 1's DoD and de-risk Task 2 (don't email on a forgeable webhook).
+All are operator/env actions, not code — see `docs/SPRINT_1_REVIEW.md` §3:
 
-## Success Criteria
+1. Rotate `ADMIN_USER`/`ADMIN_PASS` in Vercel (R-002 follow-up).
+2. Set `VAPI_WEBHOOK_BASE_URL`; run `POST /api/internal/reconcile-vapi-assistants` (R-050/R-077).
+3. Place a **live test call** → confirm ticket (+ appointment for booking intent) end-to-end.
+4. Confirm `[VAPI][WEBHOOK][AUTH][OK]` → set `VAPI_WEBHOOK_AUTH_MODE=enforce` (closes R-001).
+5. Watch CSP reports → flip CSP to enforcing (R-056 follow-up).
 
-- The Vapi webhook rejects any request lacking a valid secret; forged events cannot create data.
-- No public endpoint exposes admin credentials or user PII.
-- Every phone line's AI can actually create tickets and appointments (verified on a live call),
-  and personalizing an agent no longer strips its tools.
-- No screen in the product shows hardcoded, fake, or fabricated data or status.
-- A test suite exists and proves webhook idempotency, lease limits, and org-scoping.
+## Prioritized Tasks (proposed — confirm/trim on approval)
 
-## Deliverables
+**Do in order. Verify-first + stage-then-enforce discipline carries over from Sprint 1.**
 
-1. Authenticated Vapi webhook (secret/HMAC), staged so live call ingestion never drops. ✅ **Code
-   shipped staged (Task 5, R-001)** — default observe-only; enforcement is an ops flip.
-2. Debug/PII exposure removed; admin credentials rotated.
-3. Shared assistant-config helper guaranteeing tool attachment on all creation + sync paths.
-4. Fabricated screens removed (fake API keys, fake integration statuses, no-op danger zone,
-   placeholder pages).
-5. Security headers (CSP report-only → enforce plan). ✅ **Done (Task 8, R-056)** — report-only
-   shipped + collector; enforce is the documented follow-up.
-6. Test harness + CI with the three foundational suites. ✅ **Done (Task 3, R-037).**
+1. **R-011 — Forgot-password flow.** Code-only win; the login link currently dead-loops
+   (`/login?forgot=1`). Build `/forgot-password` → Supabase `resetPasswordForEmail` → reset form via
+   `/auth/callback`; repoint the dead link. Template already exists in `lib/email/templates.ts`.
+2. **R-008 — Ticket/appointment notifications** (the #1 retention lifeline — makes value visible).
+   Hook Resend into the deterministic artifact path in the Vapi webhook, idempotent (guard like the
+   welcome email); per-event email to the owner with summary + deep link. *Dep: Resend domain
+   (`denku.io`) verified; Task 0 webhook `enforce` first (don't email on forgeable events).*
+3. **R-009 — Overage warnings + hard-cap pause/bill choice** (bill-shock prevention). Emails at
+   50/75/90% of included minutes and before threshold charge; explicit customer setting "at hard
+   cap: pause vs keep billing"; loud banner on pause. *Dep: R-008 email infra + a product decision
+   on the hard-cap policy.*
+4. **R-004 — Marketing truth-pass** (pricing/docs/support/security) — parallel **decision track**.
+   Rewrite to shipped capabilities only; move aspirations to a public roadmap. *Dep: **legal
+   counsel** sign-off on which compliance/feature claims are honest — implementation is trivial copy
+   once decided.*
+5. **R-066 — Conversion analytics** (recommended to start early so value/funnel become measurable).
+   Add a client+server analytics layer + funnel event schema. *Dep: provider choice (privacy posture
+   matters — transcripts are PII).*
 
-## Prioritized Tasks
+## Roadmap IDs Covered (proposed)
 
-**Do in order. Verify-first tasks are prerequisites, not optional (Retrospective §7).**
+R-011, R-008, R-009, R-004, R-066. *(Plus Task 0 finalizes Sprint 1's R-001/R-002/R-050/R-056/R-077
+operator items.)*
 
-1. **[VERIFY] R-050** — ✅ **Done 2026-07-07** (read-only API read of live state). No manual tool
-   config at risk — all tool attachments came from `runActivation`'s merge; both purchase-path
-   lines are live with NO tools (R-050(a) confirmed in prod); the settings-sync strip (b) has not
-   fired yet. **Task 6 unblocked.** Verification filed **R-077** (live assistants'
-   `serverUrl` = `http://localhost:3000/api/tools`).
-2. **[VERIFY] R-001** — ✅ **Done 2026-07-07** (benign prod probe). Confirmed unauthenticated &
-   reachable: `POST /api/webhooks/vapi` returns `200 ignored:no_call_id` with no secret and with a
-   bogus secret alike — no 401, no edge shield. **Task 5 unblocked.** Fix input: an unused
-   `VAPI_WEBHOOK_SECRET` already exists in env (never read by code). **R-077 sub-check:** Vapi
-   account has **zero call history** (test/staging account) → R-077 is latent, not actively
-   dropping traffic; prod DB not inspectable from here (local Supabase project dead). Per user
-   decision, R-077 is fixed via Task 6, not emergency-remediated.
-3. **R-037** — ✅ **Done 2026-07-07.** vitest + `.github/workflows/ci.yml` (test blocking, lint
-   non-blocking, Vercel = build gate); 3 seed suites under `web/test/` (19 tests green):
-   leases (acquire-at-limit/release), webhook artifact idempotency (check-then-insert path),
-   org-scoping (read/write/update). *Foundation for tasks 5–6.* See roadmap R-037 for honest scope
-   (route-level webhook integration test deferred to R-043/R-074).
-4. **R-002 + R-003** — ✅ **Done 2026-07-08.** Deleted `web/src/app/api/debug/` (both routes) +
-   removed the `.gitignore` rule that hid them (they were gitignored/local-only — never deployed,
-   which explains the Task 2 prod-404); removed all `x-auth-*` PII response headers from
-   `middleware.ts` (behavior-preserving). **⚠ Still external/pending:** rotate
-   `ADMIN_USER`/`ADMIN_PASS` in Vercel (Category C — not code).
-5. **R-001** — ✅ **Code shipped 2026-07-08 (staged).** `lib/vapi/webhookAuth.ts` verifies the
-   `x-vapi-secret` header against `VAPI_WEBHOOK_SECRET`, wired into the webhook before body parse.
-   Confirmed the demo assistant already sends that header (reused, no new secret). Deployed in
-   observe-only `log` mode by default (canary logs, never rejects) so ingestion can't drop.
-   **⚠ Enforcement pending (ops/Category C):** set `VAPI_WEBHOOK_SECRET` in Vercel, verify
-   `[VAPI][WEBHOOK][AUTH][OK]` on a real call, then set `VAPI_WEBHOOK_AUTH_MODE=enforce`. Until
-   then the webhook still processes forged requests — R-001 stays **In Progress**. **Task 6 must
-   also set the `x-vapi-secret` header when it repoints customer `serverUrl`s (R-077).**
-6. **R-050 + R-077** — ✅ **Code shipped 2026-07-08.** New `lib/vapi/assistantConfig.ts`
-   (GET→merge→PATCH, toolIds merged never replaced; canonical webhook `server.url` from explicit
-   env, localhost-rejecting; `x-vapi-secret` header when secret set). Wired into `runActivation`,
-   the purchase route (R-050a), and `syncAgentToVapi` (R-050b). Reconciliation endpoint `POST
-   /api/internal/reconcile-vapi-assistants` (Basic Auth, idempotent). 12 unit tests. **⚠ Remaining
-   (external):** set `VAPI_WEBHOOK_BASE_URL` in Vercel, run the reconcile endpoint for existing
-   assistants, verify with a live test call.
-7. **R-046 + R-049 + R-012** — ✅ **Done 2026-07-08.** Deleted the fake API-keys screen and the two
-   fabricated integration health cards (kept honest CRM/Calendar "coming soon"); deleted the no-op
-   "Disable workspace" DangerZoneCard (found already orphaned); deleted the 5 placeholder route
-   trees (`dashboard/{knowledge,tools,risk,activity,billing}` + stub sub-routes) and the dead
-   `QuickActionsCard` that linked to them. No dead links; build green.
-8. **R-056** — ✅ **Done 2026-07-08.** `next.config.ts` `headers()` adds HSTS, X-Frame-Options,
-   X-Content-Type-Options, Referrer-Policy, Permissions-Policy (enforced) + CSP **report-only**
-   (allowlist from real origins: fonts/Spline/Vapi+Daily/Supabase/Stripe) with a `/api/csp-report`
-   collector. Verified headers present locally. **⚠ Follow-up (not this task):** observe reports,
-   tune, then flip CSP to enforcing.
+## Decisions needed before/within this sprint (Category B)
 
-## Roadmap IDs Covered
+- **R-004:** which compliance/feature claims are honest? — **Founder + legal counsel**.
+- **R-009:** hard-cap policy — pause vs keep-billing — **Product**.
+- **R-066:** analytics provider (privacy-first; transcripts are PII) — **Growth/Eng**.
 
-R-001, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056, R-077. *(R-057 admin identity and
-R-060 RLS backstop are acknowledged neighbors but out of scope this sprint — see Deferred.)*
+## External dependencies (Category C)
 
-## Dependencies
-
-- **External confirmations before shipping (Category C):** live Vapi dashboard access (tasks 1, 6),
-  prod reachability check (task 2), Vercel access to rotate admin credentials (task 4).
-- **Sequencing:** task 3 (tests) precedes 5 and 6; tasks 1–2 (verify) precede 6 and 5 respectively.
-- **CSP inventory:** task 8 needs the allowed-origin list (Spline, Vapi, Supabase, Stripe, fonts).
-- **No product/legal decision blocks this sprint** — the R-004 truth-pass (needs counsel) is
-  intentionally *not* here; it runs as a parallel decision track for next sprint.
+- **Resend** sending domain (`denku.io`) verified — blocks R-008/R-009 emails (note the
+  `denku.io` vs `denku.ai` inconsistency).
+- **Analytics provider** integrated — blocks R-066.
+- **Task 0** operator/env actions (Vercel + Vapi dashboard).
 
 ## Risks
 
-- **R-050 config wipe:** retired 2026-07-07 — task 1 verification found no manually-configured
-  tools on any bound assistant; task 6 is safe to implement.
-- **R-077 ingestion:** partially resolved 2026-07-07 — Vapi has zero call history (test/staging
-  account), so nothing is being dropped today; the localhost `serverUrl` is a latent defect fixed
-  by task 6. Still unproven end-to-end (prod DB unreachable from local env; org-level Server URL
-  unknown) — the call→artifact loop must be verified with a live test call during task 6.
-- **Webhook auth drops ingestion:** a bad rollout silently loses live calls. → Stage with logging; verify on a test call before enforcing.
-- **Test coverage on a 3,141-line untyped webhook is hard.** → Characterization tests around behavior only; do not refactor the file this sprint (that's gated on R-074/R-043 later).
-- **CSP over-blocks** third-party origins (Spline/Vapi). → Report-only first; enforce after clean reports.
+- **Emailing on a forgeable webhook** (R-008 before R-001 enforce) would let an attacker spam a
+  customer's inbox. → Task 0 webhook `enforce` precedes R-008 shipping.
+- **R-004 without counsel** = shipping new copy that's still wrong, or legal exposure. → Decision
+  track; don't ship claims until signed off.
+- **Scope:** 5 substantial items + a decision track is ambitious. → On approval, likely trim to a
+  core (Task 0 + R-011 + R-008 + R-009) and run R-004/R-066 as tracks or defer.
+- **R-066 privacy:** transcripts are PII — pick a provider/config that never ingests them.
 
-## Validation Checklist
+## Definition of Done (carried forward, with the Sprint-1 honesty split)
 
-- [~] Forged webhook POST (no/invalid secret) is rejected; a valid one still processes. *(Auth
-  mechanism shipped staged, Task 5 — but rejection only happens once `VAPI_WEBHOOK_AUTH_MODE=enforce`
-  is set after a verified test call. Not yet enforcing in prod.)*
-- [~] A real test call produces a ticket **and** (for booking intent) an appointment — verified end
-  to end. *(Code path fixed Task 6; needs a human live test call — I can't place one. Appointment
-  path also needs R-019 intent detection, out of this sprint.)*
-- [x] Personalizing an agent in Settings does **not** remove its tools *(Task 6 — `syncAgentToVapi`
-  now merges toolIds via the shared helper; unit-tested. Live re-check of `toolIds` pending the
-  reconcile run + a settings edit on a real assistant.)*
-- [x] `/api/debug/*` removed; responses carry no `x-auth-*` headers *(Task 4, R-002/R-003)*. ⚠ Admin
-  creds rotation still pending (external/Vercel).
-- [x] No screen shows placeholder/fake/hardcoded data (keys, statuses, danger zone, stub pages).
-  *(Task 7, R-046/R-049/R-012. Note: marketing-surface fabrication is R-004, a separate deferred
-  truth-pass — this covers the in-product screens.)*
-- [x] CI runs on every push; the three foundational suites pass. *(Done — Task 3, R-037.)*
-- [x] Security headers present; CSP in report-only *(Task 8, R-056; six headers verified on
-  responses)*. ⚠ "Clean report" observation on real traffic is the pre-enforce follow-up.
-- [x] No regression to the "do not regress" core (deterministic artifacts, leases, compensation,
-  pause) *(no behavioral edits to those paths; Task 6's purchase-flow addition is non-fatal and
-  leaves the rollback chain intact; 42 characterization tests green). ⚠ Confirmed by review + tests,
-  not yet by a live call — same operator step as the test-call item.*
+Every task shipped + roadmap `Completed` (date + how); CI green; docs synchronized; assumptions
+graduated from `RETROSPECTIVE.md`. **Separate engineering-done from operationally-verified** — e.g.
+R-008 is done only when a real artifact is observed to send an email; R-011 when a reset works end
+to end. Task 0's operator items are tracked explicitly, not silently assumed.
 
-## Definition of Done
+## Next Sprint Preview (Sprint 3 — tentative)
 
-Every Prioritized Task shipped and its roadmap entry marked `Completed` (date + how); the
-Validation Checklist fully green (incl. the live test-call verification); CI green; and any
-assumption confirmed during verification graduated out of `RETROSPECTIVE.md` §3/§7. A change is not
-done until docs are synchronized.
-
-**DoD status at close (2026-07-08):** engineering side ✅ (all tasks shipped + roadmap-marked, CI
-green, docs synchronized, assumptions graduated from Retrospective §3/§7). Operational side ⏳ — the
-two `[~]` checklist items (forged-POST rejection, live test-call verification) require the operator
-handoff in [`docs/SPRINT_1_REVIEW.md`](docs/SPRINT_1_REVIEW.md) §3. **The sprint is closed as
-code-complete; final DoD sign-off is gated on that handoff, deliberately separated so "shipped" and
-"operationally verified" are not conflated.**
-
-## Deferred Work
-
-Explicitly **not** this sprint (tracked in the roadmap):
-
-- **R-004 truth-pass** on marketing pages — gated on legal/product review; runs as a parallel
-  decision track, ships next sprint.
-- **R-057** (per-operator admin identity + MFA), **R-060** (RLS backstop) — high-value systemic
-  security, but larger; sequence right after this sprint with the test foundation now in place.
-- **R-008/R-009** (notifications + overage warnings) — the retention/bill-shock lifeline; top of
-  the *next* sprint.
-- Monster-file refactors (R-043), typing (R-074), analytics instrumentation (R-066), billing
-  verifiability (R-031→R-075→R-076) — later sprints.
-
-## Next Sprint Preview
-
-**Sprint 2 · Trust & Value Made Visible.** Ship the R-004 truth-pass copy (once counsel signs off),
-then the retention lifeline: ticket/appointment notifications (R-008) and overage warnings +
-hard-cap choice (R-009), plus the forgot-password flow (R-011). Theme: after this sprint makes the
-product *safe and honest*, the next makes its *value visible* — the two things the audits found
-most damaging to retention and trust.
+Systemic security + verifiability now the foundation exists: **R-057** (per-operator admin identity
++ MFA), **R-060** (RLS backstop), and the billing-verifiability chain **R-031 → R-075 → R-076**
+(schema in repo → prove the math → reconcile COGS vs revenue). Plus opportunistic code health
+(R-034 dead-code delete, R-033 client converge) and the go-live magic moment (R-014).

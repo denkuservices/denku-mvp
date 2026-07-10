@@ -157,3 +157,27 @@ anyone and halts the work until resolved.**
   fix needs verification — don't fork a new file.
 - **Instrument, then optimize** — decisions get better as real data replaces inference.
 - **Retro after each sprint:** what shipped, what we learned, what to change in how we work.
+
+## Sprint Lifecycle — the closing ritual (run at the end of every sprint)
+
+When a sprint's tasks are complete, execute these steps **in order, every time** — the boundary
+between sprints is a repeatable, auditable ritual, not an ad-hoc wrap-up:
+
+1. **Close the sprint** in `CURRENT_SPRINT.md` with an **honest DoD status** — explicitly separate
+   *engineering-done* (code shipped, CI green, docs synced) from *operationally-verified* (live
+   test, operator/env actions). Never mark full DoD sign-off while operator/live-verification items
+   remain; list them as a handoff instead.
+2. **Update `docs/IMPLEMENTATION_ROADMAP.md`** — mark IDs `Completed`/`In Progress` (date + how),
+   refresh the status table, the do-first shortlist, and "Last updated".
+3. **Update `docs/EXECUTION_PLAN.md`** if priorities or sequencing changed.
+4. **Write `docs/SPRINT_<N>_REVIEW.md`** — planned vs delivered · completed roadmap IDs · remaining
+   external/operator tasks · regressions · metrics · lessons learned · recommendations for the next
+   sprint — and add a Sprint-N section to `docs/RETROSPECTIVE.md`.
+5. **Commit everything** (Conventional Commit), push, verify CI + the Vercel build gate.
+6. **Then prepare the next sprint from the roadmap** — draft its goal/tasks/DoD into
+   `CURRENT_SPRINT.md` marked **`PROPOSED — awaiting approval`**, drawn from the roadmap's do-first
+   shortlist, the prior sprint's Next-Sprint Preview, and the review's recommendations.
+
+**Hard rule:** preparing the next sprint (drafting the plan) is automatic; **starting
+implementation requires explicit human approval.** A prepared sprint stays `PROPOSED` until the
+owner approves or adjusts scope.
