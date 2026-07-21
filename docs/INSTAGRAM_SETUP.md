@@ -24,6 +24,19 @@ here is code; it's Meta-dashboard + Vercel + Supabase configuration. How it all 
 - Subscribe to the Instagram fields you want to receive (e.g. `messages`, `comments`). Meta will call
   `GET` to verify (expects the challenge echoed) — our endpoint handles it.
 
+## 2b. Deauthorize + Data Deletion callbacks (required by Meta)
+
+In **Business Login settings** (and/or App → Settings → Basic → User Data Deletion), set:
+
+- **Deauthorize callback URL:** `https://www.denku.io/api/instagram/deauthorize`
+- **Data Deletion Request URL:** `https://www.denku.io/api/instagram/data-deletion`
+
+Both receive a Meta `signed_request` (HMAC-SHA256 with the **app secret** — the same
+`INSTAGRAM_APP_SECRET`). Deauthorize revokes the connection; Data Deletion hard-deletes the
+account's connection + persisted events and returns a status URL + confirmation code (viewable at
+`https://www.denku.io/instagram-data-deletion?code=…`). No extra env vars needed beyond
+`INSTAGRAM_APP_SECRET`.
+
 ## 3. Set env vars in Vercel (Production)
 
 | Var | Value |

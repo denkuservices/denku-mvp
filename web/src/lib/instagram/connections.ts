@@ -107,6 +107,38 @@ export async function disconnectConnection(orgId: string): Promise<{ ok: boolean
   return { ok: true };
 }
 
+/**
+ * Meta DEAUTHORIZE callback: the user removed the app. Revoke the connection
+ * (clear the token, mark revoked) — but keep the row + webhook events (deauth is
+ * not a data-deletion request; that's a separate callback). Returns the org, if any.
+ */
+export async function revokeByIgUserId(igUserId: string): Promise<{ orgId: string | null }> {
+  const { data } = await supabaseAdmin
+    .from("instagram_connections")
+    .update({ status: "revoked", access_token_encrypted: null, token_expires_at: null })
+    .eq("ig_user_id", igUserId)
+    .select("org_id")
+    .maybeSingle<{ org_id: string }>();
+  return { orgId: data?.org_id ?? null };
+}
+
+/**
+ * Meta DATA DELETION callback: hard-delete everything tied to an IG account —
+ * the connection row and its persisted webhook events. Returns the org, if any.
+ */
+export async function purgeByIgUserId(igUserId: string): Promise<{ orgId: string | null }> {
+  const { data } = await supabaseAdmin
+    .from("instagram_connections")
+    .select("org_id")
+    .eq("ig_user_id", igUserId)
+    .maybeSingle<{ org_id: string }>();
+  const orgId = data?.org_id ?? null;
+
+  await supabaseAdmin.from("instagram_webhook_events").delete().eq("ig_user_id", igUserId);
+  await supabaseAdmin.from("instagram_connections").delete().eq("ig_user_id", igUserId);
+  return { orgId };
+}
+
 /** For the refresh job: connections with a decryptable token nearing expiry. */
 export async function getRefreshableConnections(withinDays = 10): Promise<
   { orgId: string; accessToken: string }[]

@@ -78,6 +78,11 @@
   `processed` (default false — reserved for a FUTURE processor), `received_at`. **RLS enabled, NO
   policies → service-role only** (raw payloads may contain PII). Migration:
   `supabase/migrations/20260708120000_instagram_foundation.sql`.
+- **`instagram_data_deletion_requests`** — Meta data-deletion status tracking (compliance):
+  `confirmation_code` (unique), `ig_user_id`, `org_id`, `status`
+  ('received'|'completed'|'failed'), `requested_at`, `completed_at`. RLS enabled, no policies
+  (service-role only; the public status page reads by exact code). Migration:
+  `supabase/migrations/20260708130000_instagram_data_deletion.sql`.
 
 ### Ops
 - **`webhook_debug`** — raw webhook capture: `source` (NOT NULL — always set 'vapi'), `headers`,

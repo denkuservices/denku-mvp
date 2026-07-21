@@ -51,7 +51,24 @@ verification is **enforced from day one** (no staged rollout).
 ⚠ **Landmine:** signature verification needs the exact raw bytes — always `await req.text()` and
 verify **before** `JSON.parse`. Don't read the body as JSON first.
 
-## Data model (both RLS-locked, service-role only)
+## Meta compliance callbacks (`signed_request`, not X-Hub-Signature)
+
+Required by Meta for Business Login / App Review. Both parse a Meta `signed_request`
+(`lib/instagram/signedRequest.ts` — base64url `sig.payload`, HMAC-SHA256 with the **app secret**,
+constant-time) — a **different** mechanism from the webhook's `X-Hub-Signature-256`.
+
+- `POST /api/instagram/deauthorize` — user removed the app → `revokeByIgUserId` (clear token, mark
+  revoked; keeps the row + events). Returns 200.
+- `POST /api/instagram/data-deletion` — user requested deletion → `purgeByIgUserId` (hard-delete the
+  connection **and** its persisted webhook events), records a status row, and returns Meta's required
+  `{ url, confirmation_code }`. The `url` → the public status page
+  `/(marketing)/instagram-data-deletion?code=…` (`getDeletionStatus`, service-role read by code).
+
+Both are unauthenticated by session (Meta calls them) and verified by the signed_request signature.
+Business Login settings: deauthorize `…/api/instagram/deauthorize`, data-deletion
+`…/api/instagram/data-deletion`.
+
+## Data model (all RLS-locked, service-role only)
 
 - **`instagram_connections`** — one per org (`unique(org_id)`): `ig_user_id`, `username`,
   `account_type`, `access_token_encrypted` (never plaintext), `token_expires_at`, `scopes`,
@@ -59,6 +76,9 @@ verify **before** `JSON.parse`. Don't read the body as JSON first.
 - **`instagram_webhook_events`** — raw persisted events: `org_id`(nullable), `object`, `entry_id`,
   `ig_user_id`, `event_type`, `payload jsonb`, `headers`, `signature_valid`, `processed`(default
   false), `received_at`.
+- **`instagram_data_deletion_requests`** — Meta data-deletion status tracking: `confirmation_code`
+  (unique), `ig_user_id`, `org_id`, `status` (`received|completed|failed`), `requested_at`,
+  `completed_at`. Migration `20260708130000_instagram_data_deletion.sql`.
 
 Both have **RLS enabled with NO policies** → only the service-role client can touch them (mirrors
 `webhook_debug`). The dashboard reads a **token-free** `PublicConnection` view only.

@@ -157,7 +157,10 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     *before* `JSON.parse`. Unlike the Vapi webhook, Meta always signs, so it enforces from day one.
     Instagram creds are **per-tenant, encrypted** (`instagram_connections`, service-role only; token
     via `lib/crypto/secretBox.ts`) — never a global account. Don't add reply/AI logic here (future
-    epics). See `skills/instagram-integration.md`.
+    epics). Meta's **deauthorize** + **data-deletion** callbacks (`/api/instagram/deauthorize`,
+    `/api/instagram/data-deletion`) use a `signed_request` (`lib/instagram/signedRequest.ts`) —
+    a *different* mechanism from the webhook's `X-Hub-Signature-256`. See
+    `skills/instagram-integration.md`.
 
 ## Design system (per-surface, do not cross-contaminate)
 
