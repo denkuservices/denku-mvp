@@ -152,6 +152,12 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    unversioned means what customers are charged can't be reviewed/tested from the repo (R-075).
 10. **Supabase MCP in this workspace points at the WRONG project** ("BondAI"). Do not trust MCP
     `list_tables` for Denku; infer schema from code / `skills/database-schema.md`.
+11. **Instagram webhook (`/api/webhooks/instagram`, Sprint 1.5) is RECEIVE-ONLY** and its signature
+    check needs the **raw body** — always `await req.text()` and verify `X-Hub-Signature-256`
+    *before* `JSON.parse`. Unlike the Vapi webhook, Meta always signs, so it enforces from day one.
+    Instagram creds are **per-tenant, encrypted** (`instagram_connections`, service-role only; token
+    via `lib/crypto/secretBox.ts`) — never a global account. Don't add reply/AI logic here (future
+    epics). See `skills/instagram-integration.md`.
 
 ## Design system (per-surface, do not cross-contaminate)
 
@@ -192,6 +198,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
   checklist, definition of done. What to build right now. Update task status as you ship (the
   roadmap holds the full backlog; the sprint holds only what's in flight).
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
+- `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
 - `skills/auth-and-tenancy.md` — auth flows, middleware, org model, the two admin worlds

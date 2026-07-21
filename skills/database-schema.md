@@ -67,6 +67,18 @@
   derived), **`billing_org_addons`**, **`billing_invoice_runs`**, **`billing_overage_state`**.
   Stripe customer mapping lives with the org (managed by `ensureStripeCustomer`).
 
+### Instagram (channel foundation — Sprint 1.5; see skills/instagram-integration.md)
+- **`instagram_connections`** — one Instagram Business connection per org (`unique(org_id)`):
+  `ig_user_id`, `username`, `account_type`, `access_token_encrypted` (AES-256-GCM packed, never
+  plaintext), `token_expires_at`, `scopes text[]`, `status` ('connected'|'revoked'|'error'),
+  `last_refreshed_at`, `connected_by`, `meta jsonb`, timestamps. **RLS enabled, NO policies →
+  service-role only** (holds OAuth tokens).
+- **`instagram_webhook_events`** — raw persisted inbound events: `org_id` (nullable, best-effort),
+  `object`, `entry_id`, `ig_user_id`, `event_type`, `payload jsonb`, `headers`, `signature_valid`,
+  `processed` (default false — reserved for a FUTURE processor), `received_at`. **RLS enabled, NO
+  policies → service-role only** (raw payloads may contain PII). Migration:
+  `supabase/migrations/20260708120000_instagram_foundation.sql`.
+
 ### Ops
 - **`webhook_debug`** — raw webhook capture: `source` (NOT NULL — always set 'vapi'), `headers`,
   `body`/`raw_payload`, `event_type`, `vapi_call_id`, `org_id`, `agent_id`, `direction`,

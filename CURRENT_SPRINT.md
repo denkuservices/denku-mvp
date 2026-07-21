@@ -8,6 +8,13 @@
 
 **Sprint 2 · Prepared 2026-07-08 · Status: 🟡 `PROPOSED — awaiting approval`**
 
+> ℹ️ **Sprint 1.5 (Instagram Foundation) shipped 2026-07-08** — an inserted infrastructure sprint
+> (Instagram OAuth + per-tenant encrypted creds + receive-only webhook + dashboard), code-complete
+> and operator-gated. Review: [`docs/SPRINT_1.5_REVIEW.md`](docs/SPRINT_1.5_REVIEW.md); mechanics:
+> `skills/instagram-integration.md`; setup: `docs/INSTAGRAM_SETUP.md`. It did **not** change the
+> Voice roadmap or introduce a generic multi-channel abstraction. **Sprint 2 below is unchanged and
+> remains the proposed next sprint.**
+
 > ⚠️ **This sprint is PREPARED, not started.** It was drafted automatically from the roadmap after
 > Sprint 1 closed (per the charter's Sprint Lifecycle ritual). **No implementation begins until the
 > owner explicitly approves** — and may adjust scope first. Sprint 1 (Security & Trust Foundation)

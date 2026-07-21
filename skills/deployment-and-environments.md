@@ -71,6 +71,17 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
   `NEXT_PUBLIC_SITE_URL`; localhost/`VERCEL_URL` are refused (returns "" → no server set). **Set
   this in Vercel** to the canonical prod origin so new assistants get a correct webhook URL.
 
+### Instagram (Meta) — channel foundation (Sprint 1.5)
+- `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` — Meta/Instagram app creds. App secret also verifies
+  webhook `X-Hub-Signature-256`.
+- `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` — echoed-challenge token for the webhook GET handshake.
+- `INSTAGRAM_OAUTH_REDIRECT_URI` — must byte-match the Meta app's OAuth redirect (use the `www`
+  canonical host; apex 307-redirects and drops OAuth params).
+- `INSTAGRAM_TOKEN_ENCRYPTION_KEY` — 32-byte base64/hex key; AES-256-GCM for stored tokens
+  (`lib/crypto/secretBox.ts`). Rotating it makes existing stored tokens undecryptable.
+- `INSTAGRAM_SCOPES` — optional override (default `instagram_business_basic,instagram_business_manage_messages`).
+- Full setup: `docs/INSTAGRAM_SETUP.md`; mechanics: `skills/instagram-integration.md`.
+
 ### Email (Resend)
 - `RESEND_API_KEY` — optional; without it all email helpers no-op with `{ ok, skipped }`
   ("domainless beta" mode).

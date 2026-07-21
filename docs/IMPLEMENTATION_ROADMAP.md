@@ -5,7 +5,7 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (**Sprint 1 CLOSED** — 9 IDs Completed, R-001 In Progress; review in `docs/SPRINT_1_REVIEW.md`) · **Next free ID:** R-078
+> **Last updated:** 2026-07-08 (**Sprint 1.5 (Instagram Foundation) shipped** — infra feature work, no `R-###` findings closed; review in `docs/SPRINT_1.5_REVIEW.md`. Sprint 1 CLOSED with 9 IDs Completed, R-001 In Progress) · **Next free ID:** R-078
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
