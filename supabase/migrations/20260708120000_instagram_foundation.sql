@@ -6,8 +6,10 @@
 -- SECURITY: both tables hold sensitive data (OAuth tokens; raw inbound events).
 -- RLS is ENABLED with NO policies, so ONLY the service-role client (which bypasses
 -- RLS) can read/write them — the anon/authenticated PostgREST roles are denied by
--- default. This mirrors `webhook_debug`. Access tokens are ALSO encrypted at the
--- application layer (AES-256-GCM) before insert — see lib/crypto/secretBox.ts.
+-- default. (NOTE: the live `webhook_debug` table currently has RLS DISABLED — a
+-- separate pre-existing gap, R-060 — so these tables are correctly locked, unlike it.)
+-- Access tokens are ALSO encrypted at the application layer (AES-256-GCM) before
+-- insert — see lib/crypto/secretBox.ts.
 --
 -- Idempotent DDL (safe to re-run).
 
@@ -46,10 +48,21 @@ alter table public.instagram_connections enable row level security;
 -- Intentionally NO policies: service-role only (bypasses RLS). Do not add
 -- permissive anon/authenticated policies — this table holds OAuth credentials.
 
+-- Self-contained updated_at trigger. NOTE: there is no shared
+-- `public.update_updated_at_column()` in this DB (it exists only in the `storage`
+-- schema), so this migration defines its own Instagram-scoped helper.
+create or replace function public.instagram_set_updated_at()
+  returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_instagram_connections_updated_at on public.instagram_connections;
 create trigger trg_instagram_connections_updated_at
   before update on public.instagram_connections
-  for each row execute function public.update_updated_at_column();
+  for each row execute function public.instagram_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- instagram_webhook_events: raw inbound events, persisted for debugging and

@@ -560,6 +560,16 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
 - **Recommended solution:** Add RLS safety-net policies on tenant tables that can afford it; adopt
   a scoped-query helper (`orgScoped(table, orgId)`) so an unscoped query is hard to write; keep
   service-role only where genuinely needed.
+- **Confirmed live (2026-07-08, via Supabase MCP against the prod DB):** Supabase's own advisor
+  flags **10 public tables with RLS DISABLED** — fully exposed to the anon/authenticated
+  PostgREST roles (anyone with the public anon key can read/write every row):
+  `orgs`, `webhook_debug`, `audit_log_changes`, `personas`, `persona_tools`, `org_plan_overrides`,
+  `billing_stripe_customers`, `billing_stripe_prices`, `billing_invoice_runs`,
+  `onboarding_activation_lock`. `orgs` being open is a direct cross-tenant read/write exposure;
+  `webhook_debug` being open contradicts what `skills/database-schema.md` claimed. **This is the
+  concrete, worse-than-inferred form of R-060.** ⚠ Enable-only is not the fix (blocks the app) —
+  needs enable **+ policies**. Deferred by owner to a dedicated security sprint; the new Instagram
+  tables are, by contrast, correctly RLS-locked.
 
 ## MEDIUM
 

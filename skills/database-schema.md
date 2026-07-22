@@ -110,6 +110,9 @@
   not reliable. Number every new migration.
 - House style: idempotent DDL (`IF NOT EXISTS`, `DROP POLICY IF EXISTS` + recreate,
   `ON CONFLICT DO UPDATE` seeds) — keep it; migrations get re-run.
-- `update_updated_at_column()` trigger function is shared; reuse it for new `updated_at` columns.
+- ⚠ **There is NO `public.update_updated_at_column()`** in the live DB — it exists only in the
+  `storage` schema (confirmed 2026-07-08; a prod migration failed on the wrong assumption). Do NOT
+  reference it for new `updated_at` triggers; define a table-scoped helper in the migration instead
+  (e.g. the Instagram foundation migration defines `public.instagram_set_updated_at()`).
 - **Before relying on any column not listed here, grep the code for it.** The DB has drifted and
   this doc can too. High-value TODO: snapshot the live schema into a baseline migration.
