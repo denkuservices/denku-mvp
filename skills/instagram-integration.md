@@ -29,6 +29,23 @@ directly, no Facebook Page step). Endpoints/config in `lib/instagram/config.ts`.
 Errors always redirect back to `/dashboard/instagram?error=<code>` (friendly copy in the card) —
 never a stack trace.
 
+## Webhook subscription (REQUIRED for delivery)
+
+After OAuth, Meta delivers **no** events until the account is subscribed to the app's webhooks via
+`POST /{ig-user-id}/subscribed_apps` — this is separate from granting permissions. The OAuth
+callback now does this automatically (`lib/instagram/subscribe.ts#subscribeInstagramAccount`),
+subscribing only the fields the granted scopes back (`subscribedFieldsForScopes`: `messages` ←
+`…manage_messages`, `comments` ← `…manage_comments`). Result is recorded in the connection's `meta`
+jsonb (`webhook_subscribed`, `subscribed_fields`, or `subscribe_error`).
+
+- **Backfill (no reconnect):** `POST /api/instagram/subscribe` (Basic Auth) subscribes every
+  already-connected account. Idempotent; returns per-org `{ ok, fields, error }`. Use it for
+  accounts connected before this shipped.
+- **Two-sided requirement:** the app must ALSO have the field subscribed at the **app level** in the
+  Meta dashboard (Instagram → Webhooks). Account-level `subscribed_apps` + app-level field
+  subscription must both be present. Comments need the `instagram_business_manage_comments` scope
+  (reconnect to add it).
+
 ## Token refresh
 
 Long-lived IG tokens last ~60 days and are refreshable. `POST /api/instagram/refresh` (Basic Auth,

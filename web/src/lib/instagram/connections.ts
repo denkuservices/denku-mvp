@@ -162,6 +162,51 @@ export async function getRefreshableConnections(withinDays = 10): Promise<
   return out;
 }
 
+/** Internal: decrypted token + scopes + ig id for an org's connection (webhook subscribe). */
+export async function getConnectionSecret(
+  orgId: string
+): Promise<{ igUserId: string; accessToken: string; scopes: string[] } | null> {
+  const { data } = await supabaseAdmin
+    .from("instagram_connections")
+    .select("ig_user_id, access_token_encrypted, scopes")
+    .eq("org_id", orgId)
+    .eq("status", "connected")
+    .maybeSingle<{ ig_user_id: string; access_token_encrypted: string | null; scopes: string[] | null }>();
+  if (!data?.access_token_encrypted) return null;
+  try {
+    return {
+      igUserId: String(data.ig_user_id),
+      accessToken: decryptSecret(data.access_token_encrypted),
+      scopes: data.scopes ?? [],
+    };
+  } catch {
+    return null; // undecryptable (e.g. rotated key)
+  }
+}
+
+/** All connected orgs (for the subscribe backfill). */
+export async function listConnectedOrgIds(): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("instagram_connections")
+    .select("org_id")
+    .eq("status", "connected");
+  return (data ?? []).map((r) => String(r.org_id));
+}
+
+/**
+ * Record the webhook-subscription result into the existing `meta` jsonb (no schema
+ * change). `meta` currently has no other writer, so a direct overwrite is safe.
+ */
+export async function recordSubscriptionResult(
+  orgId: string,
+  result: { ok: boolean; fields: string[]; error?: string }
+): Promise<void> {
+  const meta = result.ok
+    ? { webhook_subscribed: true, subscribed_fields: result.fields, subscribed_at: new Date().toISOString() }
+    : { webhook_subscribed: false, subscribe_error: result.error ?? "unknown", subscribe_attempted_at: new Date().toISOString() };
+  await supabaseAdmin.from("instagram_connections").update({ meta }).eq("org_id", orgId);
+}
+
 /** Persist a refreshed token. */
 export async function saveRefreshedToken(
   orgId: string,

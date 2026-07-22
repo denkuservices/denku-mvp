@@ -9,6 +9,7 @@ import {
   fetchInstagramAccount,
 } from "@/lib/instagram/client";
 import { upsertConnection } from "@/lib/instagram/connections";
+import { subscribeInstagramAccount } from "@/lib/instagram/subscribe";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,16 @@ export async function GET(req: NextRequest) {
     }
 
     console.info("[INSTAGRAM][OAUTH][CONNECTED]", { orgId: sessionOrgId, igUserId: account.id });
+
+    // Subscribe the account to its webhooks (non-fatal — the connection is already
+    // valid; without this Meta delivers no events). Backfillable via /api/instagram/subscribe.
+    const sub = await subscribeInstagramAccount(sessionOrgId);
+    if (sub.ok) {
+      console.info("[INSTAGRAM][OAUTH][SUBSCRIBED]", { orgId: sessionOrgId, fields: sub.fields });
+    } else {
+      console.error("[INSTAGRAM][OAUTH][SUBSCRIBE][FAILED]", { orgId: sessionOrgId, error: sub.error });
+    }
+
     dash.searchParams.set("connected", "1");
     return NextResponse.redirect(dash);
   } catch (err) {

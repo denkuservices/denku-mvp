@@ -58,6 +58,20 @@ become undecryptable** (connections must reconnect). Store it as carefully as an
 project** (the repo can't reach it, and the workspace MCP points at the wrong project — apply via the
 Supabase SQL editor or CLI against the correct project).
 
+## 4b. Webhook subscription (required — or Meta sends nothing)
+
+Two things must both be true for events to arrive:
+1. **App-level field subscription** (Meta dashboard → Instagram → Webhooks): subscribe `messages`
+   (and `comments` if you use it). Confirm they show **Subscribed**.
+2. **Account-level subscription** (`/subscribed_apps`): done automatically on OAuth. For accounts
+   connected *before* this shipped, run the backfill (no reconnect needed):
+   ```
+   curl -X POST https://www.denku.io/api/instagram/subscribe -u "$ADMIN_USER:$ADMIN_PASS"
+   ```
+   Returns `{ ok, total, subscribed, results: [{ orgId, ok, fields, error }] }`.
+   Comments also require the `instagram_business_manage_comments` scope — add it to
+   `INSTAGRAM_SCOPES` and **reconnect** the account.
+
 ## 5. (Optional) Wire the token-refresh cron
 
 Long-lived tokens expire in ~60 days. Add a daily Vercel cron (or GitHub Action) that

@@ -84,6 +84,46 @@ export async function fetchInstagramAccount(accessToken: string): Promise<Instag
   };
 }
 
+/**
+ * Subscribe this app to the connected Instagram account's webhooks
+ * (`POST /{ig-user-id}/subscribed_apps`). Without this, Meta delivers no events
+ * for the account even after OAuth. Meta returns `{ "success": true }`.
+ */
+export async function subscribeAppToWebhooks(
+  igUserId: string,
+  accessToken: string,
+  subscribedFields: string[]
+): Promise<{ ok: boolean; error?: string }> {
+  const form = new URLSearchParams({
+    subscribed_fields: subscribedFields.join(","),
+    access_token: accessToken,
+  });
+  const res = await fetch(`${INSTAGRAM_ENDPOINTS.graph}/${igUserId}/subscribed_apps`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || json?.success === false) {
+    return { ok: false, error: safeErr(json) || `HTTP ${res.status}` };
+  }
+  return { ok: true };
+}
+
+/** Read back the account's current webhook subscriptions (for verification). */
+export async function getSubscribedApps(
+  igUserId: string,
+  accessToken: string
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const u = new URL(`${INSTAGRAM_ENDPOINTS.graph}/${igUserId}/subscribed_apps`);
+  u.searchParams.set("access_token", accessToken);
+  const res = await fetch(u.toString(), { cache: "no-store" });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) return { ok: false, error: safeErr(json) || `HTTP ${res.status}` };
+  return { ok: true, data: json?.data ?? json };
+}
+
 /** Extract a Meta error message without leaking tokens. */
 function safeErr(json: unknown): string {
   const e = (json as { error?: { message?: string; type?: string } } | null)?.error;
