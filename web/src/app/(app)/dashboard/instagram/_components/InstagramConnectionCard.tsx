@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicConnection } from "@/lib/instagram/connections";
-import { disconnectInstagramAction } from "../_actions";
+import { disconnectInstagramAction, subscribeInstagramForCurrentOrgAction } from "../_actions";
 
 const ERROR_COPY: Record<string, string> = {
   not_configured: "Instagram isn't configured on this environment yet. Contact your administrator.",
@@ -36,6 +36,22 @@ export function InstagramConnectionCard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(friendlyError(errorCode));
+
+  // TEMP operator backfill (Sprint 1.5) — remove after webhook path verified.
+  const [subPending, startSubTransition] = useTransition();
+  const [subMsg, setSubMsg] = useState<string | null>(null);
+  const handleSubscribe = () => {
+    setSubMsg(null);
+    startSubTransition(async () => {
+      const res = await subscribeInstagramForCurrentOrgAction();
+      setSubMsg(
+        res.ok
+          ? `Subscribed to webhooks: ${(res.fields ?? []).join(", ") || "(no fields)"}.`
+          : `Subscribe failed: ${res.error ?? "unknown error"}.`
+      );
+      if (res.ok) router.refresh();
+    });
+  };
 
   const isConnected = connection?.status === "connected";
 
@@ -114,6 +130,27 @@ export function InstagramConnectionCard({
         )}
         {!canManage && <span className="text-xs text-zinc-500">Only owners and admins can manage this.</span>}
       </div>
+
+      {/* TEMP operator action (Sprint 1.5) — subscribe this account's webhooks. Remove after verification. */}
+      {isConnected && canManage && (
+        <div className="mt-5 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Operator · temporary</p>
+          <p className="mt-1 text-sm text-zinc-700">
+            Register this account for Instagram webhooks (message/comment delivery).
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSubscribe}
+              disabled={subPending}
+              className="inline-flex items-center rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {subPending ? "Subscribing…" : "Subscribe Connected Instagram Accounts"}
+            </button>
+            {subMsg && <span className="text-sm text-zinc-700">{subMsg}</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
