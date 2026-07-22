@@ -88,3 +88,29 @@ Without it, connections must be manually reconnected before expiry.
 
 Until steps 1–4 are done, the dashboard shows an "Instagram is not configured" notice and the
 Connect button is inert — by design (fail-safe, never fake).
+
+## 6b. Verify the receive pipeline in Development Mode — and the real-delivery gate
+
+**Authoritative Meta rule:** while the app is **unpublished (Development Mode)**, Meta delivers
+**only the dashboard "Test" webhook events**. *No real production data — including from app Admins,
+Developers, or Testers — is delivered until the app is published (Live).* (Meta Instagram Platform →
+Webhooks: *"Apps must be set to Live in the App Dashboard to receive webhook notifications."*) So a
+**real Tester DM will NOT arrive** in Development Mode — this is expected, not a bug.
+
+**What you CAN verify now (and what was verified 2026-07-22):** the full receive pipeline, using
+Meta's **Test webhook**:
+
+1. Meta App Dashboard → **Instagram → Webhooks**: callback = `https://www.denku.io/api/webhooks/instagram`
+   (status **Verified**), and the `messages` field shows **Subscribed** at the app level. Confirm the
+   account is also subscribed at the account level (auto at OAuth / `POST /api/instagram/subscribe`).
+2. Click **Test** on the `messages` webhook field.
+3. Confirm a row in `instagram_webhook_events` (`signature_valid = true`) and a
+   `[INSTAGRAM][WEBHOOK][RECEIVED]` log line. *(The Test payload is synthetic — `entry.id: "0"`, so
+   `org_id` is null and it classifies as `changes`; that is correct. A real DM would arrive in the
+   `messaging` array with the real `ig_user_id` and resolve the org — but only once the app is Live.)*
+4. Benign hardening check: GET with a wrong `hub.verify_token` → **403**; unsigned POST → **401**.
+
+**To receive REAL Instagram DM webhooks you must publish the app**, which for the messaging permission
+requires **Business Verification + App Review (Advanced Access for `instagram_business_manage_messages`)
++ Live Mode**. This is an external Meta platform dependency, not a Denku code issue. Full dossier +
+readiness verdict: `docs/META_APP_REVIEW_PACKAGE.md`.

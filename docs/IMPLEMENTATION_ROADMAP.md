@@ -5,7 +5,14 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-08 (**Sprint 1.5 (Instagram Foundation) shipped** — infra feature work, no `R-###` findings closed; review in `docs/SPRINT_1.5_REVIEW.md`. Sprint 1 CLOSED with 9 IDs Completed, R-001 In Progress) · **Next free ID:** R-078
+> **Last updated:** 2026-07-22 (**Sprint 1.5 (Instagram Foundation) CLOSED** — code-complete; the
+> receive pipeline is **operationally verified in production** via Meta's signed Test webhook.
+> **Authoritative Meta rule:** unpublished (Dev Mode) apps receive **only dashboard Test events** — no
+> real production data (incl. Testers) until **published/Live**; real Instagram DM webhooks require
+> **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
+> Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
+> Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-080
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -26,9 +33,11 @@
 |---|---|---|---|---|
 | Critical | 8 | 1 | 6 | 15 |
 | High | 18 | 0 | 1 | 19 |
-| Medium | 33 | 0 | 2 | 35 |
-| Low | 8 | 0 | 0 | 8 |
-| **Total** | **67** | **1** | **9** | **77** |
+| Medium | 34 | 0 | 2 | 36 |
+| Low | 9 | 0 | 0 | 9 |
+| **Total** | **69** | **1** | **9** | **79** |
+
+*(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
 **Do-first shortlist (post-Sprint-1, 2026-07-08):** Sprint 1 closed the same-day security items and
 the in-product truth pass (R-001 staged, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056,
@@ -983,6 +992,21 @@ terminology sweep.)
 - **Recommended solution:** Settle one customer-facing noun ("AI employee"), enforce everywhere
   outside the Settings/Advanced carve-out, document as a rule.
 
+### R-079 — Instagram OAuth persists requested scopes, not granted scopes
+**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** — (filed 2026-07-22, Sprint 1.5 closure)
+- **Business impact:** If a user grants a subset of the requested Instagram permissions, Denku
+  records the *configured* scope list as if fully granted. `subscribedFieldsForScopes` then tries to
+  subscribe to a webhook field whose scope was not actually granted, failing the whole
+  `/subscribed_apps` call — so the account silently receives no events, and the stored `scopes`
+  misrepresent the connection.
+- **Technical impact:** `api/instagram/oauth/callback/route.ts` sets
+  `scopes = getInstagramConfig().scopes.split(...)` (the requested list). The short-lived token
+  exchange already returns the **granted** `permissions` (`client.ts#exchangeCodeForToken` →
+  `ShortLivedToken.permissions`), but it is unused.
+- **Dependencies:** None.
+- **Recommended solution:** Persist `short.permissions` (the granted scopes) when present, falling
+  back to the configured list only if Meta omits them; add a test for the partial-grant case.
+
 ## LOW
 
 ### R-038 — Voice picker with audio previews in onboarding
@@ -1052,3 +1076,17 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
 - **Dependencies:** R-004 (stop selling it first), R-010 (roles foundation), R-037.
 - **Recommended solution:** Sequence only when enterprise pipeline is real; start with 2FA +
   audit-log coverage + data export.
+
+### R-078 — Remove the TEMP Instagram webhook-subscribe button
+**Priority:** Low · **Status:** Open · **Effort:** S · **Related audit:** — (filed 2026-07-22, Sprint 1.5 closure)
+- **Business impact:** A user-facing dashboard control marked "Operator · temporary" is committed to
+  `main` (`5e15d60`). It works and is org-scoped (owner/admin, own org only), but leaving temporary
+  operator scaffolding in the customer product is the kind of "unfinished" surface Sprint 1 spent
+  effort removing (R-012/R-046). Low urgency; do not forget it.
+- **Technical impact:** `dashboard/instagram/_components/InstagramConnectionCard.tsx` (the amber
+  "Operator · temporary" block) + `dashboard/instagram/_actions.ts#subscribeInstagramForCurrentOrgAction`.
+  Both self-marked TEMPORARY for a clean revert. The Basic-Auth `POST /api/instagram/subscribe`
+  backfill remains the permanent operator path.
+- **Dependencies:** Do it after the Dev-Mode webhook verification (Sprint 1.5 closure §c) confirms
+  the subscription path works — the button exists to enable that verification without a terminal.
+- **Recommended solution:** Revert the two TEMP blocks; keep the Basic-Auth endpoint.

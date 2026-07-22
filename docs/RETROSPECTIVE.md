@@ -170,6 +170,43 @@ The first *execution* pass (not audit) against the do-first shortlist. Full revi
   code-complete sprint reads as "not done." Future sprint DoDs should state which items are
   engineer-closable and which are operator-gated up front.
 
+## 10. Sprint 1.5 closure retrospective (2026-07-22)
+
+Instagram Foundation (inserted infra sprint). Full review + closure: `docs/SPRINT_1.5_REVIEW.md`.
+What closing it taught us, feeding back into §1–8:
+
+- **A real external gate I briefly mis-called — then reconfirmed by first-party evidence.** The open
+  DoD item was "Meta withholds real webhook delivery until Live Mode." I first *dismissed* it, citing
+  community forums that said Dev Mode delivers for **Tester** accounts — and told the owner the
+  receive path was testable without App Review. Production then refuted me: Meta's **Test** webhook
+  delivered and flowed end-to-end, but a **real** Tester DM was **never delivered**. Meta's App
+  Dashboard banner and Instagram Platform → Webhooks docs confirm the authoritative rule: *unpublished
+  apps receive only dashboard Test events; no real data (incl. Testers) until published/Live.* So the
+  gate was **real**, not dissolved. Two lessons, both sharper than Sprint 1's: (1) **first-party
+  sources (the platform's own docs/dashboard) outrank community forums** — the forums described the
+  older Facebook-Login Instagram flow and were simply wrong for ours; I should have led with Meta's
+  docs. (2) **Runtime probing is still what settled it** — the Test-vs-real delivery split was the
+  decisive evidence. The instinct to probe was right; the initial hypothesis, sourced from the wrong
+  place, was not. **Net: probe AND anchor on authoritative sources; a confident answer from a
+  secondary source is still a guess.**
+- **App Review judges demonstrable use, which a foundation sprint can't provide.** A new, non-obvious
+  insight: `instagram_business_manage_messages` is graded on *visible, user-facing* messaging
+  behavior with an opt-out/human-escalation path. Sprint 1.5 was deliberately receive-only, so the
+  permission's use is **not demonstrable** — the app is not a strong submission for it yet.
+  **Generalizes:** an infrastructure/foundation sprint can complete its own scope while remaining
+  un-submittable for the platform review that the *feature* sprint on top of it will need. Don't let
+  "foundation shipped" imply "platform-approved."
+- **Verification-enablement gap persists (§9), and produced committed debt.** Because the operator has
+  no terminal and the workspace can't reach prod, closing the loop required a **TEMP dashboard button**
+  (R-078) shipped to `main` just to run a backfill. This is the §9 "the local env can't reach prod"
+  cost showing up as product debt. The Sprint-2 process fix (real dashboard/staging access) would
+  have avoided it; until then, expect closure work to leak temporary scaffolding — file it as debt
+  immediately (done: R-078).
+- **Reading the code at closure caught a latent correctness bug (R-079).** The architecture review
+  found the OAuth callback stores *requested* not *granted* scopes — invisible to tests that assume a
+  full grant, live only under a partial-grant. Confirms §8: pair "found by reading" with the runtime
+  case that would actually trip it (partial permission grant), and add the test.
+
 ---
 
 *Living document. If a future contributor verifies (or refutes) an assumption here, update this

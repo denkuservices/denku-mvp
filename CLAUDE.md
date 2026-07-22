@@ -160,7 +160,20 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     epics). Meta's **deauthorize** + **data-deletion** callbacks (`/api/instagram/deauthorize`,
     `/api/instagram/data-deletion`) use a `signed_request` (`lib/instagram/signedRequest.ts`) —
     a *different* mechanism from the webhook's `X-Hub-Signature-256`. See
-    `skills/instagram-integration.md`.
+    `skills/instagram-integration.md`. **Sprint 1.5 CLOSED 2026-07-22** — code-complete AND the
+    receive pipeline is **operationally verified in production** via Meta's signed **Test** webhook
+    (delivery → signature verify → persist → 200, observed in DB + Vercel logs). Facts to carry
+    forward: (a) **AUTHORITATIVE Meta rule** — while the app is **unpublished (Dev Mode)** Meta
+    delivers **only dashboard Test events**; NO real production data (incl. from Admins/Developers/
+    **Testers**) is delivered until the app is **published (Live)**. Real Instagram DM webhooks
+    therefore require **Business Verification + App Review (Advanced Access for
+    `instagram_business_manage_messages`) + Live Mode** — an external Meta dependency, NOT a Denku
+    defect. (An earlier note here wrongly claimed Dev-Mode Tester delivery — that was the older
+    Facebook-Login flow; corrected.) The receive-only foundation is also NOT a strong App Review
+    submission for the messaging permission yet (no messaging UI) — dossier + verdict in
+    `docs/META_APP_REVIEW_PACKAGE.md`. (b) Open Instagram debt: **R-078** (a TEMP dashboard subscribe
+    button in `InstagramConnectionCard`, remove after verification) and **R-079** (OAuth stores
+    requested not granted scopes).
 
 ## Design system (per-surface, do not cross-contaminate)
 

@@ -46,6 +46,42 @@ jsonb (`webhook_subscribed`, `subscribed_fields`, or `subscribe_error`).
   subscription must both be present. Comments need the `instagram_business_manage_comments` scope
   (reconnect to add it).
 
+### Development Mode vs Live: real webhook delivery is gated (authoritative)
+
+**While the app is unpublished (Development Mode), Meta delivers ONLY the dashboard "Test" webhook
+events. No real production data — including from app Admins, Developers, or Testers — is delivered
+until the app is published (Live).** Meta first-party sources: the App Dashboard banner (*"…No
+production data, including from app admins, developers or testers, will be delivered unless the app
+has been published."*) and Instagram Platform → Webhooks (*"Apps must be set to Live in the App
+Dashboard to receive webhook notifications."*).
+
+**Verified against Denku production 2026-07-22:** Meta's signed **Test webhook** completed the full
+pipeline (delivery → `X-Hub-Signature-256` verify → persist → `[INSTAGRAM][WEBHOOK][RECEIVED]` → 200,
+observed in DB + Vercel logs) — the **infrastructure is operationally verified**. A **real** Tester
+DM (@adkirikci → @minosandco) was **never delivered** — exactly as the rule predicts. So real
+Instagram DM delivery requires **Business Verification + App Review (Advanced Access for
+`instagram_business_manage_messages`) + a published/Live app** — an **external Meta platform
+dependency, not a Denku defect.** Dossier: `docs/META_APP_REVIEW_PACKAGE.md`; setup + Test-webhook
+procedure: `docs/INSTAGRAM_SETUP.md` §6b.
+
+⚠️ **Do not repeat the earlier mistake:** community forums (n8n/Bubble) claim Dev Mode delivers for
+Tester interactions — that describes the **older Instagram-via-Facebook-Login** flow and is **wrong**
+for the Instagram-API-with-Instagram-Login flow here. Trust the Meta first-party sources above.
+
+⚠️ App Review also judges **demonstrable, user-visible** use of a permission; the receive-only
+foundation has no messaging UI, so `instagram_business_manage_messages` is **not a strong submission
+yet** — that surface is future messaging-epic work.
+
+⚠️ **Scopes caveat (R-079):** the OAuth callback stores the *requested* scope list, not the scopes
+Meta actually *granted* (`exchangeCodeForToken` returns `permissions`, currently unused). A partial
+grant would store wrong scopes and make `subscribedFieldsForScopes` request an unbacked field,
+failing the whole `/subscribed_apps` call. Persist the granted permissions when fixing.
+
+⚠️ **TEMP button (R-078):** `InstagramConnectionCard` currently renders an "Operator · temporary"
+subscribe button (commit `5e15d60`) because the operator has no terminal. Remove it (clean revert)
+after the Dev-Mode verification passes; the Basic-Auth `POST /api/instagram/subscribe` is the
+permanent operator path.
+
 ## Token refresh
 
 Long-lived IG tokens last ~60 days and are refreshable. `POST /api/instagram/refresh` (Basic Auth,

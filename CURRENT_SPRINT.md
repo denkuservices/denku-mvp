@@ -8,12 +8,24 @@
 
 **Sprint 2 · Prepared 2026-07-08 · Status: 🟡 `PROPOSED — awaiting approval`**
 
-> ℹ️ **Sprint 1.5 (Instagram Foundation) shipped 2026-07-08** — an inserted infrastructure sprint
-> (Instagram OAuth + per-tenant encrypted creds + receive-only webhook + dashboard), code-complete
-> and operator-gated. Review: [`docs/SPRINT_1.5_REVIEW.md`](docs/SPRINT_1.5_REVIEW.md); mechanics:
-> `skills/instagram-integration.md`; setup: `docs/INSTAGRAM_SETUP.md`. It did **not** change the
-> Voice roadmap or introduce a generic multi-channel abstraction. **Sprint 2 below is unchanged and
-> remains the proposed next sprint.**
+> ℹ️ **Sprint 1.5 (Instagram Foundation) CLOSED 2026-07-22** (shipped 2026-07-08) — an inserted
+> infrastructure sprint (Instagram OAuth + per-tenant encrypted creds + receive-only webhook +
+> dashboard + Meta compliance callbacks + `/subscribed_apps`), **code-complete, architecturally
+> sound, CI-green (58 tests)**. Review + Closure addendum: [`docs/SPRINT_1.5_REVIEW.md`](docs/SPRINT_1.5_REVIEW.md);
+> mechanics: `skills/instagram-integration.md`; setup: `docs/INSTAGRAM_SETUP.md`; App Review dossier:
+> [`docs/META_APP_REVIEW_PACKAGE.md`](docs/META_APP_REVIEW_PACKAGE.md).
+>
+> **Operationally verified (2026-07-22):** the receive pipeline was confirmed **in production** via
+> Meta's signed **Test** webhook — delivery → `X-Hub-Signature-256` verify → persist → 200, observed
+> in the prod DB + Vercel logs. **Authoritative Meta rule (corrects an earlier note):** while the app
+> is **unpublished (Dev Mode)** Meta delivers **only dashboard Test events** — NO real production data,
+> incl. from Testers, until the app is **published (Live)**. So real Instagram DM delivery is gated on
+> **Business Verification + App Review (Advanced Access) + Live Mode** — an **external Meta platform
+> dependency, not a Denku defect**, and the receive-only foundation is also not a strong App-Review
+> submission for the messaging permission yet (no messaging UI). Follow-ups filed: **R-078** (remove
+> TEMP subscribe button), **R-079** (store granted scopes).
+> It did **not** change the Voice roadmap or introduce a generic multi-channel abstraction.
+> **Sprint 2 below is unchanged and remains the proposed next sprint.**
 
 > ⚠️ **This sprint is PREPARED, not started.** It was drafted automatically from the roadmap after
 > Sprint 1 closed (per the charter's Sprint Lifecycle ritual). **No implementation begins until the
