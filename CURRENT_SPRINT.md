@@ -47,6 +47,12 @@ identity — and clean up the email-sender inconsistency that was masking broken
   onboarding "Setup required" card (raw `error.message`). 7 new tests (85 total green); build green.
   Roadmap R-021 → Completed.
 
+- **2026-07-23 — R-062 (toast system) shipped.** Dependency-free `ToastProvider`/`useToast`
+  (auto-dismiss, portal, `aria-live` for SR announcements), mounted in `dashboard/layout.tsx`.
+  Converted `InviteMemberForm` off the jarring `window.location.reload()` → `toast + router.refresh`
+  with `safeErrorMessage`. Blanket per-mutation rollout is incremental. 85 tests; build green.
+  Roadmap R-062 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

@@ -1,23 +1,24 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast/ToastProvider";
+import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 
 export function InviteMemberForm() {
+  const router = useRouter();
+  const { success, error: toastError } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "owner">("admin");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
     if (!email.trim()) {
-      setError("Email is required");
+      toastError("Email is required");
       return;
     }
 
@@ -32,19 +33,18 @@ export function InviteMemberForm() {
         const data = await res.json();
 
         if (!res.ok) {
-          setError(data.error || "Failed to send invite");
+          if (data?.error) console.error("[MEMBERS][INVITE_FAILED]", data.error);
+          toastError(safeErrorMessage(data?.error, "Failed to send invite"));
           return;
         }
 
-        setSuccess(data.message || "Invite sent successfully");
+        success(data.message || "Invite sent successfully");
         setEmail("");
         setIsOpen(false);
-        // Refresh page after a short delay to show updated member list
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        router.refresh(); // Show updated member list without a full reload
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send invite");
+        console.error("[MEMBERS][INVITE_ERROR]", err);
+        toastError(safeErrorMessage(err, "Failed to send invite"));
       }
     });
   };
@@ -70,8 +70,6 @@ export function InviteMemberForm() {
           onClick={() => {
             setIsOpen(false);
             setEmail("");
-            setError(null);
-            setSuccess(null);
           }}
           className="text-xs text-zinc-600 hover:text-zinc-900"
         >
@@ -88,10 +86,7 @@ export function InviteMemberForm() {
             id="invite-email"
             type="email"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError(null);
-            }}
+            onChange={(e) => setEmail(e.target.value)}
             disabled={isPending}
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-50"
             placeholder="user@example.com"
@@ -114,18 +109,6 @@ export function InviteMemberForm() {
             <option value="owner">Owner</option>
           </select>
         </div>
-
-        {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-2">
-            <p className="text-xs text-red-600">{error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="rounded-md border border-green-200 bg-green-50 p-2">
-            <p className="text-xs text-green-600">{success}</p>
-          </div>
-        )}
 
         <Button
           type="submit"

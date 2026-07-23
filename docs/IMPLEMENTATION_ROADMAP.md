@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 16 | 0 | 3 | 19 |
-| Medium | 31 | 0 | 6 | 37 |
+| Medium | 30 | 0 | 7 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **62** | **1** | **17** | **80** |
+| **Total** | **61** | **1** | **18** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -1069,7 +1069,7 @@ terminology sweep.)
   cleanup stays under R-048.
 
 ### R-062 — No consistent feedback/confirmation model for actions
-**Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 05
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; primitive shipped + first adoption, blanket rollout incremental) · **Effort:** M · **Related audit:** 05
 - **Business impact:** "Did my action work?" is answered differently on every screen — bespoke
   local toasts (`PhoneLinesClient`), `window.location.reload()` (invite form, jarring), or silence.
   Destructive actions inconsistently guarded. Reads as unpolished; premium tools have one feedback
@@ -1078,6 +1078,16 @@ terminology sweep.)
 - **Dependencies:** Pairs with R-021 (error half).
 - **Recommended solution:** Adopt one toast/confirmation primitive; standardize success/failure +
   destructive-confirm across all mutations.
+- **Completed 2026-07-23 (Sprint 3):** built a dependency-free toast primitive
+  `components/ui/toast/ToastProvider.tsx` (`useToast()` → `toast/success/error`; auto-dismiss;
+  portal; **`aria-live="polite"` region** so screen readers announce results — also closes part of
+  R-070/R-071's live-region gap). Mounted once in `dashboard/layout.tsx` so every dashboard mutation
+  can use it. Converted the named jarring site — `InviteMemberForm` — from `window.location.reload()`
+  to `toast.success(...)` + `router.refresh()`, routing its error path through `safeErrorMessage`
+  (R-021). Build green, 85 tests. **Incremental follow-on (tracked here, not blocking):** migrate the
+  remaining ad-hoc mutation feedback (e.g. `PhoneLinesClient` bespoke toasts) to this primitive as
+  those files are touched; add a shared destructive-confirm on top of it. NB: the invite endpoint
+  itself is still broken (Basic-Auth namespace collision, **R-010**) — unchanged here.
 
 ### R-063 — "Agents" managed in two disconnected places
 **Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 05
