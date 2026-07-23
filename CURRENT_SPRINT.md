@@ -6,11 +6,14 @@
 > roadmap entry `Completed` (date + how) in the same change. Sprint lifecycle: `PROJECT_CHARTER.md`
 > → Sprint Lifecycle.
 
-**Sprint 3 · Started 2026-07-23 · Status: 🟢 `IN PROGRESS`**
+**Sprint 3 · Started 2026-07-23 · Status: 🟢 `CODE-COMPLETE — awaiting operator activation`**
 
-> Sprint 2 closed 2026-07-23 (R-011, R-008, R-018 + partial R-034; R-009 deferred). Review:
-> [`docs/SPRINT_2_REVIEW.md`](docs/SPRINT_2_REVIEW.md). Sprint 3 opened by owner direction with
-> **R-080 as Task 1**, then "continue with the remaining Sprint 3 scope."
+> Sprint 2 closed 2026-07-23. Sprint 3 shipped 14 items + 1 partial (R-060) + 1 blocked (R-057); 118
+> tests green; pushed to `origin/main` @ `b2ce62e`. **Final operator runbook to make it fully complete:
+> [`docs/SPRINT_3_ACTIVATION.md`](docs/SPRINT_3_ACTIVATION.md)** (migrations → crons → env flags →
+> verify → rollback). Review + retrospective: [`docs/SPRINT_3_REVIEW.md`](docs/SPRINT_3_REVIEW.md),
+> `docs/RETROSPECTIVE.md §12`. Roadmap re-prioritized (post-Sprint-3 do-next at the top of
+> `docs/IMPLEMENTATION_ROADMAP.md`). **Sprint 4 not started** — awaiting owner confirmation.
 
 ## Sprint Goal
 

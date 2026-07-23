@@ -55,19 +55,37 @@
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
-**Do-first shortlist (post-Sprint-1, 2026-07-08):** Sprint 1 closed the same-day security items and
-the in-product truth pass (R-001 staged, R-002, R-003, R-012, R-037, R-046, R-049, R-050, R-056,
-R-077). **Next: (1) the operator handoff** that finalizes Sprint 1 — rotate `ADMIN_USER`/`ADMIN_PASS`,
-set `VAPI_WEBHOOK_BASE_URL` + run `POST /api/internal/reconcile-vapi-assistants`, place a live test
-call, flip `VAPI_WEBHOOK_AUTH_MODE=enforce`, then enforce CSP (see `docs/SPRINT_1_REVIEW.md` §3).
-**(2) Sprint 2** — the **R-004 truth pass** (marketing, needs counsel) + retention lifeline
-R-008/R-009 + R-011 forgot-password. **(3)** land R-066 (analytics) early so later bets are
-measurable; keep R-057/R-060 (admin identity, RLS backstop) queued now the test foundation exists.
+**RE-PRIORITIZED do-next (post-Sprint-3, 2026-07-23).** Three sprints closed the security/trust
+foundation, the value/notification layer, the code-health + a11y + SEO wave, and the billing
+verifiability chain. **26 completed / 53 open.** What matters now, in order:
+
+- **P0 — Finish Sprint 3 (operator, ~1 session):** run `docs/SPRINT_3_ACTIVATION.md` (apply the RLS +
+  billing migrations, register crons, flip `BILLING_NOTIFICATIONS_ENABLED`, add the reset redirect
+  URL). Turns already-shipped, staged work live. Includes the long-standing Sprint-1 handoff (rotate
+  admin creds, `VAPI_WEBHOOK_BASE_URL` + reconcile, webhook `enforce`, CSP enforce) — which now also
+  gates R-008 activation.
+- **P1 — Unblock the two remaining security items with a STAGING/preview env:** **R-057** (per-operator
+  admin identity — decided, needs staging to flip the middleware auth safely) and **R-060's remaining
+  3 anon-read tables** (`orgs`/`audit_log_changes`/`org_plan_overrides` RLS policies + `orgScoped`
+  helper). Both are blocked *only* on a place to test — the highest-value open risk.
+- **P2 — Measurement, still unbuilt and still blocking:** **R-066** (zero product analytics). Every
+  product/growth bet after this is unmeasurable; do it before optimizing the funnel.
+- **P3 — Trust-surface truth pass:** **R-004** (marketing over-claims — needs **legal counsel**) +
+  **R-010** (broken member invites) + **R-047** (dashboard support dead-end) — a coherent "paid
+  product feels finished" pass.
+- **P4 — Voice-product depth (the core promise):** **R-013** (business-context prompt), **R-019**
+  (real intent detection), **R-016** (recording playback) — the biggest activation/retention levers
+  once the funnel is measurable.
+- **Opportunistic / when-touched:** **R-031** (full-schema baseline — now doable via the live DB,
+  completes verifiability + unblocks R-036), **R-055** (artifact readability), remaining a11y (R-071)
+  and UI-cohesion (R-064/R-027).
 
 **Before acting on any finding, read `docs/EXECUTION_PLAN.md` (implement-now / decide-first /
-external-dependency) and `docs/RETROSPECTIVE.md` (confidence + verify-first).** Notably: R-050 and
-R-001 require confirming live Vapi/prod state before the fix; R-075 requires pulling the real
-billing view before touching billing code.
+external-dependency) and `docs/RETROSPECTIVE.md` (confidence + verify-first).** Live Supabase access
+is **read-only** (target project `kebqwsdguxxjsijahrox`; BondAI is the default — pass the id
+explicitly): inspect + write migration FILES, **never mutate prod schema/data**. Prod-writing changes
+(RLS on anon-read tables, the admin-auth flip) need a **staging/preview env** to verify — don't ship
+them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
 
 ---
 
