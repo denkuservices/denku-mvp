@@ -16,6 +16,7 @@ type Agent = {
   agent_type: string | null;
   first_message: string | null;
   emphasis_points: string[] | null;
+  business_context: Record<string, string> | null;
   system_prompt_override: string | null;
   effective_system_prompt: string | null;
   vapi_assistant_id: string | null;

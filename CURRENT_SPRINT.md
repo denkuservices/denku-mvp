@@ -37,7 +37,7 @@ via a live test-call. Every task is split **engineering-done vs operationally-ve
 - Tests: extend `vapi-assistant-config.test.ts` (voice/transcriber/caps present; `toolIds` never
   dropped; safe defaults). Non-fatal on bad values.
 
-### Task 2 — R-013 (business context)  ·  ⚙️ BACKEND DONE 2026-07-23 (form UI + onboarding step remain)
+### Task 2 — R-013 (business context)  ·  ✅ DONE 2026-07-23 (Settings UI + prompt + live sync; onboarding capture → Sprint 4.5)
 - Migration (additive) for business-context fields + collect in onboarding + editable in Settings →
   Agents + inject into `settings/_lib/prompt-derivation.ts` and Main Line creation in `runActivation`.
 - **Fields (owner-expanded):** business name · services · opening hours · service area · FAQs ·

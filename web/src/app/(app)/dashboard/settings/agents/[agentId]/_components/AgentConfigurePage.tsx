@@ -18,6 +18,7 @@ type Agent = {
   agent_type: string | null;
   first_message: string | null;
   emphasis_points: string[] | null;
+  business_context: Record<string, string> | null;
   system_prompt_override: string | null;
   effective_system_prompt: string | null;
   vapi_assistant_id: string | null;
@@ -26,6 +27,49 @@ type Agent = {
   created_at: string;
   updated_at: string | null;
 };
+
+// R-013 — business context form fields (all optional).
+type BusinessContext = {
+  businessName: string;
+  services: string;
+  openingHours: string;
+  serviceArea: string;
+  faqs: string;
+  bookingPolicy: string;
+  cancellationPolicy: string;
+  tone: string;
+};
+
+const EMPTY_BUSINESS_CONTEXT: BusinessContext = {
+  businessName: "",
+  services: "",
+  openingHours: "",
+  serviceArea: "",
+  faqs: "",
+  bookingPolicy: "",
+  cancellationPolicy: "",
+  tone: "",
+};
+
+const BUSINESS_CONTEXT_FIELDS: Array<{ key: keyof BusinessContext; label: string; hint: string; multiline?: boolean }> = [
+  { key: "businessName", label: "Business name", hint: "How the AI refers to the business." },
+  { key: "services", label: "Services / offerings", hint: "What you do — the AI uses this to answer.", multiline: true },
+  { key: "openingHours", label: "Opening hours", hint: "e.g. Mon–Fri 8–6, closed weekends." },
+  { key: "serviceArea", label: "Service area", hint: "Where you operate / which locations." },
+  { key: "faqs", label: "FAQs", hint: "Common caller questions and their answers.", multiline: true },
+  { key: "bookingPolicy", label: "Booking policy", hint: "How appointments are booked / lead times." },
+  { key: "cancellationPolicy", label: "Cancellation policy", hint: "Notice required, fees, etc." },
+  { key: "tone", label: "Preferred tone / personality", hint: "e.g. Warm and local; brisk and professional." },
+];
+
+function toBusinessContext(raw: unknown): BusinessContext {
+  const src = (raw ?? {}) as Record<string, unknown>;
+  const out = { ...EMPTY_BUSINESS_CONTEXT };
+  (Object.keys(EMPTY_BUSINESS_CONTEXT) as Array<keyof BusinessContext>).forEach((k) => {
+    if (typeof src[k] === "string") out[k] = src[k] as string;
+  });
+  return out;
+}
 
 type AgentConfigurePageProps = {
   agent: Agent;
@@ -211,6 +255,9 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
     normalizeEmphasisPoints(agentState.emphasis_points)
   );
   const [newEmphasisPoint, setNewEmphasisPoint] = React.useState("");
+  const [businessContext, setBusinessContext] = React.useState<BusinessContext>(
+    toBusinessContext(agentState.business_context)
+  );
 
   // UI state
   const [isPending, startTransition] = useTransition();
@@ -232,6 +279,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
       initialAgent.first_message || `Hello, thanks for calling ${initialAgent.name}. How can I help you today?`
     );
     setEmphasisPoints(normalizeEmphasisPoints(initialAgent.emphasis_points));
+    setBusinessContext(toBusinessContext(initialAgent.business_context));
     setVapiSyncStatus(initialAgent.vapi_sync_status);
     setVapiSyncedAt(initialAgent.vapi_synced_at);
   }, [initialAgent]);
@@ -245,9 +293,10 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
       presetId !== agentState.behavior_preset ||
       agentType !== (agentState.agent_type || "") ||
       firstMessage !== (agentState.first_message || `Hello, thanks for calling ${agentState.name}. How can I help you today?`) ||
-      JSON.stringify(emphasisPoints) !== JSON.stringify(normalizeEmphasisPoints(agentState.emphasis_points))
+      JSON.stringify(emphasisPoints) !== JSON.stringify(normalizeEmphasisPoints(agentState.emphasis_points)) ||
+      JSON.stringify(businessContext) !== JSON.stringify(toBusinessContext(agentState.business_context))
     );
-  }, [language, timezone, behaviorPreset, agentType, firstMessage, emphasisPoints, agentState]);
+  }, [language, timezone, behaviorPreset, agentType, firstMessage, emphasisPoints, businessContext, agentState]);
 
   const selectedPreset = presetMeta(PRESETS.find((p) => p.label === behaviorPreset)?.id || null);
 
@@ -267,6 +316,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
         agent_type: agentType || null,
         first_message: firstMessage || null,
         emphasis_points: emphasisPoints.length > 0 ? emphasisPoints : null,
+        business_context: businessContext,
       });
 
       if (result.ok) {
@@ -282,6 +332,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
           agent_type: result.data.agent_type,
           first_message: result.data.first_message,
           emphasis_points: normalizedEmphasisPoints,
+          business_context: businessContext,
         }));
         setEmphasisPoints(normalizedEmphasisPoints);
         setEffectivePrompt(result.data.effective_system_prompt);
@@ -313,6 +364,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
       agentState.first_message || `Hello, thanks for calling ${agentState.name}. How can I help you today?`
     );
     setEmphasisPoints(normalizeEmphasisPoints(agentState.emphasis_points));
+    setBusinessContext(toBusinessContext(agentState.business_context));
     setStatusMessage(null);
   };
 
@@ -547,6 +599,40 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
               <p className="text-xs text-zinc-500">
                 Used at the start of calls. Workspace company name can be injected automatically.
               </p>
+            </div>
+
+            {/* Business context (R-013) */}
+            <div className="space-y-3 border-t border-zinc-200 pt-6">
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Business context</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Teach the AI about your business so it stops sounding generic. Only filled-in fields
+                  are added to the prompt.
+                </p>
+              </div>
+              {BUSINESS_CONTEXT_FIELDS.map((f) => (
+                <div key={f.key} className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-800">{f.label}</label>
+                  {f.multiline ? (
+                    <textarea
+                      value={businessContext[f.key]}
+                      onChange={(e) => setBusinessContext((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      rows={3}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-zinc-100"
+                      placeholder={f.hint}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={businessContext[f.key]}
+                      onChange={(e) => setBusinessContext((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-zinc-100"
+                      placeholder={f.hint}
+                    />
+                  )}
+                  <p className="text-xs text-zinc-500">{f.hint}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
