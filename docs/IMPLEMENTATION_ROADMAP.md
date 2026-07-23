@@ -5,14 +5,23 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-22 (**Sprint 1.5 (Instagram Foundation) CLOSED** — code-complete; the
+> **Last updated:** 2026-07-23 (**Sprint 2 in progress** — R-011 forgot-password shipped in code via
+> Supabase built-in recovery; live reset test + a one-line Supabase redirect-allowlist entry are
+> operator-gated. Email deliverability clarified: the `denku.io` Resend domain **IS verified** and is
+> already used by the welcome email, so R-008/R-009 are **not** email-blocked — an earlier same-day
+> note wrongly inferred sandbox-only from the stale `SENDER` constant and is corrected under R-008.
+> Filed **R-080** for the stale sandbox `SENDER` used by auth verify/OTP/reset emails. Also shipped
+> **R-008** (ticket/appointment notifications, staged OFF) and **R-018** (dashboard data-honesty pass
+> + removed 2 dead Potemkin-data files, partial R-034); **R-009 DEFERRED** to Sprint 3 (blocked by
+> R-075 unversioned billing math, owner decision).)
+> **Prior:** 2026-07-22 (**Sprint 1.5 (Instagram Foundation) CLOSED** — code-complete; the
 > receive pipeline is **operationally verified in production** via Meta's signed Test webhook.
 > **Authoritative Meta rule:** unpublished (Dev Mode) apps receive **only dashboard Test events** — no
 > real production data (incl. Testers) until **published/Live**; real Instagram DM webhooks require
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-080
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-081
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -31,11 +40,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 8 | 1 | 6 | 15 |
-| High | 18 | 0 | 1 | 19 |
-| Medium | 34 | 0 | 2 | 36 |
+| Critical | 6 | 1 | 8 | 15 |
+| High | 17 | 0 | 2 | 19 |
+| Medium | 35 | 0 | 2 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **69** | **1** | **9** | **79** |
+| **Total** | **67** | **1** | **12** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -170,25 +179,71 @@ billing view before touching billing code.
   real trial, R-015).
 
 ### R-008 — No notifications when the AI creates tickets/appointments
-**Priority:** Critical · **Status:** Open · **Effort:** M · **Related audit:** 01 (C5)
+**Priority:** Critical · **Status:** Completed (2026-07-23, code; staged OFF until operator enable) · **Effort:** M · **Related audit:** 01 (C5)
 - **Business impact:** The core value ("never miss a call") is invisible between logins — the #1
   retention lifeline available.
 - **Technical impact:** Hook Resend sends into the deterministic artifact path in the Vapi webhook
   (idempotent — guard like the welcome email); notification prefs on `organization_settings`.
 - **Dependencies:** Resend domain (`denku.io`) verified; R-001 recommended first (don't email on
   forgeable events).
+- **Email deliverability — CLARIFIED (2026-07-23, corrects an earlier same-day mis-note):** the
+  `denku.io` sending domain **IS verified in Resend** ("ready to send emails", operator-confirmed).
+  The product already sends to real recipients from it — `sendWelcomeEmail` uses
+  `from: "Denku <hello@denku.io>"` (`lib/email/send.ts:121`). So **R-008/R-009 customer emails are
+  NOT blocked by Resend** — they must simply send from a `@denku.io` address. ⚠️ Note the trap: the
+  shared `SENDER` constant (`lib/email/resend.ts:5`, dup in `templates.ts:7`) is still the stale
+  **sandbox** `onboarding@resend.dev`, used by the auth verify/OTP/**password-reset** emails; those
+  are backstopped by Supabase's own emails and are separate tech-debt (see **R-080**). R-008 must use
+  the verified `denku.io` sender, not `SENDER`.
+- **Remaining real gate for R-008 (not Resend):** `VAPI_WEBHOOK_AUTH_MODE=enforce` (R-001) so
+  notifications don't fire on forgeable webhook events. Until enforce is live, ship R-008 sending
+  behind a safe gate (staged, like Sprint 1) rather than emailing on an unauthenticated webhook.
 - **Recommended solution:** Per-event email to org owner on ticket/appointment creation with
   transcript summary + deep link; digest option later (R-017).
+- **Completed 2026-07-23 (Sprint 2, code — staged OFF):** New `lib/notifications/artifactNotifications.ts`
+  runs a **sweep at the end-of-call artifact-routing convergence point** in the Vapi webhook (after
+  BOTH tool-created and deterministic artifacts are persisted — so healthy calls are covered, not
+  just fallback tickets). Per artifact it **atomically claims** the send via a conditional UPDATE
+  (`notified_at = now() WHERE notified_at IS NULL`) — the exact welcome-email idempotency lock — so
+  redelivered webhooks never double-email; on send failure it **resets** the marker to retry. Sends
+  from the **verified** `notifications@denku.io` (new `sendArtifactNotificationEmail` in `send.ts`),
+  NOT the sandbox `SENDER`. Recipient = `organization_settings.billing_email` → owner
+  `profiles.email`; honors a new per-org `notify_on_artifacts` opt-out (default true). Pure email
+  builder `lib/email/templates/artifactNotification.ts` (HTML-escapes caller-controlled transcript
+  text). **Never throws** (call finalization is never affected). Migration
+  `supabase/migrations/20260723000000_artifact_notifications.sql` adds `tickets.notified_at`,
+  `appointments.notified_at`, `organization_settings.notify_on_artifacts`. 10 new unit tests
+  (gate/recipient/template + XSS-escape), 73 total green; build passing.
+- **STAGED — gated by `ARTIFACT_NOTIFICATIONS_ENABLED` (default OFF).** Operator prerequisites before
+  enabling (do NOT assume done): (1) apply the migration to prod; (2) `VAPI_WEBHOOK_AUTH_MODE=enforce`
+  (R-001) so events aren't forgeable; (3) confirm `denku.io` deliverability; then set
+  `ARTIFACT_NOTIFICATIONS_ENABLED=true`. Fast-follow (not blocking): a Settings→Notifications UI
+  toggle for `notify_on_artifacts` (the column + read path exist; the `settings/notifications` route
+  is currently an empty stub).
 
 ### R-009 — Silent overage charges and silent hard-cap shutdown
-**Priority:** Critical · **Status:** Open · **Effort:** M · **Related audit:** 01 (C6)
+**Priority:** Critical · **Status:** Open — **DEFERRED (Sprint 2 → Sprint 3), blocked by R-075** · **Effort:** M · **Related audit:** 01 (C6)
 - **Business impact:** A business phone going dead at $250 overage without warning is a
   catastrophic, churn-and-chargeback event; $100 surprise charges nearly as bad.
 - **Technical impact:** Add notification triggers to `billing_overage_state` transitions and the
   pause path (`enforceTelephonyPause`).
-- **Dependencies:** R-008 email infrastructure.
+- **Dependencies:** R-008 email infrastructure (**now available** — verified `denku.io` sender +
+  `sendArtifactNotificationEmail`/recipient resolver from R-008 can be reused). **Hard-blocked by
+  **R-075**: the 50/75/90%-of-included-minutes warnings require included-vs-used minutes, which are
+  computed only inside the **unversioned** `org_monthly_invoice_preview` view/RPC (not in the repo).
+- **⚠️ Deferred by owner decision (2026-07-23):** *"Do not implement product behavior on top of
+  unresolved billing math (R-075)."* Deferring honors the execution-plan rule (never refactor/extend
+  the money path on inference — `docs/EXECUTION_PLAN.md`, `docs/RETROSPECTIVE.md §7`). Two further
+  gates before build: (1) **R-075** — baseline the invoice-preview view/RPC into `supabase/migrations`
+  and prove the minute/overage math, so warnings fire on version-controlled numbers; (2) a **product
+  decision** on the hard-cap policy (*pause vs keep-billing* — current behavior is hard pause), to be
+  made **after** the billing math is finalized. Investigation facts to carry forward: overage/hard-cap
+  logic lives in `api/billing/overage/collect-now/route.ts` (session-auth, **user-triggered**) and
+  `pauseOrgBilling`; there is **no continuous overage-enforcement cron** (only `close_month.yml`
+  monthly), and **no dashboard-wide pause banner** exists today (only `WorkspaceStatusBadge`).
 - **Recommended solution:** Emails at 50/75/90% of included minutes and before threshold charge;
   explicit customer setting: "at hard cap: pause vs keep billing"; loud email + banner on pause.
+  **Sequence: R-075 first, then the policy decision, then build (reusing R-008's email infra).**
 
 ### R-010 — Member invites are broken (admin namespace collision)
 **Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00, 01 (C7)
@@ -201,7 +256,7 @@ billing view before touching billing code.
   `profiles.role` check; establish rule (already in CLAUDE.md): customer code never calls `/api/admin/*`.
 
 ### R-011 — No forgot-password flow (and the login link dead-loops)
-**Priority:** Critical · **Status:** Open · **Effort:** M · **Related audit:** 00, 01 (C7), 02 (Persona 2)
+**Priority:** Critical · **Status:** Completed (2026-07-23, code; live reset test operator-gated) · **Effort:** M · **Related audit:** 00, 01 (C7), 02 (Persona 2)
 - **Business impact:** Locked-out paying customers churn silently. Audit 02: it's worse than
   absent — login shows a "Forgot Password?" link pointing to `/login?forgot=1`, which nothing
   handles; the page reloads. A visibly broken promise at the moment of maximum frustration.
@@ -211,6 +266,23 @@ billing view before touching billing code.
 - **Dependencies:** None.
 - **Recommended solution:** `/forgot-password` page → Supabase `resetPasswordForEmail` → reset
   form; repoint the login link (or remove it until the flow ships — never a dead loop).
+- **Completed 2026-07-23 (Sprint 2, code):** Built the full flow on Supabase Auth's **built-in
+  (default, link-based) recovery email** — chosen over the repo's custom `sendPasswordResetEmail`
+  because that path sends from the stale **sandbox** `SENDER` (`onboarding@resend.dev`, R-080) which
+  would fail to reach customers, and because Supabase built-in matches the existing "Supabase emails
+  are source of truth" auth architecture (signup verification works the same way). A custom
+  Denku-branded reset email is possible later once R-080 fixes `SENDER` to `denku.io`.
+  New files: `app/(auth)/forgot-password/{page.tsx,requestPasswordResetAction.ts}` (enumeration-safe
+  — always returns ok for a well-formed email), `app/auth/reset-callback/route.ts` (a **dedicated**
+  recovery code-exchange route, kept separate from the shared signup `/auth/callback` for zero
+  signup regression risk), `app/(auth)/reset-password/{page.tsx,updatePasswordAction.ts}` (mirrors
+  the proven `setPassword` shape: requires the recovery session, then `updateUser({password})`).
+  Extracted the password rule into pure, unit-tested `lib/auth/passwordPolicy.ts` (5 tests; 63 total
+  green). Repointed the dead `login/page.tsx` link `/login?forgot=1` → `/forgot-password`.
+  **Operator-gated (NOT done, do not assume):** `${baseUrl}/auth/reset-callback` must be added to
+  the Supabase Auth **Redirect URLs allowlist** (same place `/auth/callback` is listed) or Supabase
+  falls back to Site URL and the link never reaches the reset form; then a real end-to-end reset
+  test. Custom Denku-branded recovery email (Supabase template change) is optional future polish.
 
 ### R-012 — Placeholder pages reachable in production
 **Priority:** Critical · **Status:** Completed (2026-07-08) · **Effort:** S · **Related audit:** 01 (C7), 02 (Persona 3)
@@ -387,7 +459,7 @@ business context.)
 - **Recommended solution:** Monday digest email with week-over-week deltas and deep links.
 
 ### R-018 — Dashboard data honesty pass
-**Priority:** High · **Status:** Open · **Effort:** S–M · **Related audit:** 01 (H13), 03
+**Priority:** High · **Status:** Completed (2026-07-23; display-layer honesty — source-skew R-050/R-053 still separate) · **Effort:** S–M · **Related audit:** 01 (H13), 03
 (Audit 03: completion-state analytics are additionally skewed at the source — `toolUsed` is
 always false where tools are missing (R-050), and guardrail misfires (R-053) force healthy calls
 to "partial". Fix the sources alongside the display.) Audit 06: the "Active Agents" widget label
@@ -398,6 +470,20 @@ also violates the "AI not agent" rule — fix with the R-065 terminology sweep.
 - **Dependencies:** None.
 - **Recommended solution:** Methodology tooltip for savings; real totals from data (not derived
   from answer rate); status labels Healthy/Attention/Low; rename to "Active AI lines".
+- **Completed 2026-07-23 (Sprint 2, code):** Display-layer honesty pass on the real dashboard
+  (`lib/dashboard/getDashboardOverview.ts` + `DashboardClient.tsx`): (1) **fabricated denominator
+  removed** — `agent_performance` now carries the server-computed `total_calls` (real
+  `m.totalCalls`), and the client uses it directly instead of back-computing `handled/rate×100`;
+  (2) **"Est. Savings" gets a methodology tooltip** (new `Widget` `info` prop) stating it's
+  AI-handled call-time × $25/hr, illustrative; (3) **status labels de-jargoned** — the
+  `AgentComplexTable` no longer shows an amber **"Error"** icon on healthy 70–90% calls; it renders
+  honest **Healthy / Attention / Low** text badges; (4) **"Active Agents" → "Active AI lines"**
+  ("AI not agent" rule, part of R-065). Build green, 73 tests green. **Also removed 2 confirmed-dead
+  files** feeding a Potemkin version of this data (see R-034): the unused duplicate
+  `app/(app)/dashboard/getDashboardOverview.ts` and `app/(app)/OperationalOverviewCard.tsx` (the
+  latter hardcoded fake trends like "+12% vs last week" / "Stable" — no importers). **Not in scope
+  (still open):** the *source-level* skew — `toolUsed`-always-false (R-050) and guardrail misfire
+  (R-053) — which mislabel completion state upstream of the display.
 
 ### R-019 — Intent detection is a stub (everything becomes a ticket)
 **Priority:** High · **Status:** Open · **Effort:** M–L · **Related audit:** 00, 01 (H14), 03
@@ -696,6 +782,10 @@ must be baselined here before the money math can be reviewed or tested.)
   duplicate legacy marketing components (coordinate with R-022).
 - **Dependencies:** Confirm nothing references root `src/` (nothing does).
 - **Recommended solution:** Remove; add `tsconfig.tsbuildinfo` to `.gitignore`.
+- **Partial progress (2026-07-23, Sprint 2 during R-018):** removed 2 confirmed-dead files (no
+  importers, grep-verified): `web/src/app/(app)/dashboard/getDashboardOverview.ts` (unused duplicate
+  of the live `lib/dashboard/getDashboardOverview.ts`) and `web/src/app/(app)/OperationalOverviewCard.tsx`
+  (a Potemkin card with hardcoded fake trends). Root `src/` legacy MVP + the other items remain.
 
 ### R-035 — Migrate Stripe checkout to catalog Prices
 **Priority:** Medium · **Status:** Open · **Effort:** M–L · **Related audit:** 00
@@ -1006,6 +1096,24 @@ terminology sweep.)
 - **Dependencies:** None.
 - **Recommended solution:** Persist `short.permissions` (the granted scopes) when present, falling
   back to the configured list only if Meta omits them; add a test for the partial-grant case.
+
+### R-080 — Transactional auth emails send from the stale Resend sandbox sender
+**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** — (filed 2026-07-23, Sprint 2)
+- **Business impact:** The email-verification, OTP, and password-reset emails send `from` the shared
+  **sandbox** address `onboarding@resend.dev`, which cannot deliver to arbitrary recipients — so in
+  production those Resend sends likely fail (they are silently backstopped by Supabase's own auth
+  emails, per the "allow Supabase emails to be the source of truth" fallbacks). Meanwhile the welcome
+  email correctly uses the **verified** `hello@denku.io` sender. The result is an inconsistent, partly
+  dead transactional-email layer and a live trap: any new feature that reuses the shared `SENDER`
+  constant (e.g. a future custom password-reset or notification email) inherits the broken sender.
+- **Technical impact:** `lib/email/resend.ts:5` `SENDER = "Denku <onboarding@resend.dev>"` (duplicated
+  in `lib/email/templates.ts:7`), consumed by `send.ts#{sendVerificationEmail,sendOtpEmail,
+  sendPasswordResetEmail}` and `sendVerifyEmail.ts`. The verified sender pattern already exists as
+  `WELCOME_FROM = "Denku <hello@denku.io>"` (`send.ts:9`).
+- **Dependencies:** None (domain already verified). Confirm the exact desired From addresses.
+- **Recommended solution:** Point `SENDER` at a verified `@denku.io` address (e.g.
+  `no-reply@denku.io`), de-duplicate the two `SENDER` constants into one, and verify the auth emails
+  actually deliver in prod. Distinct from R-008 (which must use the verified sender regardless).
 
 ## LOW
 

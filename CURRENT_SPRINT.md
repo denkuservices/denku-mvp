@@ -6,7 +6,49 @@
 > roadmap entry `Completed` (date + how) in the same change. Sprint lifecycle: `PROJECT_CHARTER.md`
 > → Sprint Lifecycle.
 
-**Sprint 2 · Prepared 2026-07-08 · Status: 🟡 `PROPOSED — awaiting approval`**
+**Sprint 2 · Prepared 2026-07-08 · Approved (trimmed core) 2026-07-23 · Status: ✅ `CLOSED 2026-07-23`**
+
+> **Closed code-complete.** Shipped: **R-011** (forgot-password), **R-008** (artifact notifications,
+> staged OFF), **R-018** (dashboard data honesty) + partial **R-034** (2 dead files) + filed **R-080**.
+> **R-009 DEFERRED → Sprint 3** (blocked by R-075 unversioned billing math, owner decision). Review +
+> retrospective: [`docs/SPRINT_2_REVIEW.md`](docs/SPRINT_2_REVIEW.md), `docs/RETROSPECTIVE.md §11`.
+> Operator activation steps (engineering-done ≠ operationally-verified) in the review §3. **Sprint 3
+> is NOT started** — proposed scope in the review §7 (R-075 → R-009; operator handoff; R-060/R-057).
+
+## Progress log
+
+- **2026-07-23 — R-011 (forgot-password) shipped in code.** Built on Supabase Auth's built-in
+  (default, link-based) recovery email — deliberately NOT a custom Resend email, because that would
+  depend on the unverified `denku.io` sending domain. New: `forgot-password` page + enumeration-safe
+  action, dedicated `auth/reset-callback` code-exchange route (isolated from signup callback),
+  `reset-password` page + action, pure `lib/auth/passwordPolicy.ts` (5 new tests, 63 total green).
+  Dead `/login?forgot=1` link repointed. **Operator-gated:** add `${baseUrl}/auth/reset-callback` to
+  the Supabase Redirect-URL allowlist + one live reset test. Roadmap R-011 → Completed (code).
+- **2026-07-23 — Email deliverability CLARIFIED (corrects a same-day mis-read).** I first flagged
+  R-008/R-009 as Resend-sandbox-blocked after reading the stale `SENDER = onboarding@resend.dev`
+  constant. **That was wrong:** the `denku.io` domain is verified in Resend and is already used by
+  the welcome email (`from: "Denku <hello@denku.io>"`, `send.ts:121`). So **R-008/R-009 are NOT
+  email-blocked** — they just send from `@denku.io`, not `SENDER`. The stale sandbox `SENDER` (used
+  by auth verify/OTP/reset emails) is separate tech-debt → filed **R-080**. R-008's only real
+  remaining gate is `VAPI_WEBHOOK_AUTH_MODE=enforce` (don't email on forgeable events) → ship staged.
+  **Proceeding to build R-008 with the verified sender.**
+- **2026-07-23 — R-008 (ticket/appointment notifications) shipped in code (staged OFF).** End-of-call
+  idempotent sweep in the Vapi webhook (covers tool-created AND deterministic artifacts); atomic
+  `notified_at` claim = welcome-email lock; sends from verified `notifications@denku.io`; per-org
+  `notify_on_artifacts` opt-out; never throws. New migration
+  `20260723000000_artifact_notifications.sql`. 10 new tests (73 total green), build passing. Gated by
+  `ARTIFACT_NOTIFICATIONS_ENABLED` (default OFF) — operator enables after migration applied + webhook
+  `enforce` + deliverability check. Roadmap R-008 → Completed (code). Filed **R-080** (stale sandbox
+  `SENDER` for auth emails) as separate debt.
+- **2026-07-23 — R-009 DEFERRED (owner decision) → Sprint 3, blocked by R-075.** Do not implement
+  overage/hard-cap product behavior on top of the **unversioned billing math** (`org_monthly_invoice_preview`).
+  Sequence: R-075 (version-control + finalize billing math) → hard-cap policy decision → build (reusing
+  R-008 email infra). Documented in the roadmap R-009 entry.
+- **2026-07-23 — R-018 (dashboard data honesty) shipped.** Real `total_calls` denominator (no more
+  back-computing from the rate); "Est. Savings" methodology tooltip (new `Widget` `info` prop);
+  honest **Healthy/Attention/Low** status badges (killed the amber "Error" on healthy 70–90% calls);
+  **"Active Agents" → "Active AI lines"** (AI-not-agent rule). Removed 2 confirmed-dead Potemkin-data
+  files (partial **R-034**). Build green, 73 tests green. Roadmap R-018 → Completed.
 
 > ℹ️ **Sprint 1.5 (Instagram Foundation) CLOSED 2026-07-22** (shipped 2026-07-08) — an inserted
 > infrastructure sprint (Instagram OAuth + per-tenant encrypted creds + receive-only webhook +

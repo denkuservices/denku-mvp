@@ -207,6 +207,36 @@ What closing it taught us, feeding back into §1–8:
   full grant, live only under a partial-grant. Confirms §8: pair "found by reading" with the runtime
   case that would actually trip it (partial permission grant), and add the test.
 
+## 11. Sprint 2 execution retrospective (2026-07-23)
+
+Trust & Value Made Visible (trimmed core). Full review: `docs/SPRINT_2_REVIEW.md`. What executing it
+taught us, feeding back into §1–8:
+
+- **The "code ≠ production" hazard cut both ways this time — including a false negative I created.**
+  In Sprints 1/1.5 static reads *over*-claimed exposure (debug routes, orphaned controls). This sprint
+  I *over*-claimed a **blocker**: I read the stale `SENDER = onboarding@resend.dev` constant and told
+  the owner R-008/R-009 were sandbox-blocked. The owner refuted it (the `denku.io` domain is verified),
+  and re-reading the code confirmed the welcome email already ships from `denku.io` — only the auth
+  emails use the stale sender (filed R-080). **Lesson, sharper than §1's:** the failure mode isn't only
+  "reading makes prod look worse than it is" — it's *any* confident single-artifact inference. Verify
+  against the fuller code/first-party truth (as in §10) before it drives a plan. I corrected every
+  mis-written doc in the same sprint.
+- **"Never build product behavior on unversioned truth" graduated from principle to practice.** R-009's
+  threshold warnings need included-vs-used minutes that live only in the unversioned
+  `org_monthly_invoice_preview` view (R-075). The owner deferred R-009 rather than infer the math — the
+  exact discipline §5.2 and the execution plan prescribe. Deferral is a valid sprint outcome; a
+  fabricated overage number would have been trust-fatal (the money path, §8's "pair every money finding
+  with verification").
+- **Reusing the platform's own patterns is the reliability shortcut.** Supabase built-in recovery and
+  the welcome-email idempotency lock were already load-bearing, correct, and understood; building on
+  them (rather than a parallel custom path) removed both code and failure modes. Prefer "extend the
+  proven seam" over "add a new mechanism" — especially near auth and money.
+- **The verification-enablement gap is now the recurring tax across three sprints.** R-011 (Supabase
+  redirect allowlist) and R-008 (migration + env flags + webhook enforce) again end at operator steps
+  the workspace can't reach. §9's recommendation stands and compounds: real dashboard/staging access
+  (and R-031 schema baseline) is the single highest-leverage process fix, and it now also gates whether
+  R-008's shipped code delivers any value.
+
 ---
 
 *Living document. If a future contributor verifies (or refutes) an assumption here, update this

@@ -147,6 +147,14 @@ production** before shipping.
 > now starts at **step 4** (R-004 truth pass). Wave A0's R-034/R-033 (dead-code delete, client
 > converge) were **not** taken this sprint and remain open.
 
+> **Progress note (2026-07-23 — Sprint 2 closed).** Step 4's front advanced on the *code-only* side:
+> **R-011** (forgot-password, via Supabase built-in recovery), **R-008** (artifact notifications,
+> staged OFF), and **R-018** (dashboard data-honesty) shipped, plus partial **R-034** (2 dead files).
+> **R-009 was DEFERRED** to honor this plan's core rule — its overage-threshold math depends on the
+> unversioned billing view (**R-075**), so it waits for step 6 (billing verifiability: R-031 → R-075 →
+> R-076) rather than being built on inference. R-004 (truth-pass, Category B/legal) remains the other
+> half of the live front. See `docs/SPRINT_2_REVIEW.md`.
+
 Reality interleaves the categories. A sane order:
 
 1. ✅ **Done (Sprint 1).** Verify the two dangerous unknowns: R-050 live Vapi state, R-001 prod
