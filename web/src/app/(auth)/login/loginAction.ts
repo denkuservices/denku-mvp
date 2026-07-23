@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);

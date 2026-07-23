@@ -84,8 +84,9 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - **Every query on a tenant table MUST carry `.eq("org_id", orgId)`.** With the service-role client
   there is no safety net — a missed filter is a cross-tenant leak. Resolve orgId via
   `lib/org/getActiveOrgId.ts` or `lib/analytics/params.ts#resolveOrgId`.
-- Use `@/lib/supabase/admin` (fail-fast, `server-only`) for new code — NOT the older duplicate
-  `@/lib/supabaseAdmin` (still imported in ~10 files; migrate opportunistically, don't add usages).
+- Use `@/lib/supabase/admin` (fail-fast, `server-only`) — the **single** service-role client.
+  (R-033, done 2026-07-23: the older duplicate `@/lib/supabaseAdmin` was migrated across all 10
+  importers and deleted. Don't reintroduce a second admin client.)
 - Server actions use `"use server"` files under the route's `_actions/`; route handlers return
   `{ ok: boolean, ... }` JSON with proper status codes; validate inputs with **zod** at API edges.
 - Structured logging via `lib/observability/logEvent.ts` with bracket tags

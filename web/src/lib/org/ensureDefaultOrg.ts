@@ -1,6 +1,6 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type EnsureDefaultOrgResult = { ok: true; orgId: string; created: boolean } | { ok: false; error: string };
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function isAuthorizedBasic(request: NextRequest) {
   const authHeader = request.headers.get("authorization");

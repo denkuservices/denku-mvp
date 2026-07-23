@@ -27,6 +27,11 @@ identity — and clean up the email-sender inconsistency that was masking broken
   `!.env.example` gitignore exception); updated the deployment skill. 5 new tests (**78 total green**),
   build passing. Roadmap R-080 → Completed.
 
+- **2026-07-23 — R-033 (converge Supabase admin clients) shipped.** Migrated all 10 importers
+  (all server-side; middleware included) from `@/lib/supabaseAdmin` → `@/lib/supabase/admin` and
+  deleted the old module. Build confirms middleware compiles on the `server-only` client. 78 tests
+  green. CLAUDE.md landmine #4 updated. Roadmap R-033 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

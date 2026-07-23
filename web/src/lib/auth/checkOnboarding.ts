@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * Check if plan is active for an org.

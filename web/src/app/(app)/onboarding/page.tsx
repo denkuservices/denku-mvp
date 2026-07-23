@@ -3,7 +3,7 @@ import { getOnboardingState } from "./_actions";
 import { OnboardingClient } from "./OnboardingClient";
 import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
 // Force dynamic rendering to always load fresh org state (disable caching)

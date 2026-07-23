@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { getBaseUrl } from "@/lib/utils/url";

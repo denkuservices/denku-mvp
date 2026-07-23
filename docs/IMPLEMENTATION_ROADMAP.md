@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 17 | 0 | 2 | 19 |
-| Medium | 34 | 0 | 3 | 37 |
+| Medium | 33 | 0 | 4 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **66** | **1** | **13** | **80** |
+| **Total** | **65** | **1** | **14** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -772,12 +772,17 @@ must be baselined here before the money math can be reviewed or tested.)
   `webhook_debug` retention job.
 
 ### R-033 — Converge duplicate Supabase admin clients
-**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 00
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S · **Related audit:** 00
 - **Business impact:** Indirect — inconsistent fail-fast behavior risks silent misconfig.
 - **Technical impact:** Migrate ~10 `@/lib/supabaseAdmin` imports (incl. middleware) to
   `@/lib/supabase/admin`; delete the old module.
 - **Dependencies:** None.
 - **Recommended solution:** Mechanical migration + delete; rule already in CLAUDE.md.
+- **Completed 2026-07-23 (Sprint 3):** migrated all **10** importers (verified: all server-side, no
+  client components) from `@/lib/supabaseAdmin` → `@/lib/supabase/admin` and **deleted the old
+  module** (`lib/supabaseAdmin.ts`). Middleware included — build confirms it compiles on the
+  `server-only` fail-fast client with no edge-runtime issue. 78 tests green; build passing. CLAUDE.md
+  landmine #4 note updated (single admin client; don't reintroduce a second).
 
 ### R-034 — Delete dead weight from the repo
 **Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 00

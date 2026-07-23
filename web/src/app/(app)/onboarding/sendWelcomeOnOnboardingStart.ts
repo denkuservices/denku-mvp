@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { ensureDefaultOrgForUser } from "@/lib/org/ensureDefaultOrg";
 import { sendWelcomeEmail } from "@/lib/email/send";
