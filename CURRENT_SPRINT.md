@@ -119,6 +119,13 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   newly-crossed 50/75/90% threshold per org; idempotent via new `billing_usage_alerts` table; staged
   OFF. 110 tests green. **R-009 now only needs the pause-vs-keep-billing policy decision (owner).**
 
+- **2026-07-23 — R-057 (admin identity) documented as BLOCKED (staging, not decision).** Owner
+  decision recorded (Supabase Auth, no SSO, org membership + MFA readiness). But swapping the
+  `middleware.ts` Basic-Auth admin gate to Supabase-session is a critical edge-auth change that can't
+  be verified under read-only prod + no staging (a bug locks out operators or opens the admin
+  surface), plus a chicken-and-egg operator/migration provisioning. Recommended safe rollout captured
+  in the roadmap. Left unbuilt to avoid half-wired auth. **Next unblocked: R-076.**
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

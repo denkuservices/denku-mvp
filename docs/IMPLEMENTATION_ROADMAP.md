@@ -708,6 +708,21 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
 - **Dependencies:** Pairs with R-045 (enterprise auth) and R-002 (stop leaking the username).
 - **Recommended solution:** Move platform admin behind real per-operator auth (SSO or Supabase
   admin org + role) with MFA and attributed audit logging; retire the shared credential.
+- **Owner decision (2026-07-23):** **Supabase Auth as the canonical IdP — NO SSO — built around
+  organization membership, with MFA readiness.** So: platform operators are Supabase users; admin
+  authorization derives from an org-membership/role model; structure for `aal2` (MFA) enforcement
+  without requiring it day one.
+- **BLOCKED for safe implementation (2026-07-23) — needs a staging env, not a decision.** The gate
+  is `middleware.ts:13` Basic Auth (`ADMIN_USER`/`ADMIN_PASS`) over `/admin` + `/api/admin` (matcher),
+  plus per-route `/api/internal/*` backstops. Swapping it to Supabase-session + platform-admin check
+  is a **critical edge-middleware change that cannot be verified under read-only prod + no staging**:
+  a bug locks out all operators or opens the admin surface, and there's a chicken-and-egg (an admin
+  must be provisioned in the new model, via a prod-applied migration, BEFORE the flip). Not shipping
+  blind. **Recommended safe rollout when a staging/preview env exists:** (1) migration for the
+  platform-admin membership model + an `isPlatformAdmin(userId)` helper; (2) make middleware accept
+  **either** Basic Auth **or** a Supabase-session platform-admin (additive, reversible) and verify on
+  staging; (3) provision operators + enroll MFA; (4) require `aal2` for admin; (5) remove Basic Auth.
+  Also attribute admin actions in the audit log (R-072). Left unbuilt to avoid half-wired auth.
 
 ### R-060 — Tenant isolation has no defense-in-depth (RLS not the enforcement layer)
 **Priority:** High · **Status:** Open — **PARTIAL (2026-07-23): 7/10 tables locked via migration; anon-read 3 + query-helper remain** · **Effort:** L · **Related audit:** 04 (see also R-037)
