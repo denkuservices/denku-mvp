@@ -262,6 +262,25 @@ us, feeding back into §1–8:
   env can't reach prod" is answered for schema (read access) but not for *change* — a staging/preview
   env is the missing piece that would unblock the remaining security work end-to-end.
 
+## 13. Sprint 4 retrospective (2026-07-23)
+
+Voice Intelligence (R-051/R-052/R-013/R-019/R-016). Full review: `docs/SPRINT_4_REVIEW.md`.
+
+- **"Fix the finding" ≠ "fix where the finding pointed."** R-019's stub (`detectCallIntent`) returned
+  "other" because it ran at **call-start with no transcript** — a placement bug, not a logic bug. The
+  fix was to classify at **end-of-call**. Reading the call path (§8's "read the code") relocated the
+  fix; implementing the finding at its stated line would have shipped a still-broken classifier.
+- **An LLM in the critical path is fine if it can't break it.** R-019 puts a network LLM call in the
+  webhook; strict timeout + regex fallback + never-throws + key-gated (regex-only without a key) keep
+  the do-not-regress core safe. This extends the stage-then-enforce pattern to external inference.
+- **The read-only-prod ceiling now bites the voice work.** Nothing in Sprint 4 (voice, caps, booking,
+  recording) is operationally verifiable without a live Vapi call — no Vapi API/dashboard access here.
+  The engineering-done vs operationally-verified split is now standard; the acceptance checklist is the
+  bridge. The §9 "verification-enablement gap" remains the top process fix.
+- **Deliberate scope-folding beats scope-thrash.** R-013's onboarding capture was folded into the
+  Sprint-4.5 onboarding rework instead of adding a step 4.5 would immediately redo — the same judgment
+  that deferred staging-only security work in Sprint 3.
+
 ---
 
 *Living document. If a future contributor verifies (or refutes) an assumption here, update this

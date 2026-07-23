@@ -5,13 +5,16 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-23 (**Sprint 3 — repo-only wave complete**: shipped **R-080** (email
-> senders), **R-033** (single admin client), **R-034** (deleted root legacy `src/`), **R-061**
-> (dashboard error boundary), **R-021** (`safeErrorMessage`), **R-062** (toast system), **R-070**
-> (a11y skip-link/landmark), **R-065** (AI-not-agent sweep), **R-048** (loading skeletons), **R-053**
-> (guardrail misfire), **R-067** (SEO: robots/sitemap/OG/JSON-LD). 86 tests green; build passing.
-> **Remaining Sprint-3 items (R-075/R-060/R-009/R-057, operator handoff) are external-blocked** —
-> await live Supabase access / operator. Prior lines below describe Sprint 2.)
+> **Last updated:** 2026-07-23 (**Sprint 4 (Voice Intelligence) code-complete** — **R-051/R-052**
+> (voice EN-ES + 15-min/30-s call caps), **R-013** (business context, usable via Settings), **R-019**
+> (AI-primary intent detection: gpt-4o-mini structured JSON + regex fallback, end-of-call, drives
+> booking), **R-016** (recording verify + retention/consent copy). **139 tests green.** Go-live gate:
+> `docs/SPRINT_4_REVIEW.md` §3 acceptance checklist + `OPENAI_API_KEY` + the `agents.business_context`
+> migration. **Next: Sprint 4.5** (multi-channel platform). Sprint 3 activation still pending —
+> `docs/SPRINT_3_ACTIVATION.md`.)
+> **Prior:** 2026-07-23 (**Sprint 3 — repo-only + live-access waves**: R-080/R-033/R-034/R-061/R-021/
+> R-062/R-070/R-065/R-048/R-053/R-067 + R-075/R-076 completed; R-060/R-009 partial; R-057 blocked on
+> staging. Remaining Sprint-3 items await live access/operator.)
 > **Prior:** 2026-07-23 (**Sprint 2 closed** — R-011 forgot-password shipped in code via
 > Supabase built-in recovery; live reset test + a one-line Supabase redirect-allowlist entry are
 > operator-gated. Email deliverability clarified: the `denku.io` Resend domain **IS verified** and is
