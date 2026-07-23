@@ -12,6 +12,7 @@ import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
 import { logEvent } from "@/lib/observability/logEvent";
 import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
+import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
 
 const VapiWebhookSchema = z
   .object({
@@ -260,11 +261,10 @@ async function resolveAgentByVapi(body: any): Promise<{ agentId: string | null; 
  * For now, defaults to "other" since we don't have transcript at call start.
  */
 function detectCallIntent(body: any, direction: string): "support" | "appointment" | "other" {
-  // For now, default to "other" since intent detection requires transcript analysis
-  // which is not available at call start. This can be enhanced later with:
-  // - Transcript keyword analysis
-  // - Vapi function call tracking
-  // - Other heuristics
+  // At CALL START there is no transcript, so intent is "other" and persona selection
+  // uses a safe general default. The REAL intent is classified at END-OF-CALL from the
+  // final transcript (R-019, `classifyCallIntent`) — that's what drives appointment-vs-
+  // ticket routing and updates `calls.intent`.
   return "other";
 }
 
@@ -2800,10 +2800,38 @@ export async function POST(req: NextRequest) {
             }>();
 
           if (callRow?.id && callRow.org_id) {
-            // Deterministic intent fallback: appointment → appointment, everything else → support
-            const rawIntent = (callRow.intent as "support" | "appointment" | "other") || null;
-            const finalIntent = rawIntent === "appointment" ? "appointment" : "support";
-            
+            // R-019: classify the REAL intent from the FINAL transcript (AI-primary via
+            // gpt-4o-mini, regex fallback). Never throws. This drives appointment-vs-ticket
+            // routing — the booking promise depended on this (was hardcoded "other" → always ticket).
+            const intentResult = await classifyCallIntent(callRow.transcript || transcript);
+            const finalIntent = intentResult.intent === "appointment" ? "appointment" : "support";
+
+            // Persist the classified intent (best-effort) and log truthfully.
+            try {
+              await supabaseAdmin
+                .from("calls")
+                .update({ intent: intentResult.intent })
+                .eq("id", callRow.id)
+                .eq("org_id", callRow.org_id);
+            } catch (intentPersistErr) {
+              console.error("[INTENT] Failed to persist classified intent (non-fatal):", intentPersistErr);
+            }
+            logEvent({
+              tag: "[INTENT_DETECTED]",
+              ts: Date.now(),
+              stage: "INTENT",
+              source: "vapi_webhook",
+              org_id: callRow.org_id,
+              call_id: callRow.id,
+              vapi_call_id: vapiCallId,
+              details: {
+                intent: intentResult.intent,
+                intent_confidence: intentResult.confidence,
+                source: intentResult.source,
+                booking_details: intentResult.bookingDetails ?? null,
+              },
+            });
+
             if (finalIntent === "appointment") {
               // Appointment intent → create appointment (NOT ticket)
               await ensureAppointmentForCall(

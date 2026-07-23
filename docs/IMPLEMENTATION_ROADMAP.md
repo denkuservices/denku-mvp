@@ -48,10 +48,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 12 | 0 | 7 | 19 |
+| High | 11 | 0 | 8 | 19 |
 | Medium | 24 | 0 | 13 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **50** | **1** | **29** | **80** |
+| **Total** | **49** | **1** | **30** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -551,7 +551,7 @@ also violates the "AI not agent" rule — fix with the R-065 terminology sweep.
   (R-053) — which mislabel completion state upstream of the display.
 
 ### R-019 — Intent detection is a stub (everything becomes a ticket)
-**Priority:** High · **Status:** Open · **Effort:** M–L · **Related audit:** 00, 01 (H14), 03
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 4; code — live booking-call verify operator-gated) · **Effort:** M–L · **Related audit:** 00, 01 (H14), 03
 (Audit 03: combined with R-050, booking currently has NO working path on most lines — the
 deterministic appointment guarantee is dead code, and the mid-call tool is usually absent.)
 - **Business impact:** The "booking" promise silently doesn't happen; appointment artifacts
@@ -561,6 +561,19 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
 - **Dependencies:** None; unblocks R-020.
 - **Recommended solution:** Classify on final transcript (keyword/regex first, LLM classify
   later); wire `ensureAppointmentForCall` for appointment intent; log `[INTENT_DETECTED]` truthfully.
+- **Completed 2026-07-23 (Sprint 4; owner chose AI-primary):** new `lib/intent/classifyCallIntent.ts`
+  — **AI-primary** (OpenAI `gpt-4o-mini`, structured JSON `{intent, confidence, booking_details}`,
+  `response_format: json_object`, temp 0, `maxRetries:0` + an **8s hard timeout** via `Promise.race`),
+  with a **conservative regex fallback** (no transcript / no `OPENAI_API_KEY` / low confidence / any
+  error). **Never throws.** Key insight: the old `detectCallIntent` ran at CALL START (no transcript)
+  so it was structurally stuck on "other"; the real classification now runs at **end-of-call** on the
+  final transcript, **updates `calls.intent`**, drives the appointment-vs-ticket routing (so
+  `ensureAppointmentForCall` finally fires for booking calls — the promise works), and logs
+  `[INTENT_DETECTED]` **truthfully** (source llm|regex|none + confidence). Installed the `openai` SDK.
+  9 unit tests (LLM mocked; fallback/timeout/no-key/bad-JSON/never-throws), 139 total green; build
+  green. **Operator-gated:** set `OPENAI_API_KEY` (without it, regex-only — safe) + verify a booking
+  call creates an **appointment** (test-call protocol). Threading `booking_details` into structured
+  appointment fields (vs the transcript notes) and an LLM-summarized subject are follow-ons.
 
 ### R-020 — No calendar integration for appointments
 **Priority:** High · **Status:** Open · **Effort:** XL · **Related audit:** 01 (H14)

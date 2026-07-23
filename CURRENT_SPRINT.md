@@ -46,7 +46,7 @@ via a live test-call. Every task is split **engineering-done vs operationally-ve
   fallback line.
 - Tests: prompt-derivation injection (fields → prompt sections present); migration additive.
 
-### Task 3 — R-019 (intent detection)  ·  *the booking promise*
+### Task 3 — R-019 (intent detection)  ·  ✅ DONE (code) 2026-07-23
 - Replace the `detectCallIntent` stub (`api/webhooks/vapi/route.ts:262`, currently returns `"other"`
   always) with **AI-primary semantic classification** on the final transcript:
   - **Primary:** OpenAI `gpt-4o-mini` structured-JSON classify → `{ intent, confidence,
