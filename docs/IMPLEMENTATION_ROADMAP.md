@@ -590,9 +590,10 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   JSON-LD** to the marketing layout. Added **per-page `metadata`** (unique title/description +
   `alternates.canonical`) to pricing (via a route `layout.tsx`, since the page is a client component),
   security, use-cases, docs, support, about, and company. Build emits `/robots.txt` + `/sitemap.xml`;
-  86 tests green. **Note:** all URLs derive from `siteConfig.url` (currently `https://denku.ai`) — the
-  single source; resolving the denku.io/denku.ai naming (R-004) corrects canonicals/sitemap in one
-  place. **Follow-on:** unique per-page OG images and Product/FAQ JSON-LD (needs real content/assets).
+  86 tests green. **Note:** all URLs derive from `siteConfig.url`, set to the canonical
+  `https://www.denku.io` (owner decision 2026-07-23, resolving the denku.io/denku.ai inconsistency) —
+  a single source for canonicals/sitemap/OG. **Follow-on:** unique per-page OG images and Product/FAQ
+  JSON-LD (needs real content/assets).
 
 ### R-072 — Audit log covers system events, not user/security actions
 **Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 10 (see R-057)

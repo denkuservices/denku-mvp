@@ -4,8 +4,10 @@ export const COMPANY_NAME = "Denku";
 
 export const siteConfig = {
   name: SITE_NAME,
-  url: "https://denku.ai",
-  ogImage: "https://denku.ai/og.jpg",
+  // Canonical production host (owner decision 2026-07-23). Drives SEO metadataBase,
+  // robots, sitemap, canonicals, and OG. Apex denku.io 307-redirects → use www.
+  url: "https://www.denku.io",
+  ogImage: "https://www.denku.io/og.jpg",
   description:
     "Denku builds AI voice employees that answer every call, qualify every lead, and book every appointment — 24/7.",
   links: {
