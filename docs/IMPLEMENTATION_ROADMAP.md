@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 17 | 0 | 2 | 19 |
-| Medium | 33 | 0 | 4 | 37 |
+| Medium | 32 | 0 | 5 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **65** | **1** | **14** | **80** |
+| **Total** | **64** | **1** | **15** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -785,7 +785,7 @@ must be baselined here before the money math can be reviewed or tested.)
   landmine #4 note updated (single admin client; don't reintroduce a second).
 
 ### R-034 — Delete dead weight from the repo
-**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 00
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; marketing-dedupe folded into R-022) · **Effort:** S · **Related audit:** 00
 - **Business impact:** Confuses every new contributor/session; repo bloat.
 - **Technical impact:** Root `src/` legacy MVP, `vercel_diff_report_*.txt`, `tsconfig.tsbuildinfo`,
   duplicate legacy marketing components (coordinate with R-022).
@@ -795,6 +795,12 @@ must be baselined here before the money math can be reviewed or tested.)
   importers, grep-verified): `web/src/app/(app)/dashboard/getDashboardOverview.ts` (unused duplicate
   of the live `lib/dashboard/getDashboardOverview.ts`) and `web/src/app/(app)/OperationalOverviewCard.tsx`
   (a Potemkin card with hardcoded fake trends). Root `src/` legacy MVP + the other items remain.
+- **Completed 2026-07-23 (Sprint 3):** deleted the repo-root **legacy MVP `src/`** (13 tracked files —
+  old admin panel + tool routes; confirmed dead: no root `package.json`, `web/` is self-contained,
+  nothing references it) and the 164KB `vercel_diff_report_2026-01-08_13-48.txt`. `*.tsbuildinfo` was
+  already gitignored + untracked (no change needed). 78 tests green. **Remaining, folded into R-022:**
+  the "duplicate legacy marketing components" are NOT dead yet (the marketing site still renders them);
+  they're removed during the landing redesign, not here — deleting them now would break live pages.
 
 ### R-035 — Migrate Stripe checkout to catalog Prices
 **Priority:** Medium · **Status:** Open · **Effort:** M–L · **Related audit:** 00

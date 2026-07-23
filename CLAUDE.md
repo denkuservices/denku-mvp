@@ -42,7 +42,7 @@ web/src/app/(marketing)  public site   (auth) login/signup/verify   (app) onboar
 web/src/app/api/      ~45 route handlers (admin, billing, phone-lines, tools, webhooks, vapi)
 web/src/lib/          domain libs (billing, concurrency, vapi, org, tickets, analytics, email…)
 supabase/migrations/  INCREMENTAL ONLY — base schema exists only in the live Supabase DB
-src/  (repo root)     DEAD legacy MVP (old admin panel + tool routes). Never edit, never import.
+(repo root had a DEAD legacy MVP `src/` — old admin panel + tool routes — DELETED in R-034, 2026-07-23. Don't recreate a top-level `src/`; all app code lives in `web/`.)
 docs/qa/              sprint QA checklists
 skills/               engineering deep-dives (this knowledge system)
 ```

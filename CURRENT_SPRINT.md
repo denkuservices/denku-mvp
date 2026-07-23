@@ -32,6 +32,11 @@ identity — and clean up the email-sender inconsistency that was masking broken
   deleted the old module. Build confirms middleware compiles on the `server-only` client. 78 tests
   green. CLAUDE.md landmine #4 updated. Roadmap R-033 → Completed.
 
+- **2026-07-23 — R-034 (delete dead weight) shipped.** Deleted the repo-root legacy MVP `src/`
+  (13 files) + the 164KB `vercel_diff_report`; `*.tsbuildinfo` already gitignored. Marketing-component
+  dedupe stays folded into R-022 (still live). 78 tests green. Roadmap R-034 → Completed; CLAUDE.md
+  repo-layout note updated.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |
