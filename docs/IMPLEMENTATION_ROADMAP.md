@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 16 | 0 | 3 | 19 |
-| Medium | 29 | 0 | 8 | 37 |
+| Medium | 28 | 0 | 9 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **60** | **1** | **19** | **80** |
+| **Total** | **59** | **1** | **20** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -1123,7 +1123,7 @@ terminology sweep.)
   intended dashboard system); reskin settings pages to it; keep shadcn for form controls only.
 
 ### R-065 — Inconsistent product vocabulary in customer-facing UI
-**Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 06 (see R-018, R-055)
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; `[Agent]` ticket-artifact headers remain under R-055) · **Effort:** S–M · **Related audit:** 06 (see R-018, R-055)
 - **Business impact:** Denku's own rule is "AI, not agent" outside Settings/Advanced, yet the
   product speaks four dialects for one thing: "AI employee" (marketing), "agent" / "Active Agents"
   widget (dashboard, R-018), `[Agent]` ticket headers (R-055), "assistant" (settings/code). Reads
@@ -1133,8 +1133,15 @@ terminology sweep.)
 - **Dependencies:** Ties to R-018 and R-055 (fix together).
 - **Recommended solution:** Settle one customer-facing noun ("AI employee"), enforce everywhere
   outside the Settings/Advanced carve-out, document as a rule.
-
-### R-079 — Instagram OAuth persists requested scopes, not granted scopes
+- **Completed 2026-07-23 (Sprint 3):** swept the customer-facing dashboard surfaces to "AI":
+  call-detail `[callId]` ("Agent Context"→"AI Context", the metadata "Agent" label→"AI", transcript
+  AI-speaker label "Agent"→"AI", derived insights "Agent asked…"→"AI asked…"), ticket-detail "Agent"
+  label→"AI", and the dashboard widget "Agent Performance"→"AI Performance" with an "AI" column header
+  (building on R-018's "Active AI lines"). Verified no `>Agent<` customer-facing text remains in those
+  files; code identifiers (`agent_id`, `AgentComplexTable`, `/dashboard/agents`) and the Settings →
+  Agents/Advanced carve-out are intentionally unchanged. Rule strengthened + made explicit in
+  `skills/design-system.md`. Build green. **Remaining sibling:** the `[Agent]` prefix in
+  webhook-built ticket subjects/descriptions is **R-055** (separate — it's artifact-format work).
 **Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** — (filed 2026-07-22, Sprint 1.5 closure)
 - **Business impact:** If a user grants a subset of the requested Instagram permissions, Denku
   records the *configured* scope list as if fully granted. `subscribedFieldsForScopes` then tries to

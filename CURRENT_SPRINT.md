@@ -58,6 +58,12 @@ identity — and clean up the email-sender inconsistency that was masking broken
   `<button aria-label="Close menu">`; toast `aria-live` (from R-062). Modal focus-trap sweep is
   documented follow-on. Build green. Roadmap R-070 → Completed (structural core).
 
+- **2026-07-23 — R-065 (terminology sweep) shipped.** Customer-facing "Agent"→"AI" across call
+  detail (context/label/transcript-speaker/insights), ticket detail label, and the dashboard widget
+  ("AI Performance" + "AI" column). Code identifiers + Settings/Advanced carve-out untouched. Rule
+  strengthened in `skills/design-system.md`. `[Agent]` ticket-artifact headers remain R-055. Build
+  green. Roadmap R-065 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

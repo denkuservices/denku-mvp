@@ -115,7 +115,7 @@ function generateCallSummary(transcript: string | null): string[] {
     summary.add("Appointment discussion");
   }
   if (/\b(name|phone)\b/.test(lowerTranscript)) {
-    summary.add("Agent collected caller details");
+    summary.add("AI collected caller details");
   }
 
   return Array.from(summary);
@@ -210,7 +210,7 @@ function generateCallOutcomeInsights(call: CallRow): string[] {
       insights.add("This was a sales-related inquiry.");
     }
     if (lowerTranscript.includes("name") || lowerTranscript.includes("phone") || lowerTranscript.includes("email")) {
-      insights.add("Agent asked for contact details.");
+      insights.add("AI asked for contact details.");
     }
   }
 
@@ -348,13 +348,13 @@ export default async function CallDetailPage({
       <div className="mt-4 grid w-full grid-cols-1 gap-5 xl:grid-cols-2 items-stretch">
         <div className="!z-5 relative flex h-full flex-col w-full min-w-0 rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
           <div className="flex items-center justify-between px-6 pt-6">
-            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Agent Context</h2>
+            <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">AI Context</h2>
           </div>
           <div className="mt-4 flex-1 overflow-x-auto px-6 pb-6 min-w-0">
             <table className="min-w-full text-sm">
               <tbody className="divide-y divide-gray-200 dark:divide-white/10">
                 <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">Agent</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">AI</td>
                   <td className="px-4 py-3 text-sm font-bold text-navy-700 dark:text-white">{agentName ?? "Unassigned"}</td>
                 </tr>
                 <tr className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
@@ -633,7 +633,7 @@ export default async function CallDetailPage({
                               : "bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-200"
                           }`}
                         >
-                          {segment.speaker === "AI" ? "Agent" : segment.speaker === "User" ? "Caller" : "System"}
+                          {segment.speaker === "AI" ? "AI" : segment.speaker === "User" ? "Caller" : "System"}
                         </span>
                       </td>
                       <td className="px-4 py-3">

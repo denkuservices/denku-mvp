@@ -63,7 +63,12 @@ loading, don't break `.font-display`/`.font-brand-mono` (marketing) or `font-dm`
 ## Copy rules (enforced product decisions)
 
 - Brand: "Denku", never "Denku AI".
-- Dashboard: say **"AI"**, not "agent", outside Settings → Agents/Advanced.
+- **Dashboard: say "AI", not "agent", outside the Settings → Agents/Advanced carve-out** (R-065,
+  enforced 2026-07-23). This covers headings, labels, table headers, transcript speaker labels, and
+  derived insight copy — e.g. call-detail "AI Context"/"AI" (not "Agent"), the dashboard "AI
+  Performance" widget with an "AI" column, transcript AI turns labelled "AI", and "Active AI lines"
+  (R-018). Code identifiers (`agent_id`, `AgentComplexTable`, the `/dashboard/agents` route) keep
+  "agent" — the rule is about **customer-facing text only**. Marketing may say "AI employee".
 - Positioning (landing v2): "AI communication infrastructure", never agency/design-studio framing.
 
 ## Known inconsistencies (documented, not yet fixed)

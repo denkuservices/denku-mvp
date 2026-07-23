@@ -315,7 +315,7 @@ export default async function TicketDetailPage({
                 )}
                 {agent && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Agent</p>
+                    <p className="text-xs text-muted-foreground">AI</p>
                     <p className="text-sm">{agent.name ?? "—"}</p>
                   </div>
                 )}

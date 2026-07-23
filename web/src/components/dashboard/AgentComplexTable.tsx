@@ -33,7 +33,7 @@ export default function AgentComplexTable(props: { tableData: any }) {
     columnHelper.accessor("agent", {
       id: "agent",
       header: () => (
-        <p className="text-sm font-bold text-gray-600 dark:text-white tracking-wider">AGENT</p>
+        <p className="text-sm font-bold text-gray-600 dark:text-white tracking-wider">AI</p>
       ),
       cell: (info) => (
         <p className="text-sm font-semibold text-navy-700 dark:text-white">
@@ -137,7 +137,7 @@ export default function AgentComplexTable(props: { tableData: any }) {
     <Card extra={"w-full h-full p-4 sm:p-6"}>
       <div className="pt-4 pb-2">
         <div className="text-xl font-bold text-navy-700 dark:text-white">
-          Agent Performance
+          AI Performance
         </div>
       </div>
 
