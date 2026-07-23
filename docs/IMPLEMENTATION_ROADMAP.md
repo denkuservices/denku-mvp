@@ -48,10 +48,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 11 | 0 | 8 | 19 |
+| High | 10 | 0 | 9 | 19 |
 | Medium | 24 | 0 | 13 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **49** | **1** | **30** | **80** |
+| **Total** | **48** | **1** | **31** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -507,13 +507,20 @@ business context.)
   the plan step; fall back to 14-day card trial if abuse risk proves high.
 
 ### R-016 — No call recording playback
-**Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 01 (H11)
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 4) · **Effort:** M · **Related audit:** 01 (H11)
 - **Business impact:** Voice product without audio = trust and coaching gap; table stakes.
 - **Technical impact:** Vapi end-of-call payloads carry recording URLs in `raw_payload`; surface
   on `dashboard/calls/[callId]` with an audio player; consider retention/consent copy.
 - **Dependencies:** Verify recording availability/format per Vapi config.
 - **Recommended solution:** Extract + store recording URL on `calls`, add player to call detail,
   note state consent requirements in settings copy.
+- **Completed 2026-07-23 (Sprint 4):** the player already existed (`findRecordingUrl` extracts the
+  URL from `raw_payload` across Vapi's shapes; `<audio controls>` on `calls/[callId]`). This pass
+  added (owner scope: **display only, no retention engine**): an **Available / Not available** badge,
+  a clean empty state, and a **retention + consent info line** ("recordings retained per your voice
+  provider's policy; Denku applies no extra limit; recording-consent laws vary by state/country").
+  Build green. **Operator-gated:** verify playback against a real Vapi recording payload (test call).
+  A configurable retention engine is a deliberate later effort (R-073 data-lifecycle).
 
 ### R-017 — No weekly value digest
 **Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 01 (H12)

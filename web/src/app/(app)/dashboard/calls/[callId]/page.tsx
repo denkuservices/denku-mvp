@@ -431,9 +431,18 @@ export default async function CallDetailPage({
         <div className="!z-5 relative flex h-full flex-col w-full min-w-0 rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
           <div className="flex items-center justify-between px-6 pt-6">
             <h2 className="font-dm text-lg font-bold text-navy-700 dark:text-white">Recording</h2>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                recordingUrl
+                  ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+                  : "bg-gray-100 text-gray-600 dark:bg-navy-700 dark:text-gray-300"
+              }`}
+            >
+              {recordingUrl ? "Available" : "Not available"}
+            </span>
           </div>
           {recordingUrl ? (
-            <div className="mt-4 flex-1 px-6 pb-6 flex items-center min-w-0">
+            <div className="mt-4 flex-1 px-6 flex items-center min-w-0">
               <div className="w-full rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-navy-700 p-4">
                 <audio controls className="h-14 w-full">
                   <source src={recordingUrl} />
@@ -441,10 +450,20 @@ export default async function CallDetailPage({
               </div>
             </div>
           ) : (
-            <div className="mt-4 flex-1 px-6 pb-6 flex items-center min-w-0">
-              <p className="text-sm text-gray-600 dark:text-gray-400">No recording available</p>
+            <div className="mt-4 flex-1 px-6 flex items-center min-w-0">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                No recording available for this call.
+              </p>
             </div>
           )}
+          {/* R-016: display-only retention + consent info (no retention engine yet). */}
+          <div className="mt-3 px-6 pb-6">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Retention: recordings are stored by your voice provider and retained per their policy;
+              Denku does not currently apply an additional time limit. Note: recording-consent laws
+              vary by state/country — ensure your call handling complies.
+            </p>
+          </div>
         </div>
       </div>
 

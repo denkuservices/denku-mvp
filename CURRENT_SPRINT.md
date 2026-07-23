@@ -4,7 +4,14 @@
 > `docs/EXECUTION_PLAN.md` + `docs/RETROSPECTIVE.md`. Update task status here as you ship; mark the
 > roadmap entry `Completed` (date + how) in the same change.
 
-**Sprint 4 · Started 2026-07-23 · Status: 🟢 `IN PROGRESS`**
+**Sprint 4 · Started 2026-07-23 · Status: ✅ `CODE-COMPLETE 2026-07-23` (operator verification pending)**
+
+> All 5 items shipped in code: **R-051 + R-052** (voice/language EN-ES + call caps), **R-013**
+> (business context, usable via Settings), **R-019** (AI-primary intent detection), **R-016**
+> (recording verify + retention/consent copy). 139 tests green. Operator go-live: `OPENAI_API_KEY`
+> for R-019 (regex-only without it), the R-013 migration, and the **live operator acceptance
+> checklist** in the DoD below. Sprint 4.5 (multi-channel platform) is the next planned sprint —
+> **not started**.
 
 > Sprint 3 is **code-complete, awaiting operator activation** (`docs/SPRINT_3_ACTIVATION.md`); review in
 > `docs/SPRINT_3_REVIEW.md`. Sprint 4 was proposed, then the owner **intentionally prioritized product
@@ -59,7 +66,7 @@ via a live test-call. Every task is split **engineering-done vs operationally-ve
 - Tests: pure classifier — booking→appointment, support→ticket, ambiguous→conservative; LLM mocked;
   fallback path; idempotency preserved.
 
-### Task 4 — R-016 (recording playback)  ·  *verify & close*
+### Task 4 — R-016 (recording playback)  ·  ✅ DONE (code) 2026-07-23
 - Already built: `findRecordingUrl` + `<audio controls>` in `calls/[callId]/page.tsx`. This task:
   **verify** against real Vapi payload shapes (operator test call), add **recording availability +
   current retention info (display only)**, clean empty state. **No retention engine** (owner: keep
