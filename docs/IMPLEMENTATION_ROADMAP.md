@@ -48,10 +48,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 14 | 0 | 5 | 19 |
-| Medium | 25 | 0 | 12 | 37 |
+| High | 13 | 0 | 6 | 19 |
+| Medium | 24 | 0 | 13 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **53** | **1** | **26** | **80** |
+| **Total** | **51** | **1** | **28** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -562,7 +562,7 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   confirmed bookings with email/SMS confirmation to the caller.
 
 ### R-051 — Voice and language settings are decorative (never sent to Vapi)
-**Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 03
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 4; code — live test-call verify operator-gated) · **Effort:** M · **Related audit:** 03
 - **Business impact:** The onboarding language step and the Settings voice/language pickers do
   not affect the actual call: no `voice` object is ever sent to Vapi (`"jennifer"` exists only in
   the DB), no `transcriber` is configured, and language reaches the call only as prompt text. A
@@ -576,6 +576,14 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   (language) from agent settings on create AND sync; verify with test-call protocol scenario 7.
 - **Confirmed live (2026-07-07, Sprint 1 Task 1):** every customer assistant has `voice: none`,
   `transcriber: none` (read-only API check).
+- **Completed 2026-07-23 (Sprint 4, code):** extended the shared `buildAssistantConfigPatch`
+  (`lib/vapi/assistantConfig.ts`) to always send a real **`voice`** (OpenAI TTS) + **`transcriber`**
+  (Deepgram nova-2) driven by the agent **language** — launch **EN + ES** (`resolveLanguage` /
+  `resolveVoice` / `resolveTranscriber`, pure + unit-tested). Wired `syncAgentToVapi` (passes
+  `agent.language`) and `runActivation` (passes `settings.onboarding_language`); all paths inherit it
+  via the R-050 helper. Non-fatal on failure. Per-agent voice PICKER remains R-038. 125 tests green.
+  **Operator-gated:** verify on a live test call (voice + a Spanish line converses in Spanish); run
+  `POST /api/internal/reconcile-vapi-assistants` to apply to existing assistants.
 
 ### R-021 — Raw upstream error strings shown to users
 **Priority:** High · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S–M · **Related audit:** 00
@@ -1036,7 +1044,7 @@ must be baselined here before the money math can be reviewed or tested.)
   disable/delete (pause + Stripe cancel + data export) remains future work — see R-073.
 
 ### R-052 — No duration/silence/abuse caps on paid-line calls
-**Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 03
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 4; code — live verify operator-gated) · **Effort:** S–M · **Related audit:** 03
 - **Business impact:** A prank, pocket-dial, or hostile caller can burn unbounded billable
   minutes toward a customer's overage (and toward the hard-cap pause, R-009). Compounding
   technical effect: the concurrency lease TTL is 15 minutes, so calls longer than that silently
@@ -1049,8 +1057,12 @@ must be baselined here before the money math can be reviewed or tested.)
   closing; align lease TTL with the max duration; expose the cap in agent settings later.
 - **Confirmed live (2026-07-07, Sprint 1 Task 1):** `maxDurationSeconds` and
   `silenceTimeoutSeconds` are unset on every live assistant (read-only API check).
-
-### R-053 — Call guardrails misfire on healthy calls
+- **Completed 2026-07-23 (Sprint 4, code):** `buildAssistantConfigPatch` now **always** sets
+  `maxDurationSeconds: 900` (15-min hard cap) + `silenceTimeoutSeconds: 30` on every config path
+  (`CALL_MAX_DURATION_SECONDS`/`CALL_SILENCE_TIMEOUT_SECONDS`), so no line is uncapped. Unit-tested.
+  The 15-min cap intentionally matches the concurrency lease TTL (the interplay noted above). Existing
+  assistants pick it up via the reconcile pass. Exposing the cap in agent settings is a later option.
+  **Operator-gated:** verify a call closes at the cap / after 30s silence (test-call protocol).
 **Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S · **Related audit:** 03
 - **Business impact:** GR-1 ("repeat slot") counts phone/email vocabulary across the WHOLE
   transcript — both speakers — so a normal exchange ("What's your phone number?" / "My phone

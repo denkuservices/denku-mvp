@@ -3,6 +3,11 @@ import {
   buildAssistantConfigPatch,
   getVapiWebhookServerUrl,
   DENKU_TOOL_IDS,
+  resolveLanguage,
+  resolveVoice,
+  resolveTranscriber,
+  CALL_MAX_DURATION_SECONDS,
+  CALL_SILENCE_TIMEOUT_SECONDS,
 } from "@/lib/vapi/assistantConfig";
 
 const [CREATE_TICKET, CREATE_APPT] = DENKU_TOOL_IDS;
@@ -93,5 +98,52 @@ describe("buildAssistantConfigPatch — server / webhook (R-077 + Task 5 secret)
   it("passes firstMessage through only when provided", () => {
     expect(buildAssistantConfigPatch({ model: {} }, { firstMessage: "Hi there" }, PROD).firstMessage).toBe("Hi there");
     expect(buildAssistantConfigPatch({ model: {} }, {}, PROD).firstMessage).toBeUndefined();
+  });
+});
+
+describe("buildAssistantConfigPatch — voice/transcriber/caps (R-051 + R-052)", () => {
+  it("ALWAYS sets the 15-min hard cap + 30s silence timeout (R-052, every path)", () => {
+    const patch = buildAssistantConfigPatch({ model: {} }, {}, PROD);
+    expect(patch.maxDurationSeconds).toBe(CALL_MAX_DURATION_SECONDS);
+    expect(patch.maxDurationSeconds).toBe(900);
+    expect(patch.silenceTimeoutSeconds).toBe(30);
+    expect(CALL_SILENCE_TIMEOUT_SECONDS).toBe(30);
+  });
+
+  it("sends a real voice + transcriber (no longer `none`, R-051) — English default", () => {
+    const patch = buildAssistantConfigPatch({ model: {} }, {}, PROD);
+    expect(patch.voice).toEqual({ provider: "openai", voiceId: "alloy" });
+    expect(patch.transcriber).toEqual({ provider: "deepgram", model: "nova-2", language: "en" });
+  });
+
+  it("uses Spanish voice + transcriber when the agent language is Spanish", () => {
+    const patch = buildAssistantConfigPatch({ model: {} }, { language: "es" }, PROD);
+    expect(patch.voice).toEqual({ provider: "openai", voiceId: "nova" });
+    expect((patch.transcriber as { language: string }).language).toBe("es");
+  });
+
+  it("an explicit voiceId overrides the language default", () => {
+    const patch = buildAssistantConfigPatch({ model: {} }, { language: "en", voiceId: "shimmer" }, PROD);
+    expect(patch.voice).toEqual({ provider: "openai", voiceId: "shimmer" });
+  });
+});
+
+describe("language / voice / transcriber resolvers (R-051)", () => {
+  it("resolveLanguage normalizes to en/es (default en)", () => {
+    expect(resolveLanguage("es")).toBe("es");
+    expect(resolveLanguage("es-MX")).toBe("es");
+    expect(resolveLanguage("en")).toBe("en");
+    expect(resolveLanguage(null)).toBe("en");
+    expect(resolveLanguage("fr")).toBe("en"); // unsupported → en
+  });
+
+  it("resolveVoice returns a language default or the explicit override", () => {
+    expect(resolveVoice("en")).toEqual({ provider: "openai", voiceId: "alloy" });
+    expect(resolveVoice("es")).toEqual({ provider: "openai", voiceId: "nova" });
+    expect(resolveVoice("en", "echo")).toEqual({ provider: "openai", voiceId: "echo" });
+  });
+
+  it("resolveTranscriber is Deepgram nova-2 for the language", () => {
+    expect(resolveTranscriber("es")).toEqual({ provider: "deepgram", model: "nova-2", language: "es" });
   });
 });

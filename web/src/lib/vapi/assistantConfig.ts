@@ -27,6 +27,39 @@ export const DENKU_TOOL_IDS = [
   "5373add8-b7d2-49f0-a866-f60167a1e624", // create_appointment
 ] as const;
 
+// R-052 — per-assistant call caps (owner-decided). Applied on EVERY config path so no
+// line can run away on cost. 15-min hard cap; hang up after 30s of silence.
+export const CALL_MAX_DURATION_SECONDS = 900;
+export const CALL_SILENCE_TIMEOUT_SECONDS = 30;
+
+// R-051 — voice + transcriber are now actually sent to Vapi (were `none`). Launch
+// languages: English + Spanish. Voices use OpenAI TTS (language-agnostic) via Vapi;
+// language drives the Deepgram transcriber. Per-agent voice PICKING is R-038 (later);
+// here we send a real, language-appropriate default that agent settings can override.
+export type SupportedLanguage = "en" | "es";
+
+const DEFAULT_VOICE_BY_LANGUAGE: Record<SupportedLanguage, { provider: string; voiceId: string }> = {
+  en: { provider: "openai", voiceId: "alloy" },
+  es: { provider: "openai", voiceId: "nova" },
+};
+
+/** Normalize any stored language string to a supported code (default en). Pure. */
+export function resolveLanguage(language?: string | null): SupportedLanguage {
+  return (language ?? "").toLowerCase().startsWith("es") ? "es" : "en";
+}
+
+/** Vapi `voice` object from language + optional explicit voiceId. Pure. */
+export function resolveVoice(language?: string | null, voiceId?: string | null): { provider: string; voiceId: string } {
+  const base = DEFAULT_VOICE_BY_LANGUAGE[resolveLanguage(language)];
+  const id = (voiceId ?? "").trim();
+  return id ? { provider: base.provider, voiceId: id } : base;
+}
+
+/** Vapi `transcriber` object (Deepgram) for the language. Pure. */
+export function resolveTranscriber(language?: string | null): { provider: string; model: string; language: SupportedLanguage } {
+  return { provider: "deepgram", model: "nova-2", language: resolveLanguage(language) };
+}
+
 /**
  * Canonical URL Vapi should POST call events to. Explicit env only — never
  * `VERCEL_URL`/localhost (the R-077 root cause). Returns "" when no safe base is
@@ -44,6 +77,10 @@ export type AssistantConfigInput = {
   /** If provided, replaces the model's system message; otherwise existing messages are kept. */
   systemPrompt?: string | null;
   firstMessage?: string | null;
+  /** Agent language (drives transcriber + default voice). Default en. (R-051) */
+  language?: string | null;
+  /** Explicit voiceId override (R-038 territory); otherwise a language default is used. */
+  voiceId?: string | null;
 };
 
 /** Shape we read back from `GET /assistant/{id}` (only the parts we merge). */
@@ -57,7 +94,7 @@ type CurrentAssistant = {
  */
 export function buildAssistantConfigPatch(
   current: CurrentAssistant,
-  input: Pick<AssistantConfigInput, "systemPrompt" | "firstMessage">,
+  input: Pick<AssistantConfigInput, "systemPrompt" | "firstMessage" | "language" | "voiceId">,
   env: NodeJS.ProcessEnv = process.env
 ): Record<string, unknown> {
   const existingModel = (current?.model ?? { provider: "openai", model: "gpt-4o" }) as Record<string, unknown>;
@@ -71,6 +108,14 @@ export function buildAssistantConfigPatch(
 
   const patch: Record<string, unknown> = { model };
   if (input.firstMessage) patch.firstMessage = input.firstMessage;
+
+  // R-051: real voice + transcriber (language) — no longer `none`.
+  patch.voice = resolveVoice(input.language, input.voiceId);
+  patch.transcriber = resolveTranscriber(input.language);
+
+  // R-052: universal call caps on every path.
+  patch.maxDurationSeconds = CALL_MAX_DURATION_SECONDS;
+  patch.silenceTimeoutSeconds = CALL_SILENCE_TIMEOUT_SECONDS;
 
   const serverUrl = getVapiWebhookServerUrl(env);
   if (serverUrl) {
@@ -93,7 +138,12 @@ export async function ensureAssistantConfig(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const current = await vapiFetch<CurrentAssistant>(`/assistant/${input.assistantId}`, { method: "GET" });
-    const patch = buildAssistantConfigPatch(current, input);
+    const patch = buildAssistantConfigPatch(current, {
+      systemPrompt: input.systemPrompt,
+      firstMessage: input.firstMessage,
+      language: input.language,
+      voiceId: input.voiceId,
+    });
     await vapiFetch(`/assistant/${input.assistantId}`, {
       method: "PATCH",
       body: JSON.stringify(patch),

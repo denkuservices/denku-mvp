@@ -275,8 +275,7 @@ export async function updateAgentConfiguration(
  * implementation PATCHed a fresh `model` object with no toolIds, so personalizing an
  * agent in Settings silently wiped its create_ticket / create_appointment tools.
  * The helper also sets the canonical webhook `server.url` (R-077).
- * (`language` is intentionally still not mapped to voice/transcriber here — that is
- * R-051, out of this change's scope.)
+ * `language` now drives the Vapi voice + transcriber via the shared helper (R-051).
  */
 async function syncAgentToVapi(input: {
   assistantId: string;
@@ -288,6 +287,7 @@ async function syncAgentToVapi(input: {
     assistantId: input.assistantId,
     systemPrompt: input.systemPrompt || null,
     firstMessage: input.firstMessage,
+    language: input.language,
   });
   if (!result.ok) {
     throw new Error(result.error || "Failed to sync assistant configuration to Vapi");

@@ -1010,7 +1010,10 @@ Always confirm the caller's name, phone number, and a short summary before submi
     // server.url via the shared config helper (R-050 + R-077). Non-fatal: the
     // deterministic post-call fallback still produces artifacts if this hiccups, and
     // the reconciliation endpoint can re-apply later.
-    const configResult = await ensureAssistantConfig({ assistantId: assistant.id });
+    const configResult = await ensureAssistantConfig({
+      assistantId: assistant.id,
+      language: settings?.onboarding_language ?? "en", // R-051: drives voice + transcriber
+    });
     if (!configResult.ok) {
       console.error("[runActivation] ensureAssistantConfig failed (non-fatal, continuing):", configResult.error);
     }
