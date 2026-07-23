@@ -27,12 +27,14 @@ function SidebarAdapter(props: { routes: NavRoute[]; [x: string]: any }) {
           open ? 'translate-x-0' : '-translate-x-96 xl:translate-x-0'
         }`}
       >
-        <span
+        <button
+          type="button"
+          aria-label="Close menu"
           className="absolute right-4 top-4 block cursor-pointer xl:hidden"
           onClick={() => setOpen(false)}
         >
           <HiX />
-        </span>
+        </button>
 
         {/* Desktop: keep original spacing, mobile: no top padding (drawer is on top) */}
         <div className={`mx-[56px] mt-[50px] flex items-center`}>

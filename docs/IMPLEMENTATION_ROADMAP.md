@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 16 | 0 | 3 | 19 |
-| Medium | 30 | 0 | 7 | 37 |
+| Medium | 29 | 0 | 8 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **61** | **1** | **18** | **80** |
+| **Total** | **60** | **1** | **19** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -979,7 +979,7 @@ terminology sweep.)
   (the calls detail page already has that pattern).
 
 ### R-070 — Accessibility: operable/structural gaps (skip link, ARIA, focus)
-**Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 09
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; structural core — modal focus-trap sweep is follow-on) · **Effort:** M · **Related audit:** 09
 - **Business impact:** No skip-to-content link, ~27 `aria-*` across ~250 files, unverified modal
   focus management, some unlabeled icon-only controls → keyboard/screen-reader users are second-
   class; also a VPAT/enterprise-procurement gap (R-045/Audit 10).
@@ -988,6 +988,16 @@ terminology sweep.)
 - **Dependencies:** None.
 - **Recommended solution:** Skip link + verified landmarks; ARIA roles/states on interactive
   components; standardized modal focus handling. Preserve the existing `prefers-reduced-motion` win.
+- **Completed 2026-07-23 (Sprint 3) — structural core:** added a **skip-to-content link** as the
+  first focusable element in `HorizonShell` (visible only on keyboard focus) targeting the main
+  region, which now has `id="main-content"` + `tabIndex={-1}` (proper `<main>` landmark + focus
+  target). Fixed a non-semantic icon control: the mobile sidebar close was a `<span onClick>` (not
+  keyboard-operable, unlabeled) → now a `<button type="button" aria-label="Close menu">`. The R-062
+  toast region also ships an `aria-live="polite"` landmark so status/errors are announced. Build
+  green. **Follow-on (still open, tracked here):** a standardized modal focus-trap/return for the
+  bespoke modals (AddPhoneNumberModal, LiveAgentModal, demo overlay) and a fuller ARIA
+  roles/states sweep on custom tabs/dropdowns/toggles — larger, warrants dedicated a11y verification
+  (measured contrast is R-071).
 
 ### R-071 — Accessibility: perceivable gaps + unmeasured contrast
 **Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 09

@@ -53,6 +53,11 @@ identity — and clean up the email-sender inconsistency that was masking broken
   with `safeErrorMessage`. Blanket per-mutation rollout is incremental. 85 tests; build green.
   Roadmap R-062 → Completed.
 
+- **2026-07-23 — R-070 (a11y structural) shipped.** Skip-to-content link + `main#main-content`
+  landmark/focus target in `HorizonShell`; mobile sidebar close `<span onClick>` → labeled
+  `<button aria-label="Close menu">`; toast `aria-live` (from R-062). Modal focus-trap sweep is
+  documented follow-on. Build green. Roadmap R-070 → Completed (structural core).
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

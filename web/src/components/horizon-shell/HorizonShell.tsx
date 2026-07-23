@@ -49,11 +49,18 @@ function HorizonShellInner({ children }: HorizonShellProps) {
 
   return (
     <div className="flex min-h-screen w-full bg-background-100 dark:bg-background-900">
+      {/* Skip-to-content link (R-070) — first focusable element; visible only on keyboard focus. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <SidebarAdapter routes={horizonNavRoutes} open={mobileNavOpen} setOpen={setMobileNavOpen} variant="admin" />
       {/* Main Content Column - This is the scroll container */}
       <div className="flex min-h-screen flex-1 flex-col min-w-0 h-full w-full font-dm dark:bg-navy-900">
         {/* Scrollable main content area - matches Horizon layout structure */}
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative">
+        <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative focus:outline-none">
           {/* Routes wrapper - matches Horizon structure */}
           <div>
             {/* Old mobile hamburger removed - now in ProfileWidget */}
