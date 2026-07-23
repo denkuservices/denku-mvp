@@ -3,6 +3,13 @@ import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { Shield, Settings, Eye, Lock, Users, Database, Zap } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Company',
+  description: "Learn about Denku — our mission, values, and approach to building AI voice employees.",
+  alternates: { canonical: '/company' },
+};
 
 const pillars = [
   { icon: Shield, title: 'Isolation', desc: 'Multi-tenant architecture with strict data boundaries between every workspace.' },

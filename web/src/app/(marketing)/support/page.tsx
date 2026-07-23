@@ -3,6 +3,14 @@ import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { BookOpen, MessageSquare, Mail, Mic, AlertCircle, Webhook, Gauge, CreditCard } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Support',
+  description:
+    "Get help with Denku — how to reach support, common questions, and guidance on your AI voice employee.",
+  alternates: { canonical: '/support' },
+};
 
 const supportPaths = [
   { icon: BookOpen, title: 'Documentation', desc: 'Setup, integrations, and operational best practices.', href: '/docs', label: 'Go to docs' },

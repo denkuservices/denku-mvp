@@ -76,6 +76,16 @@ identity — and clean up the email-sender inconsistency that was masking broken
   the buggy-behavior characterization test with 2 regression tests. 86 tests green; build green.
   Roadmap R-053 → Completed.
 
+- **2026-07-23 — R-067 (SEO foundation) shipped.** `robots.ts` + `sitemap.ts`; root metadata enriched
+  (metadataBase + OG/Twitter cards + robots + canonical); Organization/WebSite JSON-LD in marketing
+  layout; per-page title/description/canonical on pricing (route layout), security, use-cases, docs,
+  support, about, company. URLs derive from `siteConfig.url` (resolve R-004 domain to correct). Build
+  emits `/robots.txt` + `/sitemap.xml`; 86 tests green. Roadmap R-067 → Completed.
+
+**✅ All 7 owner-ordered repo-only items complete (R-021, R-062, R-070, R-065, R-048, R-053, R-067),
+plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items are external-blocked
+(see the task table / status below) — awaiting live Supabase access for R-075/R-060/R-009.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

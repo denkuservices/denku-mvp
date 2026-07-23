@@ -3,6 +3,14 @@ import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { Shield, FileText, Lock, Users, Key, Database } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Security',
+  description:
+    "How Denku protects your data: encryption, access controls, and privacy practices for a product that handles customer call transcripts.",
+  alternates: { canonical: '/security' },
+};
 
 const securityPillars = [
   { icon: Shield, title: 'Tenant Isolation & RBAC', description: 'Strict data segregation with role-based access control. Each workspace operates in complete isolation.' },

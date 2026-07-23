@@ -4,6 +4,13 @@ import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { Code, Webhook, Zap } from 'lucide-react';
 import { SITE_NAME } from '@/config/site';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Docs',
+  description: `Documentation for ${SITE_NAME} — getting started, how the AI voice employee works, and answers to common questions.`,
+  alternates: { canonical: '/docs' },
+};
 
 const gettingStartedSteps = [
   { number: '01', title: 'Create Workspace', description: 'Set up your workspace with multi-tenant isolation. Configure team members and access roles.' },

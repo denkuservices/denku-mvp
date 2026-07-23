@@ -5,10 +5,13 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-23 (**Sprint 3 started** — Task 1 **R-080** shipped: centralized
-> env-driven email senders (`lib/email/senders.ts`), sandbox `onboarding@resend.dev` eliminated, all
-> sends now on verified `denku.io`, dead `SENDER` constants removed, `.env.example` added. 78 tests
-> green. Prior lines below describe Sprint 2.)
+> **Last updated:** 2026-07-23 (**Sprint 3 — repo-only wave complete**: shipped **R-080** (email
+> senders), **R-033** (single admin client), **R-034** (deleted root legacy `src/`), **R-061**
+> (dashboard error boundary), **R-021** (`safeErrorMessage`), **R-062** (toast system), **R-070**
+> (a11y skip-link/landmark), **R-065** (AI-not-agent sweep), **R-048** (loading skeletons), **R-053**
+> (guardrail misfire), **R-067** (SEO: robots/sitemap/OG/JSON-LD). 86 tests green; build passing.
+> **Remaining Sprint-3 items (R-075/R-060/R-009/R-057, operator handoff) are external-blocked** —
+> await live Supabase access / operator. Prior lines below describe Sprint 2.)
 > **Prior:** 2026-07-23 (**Sprint 2 closed** — R-011 forgot-password shipped in code via
 > Supabase built-in recovery; live reset test + a one-line Supabase redirect-allowlist entry are
 > operator-gated. Email deliverability clarified: the `denku.io` Resend domain **IS verified** and is
@@ -45,10 +48,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
-| High | 16 | 0 | 3 | 19 |
+| High | 15 | 0 | 4 | 19 |
 | Medium | 26 | 0 | 11 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **57** | **1** | **22** | **80** |
+| **Total** | **56** | **1** | **23** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -568,7 +571,7 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   plan_activated, first_call_handled); dashboard the funnel before optimizing.
 
 ### R-067 — No SEO foundation (organic discovery near-zero)
-**Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 07
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** M · **Related audit:** 07
 - **Business impact:** Good marketing content (pricing, security, docs, use-cases, company) is
   undiscoverable: no robots/sitemap, every page shares one site-level title/description, no
   per-page OG/Twitter cards, no canonical tags, no JSON-LD. The entire organic channel for
@@ -579,6 +582,17 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   landing redesign (R-022).
 - **Recommended solution:** Per-page `generateMetadata` (title/description/OG/canonical),
   `robots.ts` + `sitemap.ts`, unique OG images, Organization/Product/FAQ JSON-LD.
+- **Completed 2026-07-23 (Sprint 3):** added `app/robots.ts` (allow public, disallow app/admin/api;
+  points to sitemap) and `app/sitemap.ts` (11 marketing routes with priorities). Enriched the **root**
+  metadata with `metadataBase`, default `openGraph` + `twitter` cards, `robots: index/follow`, and a
+  root canonical — so every page now emits proper social cards. Removed the redundant `(marketing)`
+  layout title override so the `%s | Denku` template applies, and added **Organization + WebSite
+  JSON-LD** to the marketing layout. Added **per-page `metadata`** (unique title/description +
+  `alternates.canonical`) to pricing (via a route `layout.tsx`, since the page is a client component),
+  security, use-cases, docs, support, about, and company. Build emits `/robots.txt` + `/sitemap.xml`;
+  86 tests green. **Note:** all URLs derive from `siteConfig.url` (currently `https://denku.ai`) — the
+  single source; resolving the denku.io/denku.ai naming (R-004) corrects canonicals/sitemap in one
+  place. **Follow-on:** unique per-page OG images and Product/FAQ JSON-LD (needs real content/assets).
 
 ### R-072 — Audit log covers system events, not user/security actions
 **Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 10 (see R-057)
