@@ -11,6 +11,7 @@ import {
 import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
 import { logEvent } from "@/lib/observability/logEvent";
 import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
+import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
 
 const VapiWebhookSchema = z
   .object({
@@ -2837,6 +2838,10 @@ export async function POST(req: NextRequest) {
                 extractCallId(callRow.raw_payload || body) ?? undefined
               );
             }
+
+            // R-008: email the owner about any newly-created artifacts for this call.
+            // Idempotent + staged (ARTIFACT_NOTIFICATIONS_ENABLED, default off) + never throws.
+            await notifyNewArtifactsForCall(callRow.id, callRow.org_id);
           }
         } catch (artifactErr) {
           console.error("[ARTIFACT] Failed to ensure artifact for call:", {
