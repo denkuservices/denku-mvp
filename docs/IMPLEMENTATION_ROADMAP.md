@@ -229,7 +229,7 @@ billing view before touching billing code.
   is currently an empty stub).
 
 ### R-009 — Silent overage charges and silent hard-cap shutdown
-**Priority:** Critical · **Status:** Open — **DEFERRED (Sprint 2 → Sprint 3), blocked by R-075** · **Effort:** M · **Related audit:** 01 (C6)
+**Priority:** Critical · **Status:** Open — **PARTIAL (2026-07-23): pause email + banner shipped; proactive %-warnings + policy toggle remain** · **Effort:** M · **Related audit:** 01 (C6)
 - **Business impact:** A business phone going dead at $250 overage without warning is a
   catastrophic, churn-and-chargeback event; $100 surprise charges nearly as bad.
 - **Technical impact:** Add notification triggers to `billing_overage_state` transitions and the
@@ -251,6 +251,20 @@ billing view before touching billing code.
 - **Recommended solution:** Emails at 50/75/90% of included minutes and before threshold charge;
   explicit customer setting: "at hard cap: pause vs keep billing"; loud email + banner on pause.
   **Sequence: R-075 first, then the policy decision, then build (reusing R-008's email infra).**
+- **PARTIAL — done 2026-07-23 (Sprint 3, R-075 now unblocks this):** shipped the **"loud email + banner
+  on pause"** half — the worst symptom (a business phone going dead silently). New
+  `lib/billing/pauseNotifications.ts#notifyWorkspacePaused` emails the owner on the **active→paused
+  transition** (detected in `pauseOrgBilling`, so once per pause event; covers hard_cap + past_due),
+  reusing R-008's verified `denku.io` sender + a shared recipient resolver
+  (`lib/notifications/recipient.ts`); never throws; **staged OFF behind `BILLING_NOTIFICATIONS_ENABLED`**.
+  Template `lib/email/templates/workspacePaused.ts`. Added a dashboard-wide `PausedBanner`
+  (`components/dashboard/PausedBanner.tsx`, mounted in `dashboard/layout.tsx`) that loudly shows a
+  paused line with a Manage-billing CTA. 4 new tests (105 total green); build green. **Still OPEN:**
+  (a) proactive **50/75/90%-of-included-minutes** warnings — needs a per-usage trigger (natural home:
+  the Vapi end-of-call hook, querying `org_monthly_usage` vs plan included; + per-threshold idempotency
+  markers) — deferred as a focused follow-on so this commit stays reviewable and out of the webhook
+  hot path for now; (b) the **configurable hard-cap policy** (pause vs keep-billing) — still needs the
+  **owner product decision** (current behavior = pause, preserved).
 
 ### R-010 — Member invites are broken (admin namespace collision)
 **Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00, 01 (C7)

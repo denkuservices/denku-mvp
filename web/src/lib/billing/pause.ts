@@ -12,6 +12,7 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { pauseWorkspace, resumeWorkspace } from "@/lib/workspace/pause";
 import { enforceTelephonyResume } from "@/lib/workspace/enforcePause";
 import { enforceTelephonyPause } from "@/lib/workspace/enforcePause";
+import { notifyWorkspacePaused } from "@/lib/billing/pauseNotifications";
 
 /**
  * Pause workspace due to billing issue (hard_cap or payment_failed).
@@ -29,6 +30,21 @@ export async function pauseOrgBilling(
 ): Promise<void> {
   // Map billing reason to paused_reason
   const pausedReason: "hard_cap" | "past_due" = reason === "hard_cap" ? "hard_cap" : "past_due";
+
+  // R-009: detect the active→paused transition so we email the owner exactly once
+  // per pause event (not on every idempotent re-pause). Best-effort read; on any
+  // uncertainty we treat it as a transition (better a possible dup than silence).
+  let wasActive = true;
+  try {
+    const { data: prior } = await supabaseAdmin
+      .from("organization_settings")
+      .select("workspace_status")
+      .eq("org_id", orgId)
+      .maybeSingle<{ workspace_status: "active" | "paused" | null }>();
+    wasActive = (prior?.workspace_status ?? "active") !== "paused";
+  } catch {
+    wasActive = true;
+  }
 
   logEvent({
     tag: "[BILLING][PAUSE][WRAPPER]",
@@ -90,6 +106,11 @@ export async function pauseOrgBilling(
         ...details,
       },
     });
+  }
+
+  // R-009: on the active→paused transition, email the owner (staged, never throws).
+  if (wasActive) {
+    await notifyWorkspacePaused(orgId, pausedReason);
   }
 }
 

@@ -107,6 +107,14 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   `audit_log_changes`, `org_plan_overrides` (anon-read/view-backed → need tested SELECT policies, not
   safe under read-only prod access) + the `orgScoped` helper. R-060 stays Open. **Next: R-009.**
 
+- **2026-07-23 — R-009 (overage/pause alerts) PARTIAL.** Shipped the "loud email + banner on pause"
+  half: `notifyWorkspacePaused` emails the owner on the active→paused transition (hooked in
+  `pauseOrgBilling`, once per pause event; hard_cap + past_due), reusing R-008's verified sender + a
+  shared recipient resolver; staged OFF behind `BILLING_NOTIFICATIONS_ENABLED`; never throws. Added a
+  dashboard `PausedBanner`. 4 new tests (105 total green); build green. **Still open:** proactive
+  50/75/90% minute warnings (needs a per-usage trigger) + the configurable pause-vs-keep-billing
+  policy (needs the owner decision; current = pause). R-009 stays Open.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

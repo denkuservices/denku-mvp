@@ -1,5 +1,6 @@
 import HorizonTopbar from '@/components/horizon-shell/HorizonTopbar';
 import { ToastProvider } from '@/components/ui/toast/ToastProvider';
+import PausedBanner from '@/components/dashboard/PausedBanner';
 
 /**
  * Dashboard route group layout.
@@ -18,6 +19,7 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
       <HorizonTopbar />
+      <PausedBanner />
       {children}
     </ToastProvider>
   );

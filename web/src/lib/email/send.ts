@@ -138,6 +138,41 @@ export async function sendArtifactNotificationEmail(
 }
 
 /**
+ * Send a billing/service alert email (R-009) from the verified `denku.io` sender.
+ * Returns a structured result; never throws. Recipient + idempotency are the
+ * caller's responsibility.
+ */
+export async function sendBillingNotificationEmail(
+  toEmail: string,
+  email: { subject: string; html: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    console.log("[sendBillingNotificationEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: resolveSender("notify"),
+      to: toEmail,
+      subject: email.subject,
+      html: email.html,
+    });
+
+    if (error) {
+      console.error("[sendBillingNotificationEmail] Resend error:", error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[sendBillingNotificationEmail] Exception:", message);
+    return { ok: false, error: message };
+  }
+}
+
+/**
  * Send "Welcome to Denku" email (Resend). Server-only.
  * Called once when onboarding starts after verified login.
  */
