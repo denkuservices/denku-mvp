@@ -49,9 +49,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 14 | 0 | 5 | 19 |
-| Medium | 26 | 0 | 11 | 37 |
+| Medium | 25 | 0 | 12 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **55** | **1** | **24** | **80** |
+| **Total** | **54** | **1** | **25** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -1119,7 +1119,7 @@ terminology sweep.)
   lint-forbid `any` in `api/webhooks/**` and `lib/billing/**` once landed.
 
 ### R-076 — No reconciliation between Vapi cost (COGS) and customer minute-billing (revenue)
-**Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 12
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; ops email/dashboard surfacing is follow-on) · **Effort:** M · **Related audit:** 12
 - **Business impact:** Denku pays Vapi per `calls.cost_usd` but bills customers per `billable_minutes
   × rate` — two independent numbers with nothing reconciling them or checking summed billed minutes
   against Vapi-reported durations. Margin can erode silently; a minutes-derivation bug (R-075) is
@@ -1129,6 +1129,15 @@ terminology sweep.)
 - **Dependencies:** R-075 (the billed figure must be in-repo to reconcile against).
 - **Recommended solution:** Monthly reconciliation (COGS vs revenue, durations vs billed minutes)
   with a variance-threshold alert to ops.
+- **Completed 2026-07-23 (Sprint 3, unblocked by R-075):** `lib/billing/reconciliation.ts` reads the
+  baselined `org_monthly_invoice_preview` view and, per org-month, computes **margin = revenue
+  (`estimated_total_due_usd`) − COGS (`total_cost_usd`)** + margin %, classifying `negative` / `thin`
+  (< 25%) / `ok`. A monthly cron `api/billing/cron/reconcile` (CRON_SECRET; `vercel.json` `30 1 1 * *`)
+  logs structured `[BILLING][RECONCILE][…]` events (WARN on negative/thin, plus a SUMMARY). Pure
+  `computeMargin`/`classifyMargin` unit-tested (116 total green); build green. (Duration-vs-billed is
+  a definitional identity in the current schema — `billable = Σceil(sec/60)` — so the meaningful
+  cross-check is the COGS↔revenue margin.) **Follow-on:** surface alerts to an ops email/dashboard
+  (currently structured logs only) once an ops recipient exists.
 
 ### R-068 — Analytics over-fetches (full `raw_payload` per call, no cap, in-memory aggregation)
 **Priority:** Medium (grows to High) · **Status:** Open · **Effort:** M · **Related audit:** 08

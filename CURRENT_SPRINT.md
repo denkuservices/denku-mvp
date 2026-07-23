@@ -126,6 +126,12 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   surface), plus a chicken-and-egg operator/migration provisioning. Recommended safe rollout captured
   in the roadmap. Left unbuilt to avoid half-wired auth. **Next unblocked: R-076.**
 
+- **2026-07-23 — R-076 (COGS↔revenue reconciliation) shipped.** `lib/billing/reconciliation.ts`
+  computes per-org-month margin from the baselined invoice-preview view (R-075); monthly cron
+  `api/billing/cron/reconcile` logs `[BILLING][RECONCILE][…]` alerts on negative/thin margin. Pure
+  margin math unit-tested (116 total green). Completes the billing-verifiability chain R-075→R-076.
+  Roadmap R-076 → Completed. Follow-on: ops email/dashboard surfacing.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |
