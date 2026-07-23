@@ -45,26 +45,33 @@ identity — and clean up the email-sender inconsistency that was masking broken
 
 | # | Item | State | Note |
 |---|---|---|---|
-| 1 | **R-080** email senders | ✅ **Done (code)** | See progress log |
-| — | **R-075** version-control billing math | ⛔ **Blocked (external)** | The invoice-preview view/RPC lives only in the live Supabase DB; needs DB/dashboard access to pull into `supabase/migrations`. Prereq for R-009 + R-076 |
-| — | **R-009** overage warnings | ⛔ **Blocked** | Depends on R-075 + a hard-cap policy decision |
-| — | **R-060** RLS backstop | ⛔ **Blocked (external)** | Needs live DB to add + test RLS policies (10 tables confirmed RLS-disabled) |
-| — | **R-057** per-operator admin identity | 🟡 **Needs decision** | Architecture choice (SSO vs Supabase admin-org + MFA) before build |
+| 1 | **R-080** email senders | ✅ **Done** | Commit `ef1ca94` |
+| 2 | **R-033** converge admin clients | ✅ **Done** | Commit `1ee218d` |
+| 3 | **R-034** delete dead weight | ✅ **Done** | Commit `ccfae74` |
+| 4 | **R-061** dashboard error boundary | ✅ **Done** | Commit `abbeeb0` |
+| — | **R-075** version-control billing math | ⛔ **Blocked (external)** | Invoice-preview view/RPC lives only in the live Supabase DB; needs DB access to pull into `supabase/migrations`. Prereq for R-009 + R-076. **Owner deferred until access provided.** |
+| — | **R-009** overage warnings | ⛔ **Blocked** | Depends on R-075 + hard-cap policy decision. **Owner deferred.** |
+| — | **R-060** RLS backstop | ⛔ **Blocked (external)** | Needs live DB to add + test RLS policies (10 tables RLS-disabled). **Owner deferred.** |
+| — | **R-057** per-operator admin identity | ⛔ **Blocked (schema + live verify)** | **Decision made (owner, 2026-07-23): Supabase Auth as canonical IdP, NO SSO, build around org membership with MFA readiness.** But the build needs a platform-admin membership model (DB schema) + live verification of the `/admin` + `/api/admin` + `/api/internal` surfaces — both skipped per the repo-only constraint. Ready to build once schema access is provided. |
 | — | **Operator handoff** (Sprint 1 Task 0) | ⛔ **Operator-only** | Rotate creds, `VAPI_WEBHOOK_BASE_URL` + reconcile, live test call, webhook enforce, CSP enforce; also gates R-008 activation |
 
-**Unblocked code-only candidates** (if the blocked items above can't proceed): R-033 (converge
-supabase-admin clients), R-034 (delete root `src/` legacy MVP), R-061 (dashboard error boundary),
-R-021 (`safeErrorMessage`), R-062 (toast system), R-065 (terminology sweep).
+**Remaining fully-repo-implementable items** (off the security/verifiability theme — code-health/UX;
+available if the owner wants them pulled into this sprint): **R-021** (`safeErrorMessage`, pairs with
+R-061), **R-067** (SEO: robots/sitemap/per-page metadata — self-contained), **R-048** (skeletons +
+remove the sterile phone-lines loading/error leftovers), **R-053** (guardrail misfire — code-only,
+touches call-guardrail logic + its characterization test), **R-062** (toast system), **R-065**
+(terminology sweep), **R-070** (a11y structural).
 
-## Reality check (raised to owner 2026-07-23)
+## Status (2026-07-23) — paused at the external-blocker wall
 
-The stated Sprint 3 theme (R-075 → R-009, R-060, R-057) is **dominated by items that need live
-Supabase/Vercel access or an architecture decision** — none of which this workspace can perform, and
-which must not be built on inference (billing math / tenant isolation are the two areas the
-`EXECUTION_PLAN`/`RETROSPECTIVE` most explicitly forbid touching blind). **Awaiting owner steer:**
-(a) provide DB/dashboard access (or a baseline dump) to unblock R-075/R-060, and/or make the R-057
-decision; or (b) redirect Sprint 3's remaining capacity to the unblocked code-health/reliability
-items above. R-080 (Task 1) is done regardless.
+**Every Sprint 3 item on the sprint's own theme (security + verifiability: R-075, R-009, R-060,
+R-057) is now external-blocked** — they need live Supabase schema/DB access or the operator handoff,
+all of which the owner instructed me to skip, and which must never be built on inference (billing
+math / tenant isolation). The four unblocked, in-scope foundation/health items are **done and
+committed** (R-080, R-033, R-034, R-061). **Per the owner's "stop and report the blocker + next best
+unblocked task" instruction, work pauses here.** Next best unblocked task: **R-021** (central
+`safeErrorMessage`, natural follow-on to R-061) — awaiting owner go to pull it (and/or the other
+repo-only items above) into Sprint 3, or to provide DB access / close the sprint.
 
 ## Definition of Done
 
