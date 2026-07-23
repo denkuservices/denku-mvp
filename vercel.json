@@ -4,6 +4,10 @@
       {
         "path": "/api/billing/cron/close-month",
         "schedule": "10 0 1 * *"
+      },
+      {
+        "path": "/api/billing/cron/usage-alerts",
+        "schedule": "0 8 * * *"
       }
     ]
   }

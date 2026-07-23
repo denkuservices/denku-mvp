@@ -114,6 +114,10 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   dashboard `PausedBanner`. 4 new tests (105 total green); build green. **Still open:** proactive
   50/75/90% minute warnings (needs a per-usage trigger) + the configurable pause-vs-keep-billing
   policy (needs the owner decision; current = pause). R-009 stays Open.
+- **2026-07-23 — R-009 proactive %-warnings done.** Isolated daily cron `api/billing/cron/usage-alerts`
+  (CRON_SECRET, `vercel.json` `0 8 * * *`) reads `org_monthly_overages` (R-075) and emails the highest
+  newly-crossed 50/75/90% threshold per org; idempotent via new `billing_usage_alerts` table; staged
+  OFF. 110 tests green. **R-009 now only needs the pause-vs-keep-billing policy decision (owner).**
 
 ## Prioritized tasks (with blocked/unblocked reality)
 

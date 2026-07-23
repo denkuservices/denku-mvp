@@ -259,12 +259,17 @@ billing view before touching billing code.
   (`lib/notifications/recipient.ts`); never throws; **staged OFF behind `BILLING_NOTIFICATIONS_ENABLED`**.
   Template `lib/email/templates/workspacePaused.ts`. Added a dashboard-wide `PausedBanner`
   (`components/dashboard/PausedBanner.tsx`, mounted in `dashboard/layout.tsx`) that loudly shows a
-  paused line with a Manage-billing CTA. 4 new tests (105 total green); build green. **Still OPEN:**
-  (a) proactive **50/75/90%-of-included-minutes** warnings — needs a per-usage trigger (natural home:
-  the Vapi end-of-call hook, querying `org_monthly_usage` vs plan included; + per-threshold idempotency
-  markers) — deferred as a focused follow-on so this commit stays reviewable and out of the webhook
-  hot path for now; (b) the **configurable hard-cap policy** (pause vs keep-billing) — still needs the
-  **owner product decision** (current behavior = pause, preserved).
+  paused line with a Manage-billing CTA. Staged behind `BILLING_NOTIFICATIONS_ENABLED`.
+- **PARTIAL cont'd — proactive 50/75/90% warnings done 2026-07-23:** an **isolated daily cron**
+  `api/billing/cron/usage-alerts` (CRON_SECRET-gated; `vercel.json` entry `0 8 * * *`) reads the
+  baselined billing view `org_monthly_overages` (billable vs included minutes, R-075), and emails the
+  **highest newly-crossed** threshold per org (never re-sending; lower thresholds suppressed).
+  Deliberately NOT in the Vapi webhook hot path. Idempotent via new table `billing_usage_alerts`
+  (migration `20260723120000`, service-role RLS). Pure `crossedThresholds` + template unit-tested
+  (110 total green); build green; staged behind `BILLING_NOTIFICATIONS_ENABLED`. Reuses the shared
+  recipient/sender. **Still OPEN (only remaining piece):** the **configurable hard-cap policy** (pause
+  vs keep-billing) — needs the **owner product decision** (current behavior = pause, preserved).
+  Operator: apply migrations `20260723120000` + register the cron; set `BILLING_NOTIFICATIONS_ENABLED=true`.
 
 ### R-010 — Member invites are broken (admin namespace collision)
 **Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00, 01 (C7)
