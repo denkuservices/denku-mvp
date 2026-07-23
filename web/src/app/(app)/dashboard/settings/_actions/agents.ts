@@ -9,6 +9,21 @@ import { deriveEffectivePrompt } from "../_lib/prompt-derivation";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 
 // Validation schema for agent configuration update
+// R-013 — business context fields (all optional strings).
+const BusinessContextSchema = z
+  .object({
+    businessName: z.string().max(200).nullable().optional(),
+    services: z.string().max(2000).nullable().optional(),
+    openingHours: z.string().max(1000).nullable().optional(),
+    serviceArea: z.string().max(1000).nullable().optional(),
+    faqs: z.string().max(4000).nullable().optional(),
+    bookingPolicy: z.string().max(2000).nullable().optional(),
+    cancellationPolicy: z.string().max(2000).nullable().optional(),
+    tone: z.string().max(500).nullable().optional(),
+  })
+  .nullable()
+  .optional();
+
 const UpdateAgentConfigSchema = z.object({
   agentId: z.string().uuid(),
   language: z.string().nullable(),
@@ -17,6 +32,7 @@ const UpdateAgentConfigSchema = z.object({
   agent_type: z.string().nullable(),
   first_message: z.string().nullable(),
   emphasis_points: z.array(z.string()).nullable(),
+  business_context: BusinessContextSchema,
 });
 
 type UpdateAgentConfigInput = z.infer<typeof UpdateAgentConfigSchema>;
@@ -120,6 +136,10 @@ export async function updateAgentConfiguration(
     language: validated.language || existingAgent.language || null,
     timezone: validated.timezone || existingAgent.timezone || null,
     firstMessage: validated.first_message || existingAgent.first_message || null,
+    businessContext:
+      validated.business_context !== undefined
+        ? validated.business_context
+        : (existingAgent.business_context as Record<string, string> | null) ?? null,
   });
 
   // 8) Prepare update payload
@@ -133,6 +153,10 @@ export async function updateAgentConfiguration(
     effective_system_prompt: effectivePrompt,
     updated_at: new Date().toISOString(),
   };
+  // R-013: only overwrite business_context when the caller sent it (avoid wiping on partial saves).
+  if (validated.business_context !== undefined) {
+    updatePayload.business_context = validated.business_context;
+  }
 
   // 9) Compute diff for audit log
   const configDiff: Record<string, { before: unknown; after: unknown }> = {};
@@ -402,6 +426,7 @@ export async function updateAgentPromptOverride(
       language: existingAgent.language || null,
       timezone: existingAgent.timezone || null,
       firstMessage: existingAgent.first_message || null,
+      businessContext: (existingAgent.business_context as Record<string, string> | null) ?? null,
     });
   } else {
     // Override is set, use it as effective

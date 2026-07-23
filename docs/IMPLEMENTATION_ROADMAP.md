@@ -464,7 +464,7 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
 ## HIGH
 
 ### R-013 — Agent knows nothing about the customer's business
-**Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 01 (H8), 03
+**Priority:** High · **Status:** Open — **PARTIAL (2026-07-23, Sprint 4): backend + prompt injection done; settings-form UI + onboarding step remain** · **Effort:** M · **Related audit:** 01 (H8), 03
 (Audit 03: the entire Main Line brain is ~5 generic lines; purchase-path assistants are thinner
 still — "You are a helpful customer support voice assistant." The prompt-derivation chassis
 (presets, emphasis points, mandatory fallback line) is sound and is the right place to inject
@@ -476,6 +476,16 @@ business context.)
 - **Dependencies:** None (full knowledge base is a later, separate effort).
 - **Recommended solution:** Business-context step in onboarding; same fields editable in
   Settings → Agents; template them into the system prompt.
+- **PARTIAL — backend done 2026-07-23 (Sprint 4):** 8 owner-approved fields (business name, services,
+  opening hours, service area, FAQs, booking policy, cancellation policy, tone) persisted as a JSONB
+  `agents.business_context` (migration `20260723130000`). Pure `buildBusinessContextBlock` injects a
+  **concise, deterministic** "About the business" block (only non-empty fields) into
+  `deriveEffectivePrompt`, preserving the mandatory fallback line; wired into both derive paths in
+  `settings/_actions/agents.ts` (zod-validated, persisted, non-wiping on partial saves). 5 unit tests
+  (130 total green); build green. **Remaining (the UI half):** add the 8 fields to the Settings →
+  Agents form (`AgentConfigurePage.tsx`) so owners can edit them, a business-context **onboarding
+  step**, and pass `businessContext` into Main-Line creation in `runActivation`. Backend is
+  ready — the feature works end-to-end via the save action today.
 
 ### R-014 — Go-live magic moment is un-orchestrated
 **Priority:** High · **Status:** Open · **Effort:** M–L · **Related audit:** 01 (H9)
