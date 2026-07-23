@@ -633,9 +633,10 @@ function hasOffTopicContent(transcript: string | null): boolean {
     'exercise routine',
     'diet plan',
     'meal plan',
-    'how to make',
     'ingredients for',
   ];
+  // NOTE (R-053): 'how to make' was removed — it flagged legitimate callers asking
+  // "how to make an appointment/booking" as demo abuse.
   
   return offTopicKeywords.some((keyword) => normalized.includes(keyword));
 }

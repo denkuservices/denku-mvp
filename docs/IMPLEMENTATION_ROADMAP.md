@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 16 | 0 | 3 | 19 |
-| Medium | 27 | 0 | 10 | 37 |
+| Medium | 26 | 0 | 11 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **58** | **1** | **21** | **80** |
+| **Total** | **57** | **1** | **22** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -943,7 +943,7 @@ must be baselined here before the money math can be reviewed or tested.)
   `silenceTimeoutSeconds` are unset on every live assistant (read-only API check).
 
 ### R-053 — Call guardrails misfire on healthy calls
-**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** 03
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S · **Related audit:** 03
 - **Business impact:** GR-1 ("repeat slot") counts phone/email vocabulary across the WHOLE
   transcript — both speakers — so a normal exchange ("What's your phone number?" / "My phone
   number is…") triggers it: healthy calls get force-marked "partial" with forced tickets,
@@ -955,6 +955,15 @@ must be baselined here before the money math can be reviewed or tested.)
 - **Recommended solution:** Count slot-asks on AI-attributed lines only (require 2+ *agent*
   asks); remove/narrow the "how to make" keyword. Keep the guardrail philosophy (deterministic,
   idempotent, never-throw) intact.
+- **Completed 2026-07-23 (Sprint 3):** rewrote `detectRepeatSlotRequest` to **split the transcript
+  into speaker segments** (by `AI:`/`Assistant:`/`Agent:`/`User:`/… labels, robust to inline or
+  newline turns) and count phone/email **asks in AGENT segments only**, triggering on 2+ separate
+  agent asks. A caller volunteering their number no longer counts. Removed `'how to make'` from
+  `hasOffTopicContent` (it flagged "how to make an appointment"). Philosophy preserved
+  (deterministic/idempotent/never-throw). The prior R-053 **characterization** test (which locked the
+  buggy both-speaker behavior) was replaced on purpose with two regression tests: healthy 1-ask call
+  → no trigger; genuine 2-agent-ask loop → still triggers. 86 tests green; build passing. This also
+  de-skews completion analytics at the source (was feeding R-018's display).
 
 ### R-054 — No business-hours awareness or after-hours behavior
 **Priority:** Medium · **Status:** Open · **Effort:** M–L · **Related audit:** 03

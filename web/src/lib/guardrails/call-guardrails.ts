@@ -13,11 +13,15 @@ const MAX_TOOL_CALLS = 3;
 
 /**
  * GR-1: Repeat slot rule
- * 
- * Detects if the agent asks for the same contact slot (phone/email) twice in the same call.
- * If detected, forces ticket creation and marks call as partial.
- * 
- * Rule: Look for patterns in transcript where agent asks for phone/email multiple times.
+ *
+ * Detects if the AGENT asks for the same contact slot (phone/email) twice in the
+ * same call — a genuine "annoying loop" — and forces a ticket + marks the call partial.
+ *
+ * R-053 fix: only count asks on AI-attributed lines (require 2+ *agent* asks). The
+ * previous version counted phone/email vocabulary across the WHOLE transcript, so a
+ * healthy exchange ("Agent: What's your phone number?" / "User: my phone is …")
+ * falsely triggered. We split the transcript into speaker segments by their labels
+ * (robust to inline or newline-separated turns) and only inspect agent segments.
  */
 function detectRepeatSlotRequest(transcript: string | null): {
   triggered: boolean;
@@ -25,42 +29,38 @@ function detectRepeatSlotRequest(transcript: string | null): {
 } {
   if (!transcript) return { triggered: false };
 
-  const lowerTranscript = transcript.toLowerCase();
-  
-  // Patterns that indicate asking for phone
-  const phonePatterns = [
-    /\b(phone number|phone|telephone|mobile|cell|contact number)\b/gi,
-    /\b(can i get|what's your|what is your|may i have|could you provide)\b.*\b(phone|number)\b/gi,
-  ];
-  
-  // Patterns that indicate asking for email
-  const emailPatterns = [
-    /\b(email address|email|e-mail|mail)\b/gi,
-    /\b(can i get|what's your|what is your|may i have|could you provide)\b.*\b(email|mail)\b/gi,
-  ];
-  
-  // Count occurrences
+  // Split on speaker labels wherever they appear: "AI:", "Assistant:", "Agent:",
+  // "User:", "Caller:", "System:". The capturing group keeps the labels in the array
+  // so we can attribute each following chunk to a speaker.
+  const tokens = transcript.split(/(AI|Assistant|Agent|User|Caller|System)\s*:/i);
+
   let phoneAsks = 0;
   let emailAsks = 0;
-  
-  for (const pattern of phonePatterns) {
-    const matches = lowerTranscript.match(pattern);
-    if (matches) phoneAsks += matches.length;
+
+  // tokens[0] is any text before the first label; labels/text alternate after that.
+  for (let i = 1; i < tokens.length; i += 2) {
+    const speaker = (tokens[i] || "").toLowerCase();
+    const text = (tokens[i + 1] || "").toLowerCase();
+    const isAgent = speaker === "ai" || speaker === "assistant" || speaker === "agent";
+    if (!isAgent || !text) continue;
+
+    const looksLikeAsk =
+      text.includes("?") ||
+      /\b(can i|what'?s your|what is your|may i|could you|can you|provide|give me|share|again)\b/.test(text);
+    if (!looksLikeAsk) continue;
+
+    if (/\b(phone|telephone|mobile|cell)\b/.test(text)) phoneAsks++;
+    if (/\b(email|e-mail)\b/.test(text)) emailAsks++;
   }
-  
-  for (const pattern of emailPatterns) {
-    const matches = lowerTranscript.match(pattern);
-    if (matches) emailAsks += matches.length;
-  }
-  
-  // Trigger if same slot asked for 2+ times
+
+  // Trigger only when the AGENT asked for the same slot 2+ separate times.
   if (phoneAsks >= 2) {
     return { triggered: true, slot: "phone" };
   }
   if (emailAsks >= 2) {
     return { triggered: true, slot: "email" };
   }
-  
+
   return { triggered: false };
 }
 

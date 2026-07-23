@@ -100,14 +100,26 @@ describe("webhook artifact idempotency — checkCallGuardrails", () => {
   });
 });
 
-describe("known R-053 misfire — characterization ONLY (locks current buggy behavior)", () => {
-  it("counts phone vocabulary across BOTH speakers, so a healthy exchange still triggers GR-1", async () => {
-    // Caller volunteering their number + agent asking once = 2 matches → wrongly triggered.
-    // This encodes R-053's known-wrong behavior; when R-053 is fixed, update this test on purpose.
+describe("GR-1 repeat-slot — R-053 fix (count AI-attributed asks only)", () => {
+  it("does NOT trigger when the agent asks once and the caller answers (healthy call)", async () => {
+    // The old behavior counted phone vocabulary across BOTH speakers and wrongly
+    // triggered here. After R-053, a caller volunteering their number is ignored —
+    // only agent asks count.
     from.mockReturnValue(makeChain({ data: { id: "t" } }));
     const res = await checkCallGuardrails(
       baseOpts({
         transcript: "Agent: What's your phone number? User: My phone number is 555-0123.",
+      })
+    );
+    expect(res).toMatchObject({ forceTicket: false, setPartial: false });
+  });
+
+  it("still triggers when the AGENT asks for the same slot twice (genuine loop)", async () => {
+    from.mockReturnValue(makeChain({ data: { id: "t" } }));
+    const res = await checkCallGuardrails(
+      baseOpts({
+        transcript:
+          "Agent: What is your phone number? User: Sure. Agent: Sorry, your phone number again?",
       })
     );
     expect(res).toMatchObject({ forceTicket: true, reason: "repeat_slot_phone" });

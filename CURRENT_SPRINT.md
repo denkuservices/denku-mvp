@@ -70,6 +70,12 @@ identity — and clean up the email-sender inconsistency that was masking broken
   from bare spinners to structure-preserving skeletons. Sterile `error.tsx` boundaries left to a
   live-verified pass. Build green. Roadmap R-048 → Completed.
 
+- **2026-07-23 — R-053 (guardrail misfire fix) shipped.** GR-1 now counts phone/email asks in
+  AGENT-attributed transcript segments only (2+ agent asks to trigger), so a caller answering no
+  longer force-marks a healthy call "partial". Removed `'how to make'` demo-abuse keyword. Replaced
+  the buggy-behavior characterization test with 2 regression tests. 86 tests green; build green.
+  Roadmap R-053 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |
