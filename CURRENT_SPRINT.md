@@ -37,6 +37,10 @@ identity — and clean up the email-sender inconsistency that was masking broken
   dedupe stays folded into R-022 (still live). 78 tests green. Roadmap R-034 → Completed; CLAUDE.md
   repo-layout note updated.
 
+- **2026-07-23 — R-061 (dashboard error boundary) shipped.** Added shared on-brand
+  `dashboard/error.tsx` (calm retry + back-to-dashboard, no raw-error leak, logs digest) inherited by
+  all dashboard segments. Build green. Roadmap R-061 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

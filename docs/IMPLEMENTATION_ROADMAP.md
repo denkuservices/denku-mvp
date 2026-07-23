@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 17 | 0 | 2 | 19 |
-| Medium | 32 | 0 | 5 | 37 |
+| Medium | 31 | 0 | 6 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **64** | **1** | **15** | **80** |
+| **Total** | **63** | **1** | **16** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -1040,7 +1040,7 @@ terminology sweep.)
   library; confirm per-chart code-split; verify with bundle analyzer.
 
 ### R-061 — Runtime errors unhandled on almost every dashboard route
-**Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 05
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S–M · **Related audit:** 05
 - **Business impact:** Only the phone-lines area has error boundaries; calls/tickets/leads/
   appointments/analytics/usage/settings have none, so a thrown error shows the raw Next.js error
   screen mid-dashboard — a trust event for software a business runs its phone line on. Compounds
@@ -1050,6 +1050,13 @@ terminology sweep.)
 - **Dependencies:** None.
 - **Recommended solution:** One shared error boundary at the dashboard layout level with calm
   recovery (retry / contact support); every route inherits it.
+- **Completed 2026-07-23 (Sprint 3):** added `web/src/app/(app)/dashboard/error.tsx` — a shared,
+  on-brand (Horizon) client error boundary inherited by every dashboard segment lacking its own
+  (calls/tickets/leads/appointments/analytics/usage/settings). Calm card: "Something went wrong",
+  Try-again (`reset()`) + Back-to-dashboard, **no raw error message shown** (logs full detail to
+  `[DASHBOARD][ERROR_BOUNDARY]`, surfaces only the `digest` as a support reference — R-021 aligned).
+  Build green. Note: the pre-existing `phone-lines/error.tsx` is a sterile debug leftover — its
+  cleanup stays under R-048.
 
 ### R-062 — No consistent feedback/confirmation model for actions
 **Priority:** Medium · **Status:** Open · **Effort:** M · **Related audit:** 05
