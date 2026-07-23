@@ -1,10 +1,13 @@
-import { Spinner } from "@/components/ui/spinner";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 
+/**
+ * Appointments loading state (R-048) — structure-preserving skeleton instead of a
+ * bare centered spinner.
+ */
 export default function AppointmentsLoading() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center gap-3">
-      <Spinner className="h-7 w-7" />
-      <span className="text-sm text-muted-foreground">Loading...</span>
+    <div className="mx-auto max-w-7xl px-4 py-6">
+      <TableSkeleton rows={6} cols={4} />
     </div>
   );
 }

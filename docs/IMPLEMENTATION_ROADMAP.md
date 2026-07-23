@@ -46,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 16 | 0 | 3 | 19 |
-| Medium | 28 | 0 | 9 | 37 |
+| Medium | 27 | 0 | 10 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **59** | **1** | **20** | **80** |
+| **Total** | **58** | **1** | **21** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -891,7 +891,7 @@ must be baselined here before the money math can be reviewed or tested.)
   org/plan context + response-time expectation) and a real help link; later: plan-tiered routing.
 
 ### R-048 — Loading states are unpolished; one is a shipped debug leftover
-**Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 02 (Persona 3)
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3; loading skeletons — sterile error.tsx boundaries left to a live-verified pass) · **Effort:** S–M · **Related audit:** 02 (Persona 3)
 - **Business impact:** Perceived quality — data-heavy pages flash bare spinners; phone-lines shows
   a literal unstyled `Loading…` div (comment: "Temporarily sterile for debugging route hang
   issues"). Premium products load with structure-preserving skeletons.
@@ -901,8 +901,15 @@ must be baselined here before the money math can be reviewed or tested.)
 - **Dependencies:** None.
 - **Recommended solution:** Replace the debug leftover; adopt one skeleton pattern for list/detail
   pages (cards + table rows), spinner only for sub-second actions.
-
-### R-049 — Danger zone "Disable workspace" is a no-op safety control
+- **Completed 2026-07-23 (Sprint 3):** added reusable `components/ui/Skeleton.tsx` (`Skeleton`,
+  `TableSkeleton`, `StatCardsSkeleton` — `animate-pulse`, `role="status"`/`sr-only` for AT). Replaced
+  the sterile phone-lines `Loading…` debug leftover with a `TableSkeleton`; upgraded the spinner-only
+  `dashboard/loading.tsx` (stat-cards + table skeleton mirroring the real layout) and
+  `appointments/loading.tsx` (table skeleton). Confirmed imports in `loading.tsx` are safe (the other
+  loaders already import + work — the "NO IMPORTS / route hang" caution was stale). Build green.
+  **Left out (intentional):** the sterile `phone-lines/error.tsx` boundaries — deleting them so they
+  inherit the new shared boundary (R-061) is a live-behavior change (their comment cited a route
+  hang); do it with a real prod check, not blind.
 **Priority:** Medium · **Status:** Completed (2026-07-08) · **Effort:** S (remove) / M (implement) · **Related audit:** 02 (Persona 3)
 - **Business impact:** A safety-critical control that's theater: the customer types DISABLE,
   confirms, and receives "Workspace disable is not yet available in MVP." Same trust family as

@@ -64,6 +64,12 @@ identity — and clean up the email-sender inconsistency that was masking broken
   strengthened in `skills/design-system.md`. `[Agent]` ticket-artifact headers remain R-055. Build
   green. Roadmap R-065 → Completed.
 
+- **2026-07-23 — R-048 (loading/skeleton cleanup) shipped.** Added reusable `Skeleton` primitives
+  (`Skeleton`/`TableSkeleton`/`StatCardsSkeleton`, a11y `role=status`). Replaced the sterile
+  phone-lines `Loading…` debug leftover; upgraded `dashboard/loading.tsx` + `appointments/loading.tsx`
+  from bare spinners to structure-preserving skeletons. Sterile `error.tsx` boundaries left to a
+  live-verified pass. Build green. Roadmap R-048 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |
