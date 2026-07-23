@@ -28,8 +28,14 @@ changes are migration FILES for an operator to apply.
 
 ## 2. Completed / partial / blocked
 
-**Fully completed (13):** R-080, R-033, R-034, R-061, R-021, R-062, R-070, R-065, R-048, R-053, R-067,
-**R-075**, **R-076**.
+**Fully completed (14):** R-080, R-033, R-034, R-061, R-021, R-062, R-070, R-065, R-048, R-053, R-067,
+**R-075**, **R-076**, **R-009**.
+
+- **R-009 (overage/pause) — completed with the owner's policy: PAUSE at the cap.** Final flow: 50/75/90%
+  warning emails → at **100% of included minutes, PAUSE** (usage cron → `pauseOrgBilling` → telephony
+  unbind + owner notification) → dashboard banner + email explain the cause and "Upgrade your plan or
+  raise your usage limit". Trust + money integrity over silent overage; no keep-billing escape hatch.
+  Staged behind `BILLING_NOTIFICATIONS_ENABLED`.
 
 - **R-075 (billing math baselined).** Read the live 8-view chain (`org_daily_concurrency_peak` →
   `org_daily_usage` → `org_monthly_usage` → `org_monthly_overages` → `org_monthly_invoice_preview`)
@@ -40,18 +46,13 @@ changes are migration FILES for an operator to apply.
 - **R-076 (COGS↔revenue reconciliation).** Per-org-month margin from the baselined invoice-preview
   view; monthly cron logs `[BILLING][RECONCILE]` alerts on negative/thin margin. Completes R-075→R-076.
 
-**Partial (2):**
+**Partial (1):**
 - **R-060 (RLS backstop) — 7/10 tables.** Classified all 10 RLS-disabled tables by client access +
   view dependency (`pg_depend`); migration `20260723110000` enables RLS+deny-all on the 7
   service-role-only, view-free tables (zero app impact). **Deferred:** `orgs`, `audit_log_changes`,
   `org_plan_overrides` (anon-read / view-backed → need *tested* SELECT policies) + the `orgScoped`
   helper — not safe under read-only prod without a staging test (a wrong `orgs` policy blanks the
   dashboard).
-- **R-009 (overage/pause alerts) — 3 of 4 pieces.** Shipped: pause **email** (transition-detected in
-  `pauseOrgBilling`) + dashboard **banner** + proactive **50/75/90% usage warnings** (isolated daily
-  cron reading `org_monthly_overages`, idempotent via `billing_usage_alerts`). All staged behind
-  `BILLING_NOTIFICATIONS_ENABLED`. **Remaining:** the configurable **pause vs keep-billing** policy —
-  needs the owner product decision (current behavior = pause, preserved).
 
 **Blocked, precisely (1):**
 - **R-057 (per-operator admin identity).** Owner decision recorded (Supabase Auth, no SSO, org
@@ -75,10 +76,10 @@ Live access was read-only; nothing was applied to prod. To activate:
 
 | Metric | Value |
 |---|---|
-| Commits (Sprint 3) | 19 |
-| Items fully completed | 13 · **partial** 2 (R-060, R-009) · **blocked** 1 (R-057) |
-| Roadmap | now **54 open / 1 in progress / 25 completed** (was ~67/13 at Sprint-2 close) |
-| Tests | 73 → **116** (+43), all green |
+| Commits (Sprint 3) | 20 |
+| Items fully completed | 14 · **partial** 1 (R-060) · **blocked** 1 (R-057) |
+| Roadmap | now **53 open / 1 in progress / 26 completed** (was ~67/13 at Sprint-2 close) |
+| Tests | 73 → **118** (+45), all green |
 | New migrations (files, operator-applied) | 3 (billing-views baseline, RLS backstop, usage-alerts) |
 | New crons | 2 (usage-alerts, reconcile) |
 | Prod mutations | **0** (read-only inspection only) |

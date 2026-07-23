@@ -47,11 +47,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 6 | 1 | 8 | 15 |
+| Critical | 5 | 1 | 9 | 15 |
 | High | 14 | 0 | 5 | 19 |
 | Medium | 25 | 0 | 12 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **54** | **1** | **25** | **80** |
+| **Total** | **53** | **1** | **26** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -229,7 +229,7 @@ billing view before touching billing code.
   is currently an empty stub).
 
 ### R-009 — Silent overage charges and silent hard-cap shutdown
-**Priority:** Critical · **Status:** Open — **PARTIAL (2026-07-23): pause email + banner shipped; proactive %-warnings + policy toggle remain** · **Effort:** M · **Related audit:** 01 (C6)
+**Priority:** Critical · **Status:** Completed (2026-07-23; policy = Pause at cap, owner-decided) · **Effort:** M · **Related audit:** 01 (C6)
 - **Business impact:** A business phone going dead at $250 overage without warning is a
   catastrophic, churn-and-chargeback event; $100 surprise charges nearly as bad.
 - **Technical impact:** Add notification triggers to `billing_overage_state` transitions and the
@@ -270,6 +270,16 @@ billing view before touching billing code.
   recipient/sender. **Still OPEN (only remaining piece):** the **configurable hard-cap policy** (pause
   vs keep-billing) — needs the **owner product decision** (current behavior = pause, preserved).
   Operator: apply migrations `20260723120000` + register the cron; set `BILLING_NOTIFICATIONS_ENABLED=true`.
+- **COMPLETED — owner policy decision (2026-07-23): default = PAUSE at the cap** (trust + money
+  integrity over silent overage billing). Final flow, all shipped: **50/75/90% warning emails** →
+  at **100% of included minutes, PAUSE** the AI line (the usage cron calls `pauseOrgBilling` for any
+  active org at 100%, which unbinds telephony and fires the **owner pause notification**) → the
+  **dashboard `PausedBanner`** explains the cause ("you've used all your plan's included minutes") and
+  the path to resume (**"Upgrade your plan or raise your usage limit"** + Manage-billing CTA); the
+  pause email carries the same guidance. `shouldPauseForUsage` is pure + unit-tested (118 total green).
+  No keep-billing escape hatch was built (the owner deprioritized silent overage). Whole flow staged
+  behind `BILLING_NOTIFICATIONS_ENABLED`. **Follow-on (optional, not blocking):** tighter real-time
+  pause (the daily cron can lag ≤24h behind 100%); a future keep-billing opt-in if ever wanted.
 
 ### R-010 — Member invites are broken (admin namespace collision)
 **Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00, 01 (C7)

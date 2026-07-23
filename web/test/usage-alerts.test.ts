@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn() } }));
 vi.mock("@/lib/email/send", () => ({ sendBillingNotificationEmail: vi.fn() }));
 vi.mock("@/lib/notifications/recipient", () => ({ resolveOrgOwnerEmail: vi.fn() }));
 
-import { crossedThresholds, USAGE_THRESHOLDS } from "@/lib/billing/usageAlerts";
+import { crossedThresholds, shouldPauseForUsage, USAGE_THRESHOLDS } from "@/lib/billing/usageAlerts";
 import { usageAlertTemplate } from "@/lib/email/templates/usageAlert";
 
 describe("crossedThresholds (R-009)", () => {
@@ -30,6 +30,18 @@ describe("crossedThresholds (R-009)", () => {
 
   it("thresholds are exactly 50/75/90", () => {
     expect([...USAGE_THRESHOLDS]).toEqual([50, 75, 90]);
+  });
+});
+
+describe("shouldPauseForUsage — pause at 100% of included (owner policy)", () => {
+  it("pauses only at/over 100% of included minutes", () => {
+    expect(shouldPauseForUsage(399, 400)).toBe(false); // 99.75%
+    expect(shouldPauseForUsage(400, 400)).toBe(true); // 100%
+    expect(shouldPauseForUsage(500, 400)).toBe(true); // over
+  });
+
+  it("never pauses when included minutes are 0/absent (no plan)", () => {
+    expect(shouldPauseForUsage(1000, 0)).toBe(false);
   });
 });
 

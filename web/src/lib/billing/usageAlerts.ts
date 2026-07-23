@@ -6,22 +6,31 @@ import { resolveOrgOwnerEmail } from "@/lib/notifications/recipient";
 import { sendBillingNotificationEmail } from "@/lib/email/send";
 import { usageAlertTemplate } from "@/lib/email/templates/usageAlert";
 import { billingNotificationsEnabled } from "@/lib/billing/pauseNotifications";
+import { pauseOrgBilling } from "@/lib/billing/pause";
 
 /**
- * R-009 — proactive "you've used X% of your included minutes" warnings (50/75/90%),
- * so overage is never a surprise. Runs as an isolated daily cron (NOT in the Vapi
- * webhook hot path). Reads the baselined billing view `org_monthly_overages`
- * (billable vs included minutes, R-075). Idempotent via `billing_usage_alerts`
- * (one row per org/month/threshold). Staged behind `BILLING_NOTIFICATIONS_ENABLED`.
+ * R-009 usage management (owner policy 2026-07-23: PAUSE at the cap — trust + money
+ * integrity over silent overage billing). Runs as an isolated daily cron (NOT in the
+ * Vapi webhook hot path). Reads the baselined `org_monthly_overages` view (billable
+ * vs included minutes, R-075):
+ *   - 50/75/90% of included → warning email (idempotent via `billing_usage_alerts`);
+ *   - 100% of included → PAUSE the AI line (pauseOrgBilling, which unbinds telephony
+ *     and fires the owner pause notification), so no silent overage accrues.
+ * Staged behind `BILLING_NOTIFICATIONS_ENABLED`.
  */
 
 export const USAGE_THRESHOLDS = [50, 75, 90] as const;
 
-/** Which thresholds a usage level has crossed. Pure. */
+/** Which warning thresholds a usage level has crossed (below 100%). Pure. */
 export function crossedThresholds(billableMinutes: number, includedMinutes: number): number[] {
   if (includedMinutes <= 0) return [];
   const pct = (billableMinutes / includedMinutes) * 100;
   return USAGE_THRESHOLDS.filter((t) => pct >= t);
+}
+
+/** Whether usage has hit 100% of included minutes → pause. Pure. */
+export function shouldPauseForUsage(billableMinutes: number, includedMinutes: number): boolean {
+  return includedMinutes > 0 && billableMinutes >= includedMinutes;
 }
 
 function currentMonthStartUtc(): string {
@@ -34,6 +43,7 @@ interface RunResult {
   enabled: boolean;
   orgsChecked: number;
   emailsSent: number;
+  paused: number;
 }
 
 /**
@@ -42,12 +52,13 @@ interface RunResult {
  */
 export async function runUsageThresholdAlerts(): Promise<RunResult> {
   if (!billingNotificationsEnabled()) {
-    return { ok: true, enabled: false, orgsChecked: 0, emailsSent: 0 };
+    return { ok: true, enabled: false, orgsChecked: 0, emailsSent: 0, paused: 0 };
   }
 
   const month = currentMonthStartUtc();
   let orgsChecked = 0;
   let emailsSent = 0;
+  let paused = 0;
 
   const { data: rows, error } = await supabaseAdmin
     .from("org_monthly_overages")
@@ -56,7 +67,7 @@ export async function runUsageThresholdAlerts(): Promise<RunResult> {
 
   if (error) {
     console.error("[USAGE_ALERTS] Failed to read org_monthly_overages", error.message);
-    return { ok: false, enabled: true, orgsChecked: 0, emailsSent: 0 };
+    return { ok: false, enabled: true, orgsChecked: 0, emailsSent: 0, paused: 0 };
   }
 
   for (const row of rows ?? []) {
@@ -64,6 +75,27 @@ export async function runUsageThresholdAlerts(): Promise<RunResult> {
     try {
       const billable = Number(row.billable_minutes ?? 0);
       const included = Number(row.included_minutes ?? 0);
+
+      // 100% of included minutes → PAUSE (owner policy). Only pause an active org
+      // (avoids redundant Vapi calls / duplicate emails); pauseOrgBilling fires the
+      // owner pause notification on the active→paused transition.
+      if (shouldPauseForUsage(billable, included)) {
+        const { data: settings } = await supabaseAdmin
+          .from("organization_settings")
+          .select("workspace_status")
+          .eq("org_id", row.org_id)
+          .maybeSingle<{ workspace_status: "active" | "paused" | null }>();
+        if ((settings?.workspace_status ?? "active") === "active") {
+          await pauseOrgBilling(row.org_id, "hard_cap", {
+            trigger: "usage_cap_100pct",
+            billable_minutes: billable,
+            included_minutes: included,
+          });
+          paused++;
+        }
+        continue; // paused → don't also send a sub-100% warning
+      }
+
       const crossed = crossedThresholds(billable, included);
       if (crossed.length === 0) continue;
 
@@ -129,5 +161,5 @@ export async function runUsageThresholdAlerts(): Promise<RunResult> {
     }
   }
 
-  return { ok: true, enabled: true, orgsChecked, emailsSent };
+  return { ok: true, enabled: true, orgsChecked, emailsSent, paused };
 }

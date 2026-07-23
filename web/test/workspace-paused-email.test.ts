@@ -27,7 +27,8 @@ describe("workspacePausedTemplate", () => {
     });
     expect(subject).toMatch(/usage cap/i);
     expect(html).toContain("Acme");
-    expect(html).toMatch(/overage cap/i);
+    expect(html).toMatch(/included minutes/i);
+    expect(html).toMatch(/upgrade/i);
     expect(html).toContain("https://www.denku.io/dashboard/settings/workspace/billing");
   });
 

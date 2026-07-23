@@ -35,10 +35,10 @@ export default async function PausedBanner() {
 
   const message =
     reason === "hard_cap"
-      ? "Your AI line is paused — you reached your monthly usage cap. Inbound calls aren't being answered."
+      ? "Your AI line is paused — you've used all of your plan's included minutes this month, so inbound calls aren't being answered. Upgrade your plan or raise your usage limit to resume."
       : reason === "past_due"
-      ? "Your AI line is paused — a payment is needed. Inbound calls aren't being answered."
-      : "Your AI line is paused. Inbound calls aren't being answered.";
+      ? "Your AI line is paused — a payment is needed, so inbound calls aren't being answered. Update your payment method to resume."
+      : "Your AI line is paused, so inbound calls aren't being answered.";
 
   return (
     <div

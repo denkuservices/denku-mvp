@@ -132,6 +132,12 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   margin math unit-tested (116 total green). Completes the billing-verifiability chain R-075→R-076.
   Roadmap R-076 → Completed. Follow-on: ops email/dashboard surfacing.
 
+- **2026-07-23 — R-009 COMPLETED (owner policy: Pause at cap).** Added the final piece: the usage
+  cron now **pauses at 100% of included minutes** (calls `pauseOrgBilling` for active orgs → unbind +
+  owner notification), and the banner/email copy explains the cause + "Upgrade your plan or raise your
+  usage limit". No keep-billing escape hatch (owner deprioritized silent overage). `shouldPauseForUsage`
+  unit-tested; 118 tests green; build green. Roadmap R-009 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

@@ -32,11 +32,11 @@ export function workspacePausedTemplate(params: {
     : "Your AI line has been paused";
 
   const reasonLine = isHardCap
-    ? "You reached your monthly overage cap, so we paused inbound calls to prevent further charges. Your AI is not answering calls right now."
+    ? "You've used all of your plan's included minutes this month, so we paused your AI line to avoid surprise overage charges. Your AI isn't answering calls right now."
     : "A recent payment didn't go through, so we paused your AI line. Your AI is not answering calls right now.";
 
   const action = isHardCap
-    ? "Raise your cap or review usage to resume answering calls."
+    ? "Upgrade your plan or raise your usage limit to resume answering calls."
     : "Update your payment method to resume answering calls.";
 
   const greeting = orgName ? `Hi ${esc(orgName)},` : "Hi,";
