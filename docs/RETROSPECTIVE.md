@@ -237,6 +237,31 @@ taught us, feeding back into §1–8:
   (and R-031 schema baseline) is the single highest-leverage process fix, and it now also gates whether
   R-008's shipped code delivers any value.
 
+## 12. Sprint 3 retrospective (2026-07-23)
+
+Systemic Security & Verifiability. Full review: `docs/SPRINT_3_REVIEW.md`. What executing it taught
+us, feeding back into §1–8:
+
+- **§1's defining limitation is finally lifted — for the DB.** Every prior sprint reasoned about the
+  billing math by inference ("the real thing lives outside the repo"). Read-only Supabase access let
+  me *read* the 8-view chain and baseline it (R-075), converting the single most-repeated §8 hazard
+  ("unversioned truth is systemic") into a reviewed, tested, documented artifact — and it surfaced the
+  never-documented **per-call ceil** billing rule. Graduating this out of §3/§5.2: the invoice math is
+  no longer "inferred, never read."
+- **The wrong-project MCP warning (§2) was half-true and is now corrected.** The integration reaches
+  BOTH Denku prod and BondAI; BondAI was just the default. Target Denku by id. §2's "live DB was
+  invisible" no longer holds for schema inspection (still no app-runtime/Vapi-dashboard visibility).
+- **Read-only is the correct discipline for prod access.** Inspect + emit migration FILES + document a
+  verification checklist; never mutate. This unblocked R-075/R-060/R-009/R-076 with zero risk and no
+  new "code ≠ production" exposure.
+- **"Needs staging" is a real, honest blocker — distinct from "needs a decision."** R-057 (admin-auth
+  middleware flip) and R-060's anon-read RLS policies were deferred *because they can't be verified
+  read-only*, not for lack of a decision. Naming the blocker precisely (and not half-shipping critical
+  auth / a dashboard-blanking policy) is the §7 verify-first rule applied to writes I can't test.
+- **The verification-enablement gap (§9/§10/§11) now has a concrete ask.** Two sprints of "the local
+  env can't reach prod" is answered for schema (read access) but not for *change* — a staging/preview
+  env is the missing piece that would unblock the remaining security work end-to-end.
+
 ---
 
 *Living document. If a future contributor verifies (or refutes) an assumption here, update this
