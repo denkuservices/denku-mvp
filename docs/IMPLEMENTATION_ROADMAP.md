@@ -691,7 +691,7 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   admin org + role) with MFA and attributed audit logging; retire the shared credential.
 
 ### R-060 — Tenant isolation has no defense-in-depth (RLS not the enforcement layer)
-**Priority:** High · **Status:** Open · **Effort:** L · **Related audit:** 04 (see also R-037)
+**Priority:** High · **Status:** Open — **PARTIAL (2026-07-23): 7/10 tables locked via migration; anon-read 3 + query-helper remain** · **Effort:** L · **Related audit:** 04 (see also R-037)
 - **Business impact:** The single largest *systemic* risk: correctness of tenant isolation rests
   entirely on a hand-written `.eq("org_id", …)` in every service-role query. One omitted filter in
   any future query = immediate cross-tenant breach, and no RLS or test (R-037) would catch it.
@@ -712,6 +712,19 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   concrete, worse-than-inferred form of R-060.** ⚠ Enable-only is not the fix (blocks the app) —
   needs enable **+ policies**. Deferred by owner to a dedicated security sprint; the new Instagram
   tables are, by contrast, correctly RLS-locked.
+- **PARTIAL — done 2026-07-23 (Sprint 3, via live read-only inspection):** classified all 10 tables
+  by client access (grep) + view dependency (`pg_depend`), and wrote
+  `supabase/migrations/20260723110000_rls_backstop_service_role_tables.sql` enabling RLS + deny-all
+  (⇒ service-role-only) on the **7 that are service-role-only and referenced by no view**:
+  `webhook_debug`, `personas`, `persona_tools`, `onboarding_activation_lock`,
+  `billing_stripe_customers`, `billing_stripe_prices`, `billing_invoice_runs`. Zero app impact
+  (service_role bypasses RLS). **NOT applied to prod** (read-only access — operator applies + verifies;
+  reversible). **Still OPEN — the hard part:** the **3 anon-read/view-backed tables** need *tested*
+  SELECT policies: `orgs` (dashboard reads it via the anon client + feeds org_plan_limits/organizations
+  views), `audit_log_changes` (audit viewer reads via anon), `org_plan_overrides` (feeds org_plan_limits;
+  verify view security_invoker). Plus the `orgScoped(table, orgId)` query helper. Those need a
+  branch/staging test (a wrong `orgs` policy blanks the dashboard) — not doable under read-only prod
+  access. Migration ships policy sketches inline.
 
 ## MEDIUM
 

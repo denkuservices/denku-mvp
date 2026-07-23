@@ -98,6 +98,15 @@ plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items
   + overage/total formulas. Added golden-master `lib/billing/usageMath.ts` + 15 boundary tests
   (101 total green). `skills/database-schema.md` updated. Roadmap R-075 → Completed. **Next: R-060.**
 
+- **2026-07-23 — R-060 (RLS backstop) PARTIAL.** Classified the 10 RLS-disabled tables by client
+  access + view dependency (live `pg_depend`). Wrote
+  `supabase/migrations/20260723110000_rls_backstop_service_role_tables.sql` enabling RLS+deny-all on
+  the **7 service-role-only, view-free** tables (webhook_debug, personas, persona_tools,
+  onboarding_activation_lock, billing_stripe_{customers,prices}, billing_invoice_runs) — zero app
+  impact. **NOT applied to prod** (operator applies + verifies; reversible). Deferred: `orgs`,
+  `audit_log_changes`, `org_plan_overrides` (anon-read/view-backed → need tested SELECT policies, not
+  safe under read-only prod access) + the `orgScoped` helper. R-060 stays Open. **Next: R-009.**
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |
