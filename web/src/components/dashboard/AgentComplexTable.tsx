@@ -2,8 +2,6 @@
 
 import React from "react";
 import Card from '@/components/ui-horizon/card';
-import Progress from '@/components/progress';
-import { MdCancel, MdCheckCircle, MdOutlineError } from "react-icons/md";
 
 import {
   createColumnHelper,
@@ -16,7 +14,7 @@ import {
 
 type RowObj = {
   agent: string;
-  status: 'Approved' | 'Disabled' | 'Error';
+  status: 'Healthy' | 'Attention' | 'Low';
   calls: string; // "93 / 104" format
   lastActive: string; // "12 Jan 2026" format
   answerRate: number; // 0-100
@@ -50,17 +48,22 @@ export default function AgentComplexTable(props: { tableData: any }) {
           <span className="text-sm font-bold text-gray-600 dark:text-white tracking-wider">STATUS</span>
         </div>
       ),
-      cell: (info) => (
-        <div className="flex items-center justify-center">
-          {info.getValue() === "Approved" ? (
-            <MdCheckCircle className="text-green-500 dark:text-green-300 h-5 w-5" />
-          ) : info.getValue() === "Disabled" ? (
-            <MdCancel className="text-red-500 dark:text-red-300 h-5 w-5" />
-          ) : info.getValue() === "Error" ? (
-            <MdOutlineError className="text-amber-500 dark:text-amber-300 h-5 w-5" />
-          ) : null}
-        </div>
-      ),
+      cell: (info) => {
+        const status = info.getValue();
+        const styles =
+          status === "Healthy"
+            ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+            : status === "Attention"
+            ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+            : "bg-gray-100 text-gray-600 dark:bg-navy-700 dark:text-gray-300";
+        return (
+          <div className="flex items-center justify-center">
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles}`}>
+              {status}
+            </span>
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("calls", {
       id: "calls",
@@ -141,9 +144,9 @@ export default function AgentComplexTable(props: { tableData: any }) {
       <div className="mt-6 overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[32%]" />
-            <col className="w-[10%]" />
+            <col className="w-[28%]" />
             <col className="w-[16%]" />
+            <col className="w-[14%]" />
             <col className="w-[18%]" />
             <col className="w-[24%]" />
           </colgroup>

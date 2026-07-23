@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Info } from "lucide-react";
 import Card from "@/components/ui-horizon/card";
 
 type WidgetProps = {
@@ -8,6 +9,8 @@ type WidgetProps = {
   title: React.ReactNode;
   subtitle: React.ReactNode;
   className?: string;
+  /** Optional methodology/explanation shown as a hover tooltip next to the title. */
+  info?: string;
 };
 
 function safeText(v: unknown): string {
@@ -30,7 +33,7 @@ function safeText(v: unknown): string {
 }
 
 export default function Widget(props: WidgetProps) {
-  const { icon, title, subtitle } = props;
+  const { icon, title, subtitle, info } = props;
 
   return (
     <Card extra="!flex-row flex-grow items-center rounded-[20px] h-[90px]">
@@ -45,8 +48,18 @@ export default function Widget(props: WidgetProps) {
 
       {/* Text area */}
       <div className="h-[90px] ml-4 flex w-auto flex-col justify-center overflow-hidden">
-        <p className="font-dm text-sm font-medium text-gray-600 dark:text-gray-300 leading-tight">
+        <p className="font-dm text-sm font-medium text-gray-600 dark:text-gray-300 leading-tight flex items-center gap-1">
           {safeText(title)}
+          {info ? (
+            <span
+              tabIndex={0}
+              title={info}
+              aria-label={info}
+              className="inline-flex cursor-help text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </span>
+          ) : null}
         </p>
         <h4 className="text-xl font-bold text-navy-700 dark:text-white leading-tight">
           {safeText(subtitle)}

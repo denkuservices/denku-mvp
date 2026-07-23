@@ -31,6 +31,7 @@ export type DashboardOverview = {
       name: [string, boolean];
       progress: string;
       quantity: number;
+      total_calls: number;
       date: string;
     }>;
   };
@@ -314,6 +315,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     name: [string, boolean];
     progress: string;
     quantity: number;
+    total_calls: number;
     date: string;
   }> = [];
 
@@ -700,6 +702,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
             name: [m.agentName, true] as [string, boolean],
             progress: `${answerRate}%`,
             quantity: m.handledCalls,
+            total_calls: m.totalCalls,
             date: dateStr,
           };
         });

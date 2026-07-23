@@ -4,8 +4,8 @@ import dynamic from 'next/dynamic';
 import Widget from '@/components/dashboard/Widget';
 import HourlyCalls from "@/components/dashboard/HourlyCalls";
 import Card from '@/components/ui-horizon/card';
-import { MdBarChart, MdDashboard } from 'react-icons/md';
-import { Phone, Info, Ticket, Percent, Headset } from 'lucide-react';
+import { MdBarChart } from 'react-icons/md';
+import { Phone, Ticket, Percent, Headset } from 'lucide-react';
 import { formatUSD } from '@/lib/analytics/format';
 import type { DashboardOverview } from '@/lib/dashboard/getDashboardOverview';
 
@@ -28,32 +28,29 @@ export default function DashboardClient({ data }: DashboardClientProps) {
   const tableData = data.metrics.agent_performance.map((agent) => {
     // Extract answer rate percentage from progress string (e.g., "85.5%" -> 85.5)
     let answerRate = parseFloat(agent.progress.replace('%', ''));
-    
+
     // If answer rate is 0-1 (decimal), convert to percentage (0-100)
     if (answerRate > 0 && answerRate <= 1) {
       answerRate = answerRate * 100;
     }
-    
+
     // Ensure answerRate is in 0-100 range
     answerRate = Math.max(0, Math.min(100, answerRate));
-    
-    // Map status based on answer rate
-    let status: 'Approved' | 'Disabled' | 'Error';
+
+    // Honest status labels (R-018): a 70–90% answer rate is "Attention", not "Error".
+    let status: 'Healthy' | 'Attention' | 'Low';
     if (answerRate >= 90) {
-      status = 'Approved';
+      status = 'Healthy';
     } else if (answerRate >= 70) {
-      status = 'Error'; // Warning state
+      status = 'Attention';
     } else {
-      status = 'Disabled';
+      status = 'Low';
     }
 
-    // Calculate total calls from answer rate and handled calls
-    // answerRate = (handledCalls / totalCalls) * 100
-    // totalCalls = (handledCalls / answerRate) * 100
+    // Use the REAL total the server computed — do NOT back-compute it from the rate
+    // (that produced a fabricated denominator, R-018).
     const callsHandled = agent.quantity; // handledCalls
-    const callsTotal = answerRate > 0 
-      ? Math.round((callsHandled / answerRate) * 100)
-      : callsHandled; // If answer rate is 0, use handled calls as total
+    const callsTotal = agent.total_calls;
 
     return {
       agent: agent.name[0], // Extract agent name from tuple
@@ -74,6 +71,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
           icon={<MdBarChart className="h-7 w-7" />}
           title="Est. Savings"
           subtitle={formatUSD(data.metrics.estimated_savings_usd)}
+          info="Estimate only: AI-handled call time this month × $25/hr (a typical human agent rate). Illustrative, not a guarantee."
         />
         <Widget
           icon={<Phone className="h-7 w-7" />}
@@ -97,7 +95,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         />
         <Widget
           icon={<Headset className="h-6 w-6" />}
-          title={'Active Agents'}
+          title={'Active AI lines'}
           subtitle={data.metrics.agents_active.toLocaleString()}
         />
       </div>
