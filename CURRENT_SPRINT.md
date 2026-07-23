@@ -41,6 +41,12 @@ identity — and clean up the email-sender inconsistency that was masking broken
   `dashboard/error.tsx` (calm retry + back-to-dashboard, no raw-error leak, logs digest) inherited by
   all dashboard segments. Build green. Roadmap R-061 → Completed.
 
+- **2026-07-23 — R-021 (safeErrorMessage) shipped.** Added pure `lib/errors/safeErrorMessage.ts`
+  (maps safe categories, else generic fallback — never leaks raw provider strings). Applied to the 3
+  named leak points: calls page (raw Supabase error), AddPhoneNumberModal (raw `data.error`),
+  onboarding "Setup required" card (raw `error.message`). 7 new tests (85 total green); build green.
+  Roadmap R-021 → Completed.
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

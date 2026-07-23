@@ -45,10 +45,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
-| High | 17 | 0 | 2 | 19 |
+| High | 16 | 0 | 3 | 19 |
 | Medium | 31 | 0 | 6 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **63** | **1** | **16** | **80** |
+| **Total** | **62** | **1** | **17** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -528,12 +528,22 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   `transcriber: none` (read-only API check).
 
 ### R-021 — Raw upstream error strings shown to users
-**Priority:** High · **Status:** Open · **Effort:** S–M · **Related audit:** 00
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 3) · **Effort:** S–M · **Related audit:** 00
 - **Business impact:** Supabase/Vapi errors verbatim in UI look broken and leak internals.
 - **Technical impact:** Calls page, AddPhoneNumberModal, onboarding activation error paths.
 - **Dependencies:** None.
 - **Recommended solution:** Central `safeErrorMessage()` mapping; log detail server-side only
   (convention already in CLAUDE.md).
+- **Completed 2026-07-23 (Sprint 3):** added pure, unit-tested `lib/errors/safeErrorMessage.ts` —
+  maps a few clearly-safe categories (network/timeout, rate-limit, auth/session, permission) and
+  otherwise returns a **generic fallback**, never the raw provider string. Applied to the three named
+  leak points: `dashboard/calls/page.tsx` (was rendering raw Supabase `error.message`),
+  `AddPhoneNumberModal` (was surfacing raw `data.error`), and `onboarding/page.tsx` (was showing raw
+  `error.message` in the "Setup required" card) — each now logs full detail server/console-side and
+  shows the safe message. 7 unit tests incl. a "never leaks a DB constraint string" guard (85 total
+  green); build passing. **Follow-on (not this pass):** server actions that return `result.error`
+  passthroughs (onboarding step handlers) should curate at the source; use `safeErrorMessage` at any
+  future raw-error display site.
 
 ### R-022 — Landing redesign (hybrid dark SaaS) — approved, not built
 **Priority:** High · **Status:** Open · **Effort:** XL · **Related audit:** 01 (context); spec `web/LANDING_REDESIGN_SPEC.md`

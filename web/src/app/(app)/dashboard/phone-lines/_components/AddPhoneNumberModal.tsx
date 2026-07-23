@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 import {
   Dialog,
   DialogPortal,
@@ -150,7 +151,8 @@ export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneN
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setError(data.error || "Failed to reserve number. Please try again.");
+        if (data?.error) console.error("[PHONE_LINES][RESERVE_FAILED]", data.error);
+        setError(safeErrorMessage(data?.error, "Failed to reserve number. Please try again."));
         setIsPurchasing(false);
         return;
       }

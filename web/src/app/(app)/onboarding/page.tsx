@@ -4,6 +4,7 @@ import { OnboardingClient } from "./OnboardingClient";
 import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 import Stripe from "stripe";
 
 // Force dynamic rendering to always load fresh org state (disable caching)
@@ -170,7 +171,7 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     
     // Return simple error UI - do NOT redirect to /login from here
     // getOnboardingState() already handles auth redirects server-side
-    const errorMessage = error instanceof Error ? error.message : "An error occurred. Please refresh the page.";
+    const errorMessage = safeErrorMessage(error, "We couldn't load your setup. Please refresh the page.");
     
     return (
       <div className="brand-surface flex min-h-screen items-center justify-center bg-[#F7F5F1] p-4">

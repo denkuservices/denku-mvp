@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { getOrgTimezone } from "@/lib/tickets/utils.server";
 import { formatUsd } from "@/lib/utils";
@@ -397,9 +398,10 @@ export default async function CallsPage({
     .limit(200);
 
   if (error) {
+    console.error("[CALLS][LOAD_FAILED]", { message: error.message, code: (error as { code?: string }).code });
     return (
       <div className="mx-auto max-w-7xl px-4 py-6 text-red-600">
-        Failed to load calls: {error.message}
+        {safeErrorMessage(error, "We couldn't load your calls. Please refresh and try again.")}
       </div>
     );
   }
