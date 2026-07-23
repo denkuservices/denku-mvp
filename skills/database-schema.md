@@ -66,6 +66,16 @@
 - **`billing_plan_catalog`**, **`org_plan_overrides`** (write), **`org_plan_limits`** (read;
   derived), **`billing_org_addons`**, **`billing_invoice_runs`**, **`billing_overage_state`**.
   Stripe customer mapping lives with the org (managed by `ensureStripeCustomer`).
+- **Billing math views (BASELINED R-075, `supabase/migrations/20260723100000_baseline_billing_usage_views.sql`).**
+  The usage→charge chain, bottom-up: `org_daily_concurrency_peak` (sweep-line peak concurrency from
+  `call_concurrency_leases`) → **`org_daily_usage`** → `org_monthly_usage` →
+  (`plan_pricing`, `org_plan_limits`) → `org_monthly_overages` → `org_monthly_concurrency_compliance`
+  → **`org_monthly_invoice_preview`** (what `close-month`/`collect-now` read). **Rules:**
+  `billable_minutes = Σ ceil(duration_seconds/60)` **per call** (each call rounds UP; only
+  `ended_at IS NOT NULL` counts); `estimated_overage_cost_usd = round(max(billable−included,0)×rate,2)`;
+  `estimated_total_due_usd = round(monthly_fee + overage,2)`. Plan constants are hardcoded in
+  `plan_pricing`/`org_plan_limits` (149/400/0.22/1 · 399/1200/0.18/4 · 899/3600/0.13/10). Golden-master
+  TS mirror + tests: `web/src/lib/billing/usageMath.ts` (keep in sync with the SQL).
 
 ### Instagram (channel foundation — Sprint 1.5; see skills/instagram-integration.md)
 - **`instagram_connections`** — one Instagram Business connection per org (`unique(org_id)`):

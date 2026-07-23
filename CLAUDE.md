@@ -147,12 +147,19 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 8. **`lib/rateLimit.ts` is an in-memory Map** — a no-op on Vercel. Don't rely on it for anything
    security-relevant.
 9. **Live DB has drifted past the repo migrations** (e.g., RPC `reconcile_call_cost`, the
-   TABLE-returning `acquire_org_concurrency_lease`, and the **billing invoice-preview view/RPC**
-   that computes usage→minutes→overage→total all exist only in prod). Never assume a migration file
-   describes the current function signature — read the calling code. Note: the billing math being
-   unversioned means what customers are charged can't be reviewed/tested from the repo (R-075).
-10. **Supabase MCP in this workspace points at the WRONG project** ("BondAI"). Do not trust MCP
-    `list_tables` for Denku; infer schema from code / `skills/database-schema.md`.
+   TABLE-returning `acquire_org_concurrency_lease`). Never assume a migration file describes the
+   current function signature — read the calling code (or the live DB, see #10). **The billing math
+   is now baselined (R-075, 2026-07-23):** the 8-view chain (`org_daily_usage` →
+   `org_monthly_invoice_preview`) is captured in `supabase/migrations/20260723100000_baseline_billing_usage_views.sql`
+   with a golden-master TS mirror `lib/billing/usageMath.ts`. Key rule: `billable_minutes =
+   Σ ceil(duration_seconds/60)` **per call** (rounds up each call). Full base-schema baseline is still
+   R-031.
+10. **Supabase MCP: two projects are reachable — target Denku EXPLICITLY by id.** `list_projects`
+    returns Denku prod `kebqwsdguxxjsijahrox` (`ACTIVE_HEALTHY`) **and** the unrelated `BondAI`
+    (`ukosngcmvejbhfimggrn`). The old "points at the wrong project" warning meant BondAI is the
+    default — always pass `project_id: "kebqwsdguxxjsijahrox"` for Denku. Access is **read-only by
+    policy** (inspection/verification only — never modify prod data or schema via MCP; write migration
+    FILES for an operator to apply). Confirmed 2026-07-23: it reaches Denku prod (used for R-075/R-060).
 11. **Instagram webhook (`/api/webhooks/instagram`, Sprint 1.5) is RECEIVE-ONLY** and its signature
     check needs the **raw body** — always `await req.text()` and verify `X-Hub-Signature-256`
     *before* `JSON.parse`. Unlike the Vapi webhook, Meta always signs, so it enforces from day one.

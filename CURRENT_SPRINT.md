@@ -87,6 +87,17 @@ identity — and clean up the email-sender inconsistency that was masking broken
 plus R-080/R-033/R-034/R-061 earlier this sprint.** The remaining Sprint-3 items are external-blocked
 (see the task table / status below) — awaiting live Supabase access for R-075/R-060/R-009.
 
+- **2026-07-23 — LIVE READ ACCESS CONFIRMED to Denku prod Supabase** (`kebqwsdguxxjsijahrox`, via the
+  connected Supabase integration — target it explicitly by id; BondAI is the default). Read-only by
+  policy: inspection/verification only, never mutate prod data/schema; write migration FILES for an
+  operator to apply. **This unblocks R-075/R-060/R-009.** CLAUDE.md landmine #10 corrected.
+- **2026-07-23 — R-075 (billing math baselined) shipped.** Read the live 8-view billing chain with
+  `pg_get_viewdef` and captured exact definitions into
+  `supabase/migrations/20260723100000_baseline_billing_usage_views.sql` (baseline of existing prod
+  objects — NOT applied to prod). Documented the rule `billable_minutes = Σ ceil(sec/60)` **per call**
+  + overage/total formulas. Added golden-master `lib/billing/usageMath.ts` + 15 boundary tests
+  (101 total green). `skills/database-schema.md` updated. Roadmap R-075 → Completed. **Next: R-060.**
+
 ## Prioritized tasks (with blocked/unblocked reality)
 
 | # | Item | State | Note |

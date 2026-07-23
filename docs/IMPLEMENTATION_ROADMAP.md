@@ -48,10 +48,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
-| High | 15 | 0 | 4 | 19 |
+| High | 14 | 0 | 5 | 19 |
 | Medium | 26 | 0 | 11 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **56** | **1** | **23** | **80** |
+| **Total** | **55** | **1** | **24** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -620,7 +620,7 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
   + external teardown + confirmation), configurable retention with automatic purge.
 
 ### R-075 — Billing computation lives in an unversioned DB object and is untestable
-**Priority:** High · **Status:** Open · **Effort:** M · **Related audit:** 12 (see R-031, R-037)
+**Priority:** High · **Status:** Completed (2026-07-23, Sprint 3; math baselined + golden-mastered — `estimated_*` rename + finalize-from-source are follow-on) · **Effort:** M · **Related audit:** 12 (see R-031, R-037)
 - **Business impact:** The most revenue-critical logic — usage → billable minutes → overage →
   total, i.e. exactly what customers are charged — runs in a DB view/RPC that is NOT in the repo, so
   it can't be reviewed or tested. A field named `estimated_overage_cost_usd`/`estimated_total_due_usd`
@@ -634,6 +634,24 @@ deterministic appointment guarantee is dead code, and the mid-call tool is usual
 - **Recommended solution:** Pull the preview view/RPC into `supabase/migrations`, document minute/
   rounding rules, add golden-master tests over boundary usage, and add a finalize-from-source step;
   rename `estimated_*` billed fields.
+- **Completed 2026-07-23 (Sprint 3, via live read-only Supabase access):** read the actual prod
+  billing chain with `pg_get_viewdef` and **baselined all 8 views** into
+  `supabase/migrations/20260723100000_baseline_billing_usage_views.sql` (documentation baseline —
+  NOT applied to prod; the views already exist there). Chain, bottom-up:
+  `org_daily_concurrency_peak` → `org_daily_usage` → `org_monthly_usage` → (`plan_pricing`,
+  `org_plan_limits`) → `org_monthly_overages` → `org_monthly_concurrency_compliance` →
+  `org_monthly_invoice_preview`. **The rounding rule is now documented and proven:** `billable_minutes
+  = Σ ceil(duration_seconds/60)` computed **per call** (every call rounds UP to a whole minute; only
+  `ended_at IS NOT NULL` calls count); `estimated_overage_cost_usd = round(max(billable−included,0)×
+  rate, 2)`; `estimated_total_due_usd = round(monthly_fee + overage_cost, 2)`. Plan constants are
+  hardcoded in `plan_pricing`/`org_plan_limits` (149/400/0.22/1 · 399/1200/0.18/4 · 899/3600/0.13/10)
+  — matches the CLAUDE.md non-negotiables. Added a pure **golden-master** `web/src/lib/billing/usageMath.ts`
+  mirroring the SQL + 15 boundary tests (`billing-usage-math.test.ts`, incl. the per-call-ceil proof:
+  three 10s calls bill 3 min, not 1). 101 tests green. Documented in `skills/database-schema.md`.
+- **Follow-on (still open, not blocking):** (a) rename the billed `estimated_*` columns (a breaking
+  prod change — code reads them); (b) a finalize-from-source step so month-close snapshots the math;
+  (c) **R-076** COGS-vs-revenue reconciliation (now unblocked — the billed figure is in-repo). The
+  base TABLES the views read are R-031 (full-schema baseline).
 
 ### R-056 — No HTTP security headers (CSP / HSTS / X-Frame-Options / etc.)
 **Priority:** High · **Status:** Completed (2026-07-08; CSP report-only, enforce is follow-up) · **Effort:** S · **Related audit:** 04
