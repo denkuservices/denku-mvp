@@ -85,10 +85,17 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
 ### Email (Resend)
 - `RESEND_API_KEY` — optional; without it all email helpers no-op with `{ ok, skipped }`
   ("domainless beta" mode).
-- `RESEND_FROM` — dev test route override. Hardcoded senders:
-  `Denku <onboarding@resend.dev>` (verification/OTP/reset, `lib/email/resend.ts#SENDER`) and
-  `Denku <hello@denku.io>` (welcome, `lib/email/send.ts#WELCOME_FROM`) — note the domain
-  inconsistency with denku.ai.
+- **Senders are centralized (R-080) in `lib/email/senders.ts#resolveSender(kind)`** — resolution per
+  stream: `RESEND_FROM_<STREAM>` → `RESEND_FROM` → verified-`denku.io` default. **All defaults are on
+  the verified `denku.io` domain; the sandbox `onboarding@resend.dev` is gone.**
+  - `RESEND_FROM` — optional global override for every stream.
+  - `RESEND_FROM_AUTH` — verify / OTP / password-reset (default `Denku <no-reply@denku.io>`).
+  - `RESEND_FROM_NOTIFY` — artifact notifications / digests (default `Denku <notifications@denku.io>`).
+  - `RESEND_FROM_WELCOME` — welcome (default `Denku <hello@denku.io>`).
+  - See `web/.env.example`. NOTE: auth emails previously used the sandbox sender and silently failed
+    (Supabase-backstopped); confirm live `denku.io` delivery after deploy.
+- `ARTIFACT_NOTIFICATIONS_ENABLED` — R-008 staged gate (default OFF; enable only after migration +
+  webhook `enforce` + deliverability check).
 
 ### URLs
 - `NEXT_PUBLIC_SITE_URL` — canonical base URL. Resolution everywhere is
@@ -120,8 +127,9 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
    `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
    `customer.subscription.created|updated`, `invoice.*`. Products/prices are ad-hoc (`price_data`)
    so no catalog setup needed yet.
-4. **Resend** — domain verification for `denku.io` (welcome sender); `onboarding@resend.dev`
-   works without a domain.
+4. **Resend** — `denku.io` domain is verified; **all** senders now use it via `resolveSender`
+   (R-080). The old sandbox `onboarding@resend.dev` is removed (it only delivered to the account
+   owner). Optionally set `RESEND_FROM*` to override the `denku.io` defaults.
 5. **Vercel** — env vars above + cron; GitHub repo secret `CRON_SECRET` for the Action.
 
 ## Local development

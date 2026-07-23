@@ -5,7 +5,11 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-23 (**Sprint 2 in progress** — R-011 forgot-password shipped in code via
+> **Last updated:** 2026-07-23 (**Sprint 3 started** — Task 1 **R-080** shipped: centralized
+> env-driven email senders (`lib/email/senders.ts`), sandbox `onboarding@resend.dev` eliminated, all
+> sends now on verified `denku.io`, dead `SENDER` constants removed, `.env.example` added. 78 tests
+> green. Prior lines below describe Sprint 2.)
+> **Prior:** 2026-07-23 (**Sprint 2 closed** — R-011 forgot-password shipped in code via
 > Supabase built-in recovery; live reset test + a one-line Supabase redirect-allowlist entry are
 > operator-gated. Email deliverability clarified: the `denku.io` Resend domain **IS verified** and is
 > already used by the welcome email, so R-008/R-009 are **not** email-blocked — an earlier same-day
@@ -42,9 +46,9 @@
 |---|---|---|---|---|
 | Critical | 6 | 1 | 8 | 15 |
 | High | 17 | 0 | 2 | 19 |
-| Medium | 35 | 0 | 2 | 37 |
+| Medium | 34 | 0 | 3 | 37 |
 | Low | 9 | 0 | 0 | 9 |
-| **Total** | **67** | **1** | **12** | **80** |
+| **Total** | **66** | **1** | **13** | **80** |
 
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
@@ -1098,7 +1102,7 @@ terminology sweep.)
   back to the configured list only if Meta omits them; add a test for the partial-grant case.
 
 ### R-080 — Transactional auth emails send from the stale Resend sandbox sender
-**Priority:** Medium · **Status:** Open · **Effort:** S · **Related audit:** — (filed 2026-07-23, Sprint 2)
+**Priority:** Medium · **Status:** Completed (2026-07-23, Sprint 3 Task 1) · **Effort:** S · **Related audit:** — (filed 2026-07-23, Sprint 2)
 - **Business impact:** The email-verification, OTP, and password-reset emails send `from` the shared
   **sandbox** address `onboarding@resend.dev`, which cannot deliver to arbitrary recipients — so in
   production those Resend sends likely fail (they are silently backstopped by Supabase's own auth
@@ -1114,6 +1118,20 @@ terminology sweep.)
 - **Recommended solution:** Point `SENDER` at a verified `@denku.io` address (e.g.
   `no-reply@denku.io`), de-duplicate the two `SENDER` constants into one, and verify the auth emails
   actually deliver in prod. Distinct from R-008 (which must use the verified sender regardless).
+- **Completed 2026-07-23 (Sprint 3 Task 1):** New centralized, env-driven sender module
+  `lib/email/senders.ts` — `resolveSender(kind)` resolves per stream `RESEND_FROM_<STREAM>` →
+  `RESEND_FROM` → a **verified `denku.io` default**, and can never produce the sandbox address.
+  Streams: `auth` → `no-reply@denku.io` (verify/OTP/password-reset), `notify` →
+  `notifications@denku.io` (artifact notifications/digests), `welcome` → `hello@denku.io`. **Sandbox
+  eliminated:** removed `SENDER` from `resend.ts` and the **dead duplicate** in `templates.ts` (+ its
+  export), rewired `send.ts` (5 sends), `sendVerifyEmail.ts`, and `api/dev/test-welcome` to
+  `resolveSender`. Removed the `WELCOME_FROM`/`NOTIFY_FROM`/`DEFAULT_FROM` literals. Added
+  `web/.env.example` (with a `!.env.example` `.gitignore` exception so it's tracked) documenting the
+  `RESEND_FROM*` vars; updated `skills/deployment-and-environments.md`. 5 unit tests
+  (`email-senders.test.ts`) incl. a "never resolves to resend.dev" guard; **78 total green**, build
+  passing, grep-verified zero remaining `onboarding@resend.dev` senders. **Operator (optional):** set
+  `RESEND_FROM*` in Vercel to override defaults; verified `denku.io` delivery of the auth emails should
+  be confirmed live (was silently failing → Supabase-backstopped before this).
 
 ## LOW
 

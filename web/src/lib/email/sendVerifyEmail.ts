@@ -1,4 +1,5 @@
-import { resend, SENDER } from "./resend";
+import { resend } from "./resend";
+import { resolveSender } from "./senders";
 
 const APP_URL = "https://denku-mvp.vercel.app";
 
@@ -24,7 +25,7 @@ export async function sendVerifyEmail(email: string, token: string) {
 
   try {
     const result = await resend.emails.send({
-      from: SENDER,
+      from: resolveSender("auth"),
       to: email,
       subject: "Verify your email – Denku",
       html: `

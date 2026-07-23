@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { resend } from "@/lib/email/resend";
-
-const DEFAULT_FROM = "Denku <hello@denku.io>";
+import { resolveSender } from "@/lib/email/senders";
 
 const TEST_HTML = `
 <!DOCTYPE html>
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Missing or invalid email in body" }, { status: 400 });
   }
 
-  const from = process.env.RESEND_FROM ?? DEFAULT_FROM;
+  const from = resolveSender("welcome");
 
   if (!resend) {
     return NextResponse.json(

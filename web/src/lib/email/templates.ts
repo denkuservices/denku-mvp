@@ -1,10 +1,10 @@
 /**
- * Email templates for Denku auth flow
- * All emails use sender: "Denku <onboarding@resend.dev>"
+ * Email templates for Denku auth flow.
+ * Sender addresses are centralized in `./senders` (R-080) — resolved per stream
+ * at send time, not hardcoded here.
  */
 
 const BASE_URL = "https://denku-mvp.vercel.app";
-const SENDER = "Denku <onboarding@resend.dev>";
 
 export interface VerificationEmailParams {
   email: string;
@@ -129,4 +129,4 @@ export function getPasswordResetEmailHtml({ email, token }: PasswordResetEmailPa
   `.trim();
 }
 
-export { BASE_URL, SENDER };
+export { BASE_URL };

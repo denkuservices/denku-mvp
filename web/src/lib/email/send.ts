@@ -1,20 +1,10 @@
 "use server";
 
-import { resend, SENDER } from "./resend";
+import { resend } from "./resend";
+import { resolveSender } from "./senders";
 import { getVerificationEmailHtml, getOtpEmailHtml, getPasswordResetEmailHtml } from "./templates";
 import type { VerificationEmailParams, PasswordResetEmailParams } from "./templates";
 import { welcomeTemplate } from "./templates/welcome";
-
-/** From address for welcome email only (Resend). */
-const WELCOME_FROM = "Denku <hello@denku.io>";
-
-/**
- * From address for artifact notifications (R-008). Uses the VERIFIED `denku.io`
- * domain (same as WELCOME_FROM) — deliberately NOT the shared `SENDER`
- * (`onboarding@resend.dev`), which is the stale sandbox sender that cannot deliver
- * to arbitrary recipients (tracked as R-080).
- */
-const NOTIFY_FROM = "Denku <notifications@denku.io>";
 
 /**
  * Send email verification email after signup
@@ -28,7 +18,7 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
 
   try {
     const { data, error } = await resend.emails.send({
-      from: SENDER,
+      from: resolveSender("auth"),
       to: params.email,
       subject: "Verify your email - Denku",
       html: getVerificationEmailHtml(params),
@@ -60,7 +50,7 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: SENDER,
+      from: resolveSender("auth"),
       to: params.email,
       subject: "Your verification code - Denku",
       html: getOtpEmailHtml(params),
@@ -92,7 +82,7 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: SENDER,
+      from: resolveSender("auth"),
       to: params.email,
       subject: "Reset your password - Denku",
       html: getPasswordResetEmailHtml(params),
@@ -128,7 +118,7 @@ export async function sendArtifactNotificationEmail(
 
   try {
     const { error } = await resend.emails.send({
-      from: NOTIFY_FROM,
+      from: resolveSender("notify"),
       to: toEmail,
       subject: email.subject,
       html: email.html,
@@ -161,7 +151,7 @@ export async function sendWelcomeEmail(toEmail: string): Promise<{ ok: boolean; 
 
   try {
     const { data, error } = await resend.emails.send({
-      from: WELCOME_FROM,
+      from: resolveSender("welcome"),
       to: toEmail,
       subject,
       html,

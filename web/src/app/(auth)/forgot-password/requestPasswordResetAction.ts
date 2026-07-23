@@ -12,9 +12,9 @@ export type RequestPasswordResetResult =
  *
  * Design (R-011):
  * - Uses Supabase Auth's default (link-based) recovery email — consistent with the
- *   existing "Supabase emails are the source of truth" auth architecture, and avoiding
- *   the repo's custom reset email which still sends from the stale sandbox `SENDER`
- *   (`onboarding@resend.dev`, R-080) rather than the verified `denku.io` domain.
+ *   existing "Supabase emails are the source of truth" auth architecture (signup
+ *   verification works the same way), rather than the repo's separate custom
+ *   `sendPasswordResetEmail` path.
  * - `redirectTo` points at a dedicated `/auth/reset-callback` route handler that
  *   exchanges the recovery code for a session and forwards to `/reset-password`.
  *   Kept separate from the shared signup `/auth/callback` to avoid any regression
