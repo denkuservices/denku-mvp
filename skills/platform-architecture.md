@@ -102,6 +102,45 @@ The AI Employees experience is served behind **`PLATFORM_UX_ENABLED`** (`flags.t
   phone-lines, instagram, leads) stay reachable and are **linked from** the new surfaces — capability
   is preserved, not hidden.
 
+## Control plane vs data plane (Sprint 8)
+
+Denku has **two planes and they must not merge** (audit `docs/audits/AI_EMPLOYEE_CORE_AUDIT.md`):
+
+- **Control plane — the Employee.** What an employee *is*: identity, personality, brain/voice
+  binding, knowledge + tool **references**, channel bindings, policies. Hundreds of rows per org,
+  changed deliberately by humans, needs **versioning, review, rollback, audit**.
+- **Data plane — the Conversation.** What actually *happened*: conversations, messages, contacts,
+  artifacts, usage. Millions of rows, machine-written, needs throughput and retention.
+
+"Employee is the core" means **core of the control plane** — Conversation remains the core of the
+data plane. Hanging conversations off the employee would repeat the voice-first mistake at scale.
+
+### Employee Manifest (R-107) — `lib/platform/manifest/`
+An **immutable, versioned revision** of an employee's desired configuration (`employee_manifests`).
+
+- **Two rules encoded in the type** (`manifest/types.ts`):
+  1. **Desired state only.** `cost`, `KPIs`, `health` are absent by design — they're computed from
+     the data plane. A revision is immutable; metrics are not. `validateManifest` *rejects* them.
+  2. **Reference, never embed.** Knowledge/tools/automations are `*Refs`. Embedding would mean 500
+     employees = 500 copies of the same FAQ, and shared knowledge would be impossible.
+- **Append-only + content-hashed** (`manifest/build.ts`): a no-op save cannot mint a revision; a real
+  change always does, and prior revisions are never mutated.
+- **`ensureCurrentRevision()`** (`manifest/revisions.ts`) is idempotent, race-safe, never throws, and
+  **inert until the migration is applied**.
+- **Provenance:** `calls.manifest_revision_id` / `conversations.manifest_revision_id` record *which
+  revision handled a conversation* — so "what prompt/model ran last Tuesday?" is answerable. This is
+  the part that **cannot be retrofitted**: unrecorded history is unrecoverable.
+- **Descriptive first, authoritative later.** The manifest currently *records* what runs (provider,
+  model, voice, tools still live in code). R-108 makes the same fields authoritative — no shape
+  change, no migration.
+
+**Rule:** when you change how an employee behaves, make sure a revision is minted (pass a `reason`).
+Never mutate a stored revision.
+
+**Memory is NOT part of the manifest** — see `docs/MEMORY_CONTRACT.md` (R-110). Memory is
+accumulated, per-subject, decaying and **erasable**; knowledge is curated and versioned. Never write
+memory into a prompt/knowledge blob.
+
 ## Design rules (preserve these)
 
 1. **Model-first, additive-only.** New channels/fields are additive migrations, RLS-locked,

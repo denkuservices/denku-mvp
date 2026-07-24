@@ -5,7 +5,16 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-24 (**Sprint 7 (Channel Readiness) CODE-COMPLETE**: made "add a channel =
+> **Last updated:** 2026-07-24 (**Sprint 8 (AI Employee Core, narrow scope) CODE-COMPLETE**: after a
+> 10-year architectural audit (`docs/audits/AI_EMPLOYEE_CORE_AUDIT.md`) the owner approved only the
+> permanent-cost items. Shipped **R-107** — versioned Employee manifest revisions + conversation
+> provenance, closing the one gap that could never be retrofitted (config was materialized and
+> overwritten; past behavior was unreconstructable). **R-110** memory contract written, implementation
+> deliberately deferred. Verdict recorded: Employee is the core of the **control plane**; Conversation
+> stays the core of the **data plane**. Filed R-108..R-116 (provider binding, shared knowledge, tools
+> registry, assignment/human takeover, tasks, policies, cost rollup, multi-persona). **284 tests green.**
+> Review: `docs/SPRINT_8_REVIEW.md`.)
+> **Prior:** 2026-07-24 (**Sprint 7 (Channel Readiness) CODE-COMPLETE**: made "add a channel =
 > backend only" real. Audit `docs/audits/CHANNEL_READINESS_AUDIT.md` found the data model + ingest
 > pipeline were genuinely channel-agnostic but the **presentation layer was hardcoded** (~4 UI files per
 > new channel). Shipped **R-100** channel capability model, **R-101** connection lifecycle/health (IG
@@ -111,11 +120,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 5 | 1 | 10 | 16 |
+| Critical | 4 | 1 | 11 | 16 |
 | High | 13 | 0 | 18 | 31 |
 | Medium | 36 | 0 | 18 | 54 |
 | Low | 13 | 0 | 1 | 14 |
-| **Total** | **67** | **1** | **47** | **115** |
+| **Total** | **66** | **1** | **48** | **115** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -229,7 +238,7 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 > plane; Denku has **no coherent control plane** — that's the real gap. Sprint 7 fixed the *channel*
 > axis; every remaining structural failure is on the **employee-configuration** axis.
 
-- **R-107 (Critical)** — **Versioned Employee manifest + provenance** (E-001). `agents.effective_system_prompt`
+- **R-107 (Critical)** — **Versioned Employee manifest + provenance**. **DONE 2026-07-24 (Sprint 8 S1/S2)** — additive `employee_manifests` (immutable, append-only, content-hashed revisions) + `calls/conversations.manifest_revision_id`; `ensureCurrentRevision` is idempotent, never throws, inert until migrated; the Vapi webhook stamps the handling revision at end-of-call. Descriptive now, authoritative under R-108. *(was: E-001)*. `agents.effective_system_prompt`
   is materialized and overwritten; `calls` records only *mutable pointers* (`vapi_assistant_id`,
   `persona_key`). **Denku cannot reconstruct what an employee was when it handled a conversation.**
   Blocks rollback, A/B, audit, debugging, provider migration, marketplace. **The one abstraction whose
@@ -242,7 +251,7 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 - **R-109 (High)** — **Knowledge as a shared, versioned entity** (E-003). `agents.business_context` is a
   per-employee, voice-prompt-shaped JSONB blob: no sharing, no versioning, no review. At 500 employees
   that's 500 copies of the same FAQ. **Supersedes R-105.**
-- **R-110 (High, design-now/build-later)** — **Memory abstraction + erasure path** (E-004). Memory
+- **R-110 (High, design-now/build-later)** — **Memory abstraction + erasure path**. **CONTRACT WRITTEN 2026-07-24 (Sprint 8 S3)** — `docs/MEMORY_CONTRACT.md`: memory≠knowledge, separate store, explicit scope/provenance/confidence/TTL, **mandatory erasure**, redaction before provider egress, off by default; preconditions (R-109 first, real customer need, legal review) + acceptance criteria. **Implementation deliberately not started.** *(was: E-004)*. Memory
   (accumulated, per-contact, decaying, **erasable** — GDPR) is a different lifecycle from Knowledge
   (curated, versioned). Conflating them, or letting memory land in the prompt blob, is a compliance
   incident. Design the scope/retention/erasure contract before it's needed.
