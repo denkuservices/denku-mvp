@@ -1,52 +1,55 @@
-# CURRENT SPRINT — Platform Experience: Depth & Consistency (Sprint 5.5)
+# CURRENT SPRINT — Launch Readiness (Sprint 6)
 
-> The active implementation sprint. Proposal + finalized order: `docs/SPRINT_5.5_PROPOSAL.md`;
-> model: `skills/platform-architecture.md`; review: `docs/SPRINT_5.5_REVIEW.md`.
+> The active implementation sprint. Proposal: `docs/SPRINT_6_PROPOSAL.md`; runbook:
+> `docs/LAUNCH_RUNBOOK.md`; review: `docs/SPRINT_6_REVIEW.md`; preflight: `/admin/readiness`.
 
-**Sprint 5.5 · Started 2026-07-24 · Status: ✅ CORE COMPLETE 2026-07-24 — operator flag-flip pending**
+**Sprint 6 · Started 2026-07-24 · Status: ✅ CODE-COMPLETE 2026-07-24 — "launch-ready, pending staging env"**
 
-> Made the daily-use surfaces platform-shaped on top of the Sprint 5 IA — all behind
-> **`PLATFORM_UX_ENABLED`** (default OFF → legacy dashboard/analytics served unchanged),
-> read-model-first, zero regression. Scope = **core Q0–Q3**; Settings reorg (R-094),
-> Onboarding reframe (R-095), Horizon/UX consistency (R-096), nav polish (R-097) → **Sprint 6**.
+> First-paying-customers reframe: made the ~5 sprints of built-but-dark work real, secure, and
+> trustworthy. Engineering that turns a sprawling activation into a safe, push-button launch + the
+> trust-surface fixes that are pure code. **NOT** more features. 220 tests green; build green.
 
-## Finalized execution order (leaves before hub — architecture review 2026-07-24)
-Q0 read-model depth → **Contacts** → **Analytics** → **Dashboard (last)**. Rationale: build the
-hub (Dashboard links to Contacts/Analytics) last over a proven aggregation layer; prove that layer
-on Analytics before the honesty-sensitive Dashboard; ascending risk. Zero customer cost (all flagged).
+## Owner decisions (locked 2026-07-24)
+Sprint 6 = **Launch Readiness** (platform UX depth R-094–097 → Sprint 7+) · **no staging env near-term**
+→ DoD = "launch-ready, pending env" (all items verifiable without staging; operator go-live blocked on
+env — the #1 risk) · all 3 trust fixes (R-010/R-047/R-004) · R-004 copy **drafted for review, not shipped**.
 
-## What shipped
+## What shipped (L1–L5)
 
-### Q0 — Read-model depth  ·  ✅ DONE
-- `readModel/aggregate.ts` (pure aggregateBy{Channel,Employee,Intent,Day} + `getConversationAggregates`
-  with an R-018-honest `limited` flag + `getArtifactCounts`); `readModel/contacts.ts` (ContactList/
-  DetailView over `leads`, id = lead id → lossless redirect; history matched by contact id/handle). 8 tests.
+### L1 — Production Readiness Preflight (R-098)  ·  ✅ DONE
+`lib/launch/checks.ts` (pure `evaluateReadiness(env)` + `summarizeReadiness`) + `readiness.ts` (env +
+best-effort DB probes) + `/admin/readiness` page + `/api/admin/readiness` (operator, Basic-Auth-gated).
+One go/no-go: `ready` = no required check failing. Flags R-001/R-077/R-080/R-047/CSP. 10 tests.
 
-### Contacts (was Q2)  ·  ✅ DONE
-- Real `/dashboard/contacts` list + `contacts/[id]` detail (identities, notes, conversation history);
-  conversation detail → contact link; `/dashboard/leads[/:id]` → `/contacts[/:id]` redirect (lossless;
-  create form kept reachable).
+### L2 — Consolidated Launch Runbook  ·  ✅ DONE
+`docs/LAUNCH_RUNBOOK.md` — one ordered guide merging Sprints 1–6 activation (staging → preflight →
+secrets → migrations → reconcile → security enforce → notifications → live acceptance → platform flags),
+per-phase rollback, keyed to the preflight. Supersedes the scattered `SPRINT_*_ACTIVATION` docs.
 
-### Analytics (was Q3)  ·  ✅ DONE
-- Flagged `PlatformAnalytics` variant: KPI tiles + conversations by channel / employee / intent + 14-day
-  trend over the aggregation layer; dependency-free `BarList`. Legacy analytics served when flag OFF.
+### L3 — Webhook enforce-readiness (R-001)  ·  ✅ DONE (code); operator flip pending
+Audit confirmed enforce-ready (route rejects on shouldReject; assistant sends `x-vapi-secret`; no
+internal caller; tested). New env-driven **`CSP_MODE`** → CSP-enforce is a redeploy-only flip; preflight
+`csp_mode`. R-001 stays In Progress until the operator flips + verifies.
 
-### Dashboard (was Q1, built last)  ·  ✅ DONE
-- Flagged `PlatformDashboard` home: KPI tiles, by-channel, employee roster strip, recent conversations,
-  deep-links to every platform surface. `/dashboard/agents[/:id]` → `/employees[/:id]` redirect
-  (consolidates the standalone agent roster; NOT settings/agents) + "AI Employee" naming (R-092).
+### L4 — Trust-surface fixes  ·  ✅ DONE (R-010, R-047)
+**Invites:** session-authed `/api/members/invite` (customer-reachable), additive RLS-locked
+`org_invites`, real email, **signup acceptance** (invited email joins the org), dead admin route removed,
+pending list. **Support:** working `mailto:` (`NEXT_PUBLIC_SUPPORT_EMAIL`) in the dashboard + the
+`/contact` form actually emails now. 9 tests.
 
-## Definition of Done
-Dashboard + Contacts + Analytics live behind `PLATFORM_UX_ENABLED`, reading the read model, legacy
-fallbacks intact (zero regression); CI (202 tests) + build green; docs synced. Operator flips the flag
-on staging to walk the full experience.
+### L5 — Marketing honesty draft (R-004)  ·  ✅ DRAFTED (not shipped)
+`docs/MARKETING_HONESTY_DRAFT.md` — over-claims + honest replacements for owner/counsel. S1 = SOC 2/
+HIPAA claims we don't hold (legal); S2 = fabricated metrics; S3 = channel/absolute over-claims.
 
-## Explicitly OUT of scope (→ Sprint 6)
-Settings reorganization (R-094) · onboarding reframe (R-095) · Horizon/`_platform` UX consistency (R-096)
-· nav polish (R-097) · full customer-facing naming sweep across legacy pages (R-065) · R-081 backfill ·
-read cutover (R-085).
+## Definition of Done — met ("launch-ready, pending env")
+Preflight green-capable; runbook is one ordered source of truth; the enforce flips are safe one-liners;
+invites + support work; honest copy drafted. CI (220 tests) + build green; docs synced. The operator
+go-live is teed up push-button for when a staging env exists.
 
-## Expected outcome
-On login (flag ON) a business sees a channel/employee-aware Overview, a real Contacts book, and
-cross-channel Analytics — the product now *feels and measures* like an AI Employees platform, with the
-current experience byte-for-byte unchanged until the flag is flipped.
+## Explicitly OUT of scope (→ Sprint 7+)
+Platform UX depth (R-094–097) · R-020 calendar · R-066 instrumentation · read cutover (R-085) · backfill
+(R-081) · new channels. **The operator go-live** (needs staging) is out of this sprint by design.
+
+## Next
+Operator: provision a staging env, then run `docs/LAUNCH_RUNBOOK.md` (preflight green → live acceptance
+→ prod). Owner/counsel: review `docs/MARKETING_HONESTY_DRAFT.md`. Then Sprint 7 (product depth).

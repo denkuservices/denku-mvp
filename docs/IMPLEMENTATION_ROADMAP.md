@@ -5,7 +5,16 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-24 (**Sprint 5.5 (Platform Experience Depth) CORE COMPLETE**: the
+> **Last updated:** 2026-07-24 (**Sprint 6 (Launch Readiness) CODE-COMPLETE**: turned the built-but-
+> dark work toward a safe, trustworthy launch for first paying customers. **L1** Production Readiness
+> Preflight (**R-098**, `/admin/readiness` — one go/no-go over env + DB probes), **L2** consolidated
+> `docs/LAUNCH_RUNBOOK.md`, **L3** webhook enforce-readiness confirmed + env-driven CSP flip (`CSP_MODE`)
+> for **R-001** (still operator-flip-pending), **L4** real reachable member invites (**R-010 DONE** —
+> `org_invites` + session route + signup acceptance) + working support contact (**R-047 DONE**), **L5**
+> marketing honesty draft (`docs/MARKETING_HONESTY_DRAFT.md` — **R-004** flagged SOC2/HIPAA claims for
+> counsel; not shipped). **220 tests green; build green.** DoD = "launch-ready, pending staging env"
+> (the standing P0 blocker). Review: `docs/SPRINT_6_REVIEW.md`.)
+> **Prior:** 2026-07-24 (**Sprint 5.5 (Platform Experience Depth) CORE COMPLETE**: the
 > daily-use surfaces are now platform-shaped, all behind **`PLATFORM_UX_ENABLED`** (legacy served when
 > OFF). Order was reviewed + reordered to **leaves-before-hub**: Q0 read-model depth (aggregations +
 > contacts views) → **Contacts** (R-093, real list/detail over `leads`, `/leads` redirect) →
@@ -92,13 +101,13 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 5 | 1 | 9 | 15 |
-| High | 11 | 0 | 14 | 25 |
-| Medium | 30 | 0 | 15 | 45 |
+| Critical | 4 | 1 | 10 | 15 |
+| High | 10 | 0 | 15 | 25 |
+| Medium | 29 | 0 | 16 | 45 |
 | Low | 11 | 0 | 1 | 12 |
-| **Total** | **57** | **1** | **39** | **97** |
+| **Total** | **54** | **1** | **42** | **97** |
 
-*(2026-07-24: +R-098 (High) Production Readiness Preflight — Sprint 6 Launch Readiness proposal. Sprint 5.5 core shipped R-090/R-091/R-092/R-093; R-094..R-097 → Sprint 7+. Sprint 5 core shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups.)*
+*(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
 **PLATFORM FOUNDATION — Sprint 4.5 follow-ups (filed 2026-07-24; NOT in Sprint 4.5 scope):**
@@ -159,11 +168,11 @@
 
 **LAUNCH READINESS — Sprint 6 candidate (filed 2026-07-24; proposal `docs/SPRINT_6_PROPOSAL.md`):**
 
-- **R-098 (High)** — **Production Readiness Preflight**: one programmatic go/no-go for taking a paying
-  customer (admin page + `/api/internal/readiness`) — verifies required env vars, **webhook auth mode =
-  enforce**, `VAPI_WEBHOOK_BASE_URL` not localhost, verified sender domains, flag states, and a probe
-  that platform migrations are applied. Consolidates the scattered `SPRINT_*_ACTIVATION` runbooks into a
-  live signal. The highest-leverage launch item; makes the operator go-live safe + push-button.
+- **R-098 (High)** — **Production Readiness Preflight**. **DONE 2026-07-24 (Sprint 6 L1)** —
+  `/admin/readiness` + `GET /api/admin/readiness` (operator, Basic-Auth-gated): pure env checks
+  (Core/Security/Voice/Email/Billing) + live DB probes; `ready` = no required failure. Flags R-001
+  (webhook not enforce), R-077 (localhost base URL), R-080 (sandbox sender), R-047 (support email),
+  CSP mode. Consolidated the scattered activation runbooks into `docs/LAUNCH_RUNBOOK.md` (L2).
 
 **Sprint 6 = LAUNCH READINESS (proposed):** turn the ~5 sprints of code-complete-but-dark work real,
 secure, and trustworthy for first paying customers. Engineering: R-098 (preflight) + consolidated
@@ -275,7 +284,11 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
   Confirmed no code reads `x-auth-*` (grep) before removal.
 
 ### R-004 — Marketing trust surfaces sell a fictional product (pricing, docs, support, security)
-**Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 01 (C1), 02 (Persona 1)
+**Priority:** Critical · **Status:** Open — honest-copy DRAFT filed 2026-07-24 (Sprint 6 L5), awaiting owner/counsel review · **Effort:** S–M · **Related audit:** 01 (C1), 02 (Persona 1)
+> `docs/MARKETING_HONESTY_DRAFT.md` catalogs the over-claims + honest replacements. Severity 1 = **SOC 2
+> / HIPAA compliance claims Denku does not hold** (legal exposure) — top priority for counsel; S2 =
+> fabricated metrics ("98.5% success rate"); S3 = channel/absolute over-claims. NOT shipped — deliberately
+> awaiting review before touching live marketing copy.
 - **Business impact:** Refund/churn machine; "HIPAA & audit logs"/"SLA"/"SOC 2-ready" claims are
   legal exposure. Audit 02 found the fiction escalates along the buyer's diligence path: the
   **docs page** invents CRM/calendar/helpdesk integrations, a chat channel, API access, and
@@ -418,7 +431,12 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
   pause (the daily cron can lag ≤24h behind 100%); a future keep-billing opt-in if ever wanted.
 
 ### R-010 — Member invites are broken (admin namespace collision)
-**Priority:** Critical · **Status:** Open · **Effort:** S–M · **Related audit:** 00, 01 (C7)
+**Priority:** Critical · **Status:** ✅ Completed 2026-07-24 (Sprint 6 L4) · **Effort:** S–M · **Related audit:** 00, 01 (C7)
+> Fixed: new session-authed `/api/members/invite` (customer-reachable, not `/api/admin/*`), additive
+> RLS-locked `org_invites`, real invite email (Resend), and signup **acceptance** (invited email joins
+> the inviting org instead of creating a new one). Dead Potemkin `/api/admin/members/invite` removed;
+> pending invites shown. The `org_invites` migration is operator-apply (runbook Phase 3); the route
+> degrades honestly if unmigrated.
 - **Business impact:** A visible team feature that 401s reads as abandonware; blocks multi-user
   adoption (retention driver).
 - **Technical impact:** `InviteMemberForm` → `/api/admin/members/invite` intercepted by Basic-Auth
@@ -1144,7 +1162,10 @@ must be baselined here before the money math can be reviewed or tested.)
   context rather than trusting `to_phone`; fix R-001.
 
 ### R-047 — Dashboard support is a dead end (Help → marketing contact form)
-**Priority:** Medium · **Status:** Open · **Effort:** S–M · **Related audit:** 02 (Persona 3)
+**Priority:** Medium · **Status:** ✅ Completed 2026-07-24 (Sprint 6 L4) · **Effort:** S–M · **Related audit:** 02 (Persona 3)
+> Fixed: dashboard "Help / Support" is now a working `mailto:` to `NEXT_PUBLIC_SUPPORT_EMAIL`
+> (default support@denku.io — set a monitored inbox; preflight warns until set); the `/contact` form's
+> silent no-op submit now actually emails the team; misleading "MVP-ready" copy removed. `lib/support.ts`.
 - **Business impact:** At $149–899/mo, "Help / Support" dropping a logged-in customer onto the
   public marketing contact form (`ProfileDropdown` → `/contact`) is below the floor — no in-app
   help, no docs from the dashboard, and the support tiers promised on the marketing site (R-004)
