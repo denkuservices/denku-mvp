@@ -12,8 +12,15 @@
  *                                  conversation thread ("Full call details").
  *   - /dashboard/phone-lines[/…]— number purchase/management; linked from Channels ("Manage").
  *   - /dashboard/instagram      — IG connect/management; linked from Channels ("Manage").
- *   - /dashboard/leads[/…]      — current leads; linked from the Contacts placeholder until
- *                                  the full Contacts surface ships (Sprint 5.5).
+ *
+ * Redirected as of Sprint 5.5 (their platform replacements are now real):
+ *   /dashboard/leads[/:id] → /dashboard/contacts[/:id]  — Contacts reads `leads` and uses
+ *                              the lead id as the contact id, so this is lossless (1:1).
+ *
+ * Still NOT redirected (reachable, linked from the new surfaces to avoid capability loss):
+ *   - /dashboard/calls/:id       — full call detail (recording, cost).
+ *   - /dashboard/phone-lines[/…] — number purchase/management.
+ *   - /dashboard/instagram       — IG connect/management.
  *
  * Pure and edge-safe (no imports) so it can run in middleware. Returns null when no redirect
  * applies. The target never matches a legacy pattern → no redirect loop.
@@ -22,5 +29,14 @@ export function platformRedirectTarget(pathname: string): string | null {
   if (pathname === "/dashboard/calls" || pathname === "/dashboard/calls/") {
     return "/dashboard/conversations";
   }
+  // leads list + detail → contacts (contact id = lead id → lossless). Keep the create
+  // form (/dashboard/leads/new) reachable — Contacts has no create surface yet.
+  const leads = pathname.match(/^\/dashboard\/leads(\/[^/]+)?\/?$/);
+  if (leads) {
+    const seg = leads[1];
+    if (seg === "/new") return null;
+    return `/dashboard/contacts${seg ?? ""}`;
+  }
+
   return null;
 }

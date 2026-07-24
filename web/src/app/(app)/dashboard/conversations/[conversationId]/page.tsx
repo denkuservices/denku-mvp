@@ -97,9 +97,18 @@ export default async function ConversationDetailPage({
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Contact</p>
-            <p className="text-sm font-medium text-navy-700 dark:text-white">
-              {detail.contact.displayName || "Unknown"}
-            </p>
+            {detail.contact.id ? (
+              <Link
+                href={`/dashboard/contacts/${detail.contact.id}`}
+                className="text-sm font-medium text-brand-600 hover:underline"
+              >
+                {detail.contact.displayName || detail.contact.handle || "View contact"}
+              </Link>
+            ) : (
+              <p className="text-sm font-medium text-navy-700 dark:text-white">
+                {detail.contact.displayName || "Unknown"}
+              </p>
+            )}
             {detail.contact.handle ? (
               <p className="mt-0.5 text-sm text-gray-500">{detail.contact.handle}</p>
             ) : null}
