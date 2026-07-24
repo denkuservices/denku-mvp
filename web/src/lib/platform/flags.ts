@@ -20,3 +20,15 @@ type FlagEnv = Record<string, string | undefined>;
 export function platformModelEnabled(env: FlagEnv = process.env): boolean {
   return (env.PLATFORM_MODEL_ENABLED ?? "").toLowerCase().trim() === "true";
 }
+
+/**
+ * Sprint 5 — switch for the platform *experience* (the AI Employees IA: Employees,
+ * Conversations, Contacts, Channels nav + surfaces). Default OFF → the current voice-first
+ * dashboard/nav is served unchanged. Independent of `platformModelEnabled`: the new
+ * surfaces read via the Platform Read Model (lib/platform/readModel/*), which presents
+ * existing legacy data in platform shape, so they show real data whether or not dual-writes
+ * are on. Enable per-env to dark-launch the new experience.
+ */
+export function platformUxEnabled(env: FlagEnv = process.env): boolean {
+  return (env.PLATFORM_UX_ENABLED ?? "").toLowerCase().trim() === "true";
+}

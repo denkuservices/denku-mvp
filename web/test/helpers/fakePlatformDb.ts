@@ -79,6 +79,12 @@ export function makeFakeDb(): FakeDb {
       this.op = "delete";
       return this;
     }
+    order() {
+      return this;
+    }
+    limit() {
+      return this;
+    }
     _match(r: any) {
       return (
         this.filters.every(([c, v]) => r[c] === v) &&
