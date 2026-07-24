@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
@@ -55,6 +56,20 @@ export default async function ChannelsPage() {
                 {!c.productionReady ? (
                   <p className="text-xs text-amber-600 dark:text-amber-400">Experimental</p>
                 ) : null}
+                {/* Manage links through to the existing channel-native management page —
+                    capability preserved, not rebuilt. */}
+                <Link
+                  href={
+                    c.channel === "voice"
+                      ? c.connectionId
+                        ? `/dashboard/phone-lines/${c.connectionId}`
+                        : "/dashboard/phone-lines"
+                      : "/dashboard/instagram"
+                  }
+                  className="mt-1 inline-flex w-fit items-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                  Manage
+                </Link>
               </div>
             ))}
           </div>

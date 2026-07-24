@@ -104,6 +104,17 @@ export default async function ConversationDetailPage({
               <p className="mt-0.5 text-sm text-gray-500">{detail.contact.handle}</p>
             ) : null}
           </div>
+
+          {/* Voice conversations link through to the full call detail (recording, cost) —
+              capability preserved rather than duplicated. */}
+          {detail.channel === "voice" ? (
+            <Link
+              href={`/dashboard/calls/${detail.id}`}
+              className="block rounded-2xl border border-gray-200 bg-white p-4 text-sm font-medium text-brand-600 transition hover:bg-gray-50 dark:border-white/10 dark:bg-navy-800 dark:hover:bg-white/5"
+            >
+              Full call details (recording, cost) →
+            </Link>
+          ) : null}
         </aside>
       </div>
     </div>

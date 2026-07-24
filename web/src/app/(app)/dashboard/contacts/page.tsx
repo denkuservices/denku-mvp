@@ -25,12 +25,20 @@ export default async function ContactsPage() {
           A unified, channel-agnostic view of every person your AI Employees have spoken with —
           generalizing today&apos;s leads with per-channel identities and full history.
         </p>
-        <Link
-          href="/dashboard/conversations"
-          className="mt-4 inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-        >
-          View conversations
-        </Link>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <Link
+            href="/dashboard/leads"
+            className="inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          >
+            View current leads
+          </Link>
+          <Link
+            href="/dashboard/conversations"
+            className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+          >
+            Conversations
+          </Link>
+        </div>
       </div>
     </div>
   );
