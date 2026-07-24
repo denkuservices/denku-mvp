@@ -182,30 +182,29 @@ reconcile assistants, flip enforce/CSP, run the Sprint-4 live acceptance, flip t
 **Deferred to Sprint 7+:** platform UX depth (R-094–097), read cutover (R-085)/backfill (R-081), new
 channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 
-**RE-PRIORITIZED do-next (post-Sprint-3, 2026-07-23).** Three sprints closed the security/trust
-foundation, the value/notification layer, the code-health + a11y + SEO wave, and the billing
-verifiability chain. **26 completed / 53 open.** What matters now, in order:
+**DO-NEXT (post-Sprint-6, 2026-07-24).** Six sprints closed the security/trust foundation, the
+value/notification layer, billing verifiability, voice intelligence, the AI-Employees platform model +
+experience, and launch readiness. **42 completed / 54 open.** Everything engineering-side for a first
+paying customer is built; what remains is *activation*, then product depth. In order:
 
-- **P0 — Finish Sprint 3 (operator, ~1 session):** run `docs/SPRINT_3_ACTIVATION.md` (apply the RLS +
-  billing migrations, register crons, flip `BILLING_NOTIFICATIONS_ENABLED`, add the reset redirect
-  URL). Turns already-shipped, staged work live. Includes the long-standing Sprint-1 handoff (rotate
-  admin creds, `VAPI_WEBHOOK_BASE_URL` + reconcile, webhook `enforce`, CSP enforce) — which now also
-  gates R-008 activation.
-- **P1 — Unblock the two remaining security items with a STAGING/preview env:** **R-057** (per-operator
-  admin identity — decided, needs staging to flip the middleware auth safely) and **R-060's remaining
-  3 anon-read tables** (`orgs`/`audit_log_changes`/`org_plan_overrides` RLS policies + `orgScoped`
-  helper). Both are blocked *only* on a place to test — the highest-value open risk.
-- **P2 — Measurement, still unbuilt and still blocking:** **R-066** (zero product analytics). Every
-  product/growth bet after this is unmeasurable; do it before optimizing the funnel.
-- **P3 — Trust-surface truth pass:** **R-004** (marketing over-claims — needs **legal counsel**) +
-  **R-010** (broken member invites) + **R-047** (dashboard support dead-end) — a coherent "paid
-  product feels finished" pass.
-- **P4 — Voice-product depth (the core promise):** **R-013** (business-context prompt), **R-019**
-  (real intent detection), **R-016** (recording playback) — the biggest activation/retention levers
-  once the funnel is measurable.
-- **Opportunistic / when-touched:** **R-031** (full-schema baseline — now doable via the live DB,
-  completes verifiability + unblocks R-036), **R-055** (artifact readability), remaining a11y (R-071)
-  and UI-cohesion (R-064/R-027).
+- **P0 — Provision a STAGING / preview env (owner).** The one systemic blocker across every sprint.
+  Nothing prod-writing (migrations, `enforce` flips, platform flags) can be verified without it. It
+  gates P1 and the two long-blocked security items (**R-057**, **R-060** remainder).
+- **P1 — Execute the launch (operator):** run **`docs/LAUNCH_RUNBOOK.md`** end-to-end on staging, then
+  prod — the single ordered guide (secrets → migrations → reconcile assistants → **R-001** webhook
+  `enforce` + `CSP_MODE=enforce` → notification/billing flags → **live test-call acceptance** →
+  optional platform flags). Gate: the **preflight** at `/admin/readiness` must be green (R-098).
+- **P2 — Owner/counsel: marketing honesty (R-004).** Review `docs/MARKETING_HONESTY_DRAFT.md` and ship
+  the approved copy. Severity 1 is the **SOC 2 / HIPAA claims Denku does not hold** (legal exposure).
+- **P3 — Product depth for real customers (Sprint 7 candidates):** **R-020** (calendar sync — the last
+  mile of "books appointments for real"), **R-066** (product-analytics instrumentation — measure
+  activation/retention on real users).
+- **P4 — Platform experience depth:** **R-094** (settings reorg, subsumes R-063), **R-095** (onboarding
+  reframe), **R-096** (UX consistency), **R-097** (nav polish) — after the flags are live and verified.
+- **P5 — Platform convergence, then growth:** **R-081** (backfill), **R-085** (read cutover), **R-082/
+  R-083**, **R-086** (message-usage billing); then new channels (WhatsApp/Email) on the proven model.
+- **Opportunistic / when-touched:** **R-031** (full-schema baseline, unblocks R-036), **R-055**,
+  remaining a11y (**R-071**) and UI cohesion (**R-064/R-027**).
 
 **Before acting on any finding, read `docs/EXECUTION_PLAN.md` (implement-now / decide-first /
 external-dependency) and `docs/RETROSPECTIVE.md` (confidence + verify-first).** Live Supabase access
@@ -219,7 +218,13 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
 ## CRITICAL
 
 ### R-001 — Vapi webhook has no authentication
-**Priority:** Critical · **Status:** In Progress (staged 2026-07-08; enforcement pending verify) · **Effort:** S–M · **Related audit:** 00
+**Priority:** Critical · **Status:** In Progress — **enforce-ready confirmed 2026-07-24 (Sprint 6 L3); only the operator flip + live verify remain** · **Effort:** S–M · **Related audit:** 00
+> Sprint 6 L3 audit: the code path is ready — the route rejects on `shouldReject` (401) under enforce,
+> `assistantConfig.ts` sends `x-vapi-secret` via `server.headers` on every assistant path, no internal
+> caller POSTs to the webhook, and `checkVapiWebhookAuth` is unit-tested (enforce+match allowed,
+> enforce+wrong rejected). Remaining = operator: set `VAPI_WEBHOOK_SECRET` → reconcile assistants →
+> confirm `[VAPI][WEBHOOK][AUTH][…][OK]` in `log` mode → set `VAPI_WEBHOOK_AUTH_MODE=enforce`.
+> Surfaced by the preflight (`webhook_enforce`, required) and ordered in `docs/LAUNCH_RUNBOOK.md` Phase 5.
 - **Business impact:** Attackers can forge call data in any org, DoS inbound calls via lease
   exhaustion, and corrupt billing minutes — existential trust/billing risk.
 - **Technical impact:** `web/src/app/api/webhooks/vapi/route.ts` processes any POST; everything
