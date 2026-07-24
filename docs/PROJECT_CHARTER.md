@@ -9,13 +9,19 @@
 
 # Product Scope
 
-**In scope:** a self-serve AI voice employee that answers a business's inbound calls 24/7,
-understands the caller, and turns each conversation into a real outcome (ticket, appointment
+**In scope:** a self-serve **AI Employee** that answers a business's inbound conversations 24/7,
+understands the customer, and turns each conversation into a real outcome (ticket, appointment
 request, captured lead) that the business can see and act on — plus the dashboard, billing, and
-settings that surround it.
+settings that surround it. **Voice is the proven, production-ready channel today; Instagram is a
+receive-only secondary channel.** As of Sprint 4.5 the product is built on a **channel-agnostic
+platform model** (Employee · Channel · Conversation · Contact · Artifact) so new channels are
+adapters, not new products — but a channel is only "in scope" once it actually works and is not
+over-claimed (see `skills/platform-architecture.md`).
 
-**Adjacent, sequenced later** (not now, but on the arc): additional conversation channels, richer
-business-awareness for the AI, outbound/proactive follow-up, and enterprise trust surfaces.
+**Adjacent, sequenced later** (on the arc, not over-claimed until shipped): additional channels
+(WhatsApp, Email, SMS, Web Chat) as adapters over the shared model, the platform UX (unified inbox,
+Employee/Contacts/Channels surfaces), richer business-awareness, outbound/proactive follow-up, and
+enterprise trust surfaces.
 
 **Out of scope:** being a build-your-own-agent platform, an AI agency/service, or a general
 chatbot. We sell an outcome, not a toolkit. (See `PROJECT_VISION.md` → "What Denku Is NOT.")

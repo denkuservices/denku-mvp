@@ -5,7 +5,30 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-23 (**Sprint 4 (Voice Intelligence) code-complete** — **R-051/R-052**
+> **Last updated:** 2026-07-24 (**Sprint 4.5 (Platform Foundation) code-complete** — the
+> AI-Employees platform model is BUILT and adopted behind a flag. 4 additive, RLS-locked
+> migrations (`20260724000000..000300`): `employee_channels`, `contacts`/`contact_identities`,
+> conversations/messages adoption + idempotency + back-links, artifacts generalization + view.
+> `lib/platform/*`: channel registry, idempotent contacts/conversations helpers, the shared
+> `ingestInboundMessage` pipeline, pure voice/instagram adapters + registry, voice recorder,
+> read helpers. **Voice + Instagram now write into the shared conversation model** behind
+> **`PLATFORM_MODEL_ENABLED`** (default OFF → byte-for-byte legacy). Fixed 2 latent
+> `/api/conversations/*` defects. **175 tests green; build green.** Activation:
+> `docs/SPRINT_4.5_MIGRATION.md`. Filed follow-ups **R-081..R-086** (backfill, IG→Employee,
+> voice-artifact convergence, unified inbox UI, read cutover, message-usage billing). Model
+> reference: `skills/platform-architecture.md`. **Next: operator activation, then Phase-2
+> platform UX.** NOT done: WhatsApp/Email, dashboard/onboarding redesign — out of scope.)
+> **Prior:** 2026-07-23 (**Platform reframe** — a Product Architecture Audit
+> ([docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md](audits/AI_EMPLOYEES_PLATFORM_AUDIT.md)) reframes Denku
+> from a Voice-AI product to a multi-channel **AI Employees platform** (Voice · Instagram · WhatsApp ·
+> Email · future). Key finding **P-004 (Critical):** the shared conversation model (`conversations`/
+> `messages`, channel-aware, already has API routes) exists but is **unadopted** by the two live
+> channels (voice=`calls`, IG=raw events) — it is the natural platform backbone. Recommended **Sprint
+> 4.5 = "Platform Foundation"** (Employee/Channel/Conversation/Contact abstractions, additive + non-
+> breaking; **not** a UI redesign, **not** new channels). Platform findings (`P-###`) live in that
+> audit; several existing `R-###` are recontextualized (R-063, R-031, R-036, R-066, R-078/R-079).
+> **Hard prerequisite for 4.5: a staging/preview env.** No code changed by the audit — planning only.)
+> **Prior:** 2026-07-23 (**Sprint 4 (Voice Intelligence) code-complete** — **R-051/R-052**
 > (voice EN-ES + 15-min/30-s call caps), **R-013** (business context, usable via Settings), **R-019**
 > (AI-primary intent detection: gpt-4o-mini structured JSON + regex fallback, end-of-call, drives
 > booking), **R-016** (recording verify + retention/consent copy). **139 tests green.** Go-live gate:
@@ -31,7 +54,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-081
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-087
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -51,12 +74,30 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 10 | 0 | 9 | 19 |
-| Medium | 24 | 0 | 13 | 37 |
-| Low | 9 | 0 | 0 | 9 |
-| **Total** | **48** | **1** | **31** | **80** |
+| High | 11 | 0 | 9 | 20 |
+| Medium | 27 | 0 | 13 | 40 |
+| Low | 10 | 0 | 0 | 10 |
+| **Total** | **53** | **1** | **31** | **85** |
 
+*(2026-07-24: +R-081..R-086 — Sprint 4.5 platform follow-ups, see the P0.5 block + register below.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
+
+**PLATFORM FOUNDATION — Sprint 4.5 follow-ups (filed 2026-07-24; NOT in Sprint 4.5 scope):**
+
+- **R-081 (High)** — Backfill the platform model: populate `employee_channels` from existing
+  `phone_lines` + `instagram_connections`, and `leads.contact_id`. A reviewed migration/script
+  after the dual-writes verify on staging. *(Data step; do not run blindly.)*
+- **R-082 (Medium)** — Instagram → Employee resolution: link IG conversations to the handling
+  Employee via `employee_channels` (today `agentId` is null on IG ingest).
+- **R-083 (Medium)** — Converge voice artifact creation through the shared pipeline's
+  `runAutomation` hook (voice currently keeps its own end-of-call ticket/appointment path; the
+  hook exists to unify it once proven safe — protect the never-dead-end guarantee).
+- **R-084 (High)** — Unified **Conversations inbox** UI (voice + IG in one list) + Contacts /
+  Employees / Channels surfaces — the Phase-2 platform UX (a dedicated later sprint).
+- **R-085 (Medium)** — Read cutover: point dashboard/analytics reads at `conversations`/
+  `artifacts` (after dual-writes are trusted); retire divergent legacy reads.
+- **R-086 (Medium)** — Multi-dimensional billing: add a message-usage dimension for chat
+  channels (the baselined billing math R-075 is voice-minute-only). Ties to audit P-008.
 
 **RE-PRIORITIZED do-next (post-Sprint-3, 2026-07-23).** Three sprints closed the security/trust
 foundation, the value/notification layer, the code-health + a11y + SEO wave, and the billing

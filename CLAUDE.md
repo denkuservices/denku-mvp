@@ -17,6 +17,26 @@ transcribed and deterministically converted into a **ticket** or **appointment r
 - Customer-facing UI must say **"AI"**, not "agent", everywhere except Settings → Agents/Advanced.
 - Marketing one-liner lives in `web/src/config/site.ts` (`siteConfig`).
 
+> **Platform direction (from 2026-07-23):** the north star is evolving from a Voice-AI product to a
+> multi-channel **AI Employees platform** (Voice · Instagram · WhatsApp · Email · future) — a business
+> hires an **AI Employee** and connects **channels** to it. This is a *direction*, not the current
+> build: today only **Voice** is a real, shipping channel and **Instagram** is receive-only. The
+> canonical reference is [docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md](docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md);
+> the target nouns are **Employee / Channel / Conversation / Contact**.
+>
+> **Sprint 4.5 (Platform Foundation) shipped the model (code-complete 2026-07-24).** The shared
+> layer is now BUILT and adopted behind a flag — see `skills/platform-architecture.md`:
+> `employee_channels` (Employee=`agents`↔Channel), `contacts`/`contact_identities` (generalize
+> `leads`), the enriched `conversations`/`messages` as the canonical interaction layer, and an
+> `artifacts` view. **Voice and Instagram now write into `conversations`/`messages`** via pure
+> channel adapters + the shared `ingestInboundMessage` pipeline (`web/src/lib/platform/*`) — gated by
+> **`PLATFORM_MODEL_ENABLED`** (default OFF → byte-for-byte legacy; dual-write, no read cutover yet).
+> All additive, RLS-locked, idempotent, never-throw. Voice keeps its existing intent + never-dead-end
+> artifact creation untouched; Instagram stays receive-only. **Rules:** add a new channel as an
+> adapter + connection table + registry line (never a bolt-on); keep changes additive/flagged; don't
+> point reads at `conversations` yet (read cutover = R-085, later). Activation: `docs/SPRINT_4.5_MIGRATION.md`.
+> Backfill/UI/convergence are filed as R-081..R-086. WhatsApp/Email are NOT built (out of scope).
+
 ## Product philosophy (encoded in the code — preserve it)
 
 1. **Never dead-end.** Every finished call MUST produce an artifact even if the LLM never calls a
@@ -221,6 +241,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `CURRENT_SPRINT.md` — **the active implementation sprint**: goal, prioritized tasks, validation
   checklist, definition of done. What to build right now. Update task status as you ship (the
   roadmap holds the full backlog; the sprint holds only what's in flight).
+- `skills/platform-architecture.md` — the AI-Employees platform model (Employee/Channel/Conversation/Contact/Artifact), the shared ingest pipeline + channel adapters, dual-write flag, how to add a channel (Sprint 4.5)
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month

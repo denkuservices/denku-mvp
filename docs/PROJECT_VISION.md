@@ -15,30 +15,42 @@
 
 # Why Denku Exists
 
-For most businesses, the phone is still where revenue and trust are won or lost — and it is the
-thing they are worst at covering. A missed call is not a missed call; it is a missed customer, a
-lost booking, a competitor's new client. Human phone coverage that is instant, 24/7, patient, and
-consistent is unaffordable and unreliable for the businesses that need it most. Denku exists to
-close that gap: to make sure no business ever loses a customer because no one picked up.
+For most businesses, a customer conversation is where revenue and trust are won or lost — and it is
+the thing they are worst at covering. It starts on the phone, but it no longer ends there: it is also
+an Instagram DM, a WhatsApp message, an email that never gets answered in time. A missed conversation
+is not a missed message; it is a missed customer, a lost booking, a competitor's new client. Coverage
+that is instant, 24/7, patient, and consistent across every channel is unaffordable and unreliable for
+the businesses that need it most. Denku exists to close that gap: to make sure no business ever loses a
+customer because no one answered — on any channel.
+
+**Where we are today (stated honestly):** Denku's proven, shipping channel is **Voice** — a
+provisioned number answered 24/7 that turns every call into a real outcome. **Instagram** is a
+receive-only foundation. The mission and vision below are deliberately channel-agnostic — they are the
+north star the product is evolving toward (the **AI Employees platform**), not a claim that every
+channel ships today. The direction is set out in
+[docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md](audits/AI_EMPLOYEES_PLATFORM_AUDIT.md); we will never
+market a channel before it works.
 
 # Mission
 
-Give every business a tireless, trustworthy voice employee that answers every call, understands
-what the caller needs, and turns it into a real, actionable outcome — automatically, around the
-clock.
+Give every business a tireless, trustworthy **AI workforce** — employees that answer every customer
+conversation on every channel (voice, then chat, messaging, and email), understand what the customer
+needs, and turn it into a real, actionable outcome — automatically, around the clock.
 
 # Vision
 
-A world where a small business has the same quality of customer communication as a large one.
-Where "we'll get back to you" is replaced by "it's already handled." Where the phone stops being a
-source of stress and dropped revenue, and becomes a dependable part of how a business runs.
+A world where a small business has the same quality of customer communication as a large one — across
+every way a customer reaches them. Where "we'll get back to you" is replaced by "it's already handled."
+Where being reachable stops being a source of stress and dropped revenue, and becomes a dependable part
+of how a business runs. A business hires an AI employee, connects the channels it lives on, and it is
+covered.
 
 # Long-Term North Star
 
-**Every customer conversation captured, understood, and converted into the right outcome — with
-the business always knowing exactly what happened.** Every decision, feature, and trade-off is
-judged by whether it moves us closer to that. Not "calls answered" — *outcomes delivered and made
-visible.*
+**Every customer conversation — on any channel — captured, understood, and converted into the right
+outcome, with the business always knowing exactly what happened.** Every decision, feature, and
+trade-off is judged by whether it moves us closer to that. Not "calls answered" — *outcomes delivered
+and made visible, everywhere the customer reaches out.*
 
 # Ideal Customer Profile
 
