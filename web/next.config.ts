@@ -15,6 +15,11 @@ const withBundleAnalyzer = bundleAnalyzer({
  * Spline (prod.spline.design), Vapi + Daily (WebRTC transport), Supabase (REST + wss).
  * Stripe is client-unused today (server SDK only; checkout/portal are top-level
  * redirects) but included defensively. The remaining headers are safe to ENFORCE now.
+ *
+ * Sprint 6 (L3): the report-only ↔ enforcing switch is now driven by `CSP_MODE` (default
+ * "report"), so an operator flips to enforcing with **one env var + redeploy** — no code
+ * edit at go-live. Only flip to `enforce` after reviewing /api/csp-report for real
+ * violations. The policy string is identical in both modes; only the header key changes.
  */
 const contentSecurityPolicyReportOnly = [
   "default-src 'self'",
@@ -33,8 +38,12 @@ const contentSecurityPolicyReportOnly = [
   "report-uri /api/csp-report",
 ].join("; ");
 
+// CSP header key by mode. Default is report-only (never blocks) unless CSP_MODE=enforce.
+const cspEnforcing = (process.env.CSP_MODE ?? "").toLowerCase().trim() === "enforce";
+const cspHeaderKey = cspEnforcing ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only";
+
 const securityHeaders = [
-  { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicyReportOnly },
+  { key: cspHeaderKey, value: contentSecurityPolicyReportOnly },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },

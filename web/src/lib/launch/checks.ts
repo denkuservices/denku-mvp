@@ -77,6 +77,13 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
     check("admin_creds", "Admin Basic-Auth credentials", "Security", true, present(env.ADMIN_USER) && present(env.ADMIN_PASS) ? "pass" : "fail",
       present(env.ADMIN_USER) && present(env.ADMIN_PASS) ? "Set" : "ADMIN_USER / ADMIN_PASS missing")
   );
+  {
+    // CSP flip is env-driven (CSP_MODE) as of Sprint 6 L3 — enforce only after reviewing
+    // /api/csp-report. Report-only is a safe launch default, so this warns, never blocks.
+    const enforce = (env.CSP_MODE ?? "").toLowerCase().trim() === "enforce";
+    checks.push(check("csp_mode", "Content-Security-Policy mode", "Security", false, enforce ? "pass" : "warn",
+      enforce ? "Enforcing" : "Report-only — safe default; set CSP_MODE=enforce after reviewing /api/csp-report (R-056)"));
+  }
   checks.push(
     check("cron_secret", "Cron secret", "Security", true, present(env.CRON_SECRET) ? "pass" : "fail",
       present(env.CRON_SECRET) ? "Set" : "CRON_SECRET missing (billing cron unprotected/undeployed)")

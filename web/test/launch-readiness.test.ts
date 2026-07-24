@@ -19,6 +19,7 @@ const READY_ENV: Record<string, string> = {
   STRIPE_SECRET_KEY: "sk",
   STRIPE_WEBHOOK_SECRET: "wh",
   BILLING_NOTIFICATIONS_ENABLED: "true",
+  CSP_MODE: "enforce",
 };
 
 function byId(env: Record<string, string | undefined>) {
@@ -68,6 +69,15 @@ describe("readiness — pure evaluation", () => {
     const c = byId({ ...READY_ENV, RESEND_FROM: "onboarding@resend.dev" });
     expect(c.get("sender_domain")!.status).toBe("fail");
     expect(c.get("sender_domain")!.required).toBe(false);
+  });
+
+  it("CSP report-only WARNs (env-driven flip, non-blocking); enforce PASSes", () => {
+    const env = { ...READY_ENV } as Record<string, string | undefined>;
+    delete env.CSP_MODE;
+    expect(byId(env).get("csp_mode")!.status).toBe("warn");
+    expect(byId({ ...READY_ENV, CSP_MODE: "enforce" }).get("csp_mode")!.status).toBe("pass");
+    // report-only never blocks launch
+    expect(summarizeReadiness(evaluateReadiness(env)).ready).toBe(true);
   });
 
   it("billing notifications off WARNs (recommended for launch)", () => {
