@@ -75,6 +75,25 @@ renders, **decoupled from storage**.
 The whole new experience is gated by **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF) —
 independent of `PLATFORM_MODEL_ENABLED`, so the IA dark-launches over the read model.
 
+## The Platform UI / IA (Sprint 5)
+
+The AI Employees experience is served behind **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF).
+
+- **Nav:** `platformNavRoutes` in `horizon-shell/nav.tsx` (Dashboard · AI Employees · Conversations ·
+  Contacts · Channels · Tickets · Appointments · Analytics · Settings). The shell picks legacy vs
+  platform nav via a server-resolved `platformUx` boolean threaded `(app)/layout.tsx` →
+  `AppShellWrapper` → `HorizonShell` (a boolean, never JSX, crosses the boundary).
+- **Surfaces** (`app/(app)/dashboard/{employees,conversations,channels,contacts}`) all read the P0
+  read model — no duplicated domain logic. Shared bits in `dashboard/_platform/` (PageHeader,
+  ChannelBadge, format, serverOrg resolver). New routes `notFound()` when the flag is OFF (fully dark).
+- **Plugin conversation renderer** (`_platform/conversation/`): `<ConversationThread>` dispatches each
+  turn to its channel's renderer via `renderers/registry.ts`. Add a channel renderer with
+  `registerRenderer(channel, Component)` — the core never changes (requirement #2).
+- **Redirects** (`lib/platform/routeRedirects.ts`, run in middleware when the flag is ON): only the
+  fully-replaced **calls list** → `/dashboard/conversations`. Detail/management pages (call detail,
+  phone-lines, instagram, leads) stay reachable and are **linked from** the new surfaces — capability
+  is preserved, not hidden.
+
 ## Design rules (preserve these)
 
 1. **Model-first, additive-only.** New channels/fields are additive migrations, RLS-locked,

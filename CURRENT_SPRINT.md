@@ -3,7 +3,7 @@
 > The active implementation sprint. Plan: `docs/SPRINT_5_PLAN.md`; model: `skills/platform-architecture.md`;
 > north star: `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`. Update task status here as you ship.
 
-**Sprint 5 · Started 2026-07-24 · Status: 🚧 IN PROGRESS — P0 done; P1–P3 pending**
+**Sprint 5 · Started 2026-07-24 · Status: ✅ CORE COMPLETE (P0–P3) 2026-07-24 — operator flag-flip pending**
 
 > The first product-facing platform sprint: turn the Voice-first UI into an **AI Employees
 > experience** on the Sprint 4.5 foundation. Everything ships **behind `PLATFORM_UX_ENABLED`**
@@ -32,21 +32,27 @@ Rollout **behind `PLATFORM_UX_ENABLED`** · scope **core P0–P3** (rest → 5.5
   Channel-tagged views (renderer seam), Employee-centric ownership, coming-soon affordances.
   11 tests; 186 total green; typecheck clean.
 
-### P1 — Navigation + shell  ·  ⏳ NEXT
-- New flagged nav (`Dashboard · AI Employees · Conversations · Contacts · Channels · Tickets ·
-  Appointments · Analytics · Settings`); route groups `/dashboard/{employees,conversations,
-  contacts,channels}`; 301 redirects old→new (calls→conversations, phone-lines/instagram→channels,
-  leads→contacts). Naming pass in shared chrome. Old nav served when flag OFF.
+### P1 — Navigation + shell  ·  ✅ DONE 2026-07-24
+- Flagged platform nav (`Dashboard · AI Employees · Conversations · Contacts · Channels · Tickets ·
+  Appointments · Analytics · Settings`) selected via a server-resolved `platformUx` boolean threaded
+  through the shell (no JSX crosses the boundary). New route pages consume the read model; new routes
+  404 when the flag is OFF (fully dark). Legacy routes redirect via middleware (see redirect note).
 
-### P2 — Conversations (centerpiece, R-084)  ·  ⏳
-- Unified inbox over `listConversationViews`; **plugin `<ConversationThread>`** with a
-  per-channel renderer registry (voice transcript + IG chat renderers registered; core
-  untouched by future channels). `/calls` → `/dashboard/conversations?channel=voice`.
+### P2 — Conversations (centerpiece, R-084)  ·  ✅ DONE 2026-07-24
+- Unified inbox (`listConversationViews`, channel filter) + conversation detail with the **plugin
+  `<ConversationThread>`**: a per-channel renderer **registry** (voice + IG registered; unknown
+  channels fall back). Adding a channel = registering a renderer — the core never changes (design
+  invariant #2). Voice threads link through to the rich call detail (recording/cost).
 
-### P3 — AI Employees + Channels  ·  ⏳
-- Employee roster/detail (`listEmployeeViews`; Employees own channels). Channels surface
-  (`listChannelViews`) collapsing Phone Lines + Instagram + disabled "Connect WhatsApp/Email —
-  coming soon".
+### P3 — AI Employees + Channels  ·  ✅ DONE 2026-07-24
+- Employee roster + detail (`listEmployeeViews`; Employees own channels; "Configure" → existing
+  agent settings). Channels inventory (`listChannelViews`) collapsing Phone Lines + Instagram, with
+  "Manage" links to the channel-native pages + disabled WhatsApp/Email/SMS "coming soon".
+
+### Redirect design (refined during P3)
+Redirect ONLY the fully-replaced **calls list** → conversations. **Keep reachable** (linked from the
+new surfaces, not hidden): call detail (recording/cost), phone-lines + instagram (management), leads
+(until Contacts ships in 5.5) — so the flag-ON experience loses **no capability**.
 
 ## Definition of Done (Sprint 5)
 New IA (Employees/Conversations/Channels) live **behind `PLATFORM_UX_ENABLED`**, reading real
