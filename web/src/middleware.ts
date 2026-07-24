@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { platformUxEnabled } from "@/lib/platform/flags";
+import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
 
 function isAuthorizedBasic(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -132,6 +134,19 @@ export async function middleware(request: NextRequest) {
 
   // 3) App koruması (Supabase session + email verification) — /dashboard
   const isDashboard = pathname.startsWith("/dashboard");
+
+  // Sprint 5: when the platform IA is enabled, redirect legacy voice-first routes to their
+  // channel-agnostic equivalents (preserving deep links). Flag OFF → no redirect, legacy
+  // routes serve as before. Runs before auth so the target path is then auth-gated normally.
+  if (isDashboard && platformUxEnabled()) {
+    const target = platformRedirectTarget(pathname);
+    if (target && target !== pathname) {
+      const url = request.nextUrl.clone();
+      url.pathname = target;
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (isDashboard) {
     // Debug log for phone-lines route
     if (pathname === "/dashboard/phone-lines") {

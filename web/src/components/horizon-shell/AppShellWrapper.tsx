@@ -19,9 +19,11 @@ import HorizonShell from './HorizonShell';
 export default function AppShellWrapper({
   children,
   onboardingComplete = true,
+  platformUx = false,
 }: {
   children: React.ReactNode;
   onboardingComplete?: boolean;
+  platformUx?: boolean;
 }) {
   const pathname = usePathname();
   const isOnboarding = pathname?.startsWith('/onboarding') ?? false;
@@ -57,5 +59,5 @@ export default function AppShellWrapper({
   }
 
   // Dashboard and other routes use the full shell with sidebar.
-  return <HorizonShell>{children}</HorizonShell>;
+  return <HorizonShell platformUx={platformUx}>{children}</HorizonShell>;
 }

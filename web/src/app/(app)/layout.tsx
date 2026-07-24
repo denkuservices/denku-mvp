@@ -2,6 +2,7 @@ import { DM_Sans } from "next/font/google";
 import AppShellWrapper from "@/components/horizon-shell/AppShellWrapper";
 import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
 import { getOnboardingComplete } from "@/lib/auth/checkOnboarding";
+import { platformUxEnabled } from "@/lib/platform/flags";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -26,11 +27,17 @@ export default async function AppLayout({
   // chrome (so the dashboard sidebar never flashes in/out during the setup flow).
   const onboardingComplete = await getOnboardingComplete();
 
+  // Sprint 5: dark-launch the AI Employees IA behind PLATFORM_UX_ENABLED (default OFF →
+  // legacy nav). Resolved server-side; a boolean crosses to the client shell.
+  const platformUx = platformUxEnabled();
+
   return (
     <>
       <HorizonStylesheet />
       <div className={`${dmSans.className} w-full`}>
-        <AppShellWrapper onboardingComplete={onboardingComplete}>{children}</AppShellWrapper>
+        <AppShellWrapper onboardingComplete={onboardingComplete} platformUx={platformUx}>
+          {children}
+        </AppShellWrapper>
       </div>
     </>
   );

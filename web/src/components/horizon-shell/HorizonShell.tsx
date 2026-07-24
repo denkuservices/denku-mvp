@@ -8,21 +8,29 @@ import {
 } from './navigation';
 import React from 'react';
 import SidebarAdapter from './SidebarAdapter';
-import { horizonNavRoutes } from './nav';
+import { horizonNavRoutes, platformNavRoutes } from './nav';
 import { MobileNavProvider, useMobileNav } from './MobileNavContext';
 
 interface HorizonShellProps {
   children: React.ReactNode;
+  /**
+   * When true (PLATFORM_UX_ENABLED, resolved server-side and passed down), render the
+   * AI Employees platform navigation; otherwise the legacy voice-first nav. A boolean —
+   * never JSX — crosses the server/client boundary.
+   */
+  platformUx?: boolean;
 }
 
 /**
  * HorizonShell - Adapter component that wraps app routes with Horizon UI layout shell
  * (sidebar + topbar + spacing + background) while preserving existing page logic.
  */
-function HorizonShellInner({ children }: HorizonShellProps) {
+function HorizonShellInner({ children, platformUx = false }: HorizonShellProps) {
   const { mobileNavOpen, setMobileNavOpen } = useMobileNav();
   const pathname = usePathname();
-  
+
+  const navRoutes = platformUx ? platformNavRoutes : horizonNavRoutes;
+
   // Compute brandText and secondary only on client to avoid hydration mismatch
   // Use stable initial values that match server render
   const [brandText, setBrandText] = useState<string>('Dashboard');
@@ -30,9 +38,9 @@ function HorizonShellInner({ children }: HorizonShellProps) {
 
   // Update brandText and secondary after mount and when pathname changes
   useEffect(() => {
-    setBrandText(getActiveRoute(horizonNavRoutes, pathname));
-    setSecondary(getActiveNavbar(horizonNavRoutes, pathname));
-  }, [pathname]);
+    setBrandText(getActiveRoute(navRoutes, pathname));
+    setSecondary(getActiveNavbar(navRoutes, pathname));
+  }, [pathname, navRoutes]);
 
   // Close mobile drawer when route changes (mobile only)
   // Only depend on pathname - don't include mobileNavOpen to avoid closing when opening
@@ -56,7 +64,7 @@ function HorizonShellInner({ children }: HorizonShellProps) {
       >
         Skip to main content
       </a>
-      <SidebarAdapter routes={horizonNavRoutes} open={mobileNavOpen} setOpen={setMobileNavOpen} variant="admin" />
+      <SidebarAdapter routes={navRoutes} open={mobileNavOpen} setOpen={setMobileNavOpen} variant="admin" />
       {/* Main Content Column - This is the scroll container */}
       <div className="flex min-h-screen flex-1 flex-col min-w-0 h-full w-full font-dm dark:bg-navy-900">
         {/* Scrollable main content area - matches Horizon layout structure */}
@@ -74,10 +82,10 @@ function HorizonShellInner({ children }: HorizonShellProps) {
   );
 }
 
-export default function HorizonShell({ children }: HorizonShellProps) {
+export default function HorizonShell({ children, platformUx = false }: HorizonShellProps) {
   return (
     <MobileNavProvider>
-      <HorizonShellInner>{children}</HorizonShellInner>
+      <HorizonShellInner platformUx={platformUx}>{children}</HorizonShellInner>
     </MobileNavProvider>
   );
 }
