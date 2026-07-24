@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, AlertTriangle } from "lucide-react";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationAggregates, getArtifactCounts } from "@/lib/platform/readModel/aggregate";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
+import { listConnectedChannelViews } from "@/lib/platform/readModel/channels";
+import type { ConnectionHealth } from "@/lib/platform/connectionHealth";
 import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
@@ -18,19 +20,25 @@ import { formatWhen, statusPillClass, titleCase } from "../format";
  */
 export default async function PlatformDashboard() {
   const orgId = await resolveActiveOrgId();
-  const [agg, artifacts, employees, recent] = orgId
+  const [agg, artifacts, employees, recent, connectedChannels] = orgId
     ? await Promise.all([
         getConversationAggregates(orgId, { windowDays: 7, limit: 500 }),
         getArtifactCounts(orgId),
         listEmployeeViews(orgId),
         listConversationViews(orgId, { limit: 6 }),
+        listConnectedChannelViews(orgId),
       ])
     : [
         { total: 0, byChannel: {}, byEmployee: [], byDay: [], byIntent: {}, limited: false, windowDays: 7 },
         { tickets: 0, appointments: 0 },
         [],
         [],
+        [],
       ];
+
+  // Health monitoring (R-101): surface channels needing attention (expiring credentials,
+  // provider errors) on the home surface — channel-agnostic, so future channels are covered.
+  const unhealthy = connectedChannels.filter((c) => (c.meta?.health as ConnectionHealth | undefined)?.actionRequired);
 
   const channelItems: BarItem[] = Object.entries(agg.byChannel)
     .sort((a, b) => b[1] - a[1])
@@ -57,6 +65,20 @@ export default async function PlatformDashboard() {
           </Link>
         }
       />
+
+      {unhealthy.length > 0 ? (
+        <Link
+          href="/dashboard/channels"
+          className="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {unhealthy.length} channel{unhealthy.length === 1 ? "" : "s"} need
+            {unhealthy.length === 1 ? "s" : ""} attention —{" "}
+            {(unhealthy[0].meta?.health as ConnectionHealth).label.toLowerCase()}. Review channels →
+          </span>
+        </Link>
+      ) : null}
 
       {/* KPI tiles */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
