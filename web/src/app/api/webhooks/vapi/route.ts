@@ -15,6 +15,7 @@ import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotificat
 import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
+import { ensureCurrentRevision } from "@/lib/platform/manifest/revisions";
 
 const VapiWebhookSchema = z
   .object({
@@ -2870,6 +2871,25 @@ export async function POST(req: NextRequest) {
                 callRow.raw_payload || body,
                 extractCallId(callRow.raw_payload || body) ?? undefined
               );
+            }
+
+            // R-107 (Sprint 8): record WHICH employee-manifest revision handled this call, so past
+            // behavior stays reconstructable ("what prompt/model ran on Tuesday?"). Idempotent
+            // (content-hash dedupe), never throws, and inert until the manifests migration is
+            // applied — so this cannot affect call finalization.
+            try {
+              if (callRow.agent_id) {
+                const revisionId = await ensureCurrentRevision(callRow.agent_id, { reason: "call handled" });
+                if (revisionId) {
+                  await supabaseAdmin
+                    .from("calls")
+                    .update({ manifest_revision_id: revisionId })
+                    .eq("id", callRow.id)
+                    .eq("org_id", callRow.org_id);
+                }
+              }
+            } catch (provenanceErr) {
+              console.error("[PLATFORM][MANIFEST][PROVENANCE] non-fatal:", provenanceErr);
             }
 
             // R-008: email the owner about any newly-created artifacts for this call.
