@@ -14,6 +14,14 @@ describe("platformRedirectTarget (legacy → platform routes)", () => {
     expect(platformRedirectTarget("/dashboard/leads/new")).toBeNull();
   });
 
+  it("agents roster → employees, but NOT settings/agents (config) or the create form", () => {
+    expect(platformRedirectTarget("/dashboard/agents")).toBe("/dashboard/employees");
+    expect(platformRedirectTarget("/dashboard/agents/emp-1")).toBe("/dashboard/employees/emp-1");
+    expect(platformRedirectTarget("/dashboard/agents/new")).toBeNull();
+    expect(platformRedirectTarget("/dashboard/settings/agents")).toBeNull();
+    expect(platformRedirectTarget("/dashboard/settings/agents/emp-1")).toBeNull();
+  });
+
   it("keeps rich detail / management pages reachable (no capability loss)", () => {
     // Call detail (recording, cost) is linked from the conversation thread, not hidden.
     expect(platformRedirectTarget("/dashboard/calls/abc-123")).toBeNull();

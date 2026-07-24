@@ -14,8 +14,11 @@
  *   - /dashboard/instagram      — IG connect/management; linked from Channels ("Manage").
  *
  * Redirected as of Sprint 5.5 (their platform replacements are now real):
- *   /dashboard/leads[/:id] → /dashboard/contacts[/:id]  — Contacts reads `leads` and uses
- *                              the lead id as the contact id, so this is lossless (1:1).
+ *   /dashboard/leads[/:id]  → /dashboard/contacts[/:id]  — Contacts reads `leads` and uses
+ *                               the lead id as the contact id, so this is lossless (1:1).
+ *   /dashboard/agents[/:id] → /dashboard/employees[/:id] — the AI Employees surface replaces
+ *                               the standalone agent roster (NOT /dashboard/settings/agents,
+ *                               the config surface, which is left untouched).
  *
  * Still NOT redirected (reachable, linked from the new surfaces to avoid capability loss):
  *   - /dashboard/calls/:id       — full call detail (recording, cost).
@@ -36,6 +39,15 @@ export function platformRedirectTarget(pathname: string): string | null {
     const seg = leads[1];
     if (seg === "/new") return null;
     return `/dashboard/contacts${seg ?? ""}`;
+  }
+
+  // agents roster → employees (does NOT match /dashboard/settings/agents). Keep the create
+  // form reachable (no employees create surface yet).
+  const agents = pathname.match(/^\/dashboard\/agents(\/[^/]+)?\/?$/);
+  if (agents) {
+    const seg = agents[1];
+    if (seg === "/new") return null;
+    return `/dashboard/employees${seg ?? ""}`;
   }
 
   return null;
