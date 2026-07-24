@@ -49,6 +49,32 @@ Back-links: `calls.conversation_id`, `instagram_webhook_events.conversation_id/m
   artifact to the conversation).
 - `read.ts` — org-scoped read helpers (list/get conversations, messages, employee channels).
 
+## The Platform Read Model (Sprint 5, P0)
+
+`lib/platform/readModel/*` is the **read** counterpart to the ingest pipeline: a stable,
+platform-shaped interface the new IA (Employees · Conversations · Contacts · Channels)
+renders, **decoupled from storage**.
+
+- **Sourcing (today):** it reads where data actually lives — **voice ← `calls`**, **chat ←
+  `conversations`** (disjoint, no double count); Employees ← `agents`; channel ownership ←
+  `phone_lines.assigned_agent_id`; channel inventory ← `phone_lines` + `instagram_connections`.
+  So the new surfaces show **real data regardless of `PLATFORM_MODEL_ENABLED`**. At
+  read-cutover (**R-085**) the sources swap to `conversations`/`contacts`/`employee_channels`
+  with **no change to the view types or the UI**. `ConversationView.source` records provenance.
+- **Employee-centric:** `EmployeeView.channels` is the ownership edge — Employees own
+  Channels, never the reverse. IG connections are org-level until `employee_channels` is
+  backfilled (R-081); we never invent ownership.
+- **Channel-tagged for plugin rendering:** every `ConversationView`/`ConversationTurn` carries
+  its `channel`, so the conversation thread UI dispatches to a **per-channel renderer via a
+  registry** — a new channel's renderer registers without touching the core conversation UI.
+- **Coming-soon affordances:** `comingSoonChannelViews()` derives WhatsApp/Email/SMS from the
+  registry as disabled entries — extensibility is *visible* without being *built*.
+- Files: `readModel/types.ts` (views), `conversations.ts`, `channels.ts`, `employees.ts`.
+  Pure row→view mappers are exported for testing; async fns fetch + map, org-scoped, never throw.
+
+The whole new experience is gated by **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF) —
+independent of `PLATFORM_MODEL_ENABLED`, so the IA dark-launches over the read model.
+
 ## Design rules (preserve these)
 
 1. **Model-first, additive-only.** New channels/fields are additive migrations, RLS-locked,

@@ -1,76 +1,63 @@
-# CURRENT SPRINT — Platform Foundation (Sprint 4.5)
+# CURRENT SPRINT — Platform Experience (Sprint 5)
 
-> The active implementation sprint. Model: `skills/platform-architecture.md`; rationale:
-> `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`; activation: `docs/SPRINT_4.5_MIGRATION.md`.
-> Update task status here as you ship; mark the roadmap entry in the same change.
+> The active implementation sprint. Plan: `docs/SPRINT_5_PLAN.md`; model: `skills/platform-architecture.md`;
+> north star: `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`. Update task status here as you ship.
 
-**Sprint 4.5 · Started 2026-07-24 · Status: ✅ `CODE-COMPLETE 2026-07-24` (operator activation pending)**
+**Sprint 5 · Started 2026-07-24 · Status: 🚧 IN PROGRESS — P0 done; P1–P3 pending**
 
-> Transforms Denku from a Voice-first product into an **AI Employees platform** while
-> preserving every Voice capability. Model-first, additive-only, no breaking changes, all
-> behavior gated behind **`PLATFORM_MODEL_ENABLED`** (default OFF → byte-for-byte legacy).
-> **NOT** WhatsApp/Email, **NOT** a dashboard/onboarding redesign. 175 tests green; build green.
+> The first product-facing platform sprint: turn the Voice-first UI into an **AI Employees
+> experience** on the Sprint 4.5 foundation. Everything ships **behind `PLATFORM_UX_ENABLED`**
+> (default OFF → current dashboard unchanged). Scope = **core P0–P3**; Contacts, dashboard
+> reskin, settings reorg, onboarding reframe, naming sweep → **Sprint 5.5**. Additive-only,
+> zero regressions. NOT WhatsApp/Email, NOT a re-theme.
+>
+> Sprint 4.5 (Platform Foundation) is code-complete; operator activation pending
+> (`docs/SPRINT_4.5_MIGRATION.md`).
 
-## Sprint Goal
+## Owner decisions (locked 2026-07-24)
+Rollout **behind `PLATFORM_UX_ENABLED`** · scope **core P0–P3** (rest → 5.5) · onboarding
+**reskin-only** (5.5) · Leads→Contacts **rename + `/leads` redirect** (5.5).
 
-Introduce the channel-agnostic platform backbone — **Employee · Channel · Conversation ·
-Contact · Artifact** — and make **Voice and Instagram channel adapters that write into the
-shared conversation model**, so future channels plug in as adapters (O(1)) instead of
-bolt-ons. Preserve the artifact guarantee, idempotency, billing enforcement, tenancy.
+## Design invariants (owner requirements)
+1. **Employees own Channels** — the read/UI model is Employee-centric, never channel-resource-centric.
+2. **Plugin conversation renderer from day one** — the thread UI dispatches per-channel via a
+   registry; new channel renderers (WhatsApp/Email/SMS/WebChat) register without core changes.
 
-## What shipped (by phase)
+## Phases (this sprint = P0–P3)
 
-### Phase 1 — Platform model  ·  ✅ DONE 2026-07-24
-- **4 additive migrations** (`20260724000000..000300`): `employee_channels`; `contacts` +
-  `contact_identities` (+`leads.contact_id`); conversations/messages adoption (columns +
-  idempotency indexes + `calls.conversation_id` + IG back-links; RLS enabled); artifacts
-  generalization (`conversation_id`/`contact_id` on tickets/appointments + `artifacts` view).
-  All RLS-locked, each with a documented rollback. `conversations`/`messages` verified EMPTY
-  in prod → zero data risk.
-- **lib/platform/**: `channels.ts` (registry; only voice `productionReady`), `flags.ts`
-  (`PLATFORM_MODEL_ENABLED`, default OFF), `contacts.ts` (`ensureContact`), `conversations.ts`
-  (`ensureConversation`/`appendMessage`/`closeConversation`) — all idempotent, org-scoped,
-  never-throw, injectable client.
+### P0 — Platform Read Model + flag  ·  ✅ DONE 2026-07-24
+- `PLATFORM_UX_ENABLED` flag; `lib/platform/readModel/*` — Conversation/Employee/Channel views
+  over **existing legacy data** (voice←`calls`, chat←`conversations`, employees←`agents`,
+  channels←`phone_lines`+`instagram_connections`), decoupled from `PLATFORM_MODEL_ENABLED`.
+  Channel-tagged views (renderer seam), Employee-centric ownership, coming-soon affordances.
+  11 tests; 186 total green; typecheck clean.
 
-### Phase 2/3 — Shared pipeline + adapter architecture  ·  ✅ DONE 2026-07-24
-- `ingest.ts`: **one** pipeline `ingestInboundMessage` (Contact→Conversation→Message→
-  [Intent]→[Automation→Artifact]); channel specifics injected — no channel logic in the core.
-- `adapters/` : `ChannelAdapter` contract + pure `voice.ts` (`parseTranscriptTurns`) +
-  `instagram.ts` + `registry.ts`. New channel = adapter + registry line.
+### P1 — Navigation + shell  ·  ⏳ NEXT
+- New flagged nav (`Dashboard · AI Employees · Conversations · Contacts · Channels · Tickets ·
+  Appointments · Analytics · Settings`); route groups `/dashboard/{employees,conversations,
+  contacts,channels}`; 301 redirects old→new (calls→conversations, phone-lines/instagram→channels,
+  leads→contacts). Naming pass in shared chrome. Old nav served when flag OFF.
 
-### Phase 4 — Wiring + internal plumbing  ·  ✅ DONE 2026-07-24
-- **Voice**: Vapi webhook end-of-call mirrors the call into the shared model via
-  `wiring/recordVoiceCall` (flagged, record-only; links call + artifact). Existing intent +
-  never-dead-end artifact creation **untouched**.
-- **Instagram**: webhook dual-writes DMs as Conversations/Messages (flagged; receive-only
-  preserved). Raw-event persist unchanged.
-- Fixed the two `/api/conversations/*` routes (dead phantom-table write + session-client
-  writes that RLS would block) → `messages` via service-role + org checks.
-- `read.ts`: minimal org-scoped read helpers (no UI/API surface yet — later sprint).
+### P2 — Conversations (centerpiece, R-084)  ·  ⏳
+- Unified inbox over `listConversationViews`; **plugin `<ConversationThread>`** with a
+  per-channel renderer registry (voice transcript + IG chat renderers registered; core
+  untouched by future channels). `/calls` → `/dashboard/conversations?channel=voice`.
 
-### Phase 5 — Documentation  ·  ✅ DONE 2026-07-24
-- `skills/platform-architecture.md`, `docs/SPRINT_4.5_MIGRATION.md` (apply/rollback runbook),
-  this file, roadmap (R-081..R-086 follow-ups filed), CLAUDE.md, PROJECT_VISION/CHARTER,
-  `.env.example` (`PLATFORM_MODEL_ENABLED`), `docs/SPRINT_4.5_REVIEW.md`.
+### P3 — AI Employees + Channels  ·  ⏳
+- Employee roster/detail (`listEmployeeViews`; Employees own channels). Channels surface
+  (`listChannelViews`) collapsing Phone Lines + Instagram + disabled "Connect WhatsApp/Email —
+  coming soon".
 
-## Hard constraint
-Read-only prod; no Vapi/IG write access. Migrations are FILES + the runbook; the flag stays
-OFF until an operator applies + verifies on staging. Engineering-done vs operationally-verified.
+## Definition of Done (Sprint 5)
+New IA (Employees/Conversations/Channels) live **behind `PLATFORM_UX_ENABLED`**, reading real
+data via the read model; old routes redirect; Voice + IG both in Conversations; renderer
+registry plugin-based; **zero regression** to the flag-off experience; CI + build green; docs
+synced (this file, roadmap, skills, Sprint 5 review). Operator can flip the flag on staging.
 
-## Definition of Done
-Each phase shipped + roadmap synced; **no breaking changes**; all behavior additive/flagged;
-CI green (175 tests); build green; docs synced; no regression to the do-not-regress core.
+## Explicitly OUT of scope
+WhatsApp/Email · full dashboard/onboarding/settings redesign (5.5) · Contacts surface (5.5) ·
+visual re-theme · read-cutover (R-085) · backfill (R-081).
 
-**+ Operator activation checklist** (`docs/SPRINT_4.5_MIGRATION.md`): apply 4 migrations →
-verify schema/RLS/`artifacts` view → confirm flag-OFF is a no-op (voice+IG unchanged) → flip
-`PLATFORM_MODEL_ENABLED` on staging → verify voice + IG dual-writes → then prod. Backfill
-(R-081) is a later reviewed step.
-
-## Explicitly OUT of scope (approved)
-WhatsApp/Email channels · full dashboard/onboarding/settings redesign · Instagram reply/AI ·
-read cutover (dashboard still reads legacy stores) · data backfill (R-081, later).
-
-## Expected outcome
-A true platform architecture: Voice + Instagram as channel adapters over one shared
-conversation model, ready for new channels as adapters — with **zero customer-facing change
-until the flag is flipped**. Next: Phase-2 platform UX (unified inbox, IA) in a later sprint.
+## Roadmap items in flight
+R-084 (unified inbox, P2) · R-087 (read model, P0 ✅) · R-088 (route redirects, P1) · R-089
+(conversation renderer registry, P2). Audit P-001 (nav), P-003 (settings, 5.5), P-005 (naming).
