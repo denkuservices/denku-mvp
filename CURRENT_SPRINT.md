@@ -1,55 +1,61 @@
-# CURRENT SPRINT — Launch Readiness (Sprint 6)
+# CURRENT SPRINT — Channel Readiness (Sprint 7)
 
-> The active implementation sprint. Proposal: `docs/SPRINT_6_PROPOSAL.md`; runbook:
-> `docs/LAUNCH_RUNBOOK.md`; review: `docs/SPRINT_6_REVIEW.md`; preflight: `/admin/readiness`.
+> The active implementation sprint. Audit: `docs/audits/CHANNEL_READINESS_AUDIT.md`; model:
+> `skills/platform-architecture.md` ("Adding a new channel — the contract"); review:
+> `docs/SPRINT_7_REVIEW.md`.
 
-**Sprint 6 · Started 2026-07-24 · Status: ✅ CODE-COMPLETE 2026-07-24 — "launch-ready, pending staging env"**
+**Sprint 7 · Started 2026-07-24 · Status: ✅ CODE-COMPLETE 2026-07-24**
 
-> First-paying-customers reframe: made the ~5 sprints of built-but-dark work real, secure, and
-> trustworthy. Engineering that turns a sprawling activation into a safe, push-button launch + the
-> trust-surface fixes that are pure code. **NOT** more features. 220 tests green; build green.
+> **Goal: make adding a channel *backend-only work*.** Not building WhatsApp/Telegram/Email —
+> making the product architecturally + visually ready so each one is an adapter, not a redesign.
+> 272 tests green; build green; voice untouched; nothing pretends to work.
 
-## Owner decisions (locked 2026-07-24)
-Sprint 6 = **Launch Readiness** (platform UX depth R-094–097 → Sprint 7+) · **no staging env near-term**
-→ DoD = "launch-ready, pending env" (all items verifiable without staging; operator go-live blocked on
-env — the #1 risk) · all 3 trust fixes (R-010/R-047/R-004) · R-004 copy **drafted for review, not shipped**.
+## The audit finding that shaped the sprint
+Applied a concrete test — *"list every file a developer must edit to add WhatsApp."* Answer: **~6
+files, 4 of them UI.** The **data model + ingest pipeline were genuinely channel-agnostic** (good),
+but the **presentation layer was hardcoded per channel**. So the sprint was reshaped: **make existing
+surfaces registry-driven** rather than build more per-channel UI. Proof it was real — adding
+`telegram` to the registry immediately **broke the build**.
 
-## What shipped (L1–L5)
+## What shipped
 
-### L1 — Production Readiness Preflight (R-098)  ·  ✅ DONE
-`lib/launch/checks.ts` (pure `evaluateReadiness(env)` + `summarizeReadiness`) + `readiness.ts` (env +
-best-effort DB probes) + `/admin/readiness` page + `/api/admin/readiness` (operator, Basic-Auth-gated).
-One go/no-go: `ready` = no required check failing. Flags R-001/R-077/R-080/R-047/CSP. 10 tests.
+### A — Channel capability model (R-100, R-102)  ·  ✅
+`channels.ts` now carries identity (label/description/icon — the **only** place a label lives),
+`connection` method (provisioned | oauth | credentials | embed) and `capabilities`
+(inbound/outbound/threaded/attachments/meteredByMinutes). **Telegram added**, Web Chat surfaced,
+`CHANNEL_ORDER` defines order. Instagram stays `outbound:false` (receive-only).
 
-### L2 — Consolidated Launch Runbook  ·  ✅ DONE
-`docs/LAUNCH_RUNBOOK.md` — one ordered guide merging Sprints 1–6 activation (staging → preflight →
-secrets → migrations → reconcile → security enforce → notifications → live acceptance → platform flags),
-per-phase rollback, keyed to the preflight. Supersedes the scattered `SPRINT_*_ACTIVATION` docs.
+### B — Registry-driven presentation (R-099)  ·  ✅
+`CONNECTION_SOURCES` descriptors (table + column semantics) + **one generic mapper** replace
+per-channel queries/mappers; `listChannelViews` iterates the registry; Conversations filters,
+ChannelBadge label/icon, and employee↔channel ownership (`ownerColumn`) all derive from it.
 
-### L3 — Webhook enforce-readiness (R-001)  ·  ✅ DONE (code); operator flip pending
-Audit confirmed enforce-ready (route rejects on shouldReject; assistant sends `x-vapi-secret`; no
-internal caller; tested). New env-driven **`CSP_MODE`** → CSP-enforce is a redeploy-only flip; preflight
-`csp_mode`. R-001 stays In Progress until the operator flips + verifies.
+### C — Connection lifecycle + health (R-101, R-103 partial)  ·  ✅
+`connectionHealth.ts`: `not_configured → connecting → connected → degraded → error → disconnected`,
+derived from data the DB already had **and we were discarding** (IG `token_expires_at`/`last_error`).
+One generic `ChannelCard` renders every channel/state; a Dashboard banner flags channels needing
+attention. Silent token death is fixed — for every future OAuth channel too.
 
-### L4 — Trust-surface fixes  ·  ✅ DONE (R-010, R-047)
-**Invites:** session-authed `/api/members/invite` (customer-reachable), additive RLS-locked
-`org_invites`, real email, **signup acceptance** (invited email joins the org), dead admin route removed,
-pending list. **Support:** working `mailto:` (`NEXT_PUBLIC_SUPPORT_EMAIL`) in the dashboard + the
-`/contact` form actually emails now. 9 tests.
+### D — The guardrail  ·  ✅
+`test/channel-contract.test.ts` asserts every `CHANNEL_ORDER` channel resolves an icon, label,
+ChannelView, renderer and truthful coming-soon state. **A future channel is covered the moment it's
+registered** — if adding one would need a UI edit, a test fails.
 
-### L5 — Marketing honesty draft (R-004)  ·  ✅ DRAFTED (not shipped)
-`docs/MARKETING_HONESTY_DRAFT.md` — over-claims + honest replacements for owner/counsel. S1 = SOC 2/
-HIPAA claims we don't hold (legal); S2 = fabricated metrics; S3 = channel/absolute over-claims.
+### E — Employee capability model (R-104)  ·  ✅
+`employeeCapabilities.ts` derives receive/reply/create_artifacts/escalate from channel capability ∩
+per-employee overrides, with **stated limitations** ("can receive but cannot reply yet"). Shown on
+Employee detail.
 
-## Definition of Done — met ("launch-ready, pending env")
-Preflight green-capable; runbook is one ordered source of truth; the enforce flips are safe one-liners;
-invites + support work; honest copy drafted. CI (220 tests) + build green; docs synced. The operator
-go-live is teed up push-button for when a staging env exists.
+## Definition of Done — met
+Adding a channel = registry entry + connection table + `CONNECTION_SOURCES` line + adapter +
+creds route. **Zero UI edits**, enforced by test. Everything additive, `PLATFORM_UX_ENABLED`-gated,
+truthful (unbuilt channels are disabled "Coming soon", `productionReady:false`).
 
-## Explicitly OUT of scope (→ Sprint 7+)
-Platform UX depth (R-094–097) · R-020 calendar · R-066 instrumentation · read cutover (R-085) · backfill
-(R-081) · new channels. **The operator go-live** (needs staging) is out of this sprint by design.
+## Explicitly OUT of scope
+WhatsApp / Telegram / Email / SMS / Web Chat **integrations** · onboarding reframe (R-095) ·
+settings reorg (R-094) · UX/nav polish (R-096/R-097) · knowledge model (R-105) · automations
+surface (R-106) · read cutover (R-085) · backfill (R-081).
 
 ## Next
-Operator: provision a staging env, then run `docs/LAUNCH_RUNBOOK.md` (preflight green → live acceptance
-→ prod). Owner/counsel: review `docs/MARKETING_HONESTY_DRAFT.md`. Then Sprint 7 (product depth).
+Owner review of product direction. Still blocking launch: **a staging env** (P0) → run
+`docs/LAUNCH_RUNBOOK.md`. Then product depth (R-020 calendar, R-066 instrumentation).

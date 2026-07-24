@@ -117,16 +117,45 @@ The AI Employees experience is served behind **`PLATFORM_UX_ENABLED`** (`flags.t
 5. **Don't over-claim.** `productionReady` is the honesty gate — never surface a
    non-production channel as available in customer copy.
 
-## Adding a new channel (the O(1) recipe)
+## Adding a new channel — the contract (Sprint 7)
 
-1. Add it to `CHANNELS` in `channels.ts` (`adopted:false, productionReady:false` at first).
-2. Add a connection table + creds (like `instagram_connections`) — additive, RLS-locked.
-3. Write an adapter implementing `normalizeInbound` (pure, never throws) + register it.
-4. In its webhook, after the native persist, call `ingestInboundMessage` behind the flag.
-5. Register the binding in `employee_channels`. IA/inbox/contacts/artifacts pick it up.
+**Adding a channel is backend work. It must require ZERO UI edits.**
+`test/channel-contract.test.ts` enforces this: every assertion runs over `CHANNEL_ORDER`, so a
+newly-registered channel is covered automatically — if it would need a UI change, a test fails.
 
-**Do NOT** build WhatsApp/Email yet (out of Sprint 4.5 scope) — the model must be proven
-with voice + IG first.
+1. **Register it** in `CHANNELS` (`channels.ts`) with `adopted:false, productionReady:false`.
+   Declare `connection` (provisioned | oauth | credentials | embed) and `capabilities`
+   (inbound/outbound/threaded/attachments/meteredByMinutes) — **these drive the UI**, so getting
+   them right is the whole job. It immediately appears as a truthful "Coming soon" card.
+2. **Add its connection table** (like `instagram_connections`) — additive, RLS-locked — and a
+   line in `CONNECTION_SOURCES` (`readModel/channels.ts`) naming its columns
+   (`identifierColumn`, `statusColumn`, `expiresColumn`, `errorColumn`, `ownerColumn`). It now
+   renders with real health, and Employee↔Channel ownership works.
+3. **Write the adapter** (`normalizeInbound`, pure, never throws) + register it. Flip `adopted:true`.
+4. **In its webhook**, after the native persist, call `ingestInboundMessage` behind the flag.
+5. **Only when it genuinely works end-to-end**, flip `productionReady:true`. Never before —
+   that flag is the honesty gate for customer-facing copy.
+
+Everything else — Channels card + health, Conversations filter, channel badge/label/icon,
+Employee capabilities, analytics breakdowns, coming-soon states — **derives from the registry**.
+
+**Optional:** a channel-specific turn renderer (`renderers/registry.ts`); without one the default
+bubble renders fine. `CHANNEL_ORDER` controls display order.
+
+**Do NOT** build WhatsApp/Telegram/Email integrations until the model is proven live with
+voice + Instagram.
+
+## Channel capability, health, and employee capability
+
+- **`channels.ts`** — static per-channel truth: identity (label/description/icon), `connection`
+  method, `capabilities`, `productionReady` / `adopted`. **The only place a channel label lives.**
+- **`connectionHealth.ts`** (R-101) — per-*connection* runtime state: `not_configured → connecting
+  → connected → degraded → error → disconnected` (+ `coming_soon`), derived from status/expiry/
+  error. Pure and channel-agnostic: a new channel that reports those gets expiry warnings and
+  error surfacing for free (Channels cards + a Dashboard banner).
+- **`employeeCapabilities.ts`** (R-104) — what an Employee may *do* on a channel
+  (receive/reply/create_artifacts/escalate), derived from channel capability ∩ per-employee
+  overrides, with **stated limitations** (Instagram: "can receive but cannot reply yet").
 
 ## Known follow-ups (filed, not in Sprint 4.5)
 

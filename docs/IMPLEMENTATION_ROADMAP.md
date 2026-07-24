@@ -5,7 +5,17 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-24 (**Sprint 6 (Launch Readiness) CODE-COMPLETE**: turned the built-but-
+> **Last updated:** 2026-07-24 (**Sprint 7 (Channel Readiness) CODE-COMPLETE**: made "add a channel =
+> backend only" real. Audit `docs/audits/CHANNEL_READINESS_AUDIT.md` found the data model + ingest
+> pipeline were genuinely channel-agnostic but the **presentation layer was hardcoded** (~4 UI files per
+> new channel). Shipped **R-100** channel capability model, **R-101** connection lifecycle/health (IG
+> token expiry was silently discarded — now surfaced on Channels + a Dashboard banner), **R-099**
+> registry-driven presentation (CONNECTION_SOURCES + one generic mapper; filters/badges/cards derive
+> from the registry), **R-102** Telegram + Web Chat, **R-104** employee↔channel capabilities, **R-103**
+> partial (generic ChannelCard). Guardrail: `test/channel-contract.test.ts` runs over CHANNEL_ORDER so a
+> new channel cannot silently require a UI edit. **272 tests green; build green; voice untouched;
+> nothing pretends to work.** Review: `docs/SPRINT_7_REVIEW.md`.)
+> **Prior:** 2026-07-24 (**Sprint 6 (Launch Readiness) CODE-COMPLETE**: turned the built-but-
 > dark work toward a safe, trustworthy launch for first paying customers. **L1** Production Readiness
 > Preflight (**R-098**, `/admin/readiness` — one go/no-go over env + DB probes), **L2** consolidated
 > `docs/LAUNCH_RUNBOOK.md`, **L3** webhook enforce-readiness confirmed + env-driven CSP flip (`CSP_MODE`)
@@ -102,10 +112,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 10 | 15 |
-| High | 13 | 0 | 15 | 28 |
-| Medium | 33 | 0 | 16 | 49 |
+| High | 10 | 0 | 18 | 28 |
+| Medium | 31 | 0 | 18 | 49 |
 | Low | 12 | 0 | 1 | 13 |
-| **Total** | **62** | **1** | **42** | **105** |
+| **Total** | **57** | **1** | **47** | **105** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -188,24 +198,24 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 > **presentation layer is hardcoded per channel** — adding WhatsApp today requires editing ~4 UI files.
 > Goal: adding a channel = registry entry + adapter + connection table + creds route, **zero UI edits**.
 
-- **R-099 (High)** — **Registry-driven channel presentation** (audit C-001, C-005): `listConnectedChannelViews`
+- **R-099 (High)** — **Registry-driven channel presentation**. **DONE 2026-07-24 (Sprint 7)** — CONNECTION_SOURCES descriptors + one generic mapper; Channels/filters/badges derive from the registry; enforced by `test/channel-contract.test.ts`. *(was: C-001, C-005)*: `listConnectedChannelViews`
   hardcodes a query+mapper per channel, `comingSoonChannelViews` hardcodes an array, the Conversations
   filter hardcodes 3 entries, and `ChannelBadge` duplicates the registry's labels. Derive all of it from
   the registry via a per-channel connection-source descriptor.
-- **R-100 (High)** — **Channel capability model** (C-002): registry knows only kind/productionReady/adopted.
+- **R-100 (High)** — **Channel capability model**. **DONE 2026-07-24 (Sprint 7)** — connection method + capabilities (inbound/outbound/threaded/attachments/meteredByMinutes) drive UI decisions. *(was: C-002)*: registry knows only kind/productionReady/adopted.
   Add direction (inbound-only vs bidirectional), connection method (OAuth / credentials / provisioned
   number), and supported features so UI decisions are data-driven instead of hardcoded. *The single most
   important missing abstraction.*
-- **R-101 (High)** — **Connection lifecycle + health** (C-003): status is only connected/coming_soon/
+- **R-101 (High)** — **Connection lifecycle + health**. **DONE 2026-07-24 (Sprint 7)** — `connectionHealth.ts` (not_configured→connecting→connected→degraded→error→disconnected) surfaced on Channels cards + a Dashboard banner; IG token expiry no longer silent. *(was: C-003)*: status is only connected/coming_soon/
   disconnected; real states (not_configured → connecting → connected → degraded → error) and the data
   that exists in DB (`instagram_connections.token_expires_at/last_error/scopes`) are discarded. A
   customer whose IG token expires gets **no signal** — same failure mode for every future OAuth channel.
-- **R-102 (Medium)** — **Channel vocabulary incomplete** (C-004): **Telegram** (named in the vision) is
+- **R-102 (Medium)** — **Channel vocabulary**. **DONE 2026-07-24 (Sprint 7)** — Telegram added; Web Chat surfaced; CHANNEL_ORDER defines display order. *(was: C-004)*: **Telegram** (named in the vision) is
   absent everywhere; `web` (Web Chat) is in the registry but invisible in the UI.
-- **R-103 (Medium)** — **Generic connection-flow scaffold** (C-006): the only connect flow is the bespoke
+- **R-103 (Medium)** — **Generic connection-flow scaffold**. **PARTIAL 2026-07-24 (Sprint 7)** — one generic `ChannelCard` renders every channel/state with truthful disabled coming-soon + Connect/Reconnect/Manage; per-channel OAuth *connect wizards* remain per-channel backend work. *(was: C-006)*: the only connect flow is the bespoke
   `InstagramConnectionCard` on the legacy page, not reusable and not reachable from the platform Channels
   surface. Every new channel would hand-roll its own connect UI.
-- **R-104 (Medium)** — **Employee ↔ channel capability/permission model** (C-007): `EmployeeView.channels`
+- **R-104 (Medium)** — **Employee ↔ channel capability model**. **DONE 2026-07-24 (Sprint 7)** — `employeeCapabilities.ts` derives receive/reply/create_artifacts/escalate from channel ∩ overrides, with stated limitations; shown on Employee detail. *(was: C-007)*: `EmployeeView.channels`
   says which channels an employee owns, never what it may do on them (answer / reply / book / escalate).
 - **R-105 (Medium)** — **Channel-agnostic knowledge model** (C-008): `agents.business_context` is injected
   into a *voice system prompt*; there's no shared knowledge concept an email/chat employee would use.
