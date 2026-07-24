@@ -92,7 +92,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-107
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-117
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -111,11 +111,11 @@
 
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
-| Critical | 4 | 1 | 10 | 15 |
-| High | 10 | 0 | 18 | 28 |
-| Medium | 31 | 0 | 18 | 49 |
-| Low | 12 | 0 | 1 | 13 |
-| **Total** | **57** | **1** | **47** | **105** |
+| Critical | 5 | 1 | 10 | 16 |
+| High | 13 | 0 | 18 | 31 |
+| Medium | 36 | 0 | 18 | 54 |
+| Low | 13 | 0 | 1 | 14 |
+| **Total** | **67** | **1** | **47** | **115** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -217,10 +217,48 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
   surface. Every new channel would hand-roll its own connect UI.
 - **R-104 (Medium)** — **Employee ↔ channel capability model**. **DONE 2026-07-24 (Sprint 7)** — `employeeCapabilities.ts` derives receive/reply/create_artifacts/escalate from channel ∩ overrides, with stated limitations; shown on Employee detail. *(was: C-007)*: `EmployeeView.channels`
   says which channels an employee owns, never what it may do on them (answer / reply / book / escalate).
-- **R-105 (Medium)** — **Channel-agnostic knowledge model** (C-008): `agents.business_context` is injected
+- **R-105 (Medium)** — ~~Channel-agnostic knowledge model~~ **SUPERSEDED by R-109** (knowledge as a shared, versioned org entity — a strictly larger fix). *(was: C-008)*: `agents.business_context` is injected
   into a *voice system prompt*; there's no shared knowledge concept an email/chat employee would use.
 - **R-106 (Low)** — **Automations as a product surface** (C-009): `runAutomation` is a code seam with no
   user-facing "when X on any channel → do Y" concept; flag so it isn't reinvented per channel.
+
+**AI EMPLOYEE CORE — control-plane items (filed 2026-07-24; audit `docs/audits/AI_EMPLOYEE_CORE_AUDIT.md`):**
+
+> Verdict: **Employee is the core of the CONTROL plane**; Conversation stays the core of the DATA plane
+> (merging them would repeat the voice-first mistake at larger scale). Sprint 4.5 built a competent data
+> plane; Denku has **no coherent control plane** — that's the real gap. Sprint 7 fixed the *channel*
+> axis; every remaining structural failure is on the **employee-configuration** axis.
+
+- **R-107 (Critical)** — **Versioned Employee manifest + provenance** (E-001). `agents.effective_system_prompt`
+  is materialized and overwritten; `calls` records only *mutable pointers* (`vapi_assistant_id`,
+  `persona_key`). **Denku cannot reconstruct what an employee was when it handled a conversation.**
+  Blocks rollback, A/B, audit, debugging, provider migration, marketplace. **The one abstraction whose
+  cost of delay is permanent** — unrecorded history is unrecoverable. Additive `employee_manifests`
+  (immutable revisions) + revision id on conversations.
+- **R-108 (High)** — **Provider binding as data** (E-002). `classifyCallIntent` imports OpenAI and pins
+  `gpt-4o-mini` inline; voice model/voice/transcriber are literals. "If OpenAI disappears" is a code
+  change in every AI path today. Needs a provider registry + manifest binding (the pattern the channel
+  registry proved in Sprint 7).
+- **R-109 (High)** — **Knowledge as a shared, versioned entity** (E-003). `agents.business_context` is a
+  per-employee, voice-prompt-shaped JSONB blob: no sharing, no versioning, no review. At 500 employees
+  that's 500 copies of the same FAQ. **Supersedes R-105.**
+- **R-110 (High, design-now/build-later)** — **Memory abstraction + erasure path** (E-004). Memory
+  (accumulated, per-contact, decaying, **erasable** — GDPR) is a different lifecycle from Knowledge
+  (curated, versioned). Conflating them, or letting memory land in the prompt blob, is a compliance
+  incident. Design the scope/retention/erasure contract before it's needed.
+- **R-111 (Medium)** — **Tools registry + per-employee grants** (E-005). `DENKU_TOOL_IDS` are hardcoded
+  provider UUIDs (known landmine). Same treatment channels got; also the seam for third-party tools.
+- **R-112 (Medium)** — **Conversation assignment / human takeover** (E-006). No owner, no takeover
+  state, no human-vs-AI audit. Blocks human+AI collaboration and escalation.
+- **R-113 (Medium)** — **Task abstraction for pending work** (E-007). Follow-ups/callbacks/time-based
+  escalation have nowhere to live; artifacts are outputs, not pending intent. R-106 automations will
+  invent a private version of this otherwise.
+- **R-114 (Medium)** — **Declarative policies** (E-008): working hours (absorbs R-054), escalation
+  rules, per-employee permissions — manifest policy, not code branches.
+- **R-115 (Medium)** — **Per-employee cost + KPI rollup** (E-009). `cost_usd` lives on `calls`; no
+  employee-level attribution. Pairs with R-086 (multi-dimensional billing).
+- **R-116 (Low)** — **Multi-persona modelling** (E-010). `router_persona_key`/`default_persona_key` +
+  `personas` hint at it but it isn't coherently modelled; becomes real once manifests are versioned.
 
 **DO-NEXT (post-Sprint-6, 2026-07-24).** Six sprints closed the security/trust foundation, the
 value/notification layer, billing verifiability, voice intelligence, the AI-Employees platform model +
