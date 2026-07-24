@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getInstagramConfig, isInstagramWebhookConfigured } from "@/lib/instagram/config";
 import { verifyMetaSignature } from "@/lib/instagram/signature";
 import { getOrgIdByIgUserId } from "@/lib/instagram/connections";
+import { platformModelEnabled } from "@/lib/platform/flags";
+import { instagramAdapter } from "@/lib/platform/adapters/instagram";
+import { ingestInboundMessage } from "@/lib/platform/ingest";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +123,24 @@ export async function POST(req: NextRequest) {
     console.error("[INSTAGRAM][WEBHOOK][PERSIST][EXCEPTION]", {
       error: err instanceof Error ? err.message : String(err),
     });
+  }
+
+  // --- Sprint 4.5: dual-write into the shared conversation model (flagged) -----
+  // Additive + non-breaking: the raw-event persist above is unchanged and remains the
+  // source of truth; this records IG DMs as Conversations/Messages so IG is a real
+  // channel in the platform model. Receive-only is preserved (no reply/AI). No-ops
+  // unless PLATFORM_MODEL_ENABLED. Never affects the 200 returned to Meta.
+  if (platformModelEnabled()) {
+    for (const row of rows) {
+      const orgId = row.org_id as string | null;
+      const entry = row.payload;
+      if (!orgId || row.event_type !== "messages") continue;
+      const normalized = instagramAdapter.normalizeInbound(entry, { orgId, agentId: null });
+      for (const msg of normalized) {
+        // Best-effort: ingest never throws; a failure here cannot break IG receive.
+        await ingestInboundMessage(msg);
+      }
+    }
   }
 
   // Always 200 to a validly-signed Meta request (Meta disables endpoints that error).

@@ -13,6 +13,8 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
 import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
+import { platformModelEnabled } from "@/lib/platform/flags";
+import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
 
 const VapiWebhookSchema = z
   .object({
@@ -2787,7 +2789,7 @@ export async function POST(req: NextRequest) {
           // Load call row with all fields needed for artifact routing (including raw_payload for web call detection)
           const { data: callRow } = await supabaseAdmin
             .from("calls")
-            .select("id, org_id, intent, from_phone, to_phone, transcript, raw_payload")
+            .select("id, org_id, intent, from_phone, to_phone, transcript, raw_payload, agent_id, started_at")
             .eq("id", updated[0].id)
             .maybeSingle<{
               id: string;
@@ -2797,6 +2799,8 @@ export async function POST(req: NextRequest) {
               to_phone: string | null;
               transcript: string | null;
               raw_payload: any;
+              agent_id: string | null;
+              started_at: string | null;
             }>();
 
           if (callRow?.id && callRow.org_id) {
@@ -2871,6 +2875,21 @@ export async function POST(req: NextRequest) {
             // R-008: email the owner about any newly-created artifacts for this call.
             // Idempotent + staged (ARTIFACT_NOTIFICATIONS_ENABLED, default off) + never throws.
             await notifyNewArtifactsForCall(callRow.id, callRow.org_id);
+
+            // Sprint 4.5: mirror the call into the shared conversation model (flagged,
+            // record-only, non-breaking). Links calls.conversation_id + artifact
+            // conversation_id. No-ops unless PLATFORM_MODEL_ENABLED. Never throws.
+            if (platformModelEnabled()) {
+              await recordVoiceCall({
+                callId: callRow.id,
+                orgId: callRow.org_id,
+                agentId: callRow.agent_id,
+                vapiCallId,
+                fromPhone: callRow.from_phone,
+                transcript: callRow.transcript || transcript,
+                startedAt: callRow.started_at,
+              });
+            }
           }
         } catch (artifactErr) {
           console.error("[ARTIFACT] Failed to ensure artifact for call:", {
