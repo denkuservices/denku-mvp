@@ -5,11 +5,19 @@ import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getEmployeeView } from "@/lib/platform/readModel/employees";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
+import { employeeChannelCapability, type EmployeeAction } from "@/lib/platform/employeeCapabilities";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
 
 export const dynamic = "force-dynamic";
+
+const ACTION_LABEL: Record<EmployeeAction, string> = {
+  receive: "answer",
+  reply: "reply",
+  create_artifacts: "book & log",
+  escalate: "escalate",
+};
 
 /**
  * AI Employee detail (Sprint 5, P3). Employee-centric: shows the channels this employee
@@ -73,13 +81,26 @@ export default async function EmployeeDetailPage({
               .
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {employee.channels.map((c) => (
-                <div key={c.connectionId ?? c.channel} className="flex items-center justify-between">
-                  <ChannelBadge channel={c.channel} />
-                  <span className="text-xs text-gray-500">{c.identifier || titleCase(c.status)}</span>
-                </div>
-              ))}
+            <div className="flex flex-col gap-3">
+              {employee.channels.map((c) => {
+                // Capabilities are derived (R-104), so a future channel shows correct
+                // "what this employee can do here" with no code change.
+                const cap = employeeChannelCapability(c.channel);
+                return (
+                  <div key={c.connectionId ?? c.channel} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <ChannelBadge channel={c.channel} />
+                      <span className="text-xs text-gray-500">{c.identifier || titleCase(c.status)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Can {cap.actions.map((a) => ACTION_LABEL[a]).join(" · ")}
+                    </p>
+                    {cap.limitations.map((l) => (
+                      <p key={l} className="text-xs text-amber-600 dark:text-amber-400">{l}</p>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
