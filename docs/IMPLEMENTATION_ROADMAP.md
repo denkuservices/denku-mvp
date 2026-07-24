@@ -5,7 +5,14 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-24 (**Sprint 5 (Platform Experience) CORE COMPLETE — P0–P3**: the AI
+> **Last updated:** 2026-07-24 (**Sprint 5.5 (Platform Experience Depth) CORE COMPLETE**: the
+> daily-use surfaces are now platform-shaped, all behind **`PLATFORM_UX_ENABLED`** (legacy served when
+> OFF). Order was reviewed + reordered to **leaves-before-hub**: Q0 read-model depth (aggregations +
+> contacts views) → **Contacts** (R-093, real list/detail over `leads`, `/leads` redirect) →
+> **Analytics** (R-091, cross-channel flagged variant) → **Dashboard** (R-090, channel/employee-aware
+> home, built last) + **agents→employees** consolidation (R-092). **202 tests green; build green.**
+> R-094/095/096/097 (settings/onboarding/UX/nav) → **Sprint 6**. Review: `docs/SPRINT_5.5_REVIEW.md`.)
+> **Prior:** 2026-07-24 (**Sprint 5 (Platform Experience) CORE COMPLETE — P0–P3**: the AI
 > Employees IA is built behind **`PLATFORM_UX_ENABLED`** (default OFF → legacy dashboard unchanged;
 > new routes 404 when off). **R-087** read model (P0), **P1** platform nav + Employees/Conversations/
 > Channels/Contacts surfaces + capability-preserving legacy redirects (**R-088**, refined: only the
@@ -86,12 +93,12 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 13 | 0 | 11 | 24 |
-| Medium | 31 | 0 | 14 | 45 |
+| High | 10 | 0 | 14 | 24 |
+| Medium | 30 | 0 | 15 | 45 |
 | Low | 11 | 0 | 1 | 12 |
-| **Total** | **60** | **1** | **35** | **96** |
+| **Total** | **56** | **1** | **39** | **96** |
 
-*(2026-07-24: +R-090..R-097 — Sprint 5.5 platform-experience-depth candidates (proposal). Sprint 5 core P0–P3 shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups. See registers below.)*
+*(2026-07-24: Sprint 5.5 core shipped R-090 (dashboard), R-091 (analytics), R-092 (agent-surface consolidation), R-093 (contacts). R-094..R-097 (settings/onboarding/UX/nav) → Sprint 6. Sprint 5 core shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
 **PLATFORM FOUNDATION — Sprint 4.5 follow-ups (filed 2026-07-24; NOT in Sprint 4.5 scope):**
@@ -130,15 +137,18 @@
 
 **PLATFORM EXPERIENCE DEPTH — Sprint 5.5 candidates (filed 2026-07-24; proposal `docs/SPRINT_5.5_PROPOSAL.md`):**
 
-- **R-090 (High)** — Platform **Dashboard** redesign: channel- and employee-aware home (conversations
-  by channel, employee roster, artifacts cross-channel), R-018 honesty preserved. Flagged variant. (audit P-011)
-- **R-091 (High)** — **Cross-channel analytics** surfaces (conversations & outcomes by channel,
-  per-employee) over the read model; pairs with R-066 instrumentation. Today analytics is calls+tickets+
-  by-agent only. (audit P-012)
-- **R-092 (Medium)** — Consolidate the **three agent surfaces** (`/dashboard/agents`, `settings/agents`,
-  `employees`) → AI Employees; redirect `/dashboard/agents` → `/employees`; extend R-065 naming. (audit P-013)
-- **R-093 (High)** — **Contacts experience**: generalize `leads` → `contacts`/`contact_identities`
-  (tables exist, 4.5) with per-channel identities + conversation history + links. (audit P-014)
+- **R-090 (High)** — Platform **Dashboard** redesign. **DONE 2026-07-24 (Sprint 5.5)** — flagged
+  channel/employee-aware Overview (KPI tiles, by-channel, employee roster, recent) over the aggregation
+  read model; R-018 honesty; legacy home when flag OFF. (audit P-011)
+- **R-091 (High)** — **Cross-channel analytics**. **DONE 2026-07-24 (Sprint 5.5)** — flagged
+  `PlatformAnalytics` (by channel/employee/intent + 14-day trend) over the aggregation read model; legacy
+  analytics when flag OFF. Event instrumentation (R-066) remains separate. (audit P-012)
+- **R-092 (Medium)** — Consolidate agent surfaces → AI Employees. **DONE 2026-07-24 (Sprint 5.5)** —
+  `/dashboard/agents[/:id]` → `/employees[/:id]` redirect (NOT settings/agents) + "AI Employee" naming on
+  platform surfaces. Broader legacy-copy sweep continues under R-065/Sprint 6. (audit P-013)
+- **R-093 (High)** — **Contacts experience**. **DONE 2026-07-24 (Sprint 5.5)** — real Contacts list +
+  detail (identities, conversation history) over the contacts read model (`leads` today; contacts/
+  contact_identities once backfilled R-081); conversation→contact link; `/leads` redirect. (audit P-014)
 - **R-094 (Medium)** — **Settings reorganization** by the platform model (per-Employee / per-Channel /
   Workspace); subsumes R-063. (audit P-015)
 - **R-095 (Medium)** — **Onboarding reframe** (Employee→Channel narrative, DB step contract preserved). (audit P-002)

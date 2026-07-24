@@ -69,8 +69,16 @@ renders, **decoupled from storage**.
   registry** — a new channel's renderer registers without touching the core conversation UI.
 - **Coming-soon affordances:** `comingSoonChannelViews()` derives WhatsApp/Email/SMS from the
   registry as disabled entries — extensibility is *visible* without being *built*.
-- Files: `readModel/types.ts` (views), `conversations.ts`, `channels.ts`, `employees.ts`.
+- Files: `readModel/types.ts` (views), `conversations.ts`, `channels.ts`, `employees.ts`,
+  **`aggregate.ts`** (Sprint 5.5 — pure `aggregateBy{Channel,Employee,Intent,Day}` +
+  `getConversationAggregates` with an R-018-honest `limited` flag → "recent N", never a fabricated
+  all-time total), **`contacts.ts`** (ContactList/DetailView over `leads`; id = lead id so `/leads/:id`
+  → `/contacts/:id` is lossless; prefers `contacts`/`contact_identities` post-backfill R-081).
   Pure row→view mappers are exported for testing; async fns fetch + map, org-scoped, never throw.
+- **Flagged-variant pages (Sprint 5.5):** the Dashboard home and Analytics route branch at the top —
+  `if (platformUxEnabled()) return <Platform…/>` — so the legacy body is untouched and served when the
+  flag is OFF (zero regression). New presentational bits live in `dashboard/_platform/` (BarList,
+  home/PlatformDashboard, analytics/PlatformAnalytics).
 
 The whole new experience is gated by **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF) —
 independent of `PLATFORM_MODEL_ENABLED`, so the IA dark-launches over the read model.

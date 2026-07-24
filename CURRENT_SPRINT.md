@@ -1,69 +1,52 @@
-# CURRENT SPRINT — Platform Experience (Sprint 5)
+# CURRENT SPRINT — Platform Experience: Depth & Consistency (Sprint 5.5)
 
-> The active implementation sprint. Plan: `docs/SPRINT_5_PLAN.md`; model: `skills/platform-architecture.md`;
-> north star: `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`. Update task status here as you ship.
+> The active implementation sprint. Proposal + finalized order: `docs/SPRINT_5.5_PROPOSAL.md`;
+> model: `skills/platform-architecture.md`; review: `docs/SPRINT_5.5_REVIEW.md`.
 
-**Sprint 5 · Started 2026-07-24 · Status: ✅ CORE COMPLETE (P0–P3) 2026-07-24 — operator flag-flip pending**
+**Sprint 5.5 · Started 2026-07-24 · Status: ✅ CORE COMPLETE 2026-07-24 — operator flag-flip pending**
 
-> The first product-facing platform sprint: turn the Voice-first UI into an **AI Employees
-> experience** on the Sprint 4.5 foundation. Everything ships **behind `PLATFORM_UX_ENABLED`**
-> (default OFF → current dashboard unchanged). Scope = **core P0–P3**; Contacts, dashboard
-> reskin, settings reorg, onboarding reframe, naming sweep → **Sprint 5.5**. Additive-only,
-> zero regressions. NOT WhatsApp/Email, NOT a re-theme.
->
-> Sprint 4.5 (Platform Foundation) is code-complete; operator activation pending
-> (`docs/SPRINT_4.5_MIGRATION.md`).
+> Made the daily-use surfaces platform-shaped on top of the Sprint 5 IA — all behind
+> **`PLATFORM_UX_ENABLED`** (default OFF → legacy dashboard/analytics served unchanged),
+> read-model-first, zero regression. Scope = **core Q0–Q3**; Settings reorg (R-094),
+> Onboarding reframe (R-095), Horizon/UX consistency (R-096), nav polish (R-097) → **Sprint 6**.
 
-## Owner decisions (locked 2026-07-24)
-Rollout **behind `PLATFORM_UX_ENABLED`** · scope **core P0–P3** (rest → 5.5) · onboarding
-**reskin-only** (5.5) · Leads→Contacts **rename + `/leads` redirect** (5.5).
+## Finalized execution order (leaves before hub — architecture review 2026-07-24)
+Q0 read-model depth → **Contacts** → **Analytics** → **Dashboard (last)**. Rationale: build the
+hub (Dashboard links to Contacts/Analytics) last over a proven aggregation layer; prove that layer
+on Analytics before the honesty-sensitive Dashboard; ascending risk. Zero customer cost (all flagged).
 
-## Design invariants (owner requirements)
-1. **Employees own Channels** — the read/UI model is Employee-centric, never channel-resource-centric.
-2. **Plugin conversation renderer from day one** — the thread UI dispatches per-channel via a
-   registry; new channel renderers (WhatsApp/Email/SMS/WebChat) register without core changes.
+## What shipped
 
-## Phases (this sprint = P0–P3)
+### Q0 — Read-model depth  ·  ✅ DONE
+- `readModel/aggregate.ts` (pure aggregateBy{Channel,Employee,Intent,Day} + `getConversationAggregates`
+  with an R-018-honest `limited` flag + `getArtifactCounts`); `readModel/contacts.ts` (ContactList/
+  DetailView over `leads`, id = lead id → lossless redirect; history matched by contact id/handle). 8 tests.
 
-### P0 — Platform Read Model + flag  ·  ✅ DONE 2026-07-24
-- `PLATFORM_UX_ENABLED` flag; `lib/platform/readModel/*` — Conversation/Employee/Channel views
-  over **existing legacy data** (voice←`calls`, chat←`conversations`, employees←`agents`,
-  channels←`phone_lines`+`instagram_connections`), decoupled from `PLATFORM_MODEL_ENABLED`.
-  Channel-tagged views (renderer seam), Employee-centric ownership, coming-soon affordances.
-  11 tests; 186 total green; typecheck clean.
+### Contacts (was Q2)  ·  ✅ DONE
+- Real `/dashboard/contacts` list + `contacts/[id]` detail (identities, notes, conversation history);
+  conversation detail → contact link; `/dashboard/leads[/:id]` → `/contacts[/:id]` redirect (lossless;
+  create form kept reachable).
 
-### P1 — Navigation + shell  ·  ✅ DONE 2026-07-24
-- Flagged platform nav (`Dashboard · AI Employees · Conversations · Contacts · Channels · Tickets ·
-  Appointments · Analytics · Settings`) selected via a server-resolved `platformUx` boolean threaded
-  through the shell (no JSX crosses the boundary). New route pages consume the read model; new routes
-  404 when the flag is OFF (fully dark). Legacy routes redirect via middleware (see redirect note).
+### Analytics (was Q3)  ·  ✅ DONE
+- Flagged `PlatformAnalytics` variant: KPI tiles + conversations by channel / employee / intent + 14-day
+  trend over the aggregation layer; dependency-free `BarList`. Legacy analytics served when flag OFF.
 
-### P2 — Conversations (centerpiece, R-084)  ·  ✅ DONE 2026-07-24
-- Unified inbox (`listConversationViews`, channel filter) + conversation detail with the **plugin
-  `<ConversationThread>`**: a per-channel renderer **registry** (voice + IG registered; unknown
-  channels fall back). Adding a channel = registering a renderer — the core never changes (design
-  invariant #2). Voice threads link through to the rich call detail (recording/cost).
+### Dashboard (was Q1, built last)  ·  ✅ DONE
+- Flagged `PlatformDashboard` home: KPI tiles, by-channel, employee roster strip, recent conversations,
+  deep-links to every platform surface. `/dashboard/agents[/:id]` → `/employees[/:id]` redirect
+  (consolidates the standalone agent roster; NOT settings/agents) + "AI Employee" naming (R-092).
 
-### P3 — AI Employees + Channels  ·  ✅ DONE 2026-07-24
-- Employee roster + detail (`listEmployeeViews`; Employees own channels; "Configure" → existing
-  agent settings). Channels inventory (`listChannelViews`) collapsing Phone Lines + Instagram, with
-  "Manage" links to the channel-native pages + disabled WhatsApp/Email/SMS "coming soon".
+## Definition of Done
+Dashboard + Contacts + Analytics live behind `PLATFORM_UX_ENABLED`, reading the read model, legacy
+fallbacks intact (zero regression); CI (202 tests) + build green; docs synced. Operator flips the flag
+on staging to walk the full experience.
 
-### Redirect design (refined during P3)
-Redirect ONLY the fully-replaced **calls list** → conversations. **Keep reachable** (linked from the
-new surfaces, not hidden): call detail (recording/cost), phone-lines + instagram (management), leads
-(until Contacts ships in 5.5) — so the flag-ON experience loses **no capability**.
+## Explicitly OUT of scope (→ Sprint 6)
+Settings reorganization (R-094) · onboarding reframe (R-095) · Horizon/`_platform` UX consistency (R-096)
+· nav polish (R-097) · full customer-facing naming sweep across legacy pages (R-065) · R-081 backfill ·
+read cutover (R-085).
 
-## Definition of Done (Sprint 5)
-New IA (Employees/Conversations/Channels) live **behind `PLATFORM_UX_ENABLED`**, reading real
-data via the read model; old routes redirect; Voice + IG both in Conversations; renderer
-registry plugin-based; **zero regression** to the flag-off experience; CI + build green; docs
-synced (this file, roadmap, skills, Sprint 5 review). Operator can flip the flag on staging.
-
-## Explicitly OUT of scope
-WhatsApp/Email · full dashboard/onboarding/settings redesign (5.5) · Contacts surface (5.5) ·
-visual re-theme · read-cutover (R-085) · backfill (R-081).
-
-## Roadmap items in flight
-R-084 (unified inbox, P2) · R-087 (read model, P0 ✅) · R-088 (route redirects, P1) · R-089
-(conversation renderer registry, P2). Audit P-001 (nav), P-003 (settings, 5.5), P-005 (naming).
+## Expected outcome
+On login (flag ON) a business sees a channel/employee-aware Overview, a real Contacts book, and
+cross-channel Analytics — the product now *feels and measures* like an AI Employees platform, with the
+current experience byte-for-byte unchanged until the flag is flipped.
