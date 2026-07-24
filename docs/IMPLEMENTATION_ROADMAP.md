@@ -73,7 +73,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-098
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-099
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -93,12 +93,12 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 10 | 0 | 14 | 24 |
+| High | 11 | 0 | 14 | 25 |
 | Medium | 30 | 0 | 15 | 45 |
 | Low | 11 | 0 | 1 | 12 |
-| **Total** | **56** | **1** | **39** | **96** |
+| **Total** | **57** | **1** | **39** | **97** |
 
-*(2026-07-24: Sprint 5.5 core shipped R-090 (dashboard), R-091 (analytics), R-092 (agent-surface consolidation), R-093 (contacts). R-094..R-097 (settings/onboarding/UX/nav) → Sprint 6. Sprint 5 core shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups.)*
+*(2026-07-24: +R-098 (High) Production Readiness Preflight — Sprint 6 Launch Readiness proposal. Sprint 5.5 core shipped R-090/R-091/R-092/R-093; R-094..R-097 → Sprint 7+. Sprint 5 core shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
 **PLATFORM FOUNDATION — Sprint 4.5 follow-ups (filed 2026-07-24; NOT in Sprint 4.5 scope):**
@@ -156,6 +156,22 @@
   reconcile the Horizon/shadcn split (R-064) where settings reorg touches it. (audit P-016)
 - **R-097 (Low)** — **Navigation polish**: topbar/breadcrumb titles for new routes, active/empty states,
   consistent "coming soon" affordances, mobile drawer parity. (audit P-017)
+
+**LAUNCH READINESS — Sprint 6 candidate (filed 2026-07-24; proposal `docs/SPRINT_6_PROPOSAL.md`):**
+
+- **R-098 (High)** — **Production Readiness Preflight**: one programmatic go/no-go for taking a paying
+  customer (admin page + `/api/internal/readiness`) — verifies required env vars, **webhook auth mode =
+  enforce**, `VAPI_WEBHOOK_BASE_URL` not localhost, verified sender domains, flag states, and a probe
+  that platform migrations are applied. Consolidates the scattered `SPRINT_*_ACTIVATION` runbooks into a
+  live signal. The highest-leverage launch item; makes the operator go-live safe + push-button.
+
+**Sprint 6 = LAUNCH READINESS (proposed):** turn the ~5 sprints of code-complete-but-dark work real,
+secure, and trustworthy for first paying customers. Engineering: R-098 (preflight) + consolidated
+runbook + **R-001** enforce-readiness (Critical) + **R-010**/**R-047** trust fixes + **R-004** honesty
+copy. Operator go-live (needs a **staging env**, the standing P0 unblock): apply migrations, set env,
+reconcile assistants, flip enforce/CSP, run the Sprint-4 live acceptance, flip the platform flags.
+**Deferred to Sprint 7+:** platform UX depth (R-094–097), read cutover (R-085)/backfill (R-081), new
+channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 
 **RE-PRIORITIZED do-next (post-Sprint-3, 2026-07-23).** Three sprints closed the security/trust
 foundation, the value/notification layer, the code-health + a11y + SEO wave, and the billing
