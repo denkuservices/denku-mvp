@@ -101,7 +101,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-117
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-125
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -121,10 +121,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 11 | 16 |
-| High | 13 | 0 | 18 | 31 |
-| Medium | 36 | 0 | 18 | 54 |
-| Low | 13 | 0 | 1 | 14 |
-| **Total** | **66** | **1** | **48** | **115** |
+| High | 18 | 0 | 18 | 36 |
+| Medium | 38 | 0 | 18 | 56 |
+| Low | 14 | 0 | 1 | 15 |
+| **Total** | **74** | **1** | **48** | **123** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -268,6 +268,46 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
   employee-level attribution. Pairs with R-086 (multi-dimensional billing).
 - **R-116 (Low)** — **Multi-persona modelling** (E-010). `router_persona_key`/`default_persona_key` +
   `personas` hint at it but it isn't coherently modelled; becomes real once manifests are versioned.
+
+**PRODUCT EXPERIENCE — Sprint 8.5 candidates (filed 2026-07-24; audit `docs/audits/PRODUCT_EXPERIENCE_AUDIT.md`):**
+
+> **Headline finding:** the repo contains **two products** and the better one is **switched off**.
+> `PLATFORM_UX_ENABLED` defaults OFF, so customers get the voice-first CRUD nav (one item per DB table)
+> while the platform nav built in Sprints 5/5.5/7 sits dark. Several long-standing IA questions
+> (Calls→Conversations, Phone Lines/Instagram→Channels) are **already answered and implemented** —
+> just unshipped. So the leverage is **finish-and-ship**, not redesign; redesigning legacy pages the
+> flag deletes would build the product twice.
+
+- **R-117 (High)** — **Loading/error states across platform routes** (X-001). Measured: only **3/15**
+  routes have `loading.tsx`, **2/15** have `error.tsx`; **every** new platform route has neither. The
+  most visible "unfinished software" signal, and cheap to fix.
+- **R-118 (High)** — **Empty states as first-run onboarding** (X-002). New surfaces say "No X yet" —
+  accurate but inert. A first-time user sees *only* empty states; today they're dead ends. Cheaper and
+  broader-reaching than an onboarding rework (R-095).
+- **R-119 (Low)** — **Delete dead settings directories** (X-003): `settings/{add-ons,business-hours,
+  notifications}` exist with no `page.tsx`. Nothing links to them (no 404s) — debris.
+- **R-120 (Medium)** — **Mobile table overflow** (X-004): 8 files render raw `<table>`; a business owner
+  checks the product on a phone.
+- **R-121 (High)** — **Action-first Dashboard** (Dashboard audit). Both dashboards answer "what
+  happened?"; a daily operator opens the app asking **"does anything need me?"** Invert to: Needs
+  attention → Today → Trends.
+- **R-122 (High)** — **Merge Tickets + Appointments → "Requests"**. They're the same concept (things the
+  AI produced), split only because they're two tables. The `artifacts` view (Sprint 4.5) already models
+  this and is unused. **Explicitly NOT renamed to "Tasks"** — that noun is reserved for R-113 (pending
+  work); the collision would be permanent. 2 nav items → 1.
+- **R-123 (High)** — **Billing trust** (Usage audit). `/dashboard/usage` is a **pure redirect** into
+  Settings (a nav item that isn't a page); the real page never explains the rule customers dispute —
+  **every call rounds up individually** (`Σ ceil(sec/60)`), so a 20-second call bills a minute. Fold
+  Usage into Billing; show the rule with a worked example + drill-through to the calls.
+- **R-124 (Medium)** — **Outcome-oriented analytics**: reports activity ("127 conversations"), not
+  outcomes (handled / booked / escalated / missed) and has no period comparison. Useful, not prettier.
+
+**Reprioritization (2026-07-24, product-experience audit):** **R-094 (settings restructure) moves UP** —
+measured as the weakest surface (11 pages / 3 inconsistent hierarchies / 2 agent trees / 3 empty dirs)
+and it's where a paying customer goes when something is wrong; it also absorbs X-005 (four overlapping
+agent surfaces). **R-096/R-097 (visual + nav polish) move DOWN** — cosmetic next to trust and IA.
+**R-095 (onboarding reframe) stays deferred** — first-run is better served by R-118 empty states, which
+are cheaper and reach every surface.
 
 **DO-NEXT (post-Sprint-6, 2026-07-24).** Six sprints closed the security/trust foundation, the
 value/notification layer, billing verifiability, voice intelligence, the AI-Employees platform model +
