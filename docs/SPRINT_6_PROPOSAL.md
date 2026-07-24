@@ -1,7 +1,26 @@
 # Sprint 6 — Proposal: Launch Readiness (first paying customers)
 
-> **Status: PROPOSED — awaiting approval. No implementation code until approved.**
-> A fresh product-level prioritization for Denku's **first real paying customers**. The lens is not
+> **Status: APPROVED (scope + focus) — owner decisions locked 2026-07-24; awaiting go-ahead to begin
+> implementation.**
+> A fresh product-level prioritization for Denku's **first real paying customers**.
+
+## 0. Owner decisions (locked 2026-07-24)
+
+1. **Sprint 6 = Launch Readiness** (not the platform-UX-depth items R-094–097, which move to Sprint 7+).
+2. **No staging env in the near term.** ⇒ Sprint 6 delivers **"launch-ready, pending env"**: every item
+   below is **engineering-deliverable and verifiable WITHOUT staging** (unit-tested code, preflight, docs,
+   copy). The **operator go-live** (apply migrations, flip enforce/CSP + platform flags, live test call)
+   stays explicitly **out of scope / blocked** until a staging env exists — this is the **#1 risk**,
+   surfaced up front. Sprint 6 makes that go-live push-button for when the env arrives.
+3. **Trust fixes:** all three — **R-010** (member invites), **R-047** (support path), **R-004** (marketing honesty).
+4. **R-004 copy:** **draft honest copy now** for owner/counsel review (not shipped without review).
+
+**⇒ Sprint 6 (this sprint) = L1 preflight (R-098) · L2 consolidated runbook · L3 enforce-readiness code
+(R-001) · L4 trust fixes (R-010 + R-047) · L5 honest marketing copy draft (R-004).** All flag-safe,
+additive, unit-tested, zero regression. **Definition of Done = "launch-ready, pending staging env"**:
+preflight is green-capable, the runbook is one ordered source of truth, the enforce flip is a safe
+one-liner, invites + support work, and honest copy is drafted for review — with the live go-live cleanly
+teed up for the operator the moment a staging env exists. The lens is not
 > "close roadmap items" — it's "what makes the product work, stay secure, and earn trust when real
 > money and real customer calls are on the line." References: whole repo, `docs/IMPLEMENTATION_ROADMAP.md`,
 > `docs/audits/*`, all `SPRINT_*_REVIEW.md`, `docs/PROJECT_VISION.md` / `PROJECT_CHARTER.md`.
