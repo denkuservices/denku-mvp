@@ -66,7 +66,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-090
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-098
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -86,12 +86,12 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 5 | 1 | 9 | 15 |
-| High | 10 | 0 | 11 | 21 |
-| Medium | 27 | 0 | 14 | 41 |
-| Low | 10 | 0 | 1 | 11 |
-| **Total** | **52** | **1** | **35** | **88** |
+| High | 13 | 0 | 11 | 24 |
+| Medium | 31 | 0 | 14 | 45 |
+| Low | 11 | 0 | 1 | 12 |
+| **Total** | **60** | **1** | **35** | **96** |
 
-*(2026-07-24: Sprint 5 core P0–P3 shipped R-087 (read model), R-084 (Conversations inbox + Employees/Channels), R-088 (redirects), R-089 (renderer registry). +R-081..R-086 Sprint 4.5 follow-ups. See registers below.)*
+*(2026-07-24: +R-090..R-097 — Sprint 5.5 platform-experience-depth candidates (proposal). Sprint 5 core P0–P3 shipped R-087/R-084/R-088/R-089. +R-081..R-086 Sprint 4.5 follow-ups. See registers below.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
 
 **PLATFORM FOUNDATION — Sprint 4.5 follow-ups (filed 2026-07-24; NOT in Sprint 4.5 scope):**
@@ -127,6 +127,25 @@
 - **R-089 (Low)** — Plugin conversation-thread renderer registry. **DONE 2026-07-24 (Sprint 5 P2)** —
   per-channel renderers register via `registerRenderer`; the core `<ConversationThread>` never changes
   to add a channel (voice + IG registered; unknown → default fallback).
+
+**PLATFORM EXPERIENCE DEPTH — Sprint 5.5 candidates (filed 2026-07-24; proposal `docs/SPRINT_5.5_PROPOSAL.md`):**
+
+- **R-090 (High)** — Platform **Dashboard** redesign: channel- and employee-aware home (conversations
+  by channel, employee roster, artifacts cross-channel), R-018 honesty preserved. Flagged variant. (audit P-011)
+- **R-091 (High)** — **Cross-channel analytics** surfaces (conversations & outcomes by channel,
+  per-employee) over the read model; pairs with R-066 instrumentation. Today analytics is calls+tickets+
+  by-agent only. (audit P-012)
+- **R-092 (Medium)** — Consolidate the **three agent surfaces** (`/dashboard/agents`, `settings/agents`,
+  `employees`) → AI Employees; redirect `/dashboard/agents` → `/employees`; extend R-065 naming. (audit P-013)
+- **R-093 (High)** — **Contacts experience**: generalize `leads` → `contacts`/`contact_identities`
+  (tables exist, 4.5) with per-channel identities + conversation history + links. (audit P-014)
+- **R-094 (Medium)** — **Settings reorganization** by the platform model (per-Employee / per-Channel /
+  Workspace); subsumes R-063. (audit P-015)
+- **R-095 (Medium)** — **Onboarding reframe** (Employee→Channel narrative, DB step contract preserved). (audit P-002)
+- **R-096 (Medium)** — **UX/design consistency**: new `_platform` surfaces adopt Horizon primitives;
+  reconcile the Horizon/shadcn split (R-064) where settings reorg touches it. (audit P-016)
+- **R-097 (Low)** — **Navigation polish**: topbar/breadcrumb titles for new routes, active/empty states,
+  consistent "coming soon" affordances, mobile drawer parity. (audit P-017)
 
 **RE-PRIORITIZED do-next (post-Sprint-3, 2026-07-23).** Three sprints closed the security/trust
 foundation, the value/notification layer, the code-health + a11y + SEO wave, and the billing

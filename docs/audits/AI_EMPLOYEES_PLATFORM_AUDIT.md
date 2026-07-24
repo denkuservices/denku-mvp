@@ -325,6 +325,20 @@ operator activation should also be completed so the foundation is on solid, live
 | **P-009** | Medium | Instagram integrated as a silo (receive-only, raw), not a channel in the shared model (R-078/R-079) | §6/§14 |
 | **P-010** | Medium | Base schema unversioned (R-031) + orgs/legacy dual-write (R-036) — resolve with the model | §7/§14 |
 
+### Platform-experience-depth findings (filed 2026-07-24, post-Sprint-5; see `docs/SPRINT_5.5_PROPOSAL.md`)
+
+| id | Sev | Finding | Roadmap |
+|---|---|---|---|
+| **P-011** | High | Dashboard home is call/answer-rate/agent-table shaped, not channel/employee-aware | R-090 |
+| **P-012** | High | Analytics is voice-only (calls+tickets+by-agent); no channel/conversation/per-employee dimension | R-091 |
+| **P-013** | Medium | Three overlapping "agent" surfaces (`/dashboard/agents`, `settings/agents`, `employees`) + voice-shaped copy | R-092 |
+| **P-014** | High | Contacts is a placeholder; `contacts`/`contact_identities` (4.5) unused by UI | R-093 |
+| **P-015** | Medium | Settings organized by resource type, not by the platform model (per-Employee/per-Channel) | R-094 |
+| **P-016** | Medium | UX split: `_platform` surfaces hand-rolled vs Horizon components — two visual languages in one shell | R-096 |
+| **P-017** | Low | Nav polish gaps: topbar titles for new routes, active/empty states, "coming soon" consistency | R-097 |
+
+(P-002 onboarding reframe → R-095; the platform-experience skeleton P-001/P-003/P-005 were addressed in Sprint 5.)
+
 ## Recommended implementation phases
 
 - **Phase 0 (unblock):** provision a staging/preview env; complete Sprint-3 operator activation. *(No new code; gates everything.)*
