@@ -1,7 +1,21 @@
 # Sprint 5.5 — Proposal: Platform Experience, Depth & Consistency
 
-> **Status: PROPOSED — awaiting approval. No implementation code until approved.**
+> **Status: SCOPED — owner decisions locked 2026-07-24; awaiting go-ahead to begin implementation.**
 > Builds the product experience on top of the Platform Foundation (4.5) + Platform Experience (5).
+
+## 0. Owner decisions (locked 2026-07-24)
+
+1. **Scope:** **core Q0–Q3** this sprint (read-model depth · Dashboard · Contacts · Analytics);
+   **Q4 Settings · Q5 Onboarding · Q6 naming/UX → Sprint 6.**
+2. **Analytics:** **presentation over the read model** (honest, no fabrication); event instrumentation
+   (R-066) tracked separately, not built here.
+3. **Contacts data:** build over the existing **`leads`** table now (works today, no operator gate);
+   **R-081 backfill deferred** to populate `contact_identities` later.
+4. **`/dashboard/agents`:** **redirect to `/employees`** (flag-gated) + fold into AI Employees; rename
+   customer-facing "agent" copy → "AI Employee" (part of R-092, but the redirect lands with Q1/Contacts).
+
+**⇒ Sprint 5.5 (this sprint) = Q0, Q1, Q2, Q3.** Everything behind `PLATFORM_UX_ENABLED`, read-model-
+first, legacy fallback when OFF, zero regression.
 > Everything ships behind **`PLATFORM_UX_ENABLED`** (default OFF), additive, zero regression, reading
 > the Platform Read Model. References: `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`,
 > `docs/SPRINT_5_REVIEW.md`, `skills/platform-architecture.md`, `docs/PROJECT_VISION.md`.
