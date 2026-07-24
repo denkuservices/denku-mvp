@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { phoneLineToChannelView, type PhoneLineRow } from "@/lib/platform/readModel/channels";
+import { listChannelsByEmployee } from "@/lib/platform/readModel/channels";
 import type { EmployeeView, ChannelView } from "@/lib/platform/readModel/types";
 
 /**
@@ -53,23 +53,13 @@ export async function listEmployeeViews(
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
 
-    const { data: lines } = await db
-      .from("phone_lines")
-      .select("id, phone_number_e164, status, line_type, assigned_agent_id, vapi_phone_number_id")
-      .eq("org_id", orgId);
+    // Registry-driven ownership (R-104): every channel whose connection source declares an
+    // ownerColumn contributes automatically — no per-channel query here.
+    const channelsByEmployee = await listChannelsByEmployee(orgId, db);
 
-    const linesByAgent = new Map<string, PhoneLineRow[]>();
-    for (const l of (lines ?? []) as PhoneLineRow[]) {
-      if (!l.assigned_agent_id) continue;
-      const arr = linesByAgent.get(l.assigned_agent_id) ?? [];
-      arr.push(l);
-      linesByAgent.set(l.assigned_agent_id, arr);
-    }
-
-    return ((agents ?? []) as AgentRow[]).map((a) => {
-      const owned = (linesByAgent.get(a.id) ?? []).map(phoneLineToChannelView);
-      return agentRowToEmployeeView(a, owned);
-    });
+    return ((agents ?? []) as AgentRow[]).map((a) =>
+      agentRowToEmployeeView(a, channelsByEmployee.get(a.id) ?? [])
+    );
   } catch (err) {
     console.error("[PLATFORM][READMODEL][EMPLOYEES]", err instanceof Error ? err.message : String(err));
     return [];

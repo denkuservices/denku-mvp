@@ -11,12 +11,13 @@ import {
   type CallRow,
 } from "@/lib/platform/readModel/conversations";
 import {
-  phoneLineToChannelView,
-  instagramConnectionToChannelView,
+  CONNECTION_SOURCES,
+  rowToChannelView,
   comingSoonChannelViews,
   listChannelViews,
 } from "@/lib/platform/readModel/channels";
 import { agentRowToEmployeeView, listEmployeeViews } from "@/lib/platform/readModel/employees";
+import { comingSoonChannels } from "@/lib/platform/channels";
 import { makeFakeDb, type FakeDb } from "./helpers/fakePlatformDb";
 
 const CALL: CallRow = {
@@ -72,24 +73,24 @@ describe("read model — pure mappers", () => {
   });
 
   it("phoneLine + instagram map to ChannelViews; coming-soon derives from registry", () => {
-    const v = phoneLineToChannelView({ id: "pl1", phone_number_e164: "+1321", status: "live", line_type: "support", assigned_agent_id: "emp-1", vapi_phone_number_id: "vp1" });
+    const v = rowToChannelView("voice", CONNECTION_SOURCES.voice!, { id: "pl1", phone_number_e164: "+1321", status: "live", line_type: "support", assigned_agent_id: "emp-1", vapi_phone_number_id: "vp1" });
     expect(v.channel).toBe("voice");
     expect(v.status).toBe("connected");
     expect(v.identifier).toBe("+1321");
 
-    const ig = instagramConnectionToChannelView({ id: "ig1", username: "denku", ig_user_id: "123", status: "connected" });
+    const ig = rowToChannelView("instagram", CONNECTION_SOURCES.instagram!, { id: "ig1", username: "denku", ig_user_id: "123", status: "connected" });
     expect(ig.channel).toBe("instagram");
     expect(ig.identifier).toBe("denku");
 
     const soon = comingSoonChannelViews();
-    expect(soon.map((c) => c.channel).sort()).toEqual(["email", "sms", "whatsapp"]);
+    expect(soon.map((c) => c.channel)).toEqual(comingSoonChannels());
     expect(soon.every((c) => c.status === "coming_soon")).toBe(true);
   });
 
   it("agentRowToEmployeeView — Employee owns its channels; status reflects connection", () => {
     const withChannel = agentRowToEmployeeView(
       { id: "emp-1", name: "Front Desk AI", language: "en", voice: "alloy", vapi_assistant_id: "va1", vapi_sync_status: "ok" },
-      [phoneLineToChannelView({ id: "pl1", phone_number_e164: "+1", status: "live", line_type: "support", assigned_agent_id: "emp-1", vapi_phone_number_id: "vp1" })]
+      [rowToChannelView("voice", CONNECTION_SOURCES.voice!, { id: "pl1", phone_number_e164: "+1", status: "live", line_type: "support", assigned_agent_id: "emp-1", vapi_phone_number_id: "vp1" })]
     );
     expect(withChannel.channels).toHaveLength(1);
     expect(withChannel.status).toBe("active");
@@ -158,6 +159,6 @@ describe("read model — assembly over fake db", () => {
     const connected = chans.filter((c) => c.status === "connected");
     const soon = chans.filter((c) => c.status === "coming_soon");
     expect(connected.map((c) => c.channel).sort()).toEqual(["instagram", "voice"]);
-    expect(soon.map((c) => c.channel).sort()).toEqual(["email", "sms", "whatsapp"]);
+    expect(soon.map((c) => c.channel).sort()).toEqual([...comingSoonChannels()].sort());
   });
 });

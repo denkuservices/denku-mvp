@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
-import { isKnownChannel, type Channel } from "@/lib/platform/channels";
+import { isKnownChannel, selectableChannels, channelMeta, type Channel } from "@/lib/platform/channels";
 import PageHeader from "../_platform/PageHeader";
 import ChannelBadge from "../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../_platform/format";
@@ -29,10 +29,11 @@ export default async function ConversationsPage({
   const orgId = await resolveActiveOrgId();
   const conversations = orgId ? await listConversationViews(orgId, { channel, limit: 100 }) : [];
 
+  // Registry-driven (R-099): filters are derived from the channels that actually have an adapter,
+  // so a new channel appears here with no edit to this file.
   const filters: Array<{ label: string; value?: Channel }> = [
     { label: "All" },
-    { label: "Voice", value: "voice" },
-    { label: "Instagram", value: "instagram" },
+    ...selectableChannels().map((c) => ({ label: channelMeta(c).label, value: c })),
   ];
 
   return (
