@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import { InviteMemberForm } from "./_components/InviteMemberForm";
+import { listPendingInvites } from "@/lib/members/invites";
 
 export default async function WorkspaceMembersPage() {
   const supabase = await createSupabaseServerClient();
@@ -17,6 +18,7 @@ export default async function WorkspaceMembersPage() {
 
   const orgId = await resolveOrgId();
   const canInvite = await isAdminOrOwner(orgId, auth.user.id);
+  const pendingInvites = await listPendingInvites(orgId);
 
   // Fetch members (profiles in same org)
   const { data: members } = await supabase
@@ -77,6 +79,20 @@ export default async function WorkspaceMembersPage() {
             </tbody>
           </table>
         </div>
+
+        {pendingInvites.length > 0 ? (
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">Pending invitations</p>
+            <ul className="space-y-1.5">
+              {pendingInvites.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate text-zinc-800">{inv.email}</span>
+                  <span className="shrink-0 text-xs text-zinc-500 capitalize">{inv.role} · pending</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {canInvite ? (
           <InviteMemberForm />

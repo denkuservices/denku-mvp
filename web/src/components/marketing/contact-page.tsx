@@ -2,10 +2,25 @@
 
 import { SITE_NAME } from '@/config/site';
 import { Container } from './Container';
+import { getSupportEmail } from '@/lib/support';
 
 const inputClass = 'h-11 w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-3 text-sm text-[#0A1A2F] outline-none placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15';
 
 export function ContactPage() {
+  // R-047: submit reaches the team for real via the user's mail client — no silent no-op.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const email = String(fd.get('email') || '');
+    const company = String(fd.get('company') || '');
+    const channel = String(fd.get('channel') || '');
+    const message = String(fd.get('message') || '');
+    const body =
+      `From: ${email}\nCompany: ${company}\nPrimary channel: ${channel}\n\n${message}`;
+    window.location.href =
+      `mailto:${getSupportEmail()}?subject=${encodeURIComponent('Denku demo request')}&body=${encodeURIComponent(body)}`;
+  }
+
   return (
     <div className="py-16 md:py-20">
       <Container>
@@ -46,29 +61,29 @@ export function ContactPage() {
           {/* Right: form */}
           <div className="rounded-[18px] border border-[#0A1A2F]/10 bg-white p-6 brand-shadow-sm md:p-8">
             <div className="font-display text-[20px] font-medium text-[#0A1A2F]">Request a demo</div>
-            <p className="mt-1 text-sm text-[#6B7888]">This form is MVP-ready. We can wire it to an API endpoint next.</p>
+            <p className="mt-1 text-sm text-[#6B7888]">Submitting opens an email to our team at {getSupportEmail()}.</p>
 
-            <form className="mt-6 space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-[#0A1A2F]">Work email</label>
-                <input type="email" required placeholder="you@company.com" className={inputClass} />
+                <input name="email" type="email" required placeholder="you@company.com" className={inputClass} />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-[#0A1A2F]">Company</label>
-                  <input type="text" placeholder="Company name" className={inputClass} />
+                  <input name="company" type="text" placeholder="Company name" className={inputClass} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-[#0A1A2F]">Website</label>
-                  <input type="url" placeholder="https://example.com" className={inputClass} />
+                  <input name="website" type="url" placeholder="https://example.com" className={inputClass} />
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-[#0A1A2F]">Primary channel</label>
-                  <select className={`${inputClass} cursor-pointer`}>
+                  <select name="channel" className={`${inputClass} cursor-pointer`}>
                     <option>Voice (phone)</option>
                     <option>Chat (website)</option>
                     <option>Both</option>
@@ -88,6 +103,7 @@ export function ContactPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-[#0A1A2F]">What should the agent handle?</label>
                 <textarea
+                  name="message"
                   rows={5}
                   placeholder="Example: Appointment booking, order status, FAQs, lead qualification..."
                   className="w-full resize-vertical rounded-[10px] border border-[#0A1A2F]/10 bg-white px-3 py-3 text-sm text-[#0A1A2F] outline-none placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15"

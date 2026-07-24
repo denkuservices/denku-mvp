@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { signOutAction } from '@/app/(app)/dashboard/actions';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getSupportMailto } from '@/lib/support';
 
 interface ProfileDropdownProps {
   avatarSrc?: string;
@@ -150,12 +151,12 @@ export default function ProfileDropdown({ avatarSrc = '/horizon/img/avatars/avat
         >
           Billing & Usage
         </Link>
-        <Link
-          href="/contact"
+        <a
+          href={getSupportMailto("Denku support request")}
           className="mt-3 text-sm text-gray-800 dark:text-white hover:dark:text-white"
         >
           Help / Support
-        </Link>
+        </a>
 
         {/* Divider */}
         <div className="mt-3 h-px w-full bg-gray-200 dark:bg-white/20" />

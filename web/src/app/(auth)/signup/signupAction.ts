@@ -98,6 +98,57 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
     };
   }
 
+  // 1.5) Invite acceptance (R-010): if this email has a pending invite, join that workspace
+  // instead of creating a new one. Graceful — no invite / table absent → normal new-org signup.
+  let invitedOrg: { orgId: string; role: string } | null = null;
+  try {
+    const { consumeInviteForEmail } = await import("@/lib/members/invites");
+    invitedOrg = await consumeInviteForEmail(email, supabaseAdmin);
+  } catch {
+    invitedOrg = null;
+  }
+
+  if (invitedOrg) {
+    // Attach the new user to the inviting org with the invited role; skip org creation.
+    try {
+      const { error: profErr } = await supabaseAdmin.from("profiles").upsert(
+        {
+          id: user.id,
+          auth_user_id: user.id,
+          email,
+          org_id: invitedOrg.orgId,
+          full_name,
+          phone: phone ? phone.trim().slice(0, 32) || null : null,
+          role: invitedOrg.role,
+        },
+        { onConflict: "id" }
+      );
+      if (profErr) {
+        console.error("[signupAction] Invited-member profile upsert failed:", profErr.message);
+        return { ok: false, code: "UNKNOWN", error: `Failed to join workspace: ${profErr.message}` };
+      }
+    } catch (err) {
+      console.error("[signupAction] Invited-member join exception:", err);
+      return { ok: false, code: "UNKNOWN", error: "Failed to join workspace. Please try again." };
+    }
+
+    // Send the verification email (same as the normal path) and finish.
+    try {
+      const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+        type: "signup",
+        email: user.email!,
+        password,
+        options: { redirectTo: emailRedirectTo },
+      });
+      const token = linkData?.properties?.hashed_token || linkData?.properties?.email_otp || "";
+      if (token) await sendVerifyEmail(user.email!, token).catch(() => {});
+    } catch (err) {
+      console.error("[signupAction] Invited-member verify email failed (non-blocking):", err);
+    }
+
+    return { ok: true, next: "verify-email", email };
+  }
+
   // 2) Create org/workspace in public.orgs (canonical org table) and organizations_legacy (FK parent)
   // Generate orgId first, then upsert
   let orgId: string;

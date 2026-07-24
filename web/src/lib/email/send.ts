@@ -173,6 +173,37 @@ export async function sendBillingNotificationEmail(
 }
 
 /**
+ * Send a member-invitation email (R-010) from the verified `denku.io` sender.
+ * Never throws; recipient/idempotency are the caller's responsibility.
+ */
+export async function sendMemberInviteEmail(
+  toEmail: string,
+  email: { subject: string; html: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    console.log("[sendMemberInviteEmail] Skipped - RESEND_API_KEY not configured");
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+  try {
+    const { error } = await resend.emails.send({
+      from: resolveSender("notify"),
+      to: toEmail,
+      subject: email.subject,
+      html: email.html,
+    });
+    if (error) {
+      console.error("[sendMemberInviteEmail] Resend error:", error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[sendMemberInviteEmail] Exception:", message);
+    return { ok: false, error: message };
+  }
+}
+
+/**
  * Send "Welcome to Denku" email (Resend). Server-only.
  * Called once when onboarding starts after verified login.
  */

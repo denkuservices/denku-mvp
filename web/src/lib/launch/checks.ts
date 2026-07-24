@@ -133,6 +133,14 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
       on ? "Enabled — usage alerts + pause emails send (R-009)" : "Off — no usage-warning or pause emails to owners"));
   }
 
+  {
+    // R-047: customers reach support via this address (dashboard "Help / Support" + contact
+    // form). Warn until an explicit, monitored address is set (default may be unmonitored).
+    const set = present(env.NEXT_PUBLIC_SUPPORT_EMAIL);
+    checks.push(check("support_email", "Support contact address", "Core", false, set ? "pass" : "warn",
+      set ? env.NEXT_PUBLIC_SUPPORT_EMAIL! : "Unset — defaults to support@denku.io; confirm a monitored inbox before launch (R-047)"));
+  }
+
   // --- Platform (flag states — informational; not launch gates) ---
   {
     const on = (env.PLATFORM_MODEL_ENABLED ?? "").toLowerCase().trim() === "true";

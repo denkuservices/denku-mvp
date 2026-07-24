@@ -20,6 +20,7 @@ const READY_ENV: Record<string, string> = {
   STRIPE_WEBHOOK_SECRET: "wh",
   BILLING_NOTIFICATIONS_ENABLED: "true",
   CSP_MODE: "enforce",
+  NEXT_PUBLIC_SUPPORT_EMAIL: "support@denku.io",
 };
 
 function byId(env: Record<string, string | undefined>) {

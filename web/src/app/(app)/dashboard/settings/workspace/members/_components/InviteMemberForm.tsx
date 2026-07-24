@@ -24,7 +24,7 @@ export function InviteMemberForm() {
 
     startTransition(async () => {
       try {
-        const res = await fetch("/api/admin/members/invite", {
+        const res = await fetch("/api/members/invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.trim(), role }),
@@ -38,7 +38,7 @@ export function InviteMemberForm() {
           return;
         }
 
-        success(data.message || "Invite sent successfully");
+        success(data.message || "Invitation sent");
         setEmail("");
         setIsOpen(false);
         router.refresh(); // Show updated member list without a full reload
