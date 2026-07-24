@@ -16,6 +16,30 @@
 
 **⇒ Sprint 5.5 (this sprint) = Q0, Q1, Q2, Q3.** Everything behind `PLATFORM_UX_ENABLED`, read-model-
 first, legacy fallback when OFF, zero regression.
+
+### 0.1 Finalized execution order (architecture review, 2026-07-24)
+
+Final pre-code review **reordered** the surfaces from the proposed Q1→Q2→Q3 to **build leaves before
+the hub**. The Dashboard is the cross-surface *hub* (links to Contacts, Analytics, Employees,
+Conversations); Analytics + Dashboard share the same aggregation read-model layer; Contacts is an
+independent, lowest-risk leaf that also unblocks the conversation→contact link.
+
+**Execution order (this sprint):**
+1. **Q0 — Read-model depth.** `readModel/aggregate.ts` (conversation/outcome stats by channel, employee,
+   day) + `readModel/contacts.ts` (ContactView over `leads`, id = lead id for 1:1 link). Pure, tested.
+2. **Contacts (was Q2).** List + detail (identities, conversation history, artifacts); conversation
+   detail → contact link; `/leads` + `/leads/:id` → `/contacts` redirects (Contacts reads leads → no
+   capability loss).
+3. **Analytics (was Q3).** Cross-channel funnels + per-employee/per-channel, over the aggregation layer
+   — the deepest consumer, hardens the shared layer.
+4. **Dashboard (was Q1) — last.** Channel/employee-aware home over the proven aggregation layer, linking
+   to real Contacts + Analytics; `/dashboard/agents` → `/employees` redirect + customer-facing "AI
+   Employee" naming pass. Built once, no rework.
+
+**Rationale:** leaves-before-hub (no rework/dead-links on the highest-visibility surface); prove the
+aggregation layer on Analytics before the honesty-sensitive (R-018) Dashboard depends on it; ascending
+risk (Contacts → Analytics → Dashboard). Zero customer-value cost — all flag-gated, lands together at
+flag-flip.
 > Everything ships behind **`PLATFORM_UX_ENABLED`** (default OFF), additive, zero regression, reading
 > the Platform Read Model. References: `docs/audits/AI_EMPLOYEES_PLATFORM_AUDIT.md`,
 > `docs/SPRINT_5_REVIEW.md`, `skills/platform-architecture.md`, `docs/PROJECT_VISION.md`.
