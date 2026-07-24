@@ -82,7 +82,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-099
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-107
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -102,10 +102,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 10 | 15 |
-| High | 10 | 0 | 15 | 25 |
-| Medium | 29 | 0 | 16 | 45 |
-| Low | 11 | 0 | 1 | 12 |
-| **Total** | **54** | **1** | **42** | **97** |
+| High | 13 | 0 | 15 | 28 |
+| Medium | 33 | 0 | 16 | 49 |
+| Low | 12 | 0 | 1 | 13 |
+| **Total** | **62** | **1** | **42** | **105** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -181,6 +181,36 @@ copy. Operator go-live (needs a **staging env**, the standing P0 unblock): apply
 reconcile assistants, flip enforce/CSP, run the Sprint-4 live acceptance, flip the platform flags.
 **Deferred to Sprint 7+:** platform UX depth (R-094–097), read cutover (R-085)/backfill (R-081), new
 channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
+
+**CHANNEL READINESS — Sprint 7 items (filed 2026-07-24; audit `docs/audits/CHANNEL_READINESS_AUDIT.md`):**
+
+> Audit verdict: the **data model + ingest pipeline are genuinely channel-agnostic**, but the
+> **presentation layer is hardcoded per channel** — adding WhatsApp today requires editing ~4 UI files.
+> Goal: adding a channel = registry entry + adapter + connection table + creds route, **zero UI edits**.
+
+- **R-099 (High)** — **Registry-driven channel presentation** (audit C-001, C-005): `listConnectedChannelViews`
+  hardcodes a query+mapper per channel, `comingSoonChannelViews` hardcodes an array, the Conversations
+  filter hardcodes 3 entries, and `ChannelBadge` duplicates the registry's labels. Derive all of it from
+  the registry via a per-channel connection-source descriptor.
+- **R-100 (High)** — **Channel capability model** (C-002): registry knows only kind/productionReady/adopted.
+  Add direction (inbound-only vs bidirectional), connection method (OAuth / credentials / provisioned
+  number), and supported features so UI decisions are data-driven instead of hardcoded. *The single most
+  important missing abstraction.*
+- **R-101 (High)** — **Connection lifecycle + health** (C-003): status is only connected/coming_soon/
+  disconnected; real states (not_configured → connecting → connected → degraded → error) and the data
+  that exists in DB (`instagram_connections.token_expires_at/last_error/scopes`) are discarded. A
+  customer whose IG token expires gets **no signal** — same failure mode for every future OAuth channel.
+- **R-102 (Medium)** — **Channel vocabulary incomplete** (C-004): **Telegram** (named in the vision) is
+  absent everywhere; `web` (Web Chat) is in the registry but invisible in the UI.
+- **R-103 (Medium)** — **Generic connection-flow scaffold** (C-006): the only connect flow is the bespoke
+  `InstagramConnectionCard` on the legacy page, not reusable and not reachable from the platform Channels
+  surface. Every new channel would hand-roll its own connect UI.
+- **R-104 (Medium)** — **Employee ↔ channel capability/permission model** (C-007): `EmployeeView.channels`
+  says which channels an employee owns, never what it may do on them (answer / reply / book / escalate).
+- **R-105 (Medium)** — **Channel-agnostic knowledge model** (C-008): `agents.business_context` is injected
+  into a *voice system prompt*; there's no shared knowledge concept an email/chat employee would use.
+- **R-106 (Low)** — **Automations as a product surface** (C-009): `runAutomation` is a code seam with no
+  user-facing "when X on any channel → do Y" concept; flag so it isn't reinvented per channel.
 
 **DO-NEXT (post-Sprint-6, 2026-07-24).** Six sprints closed the security/trust foundation, the
 value/notification layer, billing verifiability, voice intelligence, the AI-Employees platform model +
