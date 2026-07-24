@@ -20,6 +20,8 @@ import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
 import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
+import { platformUxEnabled } from "@/lib/platform/flags";
+import PlatformAnalytics from "../_platform/analytics/PlatformAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,13 @@ export default async function AnalyticsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Sprint 5.5: flagged variant — the cross-channel platform analytics when the AI
+  // Employees experience is enabled; the legacy (voice) analytics otherwise. Zero
+  // regression: the entire legacy body below is untouched and served when the flag is OFF.
+  if (platformUxEnabled()) {
+    return <PlatformAnalytics />;
+  }
+
   // Next.js 16: searchParams is a Promise, must await before use
   const resolvedSearchParams = await searchParams;
   const params = parseAnalyticsParams(resolvedSearchParams);
