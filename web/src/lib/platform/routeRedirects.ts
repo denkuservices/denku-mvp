@@ -50,5 +50,15 @@ export function platformRedirectTarget(pathname: string): string | null {
     return `/dashboard/employees${seg ?? ""}`;
   }
 
+  // Sprint 8.5 (R-122): the Tickets and Appointments LISTS are replaced by one Requests surface.
+  // Detail pages (/tickets/:id) and the create form (/tickets/new) stay reachable and are linked
+  // from Requests — capability preserved, exactly as with calls/leads.
+  if (pathname === "/dashboard/tickets" || pathname === "/dashboard/tickets/") {
+    return "/dashboard/requests?type=ticket";
+  }
+  if (pathname === "/dashboard/appointments" || pathname === "/dashboard/appointments/") {
+    return "/dashboard/requests?type=appointment";
+  }
+
   return null;
 }

@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   Contact,
   Radio,
+  Inbox,
 } from 'lucide-react';
 import { NavRoute } from './types';
 
@@ -48,8 +49,7 @@ export const platformNavRoutes: NavRoute[] = [
   { name: 'Conversations', layout: 'dashboard', path: 'conversations', icon: <MessagesSquare className="h-6 w-6" /> },
   { name: 'Contacts', layout: 'dashboard', path: 'contacts', icon: <Contact className="h-6 w-6" /> },
   { name: 'Channels', layout: 'dashboard', path: 'channels', icon: <Radio className="h-6 w-6" /> },
-  { name: 'Tickets', layout: 'dashboard', path: 'tickets', icon: <Ticket className="h-6 w-6" /> },
-  { name: 'Appointments', layout: 'dashboard', path: 'appointments', icon: <Calendar className="h-6 w-6" /> },
+  { name: 'Requests', layout: 'dashboard', path: 'requests', icon: <Inbox className="h-6 w-6" /> },
   { name: 'Analytics', layout: 'dashboard', path: 'analytics', icon: <BarChart3 className="h-6 w-6" /> },
   { name: 'Settings', layout: 'dashboard', path: 'settings', icon: <Settings className="h-6 w-6" /> },
 ];

@@ -37,6 +37,22 @@ describe("platformRedirectTarget (legacy → platform routes)", () => {
     expect(platformRedirectTarget("/dashboard/channels")).toBeNull();
     expect(platformRedirectTarget("/dashboard/contacts")).toBeNull();
     expect(platformRedirectTarget("/dashboard")).toBeNull();
-    expect(platformRedirectTarget("/dashboard/tickets")).toBeNull();
+    expect(platformRedirectTarget("/dashboard/requests")).toBeNull();
+  });
+});
+
+describe("Requests merge (R-122) — lists redirect, detail preserved", () => {
+  it("the tickets + appointments LISTS redirect into Requests with the right tab", () => {
+    expect(platformRedirectTarget("/dashboard/tickets")).toBe("/dashboard/requests?type=ticket");
+    expect(platformRedirectTarget("/dashboard/appointments")).toBe("/dashboard/requests?type=appointment");
+  });
+
+  it("ticket detail + the create form stay reachable (no capability lost)", () => {
+    expect(platformRedirectTarget("/dashboard/tickets/abc-123")).toBeNull();
+    expect(platformRedirectTarget("/dashboard/tickets/new")).toBeNull();
+  });
+
+  it("Requests itself never redirects (no loop)", () => {
+    expect(platformRedirectTarget("/dashboard/requests")).toBeNull();
   });
 });
