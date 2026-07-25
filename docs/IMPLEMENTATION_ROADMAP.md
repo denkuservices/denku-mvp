@@ -5,7 +5,14 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-25 (**Sprint 8.5 CODE-COMPLETE — Settings + Requests**: audited every
+> **Last updated:** 2026-07-25 (**FIRST-PAYING-CUSTOMER AUDIT — the roadmap is now ordered by shortest
+> path to revenue, not by sprint tidiness.** Verified against the **live production DB**: 10 of 11
+> migrations unapplied, both platform flags OFF. A paying customer today gets an AI that doesn't know
+> their business, broken invites, no overage protection, and the CRUD panel — because five sprints of
+> work were **never turned on**. **P0 is deployment (~2 days, operator), not code.** Filed F-001..F-012;
+> see `docs/audits/FIRST_PAYING_CUSTOMER_AUDIT.md`. Recorded lesson: weight "is it live?" above "is it
+> built?".)
+> **Prior:** 2026-07-25 (**Sprint 8.5 CODE-COMPLETE — Settings + Requests**: audited every
 > Settings page individually (`docs/audits/SETTINGS_AUDIT.md`) and found a filing cabinet organised by
 > which team built what — **529 `zinc-*` refs (a fourth design system), no navigation of any kind, an
 > index advertising destinations that don't exist, 3 dead directories**. Rebuilt as a **control center**
@@ -369,29 +376,36 @@ agent surfaces). **R-096/R-097 (visual + nav polish) move DOWN** — cosmetic ne
 **R-095 (onboarding reframe) stays deferred** — first-run is better served by R-118 empty states, which
 are cheaper and reach every surface.
 
-**DO-NEXT (post-Sprint-6, 2026-07-24).** Six sprints closed the security/trust foundation, the
-value/notification layer, billing verifiability, voice intelligence, the AI-Employees platform model +
-experience, and launch readiness. **42 completed / 54 open.** Everything engineering-side for a first
-paying customer is built; what remains is *activation*, then product depth. In order:
+**SHORTEST PATH TO A SELLABLE PRODUCT (2026-07-25, `docs/audits/FIRST_PAYING_CUSTOMER_AUDIT.md`).**
 
-- **P0 — Provision a STAGING / preview env (owner).** The one systemic blocker across every sprint.
-  Nothing prod-writing (migrations, `enforce` flips, platform flags) can be verified without it. It
-  gates P1 and the two long-blocked security items (**R-057**, **R-060** remainder).
-- **P1 — Execute the launch (operator):** run **`docs/LAUNCH_RUNBOOK.md`** end-to-end on staging, then
-  prod — the single ordered guide (secrets → migrations → reconcile assistants → **R-001** webhook
-  `enforce` + `CSP_MODE=enforce` → notification/billing flags → **live test-call acceptance** →
-  optional platform flags). Gate: the **preflight** at `/admin/readiness` must be green (R-098).
-- **P2 — Owner/counsel: marketing honesty (R-004).** Review `docs/MARKETING_HONESTY_DRAFT.md` and ship
-  the approved copy. Severity 1 is the **SOC 2 / HIPAA claims Denku does not hold** (legal exposure).
-- **P3 — Product depth for real customers (Sprint 7 candidates):** **R-020** (calendar sync — the last
-  mile of "books appointments for real"), **R-066** (product-analytics instrumentation — measure
-  activation/retention on real users).
-- **P4 — Platform experience depth:** **R-094** (settings reorg, subsumes R-063), **R-095** (onboarding
-  reframe), **R-096** (UX consistency), **R-097** (nav polish) — after the flags are live and verified.
-- **P5 — Platform convergence, then growth:** **R-081** (backfill), **R-085** (read cutover), **R-082/
-  R-083**, **R-086** (message-usage billing); then new channels (WhatsApp/Email) on the proven model.
-- **Opportunistic / when-touched:** **R-031** (full-schema baseline, unblocks R-036), **R-055**,
-  remaining a11y (**R-071**) and UI cohesion (**R-064/R-027**).
+> **Verified against the live production database: 10 of 11 migrations are UNAPPLIED and both platform
+> flags are OFF.** A customer paying today gets an AI that **doesn't know their business**
+> (`agents.business_context` absent), **broken invites** (`org_invites` absent), **no overage warning
+> or pause** (`billing_usage_alerts` absent), and the voice-first CRUD panel — not because these
+> things aren't built, but because **they were never turned on**. The gap between this repo and a
+> sellable product is **~2 days of deployment work, not more code.** Every further building sprint
+> widens it.
+
+- **P0 — DEPLOY (operator, ~2 days; unblocks more value than all remaining code):**
+  provision **staging** → apply the 10 pending migrations (**F-001** `agent_business_context`,
+  **F-002** `org_invites`, **F-003** `billing_usage_alerts` first) → set env + reconcile assistants →
+  flip webhook **`enforce`** (R-001) + `CSP_MODE` → enable `BILLING_NOTIFICATIONS_ENABLED` + crons →
+  **run the live test-call acceptance** → `/admin/readiness` green. Guide: `docs/LAUNCH_RUNBOOK.md`.
+- **P1 — Turn on the modern product (~half a day, after P0 verifies):** flip
+  `PLATFORM_MODEL_ENABLED`, verify dual-writes, then `PLATFORM_UX_ENABLED` and walk the IA (**F-004**).
+- **P2 — Polish that materially affects trust (~3–5 days code, in order):** **F-005** onboarding
+  loading/error states (the first ten minutes, currently **zero** states) → **F-006** terminology
+  sweep, "agent" → "AI Employee" (**174** customer-facing occurrences) → **F-007/R-123** billing
+  explainability (per-call round-up unexplained) → **F-008** loading/error on the remaining 13 routes →
+  **F-012/R-004** marketing honesty (SOC 2 / HIPAA claims — needs counsel).
+- **P3 — After the first paying customer:** **R-020** calendar sync · **F-009/R-120** mobile tables ·
+  **F-010/R-129** settings re-skin · **F-011** accessibility · **R-131** billing page refactor ·
+  R-066 instrumentation · R-081/R-085 platform convergence · new channels.
+
+**Lesson recorded (audit §2):** Sprints 7, 8 and 8.5 each shipped defensible work while the actual
+bottleneck — deployment — went untouched. "Code-complete" was technically true and practically
+meaningless for anything whose table doesn't exist in production. Weight **"is it live?"** above
+"is it built?" in every future review.
 
 **Before acting on any finding, read `docs/EXECUTION_PLAN.md` (implement-now / decide-first /
 external-dependency) and `docs/RETROSPECTIVE.md` (confidence + verify-first).** Live Supabase access
