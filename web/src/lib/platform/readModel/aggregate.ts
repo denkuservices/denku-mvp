@@ -113,17 +113,38 @@ export async function getConversationAggregates(
   };
 }
 
-/** Convenience: total artifacts (channel-agnostic) for the outcome tiles. Never throws. */
+/**
+ * Artifact counts (channel-agnostic) for the outcome tiles — plus the **open** counts the
+ * action-first dashboard needs to answer "does anything need me?" (R-121). Never throws.
+ */
 export async function getArtifactCounts(
   orgId: string,
   db: SupabaseClient = supabaseAdmin
-): Promise<{ tickets: number; appointments: number }> {
-  if (!orgId) return { tickets: 0, appointments: 0 };
+): Promise<{ tickets: number; appointments: number; openTickets: number; upcomingAppointments: number }> {
+  const empty = { tickets: 0, appointments: 0, openTickets: 0, upcomingAppointments: 0 };
+  if (!orgId) return empty;
   try {
     const t = await db.from("tickets").select("id", { count: "exact", head: true }).eq("org_id", orgId);
     const a = await db.from("appointments").select("id", { count: "exact", head: true }).eq("org_id", orgId);
-    return { tickets: t.count ?? 0, appointments: a.count ?? 0 };
+    // "Needs attention": tickets nobody has closed, and appointments still ahead of now.
+    const openT = await db
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("status", "open");
+    const upcomingA = await db
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("status", "scheduled")
+      .gte("start_at", new Date().toISOString());
+    return {
+      tickets: t.count ?? 0,
+      appointments: a.count ?? 0,
+      openTickets: openT.count ?? 0,
+      upcomingAppointments: upcomingA.count ?? 0,
+    };
   } catch {
-    return { tickets: 0, appointments: 0 };
+    return empty;
   }
 }

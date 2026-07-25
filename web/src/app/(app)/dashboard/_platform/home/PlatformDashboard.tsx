@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, AlertTriangle } from "lucide-react";
+import { ArrowRight, AlertTriangle, CheckCircle2, Ticket, Calendar, Radio } from "lucide-react";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationAggregates, getArtifactCounts } from "@/lib/platform/readModel/aggregate";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
@@ -10,13 +10,20 @@ import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
 import ChannelBadge from "../ChannelBadge";
-import { formatWhen, statusPillClass, titleCase } from "../format";
+import { formatWhen, titleCase } from "../format";
+import { Surface, SectionHeader, StatCard, EmptyState, Pill, ListContainer, ListRow } from "../ui";
 
 /**
- * Platform Dashboard (Sprint 5.5) — the channel- and employee-aware home. The cross-surface
- * hub: it reads the Q0 aggregation read model and links to the real Conversations / Employees
- * / Contacts / Analytics surfaces. Rendered by the dashboard route only when
- * PLATFORM_UX_ENABLED (legacy call-metric home otherwise). R-018 honesty throughout.
+ * Platform Dashboard — **action-first** (Sprint 8.5 / R-121, audit Y-“does anything need me?”).
+ *
+ * Previously this led with vanity totals, answering "what happened?". A daily operator opens the app
+ * asking "**does anything need me?**" — so the page is now ordered:
+ *   1. **Needs attention** — only rendered when something is actually wrong (channels unhealthy,
+ *      tickets open, no employee live). Silence here is a feature: an all-clear means all-clear.
+ *   2. **Today** — the work the AI did, and recent conversations.
+ *   3. **Trends** — the numbers, demoted to where they belong.
+ *
+ * R-018 honesty throughout: bounded windows are labelled "recent N", never a fabricated total.
  */
 export default async function PlatformDashboard() {
   const orgId = await resolveActiveOrgId();
@@ -30,26 +37,56 @@ export default async function PlatformDashboard() {
       ])
     : [
         { total: 0, byChannel: {}, byEmployee: [], byDay: [], byIntent: {}, limited: false, windowDays: 7 },
-        { tickets: 0, appointments: 0 },
+        { tickets: 0, appointments: 0, openTickets: 0, upcomingAppointments: 0 },
         [],
         [],
         [],
       ];
 
-  // Health monitoring (R-101): surface channels needing attention (expiring credentials,
-  // provider errors) on the home surface — channel-agnostic, so future channels are covered.
-  const unhealthy = connectedChannels.filter((c) => (c.meta?.health as ConnectionHealth | undefined)?.actionRequired);
+  // --- 1. What needs attention -------------------------------------------------
+  const unhealthy = connectedChannels.filter(
+    (c) => (c.meta?.health as ConnectionHealth | undefined)?.actionRequired
+  );
+  const activeEmployees = employees.filter((e) => e.status === "active");
 
+  type Attention = { key: string; tone: "warn" | "critical"; icon: React.ComponentType<{ className?: string }>; label: string; href: string };
+  const attention: Attention[] = [];
+
+  for (const c of unhealthy) {
+    const h = c.meta?.health as ConnectionHealth;
+    attention.push({
+      key: `ch:${c.channel}:${c.connectionId ?? ""}`,
+      tone: h.severity === "critical" ? "critical" : "warn",
+      icon: Radio,
+      label: `${c.label}: ${h.label}${h.detail ? ` — ${h.detail}` : ""}`,
+      href: "/dashboard/channels",
+    });
+  }
+  if (employees.length > 0 && activeEmployees.length === 0) {
+    attention.push({
+      key: "emp:none-active",
+      tone: "critical",
+      icon: AlertTriangle,
+      label: "No AI Employee is connected to a channel — customers reaching you aren't being answered.",
+      href: "/dashboard/channels",
+    });
+  }
+  if (artifacts.openTickets > 0) {
+    attention.push({
+      key: "tickets:open",
+      tone: "warn",
+      icon: Ticket,
+      label: `${artifacts.openTickets} open request${artifacts.openTickets === 1 ? "" : "s"} waiting on you`,
+      href: "/dashboard/tickets",
+    });
+  }
+
+  // --- 3. Trends ---------------------------------------------------------------
   const channelItems: BarItem[] = Object.entries(agg.byChannel)
     .sort((a, b) => b[1] - a[1])
     .map(([ch, n]) => ({ key: ch, value: n, label: isKnownChannel(ch) ? <ChannelBadge channel={ch} /> : ch }));
 
-  const tiles = [
-    { label: "Conversations", value: agg.total, note: agg.limited ? `recent ${agg.total}` : "all time" },
-    { label: "Tickets", value: artifacts.tickets, note: "all time" },
-    { label: "Appointments", value: artifacts.appointments, note: "all time" },
-    { label: "AI Employees", value: employees.length, note: `${employees.filter((e) => e.status === "active").length} active` },
-  ];
+  const isNewWorkspace = employees.length === 0 && agg.total === 0;
 
   return (
     <div className="p-4 md:p-6">
@@ -66,90 +103,143 @@ export default async function PlatformDashboard() {
         }
       />
 
-      {unhealthy.length > 0 ? (
-        <Link
-          href="/dashboard/channels"
-          className="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            {unhealthy.length} channel{unhealthy.length === 1 ? "" : "s"} need
-            {unhealthy.length === 1 ? "s" : ""} attention —{" "}
-            {(unhealthy[0].meta?.health as ConnectionHealth).label.toLowerCase()}. Review channels →
-          </span>
-        </Link>
+      {isNewWorkspace ? (
+        <Surface padded={false} className="mb-6">
+          <EmptyState
+            icon={Radio}
+            title="Your workspace is ready"
+            description="Connect a channel to put an AI Employee to work. Every call and message it handles will show up here, turned into requests and appointments."
+            action={{ label: "Connect a channel", href: "/dashboard/channels" }}
+          />
+        </Surface>
       ) : null}
 
-      {/* KPI tiles */}
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
-            <p className="text-sm text-gray-500">{t.label}</p>
-            <p className="mt-1 text-2xl font-semibold text-navy-700 dark:text-white">{t.value}</p>
-            <p className="mt-1 text-xs text-gray-400">{t.note}</p>
+      {/* 1. NEEDS ATTENTION — silence here is meaningful, so we render nothing when all is well. */}
+      {attention.length > 0 ? (
+        <section className="mb-6">
+          <SectionHeader title="Needs attention" />
+          <div className="flex flex-col gap-2">
+            {attention.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Link
+                  key={a.key}
+                  href={a.href}
+                  className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm transition ${
+                    a.tone === "critical"
+                      ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+                      : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+                  }`}
+                >
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1">{a.label}</span>
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 opacity-60" />
+                </Link>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </section>
+      ) : !isNewWorkspace ? (
+        <div className="mb-6 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>All channels healthy — nothing needs your attention.</span>
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Channel breakdown */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-navy-800">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">By channel</p>
-            <Link href="/dashboard/channels" className="text-xs text-brand-600 hover:underline">Channels</Link>
-          </div>
-          <BarList items={channelItems} emptyLabel="No conversations yet" />
+      {/* 2. TODAY — what the AI actually did, and what's coming up. */}
+      <section className="mb-6">
+        <SectionHeader
+          title="Today"
+          action={
+            <Link href="/dashboard/conversations" className="text-xs text-brand-600 hover:underline">
+              All conversations
+            </Link>
+          }
+        />
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            label="Conversations"
+            value={agg.total}
+            note={agg.limited ? `recent ${agg.total}` : `last ${agg.windowDays} days`}
+            href="/dashboard/conversations"
+          />
+          <StatCard label="Open requests" value={artifacts.openTickets} note="waiting on you" href="/dashboard/tickets" />
+          <StatCard
+            label="Upcoming"
+            value={artifacts.upcomingAppointments}
+            note="scheduled appointments"
+            href="/dashboard/appointments"
+          />
+          <StatCard
+            label="AI Employees"
+            value={employees.length}
+            note={`${activeEmployees.length} active`}
+            href="/dashboard/employees"
+          />
         </div>
 
-        {/* Employee roster strip */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-navy-800">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">AI Employees</p>
-            <Link href="/dashboard/employees" className="text-xs text-brand-600 hover:underline">All</Link>
-          </div>
-          {employees.length === 0 ? (
-            <p className="text-sm text-gray-500">No AI Employees yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {employees.slice(0, 5).map((e) => (
-                <li key={e.id}>
-                  <Link href={`/dashboard/employees/${e.id}`} className="flex items-center justify-between gap-2 transition hover:opacity-80">
-                    <span className="min-w-0 truncate text-sm font-medium text-navy-700 dark:text-white">{e.name}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(e.status)}`}>
-                      {titleCase(e.status)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Recent conversations */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-navy-800">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Recent</p>
-            <Link href="/dashboard/conversations" className="text-xs text-brand-600 hover:underline">Inbox</Link>
-          </div>
+        <Surface padded={false}>
           {recent.length === 0 ? (
-            <p className="text-sm text-gray-500">No conversations yet.</p>
+            <EmptyState
+              icon={Calendar}
+              title="No conversations yet"
+              description="When your AI Employees answer a call or message, it appears here."
+            />
           ) : (
-            <ul className="space-y-2.5">
+            <ListContainer>
               {recent.map((c) => (
-                <li key={`${c.source}:${c.id}`}>
-                  <Link href={`/dashboard/conversations/${c.id}`} className="flex items-center gap-2 transition hover:opacity-80">
-                    <ChannelBadge channel={c.channel} />
-                    <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
-                      {c.contact.displayName || c.contact.handle || "Unknown"}
-                    </span>
-                    <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
-                  </Link>
-                </li>
+                <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/conversations/${c.id}`}>
+                  <ChannelBadge channel={c.channel} />
+                  <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
+                    {c.contact.displayName || c.contact.handle || "Unknown"}
+                  </span>
+                  {c.intent ? (
+                    <Pill tone="info" className="hidden md:inline-flex">
+                      {titleCase(c.intent)}
+                    </Pill>
+                  ) : null}
+                  <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
+                </ListRow>
               ))}
-            </ul>
+            </ListContainer>
           )}
+        </Surface>
+      </section>
+
+      {/* 3. TRENDS — demoted below the work. */}
+      <section>
+        <SectionHeader
+          title={`Trends · last ${agg.windowDays} days`}
+          action={
+            <Link href="/dashboard/channels" className="text-xs text-brand-600 hover:underline">
+              Channels
+            </Link>
+          }
+        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Surface>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">By channel</p>
+            <BarList items={channelItems} emptyLabel="No conversations yet" />
+          </Surface>
+          <Surface>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">AI Employees</p>
+            {employees.length === 0 ? (
+              <p className="text-sm text-gray-500">No AI Employees yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {employees.slice(0, 5).map((e) => (
+                  <li key={e.id}>
+                    <Link href={`/dashboard/employees/${e.id}`} className="flex items-center justify-between gap-2 transition hover:opacity-80">
+                      <span className="min-w-0 truncate text-sm font-medium text-navy-700 dark:text-white">{e.name}</span>
+                      <Pill tone={e.status === "active" ? "ok" : "neutral"}>{titleCase(e.status)}</Pill>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Surface>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
