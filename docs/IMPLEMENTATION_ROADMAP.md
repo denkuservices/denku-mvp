@@ -125,7 +125,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-132
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-133
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -145,10 +145,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 11 | 16 |
-| High | 16 | 0 | 24 | 40 |
+| High | 17 | 0 | 24 | 41 |
 | Medium | 40 | 0 | 19 | 59 |
 | Low | 14 | 0 | 1 | 15 |
-| **Total** | **74** | **1** | **55** | **130** |
+| **Total** | **75** | **1** | **55** | **131** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -375,6 +375,29 @@ and it's where a paying customer goes when something is wrong; it also absorbs X
 agent surfaces). **R-096/R-097 (visual + nav polish) move DOWN** — cosmetic next to trust and IA.
 **R-095 (onboarding reframe) stays deferred** — first-run is better served by R-118 empty states, which
 are cheaper and reach every surface.
+
+**CROSS-CUTTING PLATFORM CAPABILITY (filed 2026-07-25; research `docs/PARTNER_PLATFORM_PROPOSAL.md`):**
+
+- **R-132 (High · placeholder — NOT scheduled, no implementation)** — **Multi-organization membership.**
+  Today `profiles.org_id` is a **single scalar** with no membership table (verified in production):
+  **one human belongs to exactly one workspace.** This is a *foundational architectural prerequisite*,
+  not a Partner feature — it independently blocks:
+  - **Agencies / MSPs** managing AI Employees for many businesses (30 clients = 30 logins today);
+  - **Partner organizations** of every shape (refer / manage / resell) — see the Partner research;
+  - **Enterprise customers** with franchises, multiple locations, or subsidiary workspaces;
+  - **Internal support** — Denku staff cannot access a customer workspace to help them;
+  - **Everyday delegation** — a customer's bookkeeper or ops contractor needing scoped access.
+
+  **Treat as a cross-cutting capability owned by the platform, never as a Partner deliverable.** The
+  Partner Platform is one *consumer* of it; if it were built as a Partner feature it would be scoped to
+  partner needs and immediately need re-architecting for enterprise and support.
+
+  **Why it is filed now despite not being scheduled:** it is in the same class as manifest provenance
+  (R-107) — **cheap while there are few accounts, expensive and risky after thousands exist.** Filing it
+  records the dependency; it is *not* a candidate for the current do-next, which is deployment (P0).
+  Related, equally cheap and equally unrecoverable: **immutable signup attribution** (where a workspace
+  came from), captured once at signup — without it, any future partner program cannot attribute a
+  single pre-existing customer.
 
 **SHORTEST PATH TO A SELLABLE PRODUCT (2026-07-25, `docs/audits/FIRST_PAYING_CUSTOMER_AUDIT.md`).**
 
