@@ -5,7 +5,16 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-24 (**Sprint 8 (AI Employee Core, narrow scope) CODE-COMPLETE**: after a
+> **Last updated:** 2026-07-25 (**Sprint 8.5 (Logged-in Experience) CODE-COMPLETE**: a fresh CEO/product
+> audit (`docs/audits/LOGGED_IN_EXPERIENCE_AUDIT.md`) **overturned the previous day's conclusion** —
+> enabling the platform UX would have been a *functional regression* (no search/date/outcome filters vs
+> legacy Calls) on a *visually incoherent* base, and the Conversations list was rendering a **fabricated
+> total** (my own R-018 violation). Fixed all three: shared platform primitives wrapping the real Horizon
+> Card (**R-127**), search + date range + outcome filter + pagination + truthful counts (**R-125/R-126**),
+> loading/error states + onboarding-style empty states on every platform route (**R-117/R-118**), and an
+> **action-first dashboard** (**R-121**). **291 tests green; build green.** Still deferred: Requests merge
+> (R-122), Settings restructure (R-094). Review: `docs/SPRINT_8.5_REVIEW.md`.)
+> **Prior:** 2026-07-24 (**Sprint 8 (AI Employee Core, narrow scope) CODE-COMPLETE**: after a
 > 10-year architectural audit (`docs/audits/AI_EMPLOYEE_CORE_AUDIT.md`) the owner approved only the
 > permanent-cost items. Shipped **R-107** — versioned Employee manifest revisions + conversation
 > provenance, closing the one gap that could never be retrofitted (config was materialized and
@@ -121,10 +130,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 11 | 16 |
-| High | 20 | 0 | 18 | 38 |
+| High | 17 | 0 | 21 | 38 |
 | Medium | 39 | 0 | 18 | 57 |
 | Low | 14 | 0 | 1 | 15 |
-| **Total** | **77** | **1** | **48** | **126** |
+| **Total** | **74** | **1** | **51** | **126** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -278,12 +287,12 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 > visually incoherent (my 4 surfaces are hand-rolled Tailwind; Tickets/Appointments/Settings survive
 > the flip using Horizon/shadcn). **Revised verdict: the IA is right; the presentation layer is not.**
 
-- **R-125 (High)** — **Search across the logged-in app** (Y-004). There is none — not in Conversations,
+- **R-125 (High)** — **Search across the logged-in app**. **PARTIAL 2026-07-25 (Sprint 8.5)** — Conversations (name/number/summary/employee) + Contacts shipped; Employees/Tickets still unsearched. *(was: Y-004)*. There is none — not in Conversations,
   Contacts, Employees or Tickets. Search is the primary navigation verb at scale.
-- **R-126 (High)** — **Pagination + honest counts** (Y-005, Y-003). Hard caps (100 conversations / 200
+- **R-126 (High)** — **Pagination + honest counts**. **DONE 2026-07-25 (Sprint 8.5)** — Conversations paginates and reports "Showing 1–25 of N" with an explicit "N+" marker when the scan is bounded; Contacts likewise. The fabricated-total honesty violation is closed. *(was: Y-005, Y-003)*. Hard caps (100 conversations / 200
   contacts) with no "next" and no total; the UI then renders "100 conversations" for an org with
   thousands — **an R-018 honesty violation I introduced**.
-- **R-127 (Medium)** — **Platform UI primitives + detail-page consistency** (Y-008, Y-009). Three
+- **R-127 (Medium)** — **Platform UI primitives + detail-page consistency**. **PARTIAL 2026-07-25 (Sprint 8.5)** — shared primitives shipped (`_platform/ui`, wrapping the real Horizon Card) and list surfaces refactored onto them; the three detail-page layouts are still divergent. *(was: Y-008, Y-009)*. Three
   different detail layouts and no shared card/empty/error primitives — each surface re-implements them,
   guaranteeing drift.
 
@@ -302,17 +311,17 @@ inconsistent base wastes both. R-121 (action-first dashboard) stays P1 as the fi
 > just unshipped. So the leverage is **finish-and-ship**, not redesign; redesigning legacy pages the
 > flag deletes would build the product twice.
 
-- **R-117 (High)** — **Loading/error states across platform routes** (X-001). Measured: only **3/15**
+- **R-117 (High)** — **Loading/error states**. **PARTIAL 2026-07-25 (Sprint 8.5)** — all four platform routes now have skeleton loading + recoverable error boundaries; legacy routes (tickets, appointments, analytics, settings, calls, instagram, leads, agents) still lack them. *(was: X-001)*. Measured: only **3/15**
   routes have `loading.tsx`, **2/15** have `error.tsx`; **every** new platform route has neither. The
   most visible "unfinished software" signal, and cheap to fix.
-- **R-118 (High)** — **Empty states as first-run onboarding** (X-002). New surfaces say "No X yet" —
+- **R-118 (High)** — **Empty states as first-run onboarding**. **DONE 2026-07-25 (Sprint 8.5)** — every platform surface now teaches (what it is · why it's empty · one action), with a distinct no-results variant when filters are active. *(was: X-002)*. New surfaces say "No X yet" —
   accurate but inert. A first-time user sees *only* empty states; today they're dead ends. Cheaper and
   broader-reaching than an onboarding rework (R-095).
 - **R-119 (Low)** — **Delete dead settings directories** (X-003): `settings/{add-ons,business-hours,
   notifications}` exist with no `page.tsx`. Nothing links to them (no 404s) — debris.
 - **R-120 (Medium)** — **Mobile table overflow** (X-004): 8 files render raw `<table>`; a business owner
   checks the product on a phone.
-- **R-121 (High)** — **Action-first Dashboard** (Dashboard audit). Both dashboards answer "what
+- **R-121 (High)** — **Action-first Dashboard**. **DONE 2026-07-25 (Sprint 8.5)** — reordered to Needs attention → Today → Trends; the attention section renders only when something is genuinely wrong (unhealthy channels, no connected employee, open requests), else an all-clear. *(was: Dashboard audit)*. Both dashboards answer "what
   happened?"; a daily operator opens the app asking **"does anything need me?"** Invert to: Needs
   attention → Today → Trends.
 - **R-122 (High)** — **Merge Tickets + Appointments → "Requests"**. They're the same concept (things the

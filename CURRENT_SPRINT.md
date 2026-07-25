@@ -1,4 +1,34 @@
-# CURRENT SPRINT — AI Employee Core (Sprint 8, narrow scope)
+# CURRENT SPRINT — Logged-In Experience (Sprint 8.5)
+
+> Audit: `docs/audits/LOGGED_IN_EXPERIENCE_AUDIT.md` · review: `docs/SPRINT_8.5_REVIEW.md`.
+
+**Sprint 8.5 · 2026-07-25 · Status: ✅ CODE-COMPLETE (scoped)**
+
+> A fresh CEO/product audit **overturned the previous day's conclusion**. Enabling the platform UX
+> would have been a *functional regression* (no search/date/outcome filters vs legacy Calls) on a
+> *visually incoherent* base, and Conversations was rendering a **fabricated total** — my own R-018
+> violation. All three fixed. **291 tests green; build green; all behind `PLATFORM_UX_ENABLED`.**
+
+## Shipped
+- **Platform UI primitives** (`_platform/ui`) that **wrap the real Horizon `Card`** — consistency with
+  Tickets/Appointments/Settings is structural, not copied classes. List surfaces refactored onto them.
+- **Conversations**: search, date range, outcome filter, pagination, **truthful counts** ("Showing
+  1–25 of N", "N+" when bounded). Filters live in the URL → shareable views. **Contacts**: search + truthful counts.
+- **Loading + error states** on all four platform routes; **empty states rewritten as onboarding**
+  (what it is · why empty · one action) with a distinct no-results variant.
+- **Action-first dashboard**: Needs attention → Today → Trends. Attention renders only when something
+  is genuinely wrong; otherwise an all-clear. New workspaces get a purposeful first-run state.
+
+## Still open before the platform UX could be the default
+**R-094** Settings restructure · **R-122** Requests merge (Tickets + Appointments → one surface).
+With the flag on today, a customer still lands in a CRUD-era Settings and sees two artifact nav items.
+
+## Blocked (not implementable here)
+Flipping `PLATFORM_UX_ENABLED` (needs staging) · R-020 calendar (external API) · `docs/LAUNCH_RUNBOOK.md`.
+
+---
+
+# PREVIOUS SPRINT — AI Employee Core (Sprint 8, narrow scope)
 
 > Audit: `docs/audits/AI_EMPLOYEE_CORE_AUDIT.md` · model: `skills/platform-architecture.md`
 > ("Control plane vs data plane") · memory: `docs/MEMORY_CONTRACT.md` · review: `docs/SPRINT_8_REVIEW.md`.
