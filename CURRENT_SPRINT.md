@@ -19,9 +19,25 @@
 - **Action-first dashboard**: Needs attention → Today → Trends. Attention renders only when something
   is genuinely wrong; otherwise an all-clear. New workspaces get a purposeful first-run state.
 
-## Still open before the platform UX could be the default
-**R-094** Settings restructure · **R-122** Requests merge (Tickets + Appointments → one surface).
-With the flag on today, a customer still lands in a CRUD-era Settings and sees two artifact nav items.
+## Settings + Requests (added 2026-07-25)
+- **Settings as a control center (R-094/R-128/R-130).** Audited every page individually
+  (`docs/audits/SETTINGS_AUDIT.md`): 529 `zinc-*` refs (a fourth design system), **no navigation of any
+  kind**, an index advertising destinations that don't exist, 3 dead directories, Usage duplicated as
+  its own concept. Rebuilt: IA grouped by what the customer *manages* (AI Employees · Channels ·
+  Organization · Billing & Usage · Account · Integrations), **persistent nav from one layout file**,
+  a control-center index with **live status**, and a contract test resolving every href against disk.
+  **Future channels need no new settings section** — they land under Channels via the Sprint 7 registry.
+- **Requests (R-122).** Tickets + Appointments were one concept split across two tables → one surface
+  with type tabs, real counts, status filter and search. Lists redirect; **detail pages and the create
+  form stay reachable** (nothing customer-visible lost). Nav 8 → 7. Not named "Tasks" — reserved for R-113.
+
+## Deferred with reasons (not skipped)
+- **R-131** — `workspace/billing` is **1,432 lines**; rewriting the money path for cosmetic gain is a
+  bad trade right now.
+- **R-129** — re-skinning all 11 settings pages off `zinc`; mechanical, and better done once the
+  structure has settled (it just changed).
+- **R-094 remainder** — merging the agent settings pages into `/employees`; touches live assistant
+  configuration, so it deserves its own change with tests.
 
 ## Blocked (not implementable here)
 Flipping `PLATFORM_UX_ENABLED` (needs staging) · R-020 calendar (external API) · `docs/LAUNCH_RUNBOOK.md`.

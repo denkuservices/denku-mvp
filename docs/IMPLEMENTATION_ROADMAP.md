@@ -5,7 +5,15 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-25 (**Sprint 8.5 (Logged-in Experience) CODE-COMPLETE**: a fresh CEO/product
+> **Last updated:** 2026-07-25 (**Sprint 8.5 CODE-COMPLETE — Settings + Requests**: audited every
+> Settings page individually (`docs/audits/SETTINGS_AUDIT.md`) and found a filing cabinet organised by
+> which team built what — **529 `zinc-*` refs (a fourth design system), no navigation of any kind, an
+> index advertising destinations that don't exist, 3 dead directories**. Rebuilt as a **control center**
+> (**R-094/R-128/R-130**): IA grouped by what the customer manages, persistent nav from one layout file,
+> live status per group, and a contract test resolving every href against disk. Then **R-122** — Tickets +
+> Appointments merged into **Requests** (one concept, two tables), nav 8 → 7, nothing lost. **300 tests
+> green.** Deferred with reasons: the 1,432-line billing page (**R-131**) and the zinc re-skin (**R-129**).)
+> **Prior:** 2026-07-25 (**Sprint 8.5 (Logged-in Experience) CODE-COMPLETE**: a fresh CEO/product
 > audit (`docs/audits/LOGGED_IN_EXPERIENCE_AUDIT.md`) **overturned the previous day's conclusion** —
 > enabling the platform UX would have been a *functional regression* (no search/date/outcome filters vs
 > legacy Calls) on a *visually incoherent* base, and the Conversations list was rendering a **fabricated
@@ -110,7 +118,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-128
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-132
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -130,10 +138,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 11 | 16 |
-| High | 17 | 0 | 21 | 38 |
-| Medium | 39 | 0 | 18 | 57 |
+| High | 16 | 0 | 24 | 40 |
+| Medium | 40 | 0 | 19 | 59 |
 | Low | 14 | 0 | 1 | 15 |
-| **Total** | **74** | **1** | **51** | **126** |
+| **Total** | **74** | **1** | **55** | **130** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -186,8 +194,11 @@
 - **R-093 (High)** — **Contacts experience**. **DONE 2026-07-24 (Sprint 5.5)** — real Contacts list +
   detail (identities, conversation history) over the contacts read model (`leads` today; contacts/
   contact_identities once backfilled R-081); conversation→contact link; `/leads` redirect. (audit P-014)
-- **R-094 (Medium)** — **Settings reorganization** by the platform model (per-Employee / per-Channel /
-  Workspace); subsumes R-063. (audit P-015)
+- **R-094 (Medium)** — **Settings reorganization**. **MOSTLY DONE 2026-07-25 (Sprint 8.5)** — IA regrouped
+  by what the customer manages (AI Employees · Channels · Organization · Billing & Usage · Account ·
+  Integrations), persistent nav, control-center index with live status, dead dirs removed. Future channels
+  need **no new settings section**. Remaining: merge the agent pages into /employees (touches live assistant
+  config) + the zinc re-skin (R-129). Subsumes R-063. (audit P-015, S-004)
 - **R-095 (Medium)** — **Onboarding reframe** (Employee→Channel narrative, DB step contract preserved). (audit P-002)
 - **R-096 (Medium)** — **UX/design consistency**: new `_platform` surfaces adopt Horizon primitives;
   reconcile the Horizon/shadcn split (R-064) where settings reorg touches it. (audit P-016)
@@ -278,6 +289,20 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 - **R-116 (Low)** — **Multi-persona modelling** (E-010). `router_persona_key`/`default_persona_key` +
   `personas` hint at it but it isn't coherently modelled; becomes real once manifests are versioned.
 
+**SETTINGS — per-page audit (filed 2026-07-25; `docs/audits/SETTINGS_AUDIT.md`):**
+
+- **R-128 (High)** — **Persistent settings navigation** (S-001). Settings had **no navigation of any
+  kind**; switching section meant routing back through the index. **DONE 2026-07-25** — one
+  `settings/layout.tsx` gives every page a rail (sidebar desktop / scroller mobile).
+- **R-129 (Medium)** — **Settings is a fourth design system** (S-002): **529 `zinc-*`** refs, foreign
+  to the Horizon dashboard it lives in, with thin dark-mode coverage; `account/*` bypasses
+  `SettingsShell` entirely (S-005). Mechanical re-skin — deferred deliberately until the structure settled.
+- **R-130 (High)** — **Index advertised destinations that don't exist** (S-003): "Invoices", "Payment
+  methods", "Limits", "Behavior", "Advanced" rendered as plain text. **DONE 2026-07-25** — every item
+  is now a real link, enforced by `test/settings-nav.test.ts` resolving each href against page.tsx on disk.
+- **R-131 (Medium)** — **`workspace/billing` is 1,432 lines** (plan + payment + invoices + add-ons in
+  one scroll). Not rewritten this sprint: money path, high regression risk, cosmetic gain.
+
 **LOGGED-IN EXPERIENCE — Sprint 8.5 (filed 2026-07-25; audit `docs/audits/LOGGED_IN_EXPERIENCE_AUDIT.md`):**
 
 > **This audit overturned the previous day's conclusion.** Yesterday: "the Platform UX is better —
@@ -324,7 +349,9 @@ inconsistent base wastes both. R-121 (action-first dashboard) stays P1 as the fi
 - **R-121 (High)** — **Action-first Dashboard**. **DONE 2026-07-25 (Sprint 8.5)** — reordered to Needs attention → Today → Trends; the attention section renders only when something is genuinely wrong (unhealthy channels, no connected employee, open requests), else an all-clear. *(was: Dashboard audit)*. Both dashboards answer "what
   happened?"; a daily operator opens the app asking **"does anything need me?"** Invert to: Needs
   attention → Today → Trends.
-- **R-122 (High)** — **Merge Tickets + Appointments → "Requests"**. They're the same concept (things the
+- **R-122 (High)** — **Merge Tickets + Appointments → "Requests"**. **DONE 2026-07-25 (Sprint 8.5)** —
+  one surface with type tabs + real counts, status filter, search; lists redirect while detail pages and
+  the create form stay reachable (nothing customer-visible lost). Nav 8 → 7 items. Original note: They're the same concept (things the
   AI produced), split only because they're two tables. The `artifacts` view (Sprint 4.5) already models
   this and is unused. **Explicitly NOT renamed to "Tasks"** — that noun is reserved for R-113 (pending
   work); the collision would be permanent. 2 nav items → 1.
