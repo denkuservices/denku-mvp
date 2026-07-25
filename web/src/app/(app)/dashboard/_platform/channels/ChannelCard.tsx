@@ -5,6 +5,7 @@ import { channelMeta, type Channel } from "@/lib/platform/channels";
 import type { ConnectionHealth } from "@/lib/platform/connectionHealth";
 import type { ChannelView } from "@/lib/platform/readModel/types";
 import ChannelBadge from "../ChannelBadge";
+import { Surface, Pill } from "../ui";
 
 /**
  * Generic channel card (Sprint 7 / R-103). ONE component renders every channel in every
@@ -59,20 +60,11 @@ export default function ChannelCard({ view }: { view: ChannelView }) {
   const manage = MANAGE_HREF[view.channel]?.(view);
 
   return (
-    <div
-      className={`flex h-full flex-col gap-3 rounded-2xl border p-5 ${
-        isComingSoon
-          ? "border-dashed border-gray-200 bg-gray-50/60 dark:border-white/10 dark:bg-white/[0.02]"
-          : "border-gray-200 bg-white dark:border-white/10 dark:bg-navy-800"
-      }`}
-    >
+    <Surface className={`h-full ${isComingSoon ? "opacity-75" : ""}`}>
+      <div className="flex h-full flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <ChannelBadge channel={view.channel} />
-        {!meta.productionReady && !isComingSoon ? (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-            Experimental
-          </span>
-        ) : null}
+        {!meta.productionReady && !isComingSoon ? <Pill tone="warn">Experimental</Pill> : null}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -112,6 +104,7 @@ export default function ChannelCard({ view }: { view: ChannelView }) {
           </button>
         )}
       </div>
-    </div>
+      </div>
+    </Surface>
   );
 }

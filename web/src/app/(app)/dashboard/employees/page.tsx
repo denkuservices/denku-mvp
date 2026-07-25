@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Users } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
 import PageHeader from "../_platform/PageHeader";
 import ChannelBadge from "../_platform/ChannelBadge";
-import { statusPillClass, titleCase } from "../_platform/format";
+import { titleCase } from "../_platform/format";
+import { Surface, EmptyState, Pill } from "../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +29,24 @@ export default async function EmployeesPage() {
       />
 
       {employees.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/10 dark:bg-navy-800">
-          <p className="text-sm font-medium text-navy-700 dark:text-white">No AI Employees yet</p>
-          <p className="mt-1 text-sm text-gray-500">Complete setup to hire your first AI Employee.</p>
-        </div>
+        <Surface padded={false}>
+          <EmptyState
+            icon={Users}
+            title="No AI Employees yet"
+            description="An AI Employee answers your customers on the channels you connect it to — around the clock. Finish setup to hire your first one."
+            action={{ label: "Go to channels", href: "/dashboard/channels" }}
+          />
+        </Surface>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {employees.map((e) => (
             <Link
               key={e.id}
               href={`/dashboard/employees/${e.id}`}
-              className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-brand-400 hover:shadow-sm dark:border-white/10 dark:bg-navy-800"
+              className="block"
             >
+              <Surface className="h-full transition hover:shadow-xl">
+              <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-base font-semibold text-navy-700 dark:text-white">{e.name}</p>
@@ -47,9 +55,7 @@ export default async function EmployeesPage() {
                     {e.voice ? ` · ${e.voice}` : ""}
                   </p>
                 </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(e.status)}`}>
-                  {titleCase(e.status)}
-                </span>
+                <Pill tone={e.status === "active" ? "ok" : "neutral"}>{titleCase(e.status)}</Pill>
               </div>
 
               <div>
@@ -64,6 +70,8 @@ export default async function EmployeesPage() {
                   </div>
                 )}
               </div>
+              </div>
+              </Surface>
             </Link>
           ))}
         </div>

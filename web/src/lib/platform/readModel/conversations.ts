@@ -135,6 +135,60 @@ async function employeeNames(
 export interface ListConversationsOpts {
   channel?: Channel;
   limit?: number;
+  /** Free-text match over contact handle/name, summary and intent. */
+  search?: string;
+  /** Inclusive ISO date bounds on last activity. */
+  from?: string;
+  to?: string;
+  /** Filter by classified intent (appointment | support | …). */
+  intent?: string;
+  /** Skip N results (simple offset pagination). */
+  offset?: number;
+}
+
+export interface ConversationPage {
+  items: ConversationView[];
+  /** Total matching the filters within the scanned window (see `scanned`). */
+  total: number;
+  /** True when the scan hit its bound, so `total` is a floor, not an exact count (R-018). */
+  bounded: boolean;
+}
+
+/** Apply search/date/intent filters to already-materialized views. Pure + testable. */
+export function filterConversationViews(
+  views: ConversationView[],
+  opts: Pick<ListConversationsOpts, "search" | "from" | "to" | "intent">
+): ConversationView[] {
+  const q = (opts.search ?? "").trim().toLowerCase();
+  const fromTs = opts.from ? Date.parse(opts.from) : null;
+  // `to` is inclusive of the whole day when a bare date is supplied.
+  const toTs = opts.to ? Date.parse(opts.to) + (opts.to.length <= 10 ? 86_399_999 : 0) : null;
+
+  return views.filter((v) => {
+    if (opts.intent && (v.intent ?? "") !== opts.intent) return false;
+
+    if (fromTs !== null || toTs !== null) {
+      const at = v.lastActivityAt ? Date.parse(v.lastActivityAt) : NaN;
+      if (Number.isNaN(at)) return false;
+      if (fromTs !== null && at < fromTs) return false;
+      if (toTs !== null && at > toTs) return false;
+    }
+
+    if (q) {
+      const haystack = [
+        v.contact.displayName,
+        v.contact.handle,
+        v.summary,
+        v.intent,
+        v.employeeName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
 }
 
 export async function listConversationViews(
@@ -182,6 +236,36 @@ export async function listConversationViews(
   }
 
   return out.sort(sortByActivityDesc).slice(0, limit);
+}
+
+/** How many conversations we scan before reporting a bounded (floor) total. */
+export const CONVERSATION_SCAN_LIMIT = 500;
+
+/**
+ * Paged, filtered conversations with a **truthful** total (R-018 / audit Y-003).
+ *
+ * The previous UI fetched 100 rows and rendered "{n} conversations" — so an org with thousands saw
+ * "100 conversations", a false statement about their own data. This scans up to
+ * `CONVERSATION_SCAN_LIMIT`, applies filters, and reports `bounded` so the surface can say
+ * "500+ matching" instead of inventing an exact number.
+ */
+export async function listConversationPage(
+  orgId: string,
+  opts: ListConversationsOpts = {},
+  db: SupabaseClient = supabaseAdmin
+): Promise<ConversationPage> {
+  const pageSize = opts.limit ?? 25;
+  const offset = Math.max(0, opts.offset ?? 0);
+  if (!orgId) return { items: [], total: 0, bounded: false };
+
+  const scanned = await listConversationViews(orgId, { channel: opts.channel, limit: CONVERSATION_SCAN_LIMIT }, db);
+  const filtered = filterConversationViews(scanned, opts);
+
+  return {
+    items: filtered.slice(offset, offset + pageSize),
+    total: filtered.length,
+    bounded: scanned.length >= CONVERSATION_SCAN_LIMIT,
+  };
 }
 
 // --- detail -----------------------------------------------------------------
