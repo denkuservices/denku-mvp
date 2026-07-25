@@ -101,7 +101,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-125
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-128
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -121,10 +121,10 @@
 | Priority | Open | In Progress | Completed | Total |
 |---|---|---|---|---|
 | Critical | 4 | 1 | 11 | 16 |
-| High | 18 | 0 | 18 | 36 |
-| Medium | 38 | 0 | 18 | 56 |
+| High | 20 | 0 | 18 | 38 |
+| Medium | 39 | 0 | 18 | 57 |
 | Low | 14 | 0 | 1 | 15 |
-| **Total** | **74** | **1** | **48** | **123** |
+| **Total** | **77** | **1** | **48** | **126** |
 
 *(2026-07-24: Sprint 6 (Launch Readiness) shipped R-098 (preflight), R-010 (member invites — Critical), R-047 (support); R-001 stays In Progress (enforce-ready, operator flip); R-004 marketing-honesty draft filed for counsel (not shipped). Sprint 5.5 shipped R-090/R-091/R-092/R-093. Sprint 5 shipped R-087/R-084/R-088/R-089.)*
 *(2026-07-22: +R-079 Medium, +R-078 Low — both Instagram tech-debt/robustness filed at Sprint 1.5 closure.)*
@@ -269,7 +269,31 @@ channels, voice depth (R-020 calendar strongest), R-066 instrumentation.
 - **R-116 (Low)** — **Multi-persona modelling** (E-010). `router_persona_key`/`default_persona_key` +
   `personas` hint at it but it isn't coherently modelled; becomes real once manifests are versioned.
 
-**PRODUCT EXPERIENCE — Sprint 8.5 candidates (filed 2026-07-24; audit `docs/audits/PRODUCT_EXPERIENCE_AUDIT.md`):**
+**LOGGED-IN EXPERIENCE — Sprint 8.5 (filed 2026-07-25; audit `docs/audits/LOGGED_IN_EXPERIENCE_AUDIT.md`):**
+
+> **This audit overturned the previous day's conclusion.** Yesterday: "the Platform UX is better —
+> finish and ship it." Measured head-to-head today, that was **protecting my own work**: flipping
+> `PLATFORM_UX_ENABLED` right now would be a **functional regression** (legacy Calls has outcome +
+> date-range + phone-line filters; Conversations has one channel filter) **and** would leave the app
+> visually incoherent (my 4 surfaces are hand-rolled Tailwind; Tickets/Appointments/Settings survive
+> the flip using Horizon/shadcn). **Revised verdict: the IA is right; the presentation layer is not.**
+
+- **R-125 (High)** — **Search across the logged-in app** (Y-004). There is none — not in Conversations,
+  Contacts, Employees or Tickets. Search is the primary navigation verb at scale.
+- **R-126 (High)** — **Pagination + honest counts** (Y-005, Y-003). Hard caps (100 conversations / 200
+  contacts) with no "next" and no total; the UI then renders "100 conversations" for an org with
+  thousands — **an R-018 honesty violation I introduced**.
+- **R-127 (Medium)** — **Platform UI primitives + detail-page consistency** (Y-008, Y-009). Three
+  different detail layouts and no shared card/empty/error primitives — each surface re-implements them,
+  guaranteeing drift.
+
+**Reprioritization (2026-07-25):** **R-096 (design-system consistency) moves UP to P1** — previously
+rated "cosmetic, move down"; it is in fact a **flag-flip blocker** and the thing that makes a live demo
+feel unfinished. **R-125/R-126 are new P1s.** **R-122 (Requests merge)** and **R-094 (Settings
+restructure)** remain P1 but sequence *after* the base is coherent — structural work landing on an
+inconsistent base wastes both. R-121 (action-first dashboard) stays P1 as the first impression.
+
+**PRODUCT EXPERIENCE — earlier pass (2026-07-24) — superseded in part by the audit above (filed 2026-07-24; audit `docs/audits/PRODUCT_EXPERIENCE_AUDIT.md`):**
 
 > **Headline finding:** the repo contains **two products** and the better one is **switched off**.
 > `PLATFORM_UX_ENABLED` defaults OFF, so customers get the voice-first CRUD nav (one item per DB table)
