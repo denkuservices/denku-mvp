@@ -56,9 +56,10 @@ export async function setPasswordAction(
 
   // 4) CRITICAL: Verify session is still valid after updateUser
   // This ensures cookies were persisted and session is readable
-  // Access cookie store to ensure cookie writes are committed
-  const cookieStore = await cookies();
-  
+  // Access cookie store to ensure cookie writes are committed.
+  // Intentionally called for its effect only — do not remove.
+  await cookies();
+
   // Verify session persists by calling getUser again
   const {
     data: { user: updatedUser },
@@ -68,17 +69,6 @@ export async function setPasswordAction(
   if (sessionVerifyError || !updatedUser) {
     console.error("[setPassword] Session lost after updateUser:", sessionVerifyError?.message);
     return { ok: false, error: "Session expired. Please verify again." };
-  }
-
-  // TEMP: Debug log cookie names (not values) in development only
-  if (process.env.NODE_ENV !== "production") {
-    const cookieNames = cookieStore.getAll().map((c: any) => c.name).filter((name: string) => 
-      name.includes("auth-token") || name.includes("supabase") || name.includes("sb-")
-    );
-    console.log("[setPassword] Auth cookies after updateUser:", {
-      cookieNames,
-      hasUpdatedUser: !!updatedUser,
-    });
   }
 
   // 5) Session is confirmed valid - return success
