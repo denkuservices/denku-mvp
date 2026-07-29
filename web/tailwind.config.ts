@@ -1,11 +1,28 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * WHY THE HORIZON TOKENS BELOW ARE DECLARED HERE (do not "clean them up"):
+ *
+ * This app runs Tailwind v4 (`@import "tailwindcss"` + `@theme inline` in globals.css),
+ * but the vendored Horizon UI dashboard components were written against Tailwind v3 and
+ * reference `navy-*`, `brand-*`, `lightPrimary`, `background-100/900`, `shadow-shadow-*`,
+ * `font-poppins` and `font-dm` as *config* tokens. Under v4 those utilities are only
+ * generated if the tokens are declared in this file — declaring them as CSS variables
+ * alone is not enough. Remove any of them and the Horizon dashboard silently renders
+ * unstyled (missing dark-mode backgrounds, card shadows, and fonts).
+ *
+ * Font loading is split deliberately: Poppins comes from the Google Fonts @import at the
+ * top of globals.css, DM Sans from `next/font/google` in app/(app)/layout.tsx. The
+ * families are registered here so Tailwind emits the matching utilities.
+ *
+ * (Migrated from web/DELTA_PLAN_TAILWIND.md, which described this as pending work. That
+ * work is complete — the plan doc was removed in R-133 and this comment replaces it.)
+ */
 const config: Config = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/horizon/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   darkMode: 'class',
   theme: {

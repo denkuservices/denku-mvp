@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  resolveSupabaseAnonCredentials,
+  authCookieOptions,
+  authCookieRemovalOptions,
+} from "@/lib/supabase/cookiePolicy";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
 
@@ -18,16 +23,13 @@ function isAuthorizedBasic(request: NextRequest) {
 /**
  * Create Supabase client for middleware context.
  * Uses request/response cookies for session management.
+ *
+ * Cookie attributes come from `lib/supabase/cookiePolicy.ts` — the same policy the
+ * Server Component client uses — so the session cookie this refreshes stays readable
+ * by the rest of the app.
  */
 function createSupabaseMiddlewareClient(request: NextRequest, response: NextResponse) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  }
-
-  const isProduction = process.env.NODE_ENV === "production";
+  const { url, anonKey } = resolveSupabaseAnonCredentials();
 
   return createServerClient(url, anonKey, {
     cookies: {
@@ -35,25 +37,10 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
         return request.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        // CRITICAL: Ensure cookies work on localhost (http://)
-        // Secure flag must be false on localhost, true only in production (HTTPS)
-        const cookieOptions: CookieOptions = {
-          ...options,
-          secure: isProduction, // false on localhost, true in production
-          sameSite: options.sameSite ?? "lax", // Default to lax if not specified
-          path: options.path ?? "/", // Default to root path
-        };
-        response.cookies.set({ name, value, ...cookieOptions });
+        response.cookies.set({ name, value, ...authCookieOptions(options) });
       },
       remove(name: string, options: CookieOptions) {
-        // Ensure cookie removal also respects secure flag for localhost
-        const cookieOptions: CookieOptions = {
-          ...options,
-          secure: isProduction,
-          sameSite: options.sameSite ?? "lax",
-          path: options.path ?? "/",
-        };
-        response.cookies.set({ name, value: "", ...cookieOptions, maxAge: 0 });
+        response.cookies.set({ name, value: "", ...authCookieRemovalOptions(options) });
       },
     },
   });

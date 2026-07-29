@@ -40,7 +40,6 @@ export async function ensureDefaultOrgForUser(
 
     if (existingOrg) {
       // Org already exists: ensure organization_settings and profile link exist (idempotent), then return
-      console.log("[ensureDefaultOrgForUser] orgId", orgId, "already existed"); // TEMP DEBUG
       await supabaseAdmin
         .from("organization_settings")
         .upsert({ org_id: orgId }, { onConflict: "org_id" });
@@ -66,7 +65,6 @@ export async function ensureDefaultOrgForUser(
 
     // 2) Org does not exist: idempotent upsert so double-invocation never hits orgs_pkey
     const orgsPayload = { id: orgId, name: orgName, created_at: now, created_by: userId };
-    console.log("[ensureDefaultOrgForUser] orgs payload keys", Object.keys(orgsPayload)); // TEMP DEBUG
     const { error: orgError } = await supabaseAdmin.from("orgs").upsert(orgsPayload, { onConflict: "id" });
     if (orgError) {
       console.error("[ensureDefaultOrgForUser] orgs upsert error:", orgError.message);
@@ -74,7 +72,6 @@ export async function ensureDefaultOrgForUser(
     }
 
     const legacyPayload = { id: orgId, name: orgName, created_at: now };
-    console.log("[ensureDefaultOrgForUser] organizations_legacy payload keys", Object.keys(legacyPayload)); // TEMP DEBUG
     const { error: legacyError } = await supabaseAdmin
       .from("organizations_legacy")
       .upsert(legacyPayload, { onConflict: "id" });
@@ -110,7 +107,6 @@ export async function ensureDefaultOrgForUser(
       return { ok: false, error: profileError.message };
     }
 
-    console.log("[ensureDefaultOrgForUser] orgId", orgId, "created"); // TEMP DEBUG
     return { ok: true, orgId, created: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

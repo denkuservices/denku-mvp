@@ -151,9 +151,9 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
     }
 
     // Send welcome email exactly once when user lands on onboarding (idempotent; conditional UPDATE in action)
-    console.log("[WELCOME] before sendWelcomeOnOnboardingStart"); // TEMP DEBUG
-    const welcomeResult = await sendWelcomeOnOnboardingStart();
-    console.log("[WELCOME] after sendWelcomeOnOnboardingStart", welcomeResult); // TEMP DEBUG
+    // Result is intentionally not surfaced: every stage is a no-op or already-sent case from the
+    // user's point of view, and the action never throws.
+    await sendWelcomeOnOnboardingStart();
 
     // Pass checkout status to client for UI handling (no server-side writes)
     // Client handles "Confirming your plan..." UI and polling if plan is not yet active
