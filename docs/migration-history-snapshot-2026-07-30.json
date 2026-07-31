@@ -1,0 +1,15 @@
+{
+  "captured_at": "2026-07-30T00:00:00Z",
+  "project_id": "kebqwsdguxxjsijahrox",
+  "purpose": "Rollback anchor taken immediately BEFORE the R-134 migration-history repair. These 6 rows are the complete contents of supabase_migrations.schema_migrations at that moment. If a repair or push must be undone, delete every row whose version is NOT in this list to return the bookkeeping table to its exact prior state.",
+  "row_count": 6,
+  "rows": [
+    { "version": "20260405185422", "name": "rls_calls_leads_tickets_appointments" },
+    { "version": "20260405185454", "name": "migrate_organization_settings_fk_to_orgs" },
+    { "version": "20260405185505", "name": "migrate_legacy_fks_to_orgs" },
+    { "version": "20260405185521", "name": "cleanup_conversation_messages_and_legacy" },
+    { "version": "20260722000251", "name": "instagram_foundation" },
+    { "version": "20260722000302", "name": "instagram_data_deletion" }
+  ],
+  "note": "Deleting bookkeeping rows only rewinds migration HISTORY, never schema. Schema changes applied by db push are NOT undone by restoring this file; those must be reverted with a forward migration."
+}

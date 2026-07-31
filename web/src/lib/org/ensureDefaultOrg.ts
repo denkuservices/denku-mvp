@@ -71,14 +71,17 @@ export async function ensureDefaultOrgForUser(
       return { ok: false, error: orgError.message };
     }
 
-    const legacyPayload = { id: orgId, name: orgName, created_at: now };
-    const { error: legacyError } = await supabaseAdmin
-      .from("organizations_legacy")
-      .upsert(legacyPayload, { onConflict: "id" });
-    if (legacyError) {
-      console.error("[ensureDefaultOrgForUser] organizations_legacy upsert error:", legacyError.message);
-      return { ok: false, error: legacyError.message };
-    }
+    // NOTE (R-134): the organizations_legacy upsert that used to sit here was
+    // removed. That table was DROPped in production by migration
+    // 20260405185521, and organization_settings.org_id now references orgs(id)
+    // directly (20260405185454) — so there is no FK parent to "ensure" anymore.
+    //
+    // This was not cosmetic: the write failed on every call, and unlike the
+    // other legacy write sites this one CAPTURED the error and returned
+    // { ok: false }. That made ensureDefaultOrgForUser impossible to succeed on
+    // its create path, so a user who reached onboarding without an org never
+    // got one — and never received the welcome email that depends on it
+    // (sendWelcomeOnOnboardingStart -> stage "no_org").
 
     const { error: settingsError } = await supabaseAdmin
       .from("organization_settings")
