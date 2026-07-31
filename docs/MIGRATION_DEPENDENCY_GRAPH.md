@@ -1,5 +1,25 @@
 # Migration Dependency Graph (R-134)
 
+> ## ✅ EXECUTION STATUS — updated 2026-07-30
+>
+> **Step 1 of 2 is DONE. The original divergence is fully closed.**
+>
+> `supabase migration repair --status applied` was run for the 12 verified-APPLIED migrations.
+> Confirmed by `supabase migration list`: **zero remote-only rows remain** — the "remote ahead of
+> repo" problem that started this whole investigation no longer exists.
+>
+> Verified during execution (resolving an earlier open question): `migration repair` writes the
+> **full** bookkeeping row — `version`, `name` *and* `statements` (e.g. `20241202000000` landed with
+> 9 statements from the local file), not a bare version stub. So repaired history is complete and a
+> future `db diff` reads it correctly.
+>
+> **Step 2 — applying the 22 outstanding migrations — is NOT done.** `supabase db push --include-all`
+> is blocked by the environment's permission classifier. A `--dry-run` confirmed the exact set and
+> order, and every pre-flight check passed (see "Pre-flight results" below). The single command to
+> finish is at the bottom of this file.
+>
+> Current state: **18 in sync · 22 outstanding · 0 remote-only**.
+
 **Generated:** 2026-07-30 · **Revised:** 2026-07-30 after exhaustive object verification
 **Repo:** `supabase/migrations/` (39 files) + `supabase/migrations_archive/` (1)
 **Production project:** `kebqwsdguxxjsijahrox` · **Verification:** read-only
