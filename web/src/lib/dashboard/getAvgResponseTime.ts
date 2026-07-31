@@ -10,10 +10,16 @@ type MsgRow = {
 
 /**
  * Calculates average "time to first assistant reply" in the last 24h for an org.
- * Assumes:
- * - Table: conversation_messages
- * - Columns: conversation_id (uuid), role (text), created_at (timestamptz)
- * - Conversations are scoped by org_id in "conversations" table.
+ *
+ * Reads public.messages, which carries org_id, conversation_id, role and
+ * created_at — so the org scope is applied directly in one query.
+ *
+ * R-134: this function previously queried a table named `conversation_messages`,
+ * which was DROPped from production by migration 20260405185521 ("conversation_messages
+ * RLS'siz ve messages tablosu ile çakışıyor"). Every call therefore failed and the
+ * dashboard tile silently rendered "—" forever. It also did a two-step lookup
+ * (conversations -> ids -> messages) that is unnecessary now that messages is
+ * org-scoped in its own right.
  */
 export async function getAvgResponseTime(orgId: string): Promise<string> {
   const supabase = await createSupabaseServerClient();
@@ -21,33 +27,15 @@ export async function getAvgResponseTime(orgId: string): Promise<string> {
   // Last 24 hours window
   const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  // 1) Fetch recent conversations for org (to scope messages)
-  const { data: convs, error: convErr } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("org_id", orgId)
-    .gte("created_at", sinceIso)
-    .order("created_at", { ascending: false })
-    .limit(200); // cap for safety
-
-  if (convErr) {
-    // Fail safe: don't break dashboard
-    return "—";
-  }
-
-  const convoIds = (convs ?? []).map((c: any) => String(c.id)).filter(Boolean);
-  if (convoIds.length === 0) return "—";
-
-  // 2) Fetch messages for those conversations within window
-  // NOTE: in(...) is supported by PostgREST; keep list bounded (we limited convs).
   const { data: rows, error: msgErr } = await supabase
-    .from("conversation_messages")
+    .from("messages")
     .select("conversation_id, role, created_at")
-    .in("conversation_id", convoIds)
+    .eq("org_id", orgId)
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: true })
     .returns<MsgRow[]>();
 
+  // Fail safe: never break the dashboard
   if (msgErr || !rows || rows.length === 0) return "—";
 
   // 3) Compute per-conversation first user msg -> first assistant msg delta

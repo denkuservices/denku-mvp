@@ -185,9 +185,13 @@ export async function getOnboardingState() {
 
   const role = profiles?.[0]?.role || null;
 
-  // 4) Get organization name from organizations_legacy
+  // 4) Get organization name from orgs (canonical org table).
+  // R-134: this read used to target organizations_legacy, which was DROPped in
+  // production by 20260405185521 — so it always returned nothing and the
+  // onboarding UI rendered an EMPTY workspace name. orgs.name is the source of
+  // truth (settings/_actions/workspace.ts writes it there).
   const { data: org } = await supabaseAdmin
-    .from("organizations_legacy")
+    .from("orgs")
     .select("id, name")
     .eq("id", orgId)
     .maybeSingle();
