@@ -1,3 +1,18 @@
+# ============================================================================
+# LOCAL DEVELOPMENT CONFIG ONLY.
+#
+# !! DO NOT RUN `supabase config push` WITH THIS FILE !!
+# It would overwrite PRODUCTION auth settings with these values. Two of the CLI
+# defaults directly contradict how Denku actually works:
+#   * minimum_password_length — Denku enforces 8 (PASSWORD_MIN_LENGTH in
+#     web/src/lib/auth/passwordPolicy.ts). A push of 6 would weaken it.
+#   * enable_confirmations — Denku REQUIRES a confirmed email; web/src/middleware.ts
+#     gates /dashboard on email_confirmed_at. A push of false breaks that contract.
+# Both have been aligned with production intent below, but the rule stands: this
+# file exists so `supabase db reset` can verify migrations locally (R-031),
+# nothing more.
+# ============================================================================
+
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
@@ -179,7 +194,7 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+minimum_password_length = 8  # matches PASSWORD_MIN_LENGTH (R-031)
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -223,7 +238,7 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+enable_confirmations = true  # middleware gates on email_confirmed_at (R-031)
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

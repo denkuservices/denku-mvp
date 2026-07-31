@@ -125,3 +125,50 @@ zero one-sided rows.**
 The baseline is a point-in-time dump, so it duplicates what later migrations also create. That is the
 accepted cost of adopting an existing project. Future migrations layer on normally; only add a new
 baseline if the history ever becomes unwieldy enough to warrant a squash.
+
+---
+
+## Traps this change introduces (read before touching migrations)
+
+Found during the adversarial review. None is a regression today; all three are future footguns.
+
+### 1. Editing a historical migration no longer affects fresh databases
+
+The baseline already contains the final schema, so migrations after it are no-ops by design. If you
+edit, say, `20250120000000` to add a column, a fresh `db reset` will **not** produce that column — the
+baseline created the table without it and the migration's `ADD COLUMN IF NOT EXISTS` will fire, but any
+*guarded* statement (constraint, policy, trigger) silently will not.
+
+**Rule: never edit a historical migration to change schema. Always add a new one.**
+
+### 2. The baseline is only safe against an EMPTY `public` schema
+
+`supabase db dump` emits `CREATE TABLE IF NOT EXISTS`. Run against a database that already has tables of
+a *different* shape, the baseline silently skips them and later migrations then build on the wrong
+foundation. It is written for a genuinely fresh project and nothing else.
+
+### 3. `supabase config push` would overwrite production auth settings
+
+`supabase/config.toml` is new in this PR (needed so the CLI can drive a local stack). It ships CLI
+defaults, two of which contradict production:
+
+| Setting | CLI default | Denku reality |
+|---|---|---|
+| `minimum_password_length` | 6 | **8** (`PASSWORD_MIN_LENGTH`, `web/src/lib/auth/passwordPolicy.ts`) |
+| `enable_confirmations` | false | **true** — `middleware.ts` gates `/dashboard` on `email_confirmed_at` |
+
+Both were aligned with production intent and a `DO NOT RUN supabase config push` banner added to the
+file. The file contains no secrets (verified) and points only at localhost.
+
+## Verification caveat, stated honestly
+
+The first replay of the committed tree appeared to fail with
+`column "id" is of type uuid but default expression is of type bigint`. That was **an artifact of the
+test harness, not the migrations**: `pg_isready` reports ready during the `supabase/postgres` image's
+initdb-then-restart cycle, so migrations were applied to a half-initialised database. Waiting on an
+actual `SELECT 1` instead and re-running gave **42/42 with exact parity**. Any future replay check must
+wait on a real query, not `pg_isready`.
+
+Seed data was also compared, since object counts cannot catch row-level drift:
+`billing_plan_catalog` in a fresh replay matches production exactly — starter 149/400/1/1 @0.22,
+growth 399/1200/4/2 @0.18, scale 899/3600/10/5 @0.13.
