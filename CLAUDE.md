@@ -76,9 +76,16 @@ Lint: `npm run lint` (⚠ ~216 pre-existing errors — tracked debt, non-blockin
 
 ## Architecture in one paragraph
 
-Next.js on Vercel. Supabase = Postgres + Auth. Server code accesses the DB almost exclusively via
-the **service-role client** (`web/src/lib/supabase/admin.ts`) with **manual `org_id` scoping** —
-RLS exists on a few tables but is NOT the enforcement layer. `web/src/middleware.ts` gates
+Next.js on Vercel. Supabase = Postgres + Auth. Server code uses **two** clients, deliberately:
+the **service-role client** (`web/src/lib/supabase/admin.ts`) with **manual `org_id` scoping** for
+privileged/background writes, and the **cookie client** (`web/src/lib/supabase/server.ts`) for
+request-scoped, user-authenticated reads. The split is ~50/50 (89 vs 86 importers) and the boundary
+holds: all 8 cron/webhook/tools routes use service-role, **zero** use the cookie client.
+**⚠️ RLS IS load-bearing — corrected 2026-07-30 (R-134).** An earlier version of this file said
+"RLS exists on a few tables but is NOT the enforcement layer." That is **false and dangerous**:
+RLS is enabled on **13 of 14** tenant tables with 1–4 policies each, scoped via `profiles → org_id`,
+and ~60 files read through it. Do not disable a policy assuming it is decorative.
+`web/src/middleware.ts` gates
 `/dashboard` (session + email confirmed + `onboarding_step >= 6`), allowlists the billing page, and
 Basic-Auths `/admin` + `/api/admin`. Stripe handles subscriptions/add-ons/overage; Vapi handles
 assistants/numbers/calls and calls back to `/api/webhooks/vapi` (the 3,100-line heart of the
@@ -142,8 +149,16 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    Customer browser code must NEVER call it (the member-invite form does, and is therefore broken).
    Exception already carved out: `/api/admin/analytics/export` (session auth).
 4. **Two org-creation paths disagree:** `signupAction` creates org with a random UUID;
-   `lib/org/ensureDefaultOrg.ts` uses deterministic `orgId = userId`. Both dual-write `orgs` +
-   `organizations_legacy` (half-finished migration; `organizations` is now a read-only VIEW).
+   `lib/org/ensureDefaultOrg.ts` uses deterministic `orgId = userId`. **`organizations_legacy` is
+   GONE — corrected 2026-07-30 (R-134).** It was `DROP`ped in production by migration
+   `20260405185521`, and `organization_settings.org_id` has referenced `orgs(id)` since
+   `20260405185454`. The "dual-write / half-finished migration" note here was stale: the DB side
+   finished, only the code lagged. `organizations` remains a read-only VIEW over `orgs`.
+   Three code paths broken by that lag were fixed in R-134 (`ensureDefaultOrg` hard-failed;
+   onboarding showed an empty workspace name; `getAvgResponseTime` was dead). **~24
+   `organizations_legacy` "ensure FK parent" blocks still remain** in `onboarding/_actions.ts` and
+   `signupAction.ts` — they discard their errors, so they are harmless no-ops that only waste a
+   round-trip. Do not add new ones; delete them when you touch that code.
 5. **Hardcoded Vapi artifacts:** tool IDs `6c9b0279-…` (create_ticket) and `5373add8-…`
    (create_appointment) are now centralized as `DENKU_TOOL_IDS` in `lib/vapi/assistantConfig.ts`
    (was duplicated in `onboarding/_actions.ts`); marketing demo assistant fallback in
@@ -174,6 +189,17 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    with a golden-master TS mirror `lib/billing/usageMath.ts`. Key rule: `billable_minutes =
    Σ ceil(duration_seconds/60)` **per call** (rounds up each call). Full base-schema baseline is still
    R-031.
+   **Migration history reconciled 2026-07-30 (R-134)** — but read
+   [docs/MIGRATION_DEPENDENCY_GRAPH.md](docs/MIGRATION_DEPENDENCY_GRAPH.md) before touching
+   `supabase/migrations/`. Key facts: 4 migrations were applied straight to prod during a 5-month
+   commit gap and are now recovered into the repo; **9 migrations are only PARTIALLY applied**
+   (`ADD COLUMN`/`CREATE TABLE` landed, `CREATE INDEX`/`ADD CONSTRAINT` did not) — never
+   `migration repair` one of those, it discards the missing half; and `20250126000000` is
+   **destructive if re-run** (its `ALTER TABLE … RENAME` would rename the live `organizations`
+   VIEW away) so it carries a `relkind='r'` guard that must never be removed.
+   ⚠️ **The `workspace_status` / `paused_reason` enums in the business-rules table below are NOT
+   enforced by the database** — `check_workspace_status` and `check_paused_reason` were never
+   applied. Application code is currently the only guard.
 10. **Supabase MCP: two projects are reachable — target Denku EXPLICITLY by id.** `list_projects`
     returns Denku prod `kebqwsdguxxjsijahrox` (`ACTIVE_HEALTHY`) **and** the unrelated `BondAI`
     (`ukosngcmvejbhfimggrn`). The old "points at the wrong project" warning meant BondAI is the
