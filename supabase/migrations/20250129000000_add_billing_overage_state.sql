@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.billing_overage_state (
 );
 
 -- Add updated_at trigger
+-- R-031: guarded for replay after the 20241101000000 baseline.
+DROP TRIGGER IF EXISTS update_billing_overage_state_updated_at ON public.billing_overage_state;
 CREATE TRIGGER update_billing_overage_state_updated_at
   BEFORE UPDATE ON public.billing_overage_state
   FOR EACH ROW
@@ -23,6 +25,8 @@ CREATE TRIGGER update_billing_overage_state_updated_at
 ALTER TABLE public.billing_overage_state ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy: users can only read/write their own org's overage state
+-- R-031: guarded for replay after the 20241101000000 baseline.
+DROP POLICY IF EXISTS "Users can manage their org's overage state" ON public.billing_overage_state;
 CREATE POLICY "Users can manage their org's overage state"
   ON public.billing_overage_state
   FOR ALL

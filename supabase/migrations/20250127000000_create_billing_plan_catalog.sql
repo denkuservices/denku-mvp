@@ -20,6 +20,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- R-031: guarded for replay after the 20241101000000 baseline.
+DROP TRIGGER IF EXISTS update_billing_plan_catalog_updated_at ON public.billing_plan_catalog;
 CREATE TRIGGER update_billing_plan_catalog_updated_at
   BEFORE UPDATE ON public.billing_plan_catalog
   FOR EACH ROW
@@ -29,6 +31,8 @@ CREATE TRIGGER update_billing_plan_catalog_updated_at
 ALTER TABLE public.billing_plan_catalog ENABLE ROW LEVEL SECURITY;
 
 -- Create read policy for authenticated users (plan metadata is globally readable)
+-- R-031: guarded for replay after the 20241101000000 baseline.
+DROP POLICY IF EXISTS "Allow authenticated users to read plan catalog" ON public.billing_plan_catalog;
 CREATE POLICY "Allow authenticated users to read plan catalog"
   ON public.billing_plan_catalog
   FOR SELECT
