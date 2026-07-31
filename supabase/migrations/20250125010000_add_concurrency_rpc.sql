@@ -1,93 +1,131 @@
--- RPC function to atomically acquire an org-level concurrency lease
--- Uses pg_advisory_xact_lock to serialize acquires per org within the transaction
-CREATE OR REPLACE FUNCTION public.acquire_org_concurrency_lease(
-  p_org_id uuid,
-  p_limit int,
-  p_agent_id uuid DEFAULT NULL,
-  p_vapi_call_id text DEFAULT NULL,
-  p_ttl_minutes int DEFAULT 15
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_active_count int;
-  v_expires_at timestamptz;
-BEGIN
-  -- Serialize acquires per org using advisory lock
-  PERFORM pg_advisory_xact_lock(hashtext(p_org_id::text));
-  
-  -- Count active leases for this org (released_at IS NULL AND expires_at > now())
-  SELECT COUNT(*)
-  INTO v_active_count
-  FROM public.call_concurrency_leases
-  WHERE org_id = p_org_id
-    AND released_at IS NULL
-    AND expires_at > now();
-  
-  -- Check if we've reached the limit
-  IF v_active_count >= p_limit THEN
-    RETURN false;
-  END IF;
-  
-  -- Calculate expires_at
-  v_expires_at := now() + make_interval(mins => p_ttl_minutes);
-  
-  -- Insert new lease
-  INSERT INTO public.call_concurrency_leases (
+-- Concurrency lease RPCs.
+--
+-- R-031 (2026-07-30): the definitions in this file were REPLACED with the
+-- definitions actually present in production. The original January-2025 versions
+-- had drifted badly from the live database — CLAUDE.md landmine #9 documented
+-- exactly this ("never assume a migration file describes the current function
+-- signature"). Concretely, this file used to declare
+--     acquire_org_concurrency_lease(p_org_id uuid, p_limit int, p_agent_id uuid, ...)
+-- while production has
+--     acquire_org_concurrency_lease(p_org_id uuid, p_agent_id uuid, p_vapi_call_id text,
+--                                   p_limit integer, p_ttl_minutes integer DEFAULT 10)
+--                                   RETURNS TABLE(ok boolean, active_count integer, limit_value integer)
+-- Replaying the stale version would have REGRESSED production's signature, so the
+-- file now carries production truth. The historical shape remains in git history.
+-- Definitions below are verbatim from the 20241101000000 baseline (a production dump).
+
+CREATE OR REPLACE FUNCTION "public"."acquire_org_concurrency_lease"("p_org_id" "uuid", "p_agent_id" "uuid", "p_vapi_call_id" "text", "p_limit" integer, "p_ttl_minutes" integer DEFAULT 10) RETURNS TABLE("ok" boolean, "active_count" integer, "limit_value" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_active integer;
+begin
+  -- Clean up expired leases first
+  update public.call_concurrency_leases
+    set released_at = now()
+  where org_id = p_org_id
+    and released_at is null
+    and expires_at <= now();
+
+  -- Count active leases for org
+  select count(*) into v_active
+  from public.call_concurrency_leases
+  where org_id = p_org_id
+    and released_at is null
+    and expires_at > now();
+
+  -- If already have a lease for this vapi_call_id, treat as ok (idempotent)
+  if exists (
+    select 1
+    from public.call_concurrency_leases
+    where org_id = p_org_id
+      and vapi_call_id = p_vapi_call_id
+      and released_at is null
+      and expires_at > now()
+  ) then
+    ok := true;
+    active_count := v_active;
+    limit_value := p_limit;
+    return next;
+    return;
+  end if;
+
+  -- Enforce limit
+  if v_active >= p_limit then
+    ok := false;
+    active_count := v_active;
+    limit_value := p_limit;
+    return next;
+    return;
+  end if;
+
+  -- Acquire lease
+  insert into public.call_concurrency_leases (
     org_id,
     agent_id,
     vapi_call_id,
     acquired_at,
-    released_at,
-    expires_at
-  ) VALUES (
+    expires_at,
+    released_at
+  )
+  values (
     p_org_id,
     p_agent_id,
     p_vapi_call_id,
     now(),
-    NULL,
-    v_expires_at
-  );
-  
-  RETURN true;
-END;
+    now() + make_interval(mins => p_ttl_minutes),
+    null
+  )
+  on conflict do nothing;
+
+  -- Recount after insert (best-effort)
+  select count(*) into v_active
+  from public.call_concurrency_leases
+  where org_id = p_org_id
+    and released_at is null
+    and expires_at > now();
+
+  ok := true;
+  active_count := v_active;
+  limit_value := p_limit;
+  return next;
+end;
 $$;
 
--- RPC function to release an org-level concurrency lease by vapi_call_id
-CREATE OR REPLACE FUNCTION public.release_org_concurrency_lease(
-  p_org_id uuid,
-  p_vapi_call_id text
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  UPDATE public.call_concurrency_leases
-  SET released_at = now()
-  WHERE org_id = p_org_id
-    AND vapi_call_id = p_vapi_call_id
-    AND released_at IS NULL;
-END;
+
+CREATE OR REPLACE FUNCTION "public"."release_org_concurrency_lease"("p_org_id" "uuid", "p_vapi_call_id" "text") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_updated integer;
+begin
+  update public.call_concurrency_leases
+    set released_at = now(),
+        updated_at = now()
+  where org_id = p_org_id
+    and vapi_call_id = p_vapi_call_id
+    and released_at is null
+    and expires_at > now();
+
+  get diagnostics v_updated = row_count;
+  return v_updated > 0;
+end;
 $$;
 
--- RPC function to clean up expired leases (can be called periodically)
-CREATE OR REPLACE FUNCTION public.release_expired_concurrency_leases()
-RETURNS int
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_count int;
-BEGIN
-  UPDATE public.call_concurrency_leases
-  SET released_at = now()
-  WHERE released_at IS NULL
-    AND expires_at < now();
-  
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  RETURN v_count;
-END;
+
+CREATE OR REPLACE FUNCTION "public"."release_expired_concurrency_leases"() RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  n integer;
+begin
+  update public.call_concurrency_leases
+     set released_at = now(),
+         updated_at = now()
+   where released_at is null
+     and expires_at <= now();
+
+  get diagnostics n = row_count;
+  return n;
+end;
 $$;

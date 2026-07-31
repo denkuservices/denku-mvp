@@ -40,15 +40,24 @@ END $$;
 -- This VIEW provides backward compatibility for code that still references organizations
 -- The VIEW exposes: id, name, plan (default 'mvp'), status (default 'active'), phone_number (default ''), created_at
 -- Note: Views inherit RLS policies from the underlying table (orgs)
-CREATE OR REPLACE VIEW public.organizations AS
-SELECT
-  o.id,
-  o.name,
-  'mvp'::text AS plan,  -- Default plan (will be moved to dedicated model soon)
-  'active'::text AS status,  -- Default status (workspace_status in organization_settings is source of truth)
-  ''::text AS phone_number,  -- Default empty string (TODO: migrate phone_number mapping if needed)
-  o.created_at
-FROM public.orgs o;
+-- R-031 (2026-07-30): the view definition below was REPLACED with the definition
+-- actually present in production. The original January-2025 version selected only
+-- 6 columns and hard-coded phone_number to ''; production's view exposes 9 columns
+-- including display_name, the real phone_number_e164 mapping, vapi_assistant_id and
+-- vapi_phone_number_id. Replaying the stale version would have DROPPED columns from
+-- the live view (PostgreSQL rejects that outright: "cannot drop columns from view"),
+-- so the file now carries production truth. Historical shape remains in git history.
+CREATE OR REPLACE VIEW "public"."organizations" AS
+ SELECT "id",
+    "name",
+    COALESCE(NULLIF("name", ''::"text"), 'Workspace'::"text") AS "display_name",
+    'mvp'::"text" AS "plan",
+    'active'::"text" AS "status",
+    "phone_number_e164" AS "phone_number",
+    "created_at",
+    "vapi_assistant_id",
+    "vapi_phone_number_id"
+   FROM "public"."orgs" "o";
 
 -- Step 3: Grant necessary permissions (views rely on underlying table policies)
 -- The view will use RLS policies from the orgs table
