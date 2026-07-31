@@ -1,6 +1,37 @@
 # Migration Dependency Graph (R-134)
 
-> ## ✅ EXECUTION STATUS — updated 2026-07-30
+> ## ✅ COMPLETE — 2026-07-30. Repository and production are fully synchronized.
+>
+> Both steps executed and verified object-by-object.
+> **`supabase migration list`: 40 local / 40 remote / ZERO one-sided rows.**
+>
+> - **Step 1 — repair.** 12 verified-APPLIED migrations repaired. Confirmed during execution that
+>   `migration repair` writes the *full* bookkeeping row (`version` + `name` + `statements`), not a
+>   version stub.
+> - **Step 2 — push.** `supabase db push --include-all` applied all 22 outstanding migrations in
+>   dependency order. `--include-all` was required: 12 files predate the last remote entry and the
+>   CLI silently skips those without it.
+>
+> **Verified after the push:**
+> - 28/28 previously-missing objects from the 9 PARTIAL migrations now exist — including the three
+>   CHECK constraints (`check_workspace_status`, `check_paused_reason`, `check_billing_status`), so
+>   the `workspace_status` / `paused_reason` enums are now **enforced by the database**, not just app code.
+> - Sprint 4.5 platform layer fully live: `employee_channels`, `contacts`, `contact_identities`,
+>   `artifacts` view, and every enrichment column on `conversations` / `messages` / `calls` /
+>   `instagram_webhook_events`. Plus `org_invites` and `employee_manifests`.
+> - **Zero tables remain RLS-off with anon access.** All 10 locked. Functional RLS test with a real
+>   `auth.uid()`: an authenticated user sees **exactly 1 of 39** orgs (their own) and **0** rows of
+>   `org_plan_overrides` — tenant isolation proven, and the anon-INSERT privilege-escalation path
+>   into billing is closed.
+> - Tests 300/300, production build exit 0.
+>
+> The 2 "MISSING" results during verification were both errors in the *verification query*, not the
+> migrations: `fn_calls_today_counts_by_phone_number` carries an `fn_` prefix, and
+> `20260723000000_artifact_notifications` adds columns (`tickets.notified_at`,
+> `appointments.notified_at`, `organization_settings.notify_on_artifacts`) rather than creating a
+> table of that name. Both confirmed present.
+>
+> <details><summary>Historical: status before execution</summary>
 >
 > **Step 1 of 2 is DONE. The original divergence is fully closed.**
 >
@@ -19,6 +50,8 @@
 > finish is at the bottom of this file.
 >
 > Current state: **18 in sync · 22 outstanding · 0 remote-only**.
+>
+> </details>
 
 **Generated:** 2026-07-30 · **Revised:** 2026-07-30 after exhaustive object verification
 **Repo:** `supabase/migrations/` (39 files) + `supabase/migrations_archive/` (1)
