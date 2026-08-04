@@ -10,8 +10,13 @@ ALTER TABLE organization_settings
 ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ NULL;
 
 -- Add constraint to ensure valid status values
+-- R-031: guarded so this migration is a no-op when replayed after the
+-- 20241101000000 baseline (which already carries this constraint). PostgreSQL has
+-- no ADD CONSTRAINT IF NOT EXISTS. Identical definition, so drop-and-recreate is safe.
 ALTER TABLE organization_settings
-ADD CONSTRAINT check_workspace_status 
+DROP CONSTRAINT IF EXISTS check_workspace_status;
+ALTER TABLE organization_settings
+ADD CONSTRAINT check_workspace_status
 CHECK (workspace_status IN ('active', 'paused'));
 
 -- Add index for efficient status queries
