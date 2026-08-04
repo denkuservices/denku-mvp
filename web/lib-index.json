@@ -1,0 +1,52 @@
+﻿[
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\rateLimit.ts",
+        "Length":  585,
+        "LastWriteTime":  "\/Date(1766989734699)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "Length":  298,
+        "LastWriteTime":  "\/Date(1766989734701)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "Length":  257,
+        "LastWriteTime":  "\/Date(1766989734701)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\utils.ts",
+        "Length":  166,
+        "LastWriteTime":  "\/Date(1767020749808)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\auth\\basic.ts",
+        "Length":  565,
+        "LastWriteTime":  "\/Date(1766989734693)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\dashboard\\getAvgResponseTime.ts",
+        "Length":  3248,
+        "LastWriteTime":  "\/Date(1767130909027)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\dashboard\\getDashboardOverview.ts",
+        "Length":  5378,
+        "LastWriteTime":  "\/Date(1767131660150)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabase\\admin.ts",
+        "Length":  411,
+        "LastWriteTime":  "\/Date(1767072952374)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabase\\server.ts",
+        "Length":  1320,
+        "LastWriteTime":  "\/Date(1767129144501)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\vapi\\server.ts",
+        "Length":  794,
+        "LastWriteTime":  "\/Date(1767198794629)\/"
+    }
+]

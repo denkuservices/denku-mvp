@@ -104,14 +104,15 @@ function getMockTickets(): TicketRow[] {
   ];
 }
 
-export default function Page({
+export default async function Page({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const q = asString(searchParams?.q).trim();
-  const status = asString(searchParams?.status).trim() as TicketStatus | "";
-  const priority = asString(searchParams?.priority).trim() as TicketPriority | "";
+  const sp = searchParams ? await searchParams : {};
+  const q = asString(sp.q).trim();
+  const status = asString(sp.status).trim() as TicketStatus | "";
+  const priority = asString(sp.priority).trim() as TicketPriority | "";
 
   const all = getMockTickets();
 

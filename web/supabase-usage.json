@@ -1,0 +1,42 @@
+﻿[
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "LineNumber":  1,
+        "Line":  "import { createClient } from \"@supabase/supabase-js\";"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "LineNumber":  3,
+        "Line":  "const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "LineNumber":  4,
+        "Line":  "const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "LineNumber":  6,
+        "Line":  "export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "LineNumber":  1,
+        "Line":  "import { createClient } from \"@supabase/supabase-js\";"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "LineNumber":  3,
+        "Line":  "const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "LineNumber":  4,
+        "Line":  "const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;"
+    },
+    {
+        "Path":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "LineNumber":  6,
+        "Line":  "export const supabase = createClient(supabaseUrl, supabaseAnonKey);"
+    }
+]

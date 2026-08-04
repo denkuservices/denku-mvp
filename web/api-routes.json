@@ -1,0 +1,77 @@
+﻿[
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\by-ids\\route.ts",
+        "Length":  1134,
+        "LastWriteTime":  "\/Date(1767256016389)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\route.ts",
+        "Length":  2439,
+        "LastWriteTime":  "\/Date(1767248394624)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\calls\\route.ts",
+        "Length":  2080,
+        "LastWriteTime":  "\/Date(1767216845976)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\kpi\\route.ts",
+        "Length":  2867,
+        "LastWriteTime":  "\/Date(1767216896712)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\appointments\\route.ts",
+        "Length":  1246,
+        "LastWriteTime":  "\/Date(1767072952356)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\calls\\route.ts",
+        "Length":  1251,
+        "LastWriteTime":  "\/Date(1767072952357)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\calls\\[callId]\\route.ts",
+        "Length":  2455,
+        "LastWriteTime":  "\/Date(1767218321046)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\leads\\route.ts",
+        "Length":  3368,
+        "LastWriteTime":  "\/Date(1767072952360)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\tickets\\route.ts",
+        "Length":  1364,
+        "LastWriteTime":  "\/Date(1767072952362)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\conversations\\message\\route.ts",
+        "Length":  4105,
+        "LastWriteTime":  "\/Date(1767132250224)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\conversations\\start\\route.ts",
+        "Length":  1313,
+        "LastWriteTime":  "\/Date(1767130218963)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\tools\\create-appointment\\route.ts",
+        "Length":  4061,
+        "LastWriteTime":  "\/Date(1767072952364)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\tools\\create-ticket\\route.ts",
+        "Length":  4155,
+        "LastWriteTime":  "\/Date(1767072952366)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\vapi\\assistants\\route.ts",
+        "Length":  2289,
+        "LastWriteTime":  "\/Date(1767133592844)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\webhooks\\vapi\\route.ts",
+        "Length":  10937,
+        "LastWriteTime":  "\/Date(1767292210028)\/"
+    }
+]

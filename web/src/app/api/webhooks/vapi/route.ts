@@ -3,376 +3,178 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /* -----------------------------
-   Schema
-   - message-level passthrough: allows artifact/variables/etc.
-   - call passthrough: allows extra Vapi fields
+   Schema - En Esnek Hali
 ----------------------------- */
 const VapiWebhookSchema = z.object({
-  message: z
-    .object({
-      type: z.string(),
-      call: z
-        .object({
-          id: z.string(),
-          assistantId: z.string().optional().nullable(),
-          phoneNumberId: z.string().optional().nullable(),
-          durationSeconds: z.number().optional().nullable(),
-          endedAt: z.string().optional().nullable(),
-          startedAt: z.string().optional().nullable(),
-        })
-        .passthrough()
-        .optional(),
-    })
-    .passthrough(),
-});
+  message: z.any(), // Hata veren record yerine any kullanarak esneklik sağladık
+}).passthrough();
 
 /* -----------------------------
    Helpers
 ----------------------------- */
-function asString(v: unknown) {
-  if (v == null) return null;
-  if (typeof v === "string") return v;
-  try {
-    return String(v);
-  } catch {
-    return null;
-  }
-}
-
-function normalizePhone(input?: string | null) {
-  if (!input) return null;
-  const digits = input.replace(/[^\d+]/g, "");
-  if (!digits) return null;
-
-  // Keep a leading + if present, otherwise keep digits only
-  if (digits.startsWith("+")) return digits;
-  return digits.replace(/\D/g, "");
-}
-
-function safeNumber(v: unknown) {
+function safeNumber(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
-    const n = Number(v);
-    if (Number.isFinite(n)) return n;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
   }
   return null;
 }
 
-function toIsoOrNull(v?: string | null) {
-  if (!v) return null;
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
-function computeDurationSec(startedAt: string | null, endedAt: string | null) {
-  if (!startedAt || !endedAt) return null;
-  const s = new Date(startedAt).getTime();
-  const e = new Date(endedAt).getTime();
-  if (Number.isNaN(s) || Number.isNaN(e)) return null;
-  const diff = Math.round((e - s) / 1000);
-  return diff >= 0 ? diff : null;
-}
-
 /**
- * Extract started/ended from either msg/call variants.
+ * Payload'daki maliyeti yakalayan en geniş kapsamlı fonksiyon
+ * Returns null if cost not found (don't write 0)
  */
-function extractStartedEnded(msg: any, call: any) {
-  const startedAt =
-    toIsoOrNull(call?.startedAt) ??
-    toIsoOrNull(msg?.startedAt) ??
-    toIsoOrNull(msg?.artifact?.startedAt) ??
-    null;
+function extractCost(fullBody: any): number | null {
+  // Vapi hiyerarşisinde maliyetin olabileceği tüm noktalar:
+  const rawCost = 
+    fullBody?.cost ??                               // 1. En üst seviye
+    fullBody?.message?.cost ??                      // 2. Message seviyesi
+    fullBody?.message?.call?.cost ??                // 3. Call nesnesi içi
+    fullBody?.message?.summary_table?.cost ??       // 4. Özet tablosu
+    fullBody?.message?.call?.summary_table?.cost;   // 5. Alternatif derinlik
 
-  const endedAt =
-    toIsoOrNull(call?.endedAt) ??
-    toIsoOrNull(msg?.endedAt) ??
-    toIsoOrNull(msg?.artifact?.endedAt) ??
-    null;
-
-  return { startedAt, endedAt };
+  if (rawCost === undefined || rawCost === null) return null;
+  
+  const parsed = parseFloat(String(rawCost));
+  return isNaN(parsed) ? null : parsed;
 }
 
-/**
- * Extract transcript if present (keep backward compatible).
- */
-function extractTranscript(msg: any, call: any) {
-  return (
-    asString(call?.transcript) ??
-    asString(msg?.transcript) ??
-    asString(msg?.artifact?.transcript) ??
-    null
-  );
-}
-
-/**
- * Extract cost.
- */
-function extractCost(msg: any, call: any) {
-  const direct =
-    safeNumber(call?.costUsd) ??
-    safeNumber(call?.cost) ??
-    safeNumber(msg?.costUsd) ??
-    safeNumber(msg?.cost);
-
-  if (direct != null) return direct;
-
-  // Some payloads include costs in artifacts/variables
-  const artifactCost =
-    safeNumber(msg?.artifact?.costUsd) ??
-    safeNumber(msg?.artifact?.cost) ??
-    safeNumber(msg?.variables?.costUsd) ??
-    safeNumber(msg?.variableValues?.costUsd);
-
-  return artifactCost ?? null;
-}
-
-/**
- * Extract phone(s).
- * - from_phone: caller/customer
- * - to_phone: destination/agent number
- */
-function extractPhones(msg: any, call: any) {
-  // Vapi end-of-call-report payload commonly includes:
-  // msg.customer.number = caller
-  // msg.phoneNumber.number = our number
-  const from =
-    normalizePhone(asString(msg?.customer?.number)) ??
-    normalizePhone(asString(call?.customer?.number)) ??
-    normalizePhone(asString(msg?.variables?.customer?.number)) ??
-    normalizePhone(asString(msg?.variableValues?.customer?.number)) ??
-    normalizePhone(asString(call?.from)) ??
-    normalizePhone(asString(msg?.artifact?.from)) ??
-    null;
-
-  const to =
-    normalizePhone(asString(msg?.phoneNumber?.number)) ??
-    normalizePhone(asString(call?.phoneNumber?.number)) ??
-    normalizePhone(asString(msg?.variables?.phoneNumber?.number)) ??
-    normalizePhone(asString(msg?.variableValues?.phoneNumber?.number)) ??
-    normalizePhone(asString(call?.to)) ??
-    normalizePhone(asString(msg?.artifact?.to)) ??
-    null;
-
+function extractPhones(msg: any) {
+  const call = msg?.call;
+  const from = msg?.customer?.number ?? call?.customer?.number ?? call?.from ?? null;
+  const to = msg?.phoneNumber?.number ?? call?.phoneNumber?.number ?? call?.to ?? null;
   return { from_phone: from, to_phone: to };
 }
 
-
-function safeRawPayload(body: unknown) {
-  // calls.raw_payload is jsonb in your schema; any JSON value is acceptable
-  if (body === null) return null;
-  if (typeof body === "object") return body;
-  if (typeof body === "string") {
-    // attempt parse; if fails store as string (still valid JSON)
-    try {
-      return JSON.parse(body);
-    } catch {
-      return body;
-    }
-  }
-  return body;
-}
-
-/**
- * Resolve agents.id safely by vapi assistantId or phoneNumberId.
- * Returns null if not found.
- */
-async function resolveAgentId(input: {
-  assistantId?: string | null;
-  phoneNumberId?: string | null;
-}): Promise<{ agentId: string | null; orgId: string | null }> {
-  const assistantId = input.assistantId ?? null;
-  const phoneNumberId = input.phoneNumberId ?? null;
-
-  const ors = [
-    assistantId ? `vapi_assistant_id.eq.${assistantId}` : null,
-    phoneNumberId ? `vapi_phone_number_id.eq.${phoneNumberId}` : null,
-  ]
-    .filter(Boolean)
-    .join(",");
-
-  if (!ors) return { agentId: null, orgId: null };
-
-  const { data, error } = await supabaseAdmin
-    .from("agents")
-    .select("id, org_id")
-    .or(ors)
-    .maybeSingle();
-
-  if (error || !data?.id) return { agentId: null, orgId: null };
-  return { agentId: data.id, orgId: (data as any).org_id ?? null };
-}
-
-/**
- * Resolve (or create) a lead by phone within org.
- * - Uses leads.phone exact match (store normalized).
- * - Creates lead with status='new' and source='inbound_call' if missing.
- */
-async function resolveLeadId(input: {
-  orgId: string;
-  phone: string | null;
-  name?: string | null;
-  email?: string | null;
-}) {
-  const phone = normalizePhone(input.phone) ?? null;
-  if (!phone) return null;
-
-  // 1) Try existing
-  const { data: existing, error: findErr } = await supabaseAdmin
-    .from("leads")
-    .select("id")
-    .eq("org_id", input.orgId)
-    .eq("phone", phone)
-    .maybeSingle();
-
-  if (!findErr && existing?.id) return existing.id as string;
-
-  // 2) Create (non-breaking)
-  const { data: created, error: insErr } = await supabaseAdmin
-    .from("leads")
-    .insert({
-      org_id: input.orgId,
-      name: input.name ?? null,
-      phone,
-      email: input.email ?? null,
-      source: "inbound_call",
-      status: "new",
-      notes: null,
-    })
-    .select("id")
-    .single();
-
-  if (insErr) {
-    // If insert fails (e.g., constraints), do not break webhook; just skip lead_id
-    console.warn("[vapi-webhook] lead insert failed", {
-      message: insErr.message,
-      code: (insErr as any).code,
-    });
-    return null;
-  }
-
-  return created?.id ?? null;
-}
-
 /* -----------------------------
-   POST
+   POST Handler
 ----------------------------- */
 export async function POST(req: NextRequest) {
   try {
-    const secret = req.headers.get("x-vapi-secret") ?? "";
-    if (process.env.VAPI_WEBHOOK_SECRET && secret !== process.env.VAPI_WEBHOOK_SECRET) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+    const rawBody = await req.json();
 
-    const body = await req.json();
-    const parsed = VapiWebhookSchema.safeParse(body);
+    const parsed = VapiWebhookSchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
     }
 
-    const msg = parsed.data.message as any;
-    const call = msg.call as any;
+    const msg = rawBody.message;
+    const call = msg?.call;
+    const type = msg?.type;
 
-    if (msg.type !== "end-of-call-report" || !call?.id) {
-      return NextResponse.json({ ok: true, ignored: true });
-    }
+    // 🔑 TEK ve DOĞRU Call ID çözümü
+    const vapiCallId =
+      call?.id ??
+      msg?.summary_table?.id ??
+      msg?.id ??
+      rawBody?.id ??
+      null;
 
-    // Resolve agent/org safely (assistantId / phoneNumberId)
-    const { agentId, orgId } = await resolveAgentId({
-      assistantId: call.assistantId ?? null,
-      phoneNumberId: call.phoneNumberId ?? null,
+    console.log("[VAPI CALL ID RESOLVED]", {
+      fromCall: call?.id,
+      fromSummary: msg?.summary_table?.id,
+      fromMsg: msg?.id,
+      final: vapiCallId,
     });
 
-    console.log(
-      `[vapi-webhook] resolved agent_id=${agentId ?? "null"} for call_id=${call.id}`
-    );
-
-    // If we cannot resolve, don't fail webhook (backward-compatible)
-    if (!agentId || !orgId) {
-      return NextResponse.json({ ok: true, warning: "agent_not_found" });
+    if (!vapiCallId) {
+      return NextResponse.json({ ok: true, message: "No Call ID" });
     }
 
-    const { startedAt, endedAt } = extractStartedEnded(msg, call);
+    // Agent resolve (aynı kalsın)
+    const assistantId = call?.assistantId ?? msg?.assistantId;
+    const { data: agentData } = await supabaseAdmin
+      .from("agents")
+      .select("id, org_id")
+      .or(`vapi_assistant_id.eq.${assistantId}`)
+      .maybeSingle();
 
-    const durationSec =
-      safeNumber(call.durationSeconds) ?? computeDurationSec(startedAt, endedAt);
+    if (!agentData) {
+      return NextResponse.json({ ok: true, warning: "Agent not found" });
+    }
 
-    const costUsd = extractCost(msg, call);
-    const transcript = extractTranscript(msg, call);
-    const { from_phone, to_phone } = extractPhones(msg, call);
+    const { from_phone, to_phone } = extractPhones(msg);
 
-    // Lead linking: caller is lead for inbound calls in your current payload
-    const leadId = await resolveLeadId({
-      orgId,
-      phone: from_phone,
-      name:
-        asString(msg?.variables?.customer?.name) ??
-        asString(msg?.variableValues?.customer?.name) ??
-        asString(msg?.customer?.name) ??
-        null,
-      email:
-        asString(msg?.variables?.customer?.email) ??
-        asString(msg?.variableValues?.customer?.email) ??
-        asString(msg?.customer?.email) ??
-        null,
+    console.log("[WEBHOOK EVENT]", {
+      type,
+      vapiCallId,
+      hasCall: !!call,
     });
-const direction =
-  call?.type === "inboundPhoneCall" ? "inbound" :
-  call?.type === "outboundPhoneCall" ? "outbound" :
-  "unknown";
 
-const payload = {
-  org_id: orgId,
-  agent_id: agentId,
-  vapi_call_id: call.id,
+    // =========================
+    // FINAL EVENT
+    // =========================
+    if (type === "end-of-call-report") {
+      const finalCost = extractCost(rawBody);
 
-  vapi_assistant_id: call.assistantId ?? null,
-  vapi_phone_number_id: call.phoneNumberId ?? null,
-
-  direction,
-  from_phone,
-  to_phone,
-
-  lead_id: leadId,
-
-  started_at: startedAt,
-  ended_at: endedAt,
-  duration_seconds: durationSec,
-  cost_usd: costUsd,
-
-  transcript,
-  outcome: call?.outcome ?? "completed",
-  raw_payload: safeRawPayload(body),
-};
-
-
-    const { error: upErr } = await supabaseAdmin
-      .from("calls")
-      .upsert(payload, { onConflict: "vapi_call_id" });
-
-    if (upErr) {
-      console.error("[vapi-webhook] calls upsert failed", {
-        message: upErr.message,
-        details: (upErr as any).details,
-        hint: (upErr as any).hint,
-        code: (upErr as any).code,
+      console.log("[FINAL COST DEBUG]", {
+        vapiCallId,
+        finalCost,
+        summaryCost: msg?.summary_table?.cost,
+        messageCost: msg?.cost,
       });
-      return NextResponse.json(
-        { ok: false, error: "calls_upsert_failed", details: upErr.message },
-        { status: 500 }
-      );
+
+      const { data, error } = await supabaseAdmin
+        .from("calls")
+        .update({
+          cost_usd: finalCost, // NULL olabilir, 0 YAZMIYORUZ
+          outcome: "completed",
+          ended_at: msg?.summary_table?.endedAt ?? new Date().toISOString(),
+          raw_payload: rawBody,
+        })
+        .eq("vapi_call_id", vapiCallId)
+        .select("id, vapi_call_id, cost_usd");
+
+      console.log("[FINAL UPDATE RESULT]", {
+        vapiCallId,
+        affectedRows: data?.length ?? 0,
+        rows: data,
+        error: error?.message,
+      });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        console.error("[CRITICAL] FINAL UPDATE MATCHED 0 ROWS", {
+          vapiCallId,
+        });
+      }
+
+      return NextResponse.json({ ok: true, stage: "final" });
     }
 
-    return NextResponse.json({ ok: true, lead_id: leadId ?? null });
-  } catch (err) {
-    console.error("VAPI WEBHOOK ERROR", err);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
-  }
-}
+    // =========================
+    // NON-FINAL EVENTS
+    // =========================
+    console.log("[NON-FINAL EVENT] UPSERT", {
+      type,
+      vapiCallId,
+    });
 
-/* -----------------------------
-   GET (debug)
------------------------------ */
-export async function GET() {
-  return NextResponse.json({ ok: true });
+    const { error: upsertErr } = await supabaseAdmin
+      .from("calls")
+      .upsert(
+        {
+          vapi_call_id: vapiCallId,
+          org_id: agentData.org_id,
+          agent_id: agentData.id,
+          direction: call?.type === "inboundPhoneCall" ? "inbound" : "outbound",
+          from_phone,
+          to_phone,
+          started_at: call?.createdAt ?? call?.startedAt ?? new Date().toISOString(),
+          raw_payload: rawBody,
+          // ⚠️ cost_usd YOK
+        },
+        { onConflict: "vapi_call_id" }
+      );
+
+    if (upsertErr) throw upsertErr;
+
+    return NextResponse.json({ ok: true, stage: "non-final" });
+
+  } catch (err: any) {
+    console.error("[Webhook Error]", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

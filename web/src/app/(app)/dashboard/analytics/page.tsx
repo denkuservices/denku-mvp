@@ -31,6 +31,11 @@ function toISODate(d: Date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function asString(v: string | string[] | undefined) {
+  if (!v) return "";
+  return Array.isArray(v) ? v[0] : v;
+}
+
 function parseRange(input?: string): { days: number; label: string } {
   const v = (input || "7d").toLowerCase();
   if (v === "30d") return { days: 30, label: "Last 30 days" };
@@ -105,9 +110,10 @@ async function getCalls(orgId: string, sinceISO: string) {
 export default async function Page({
   searchParams,
 }: {
-  searchParams?: { range?: string };
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const range = parseRange(searchParams?.range);
+  const sp = searchParams ? await searchParams : {};
+  const range = parseRange(asString(sp.range));
   const orgId = await resolveOrgId();
 
   // since (UTC)
@@ -180,6 +186,7 @@ export default async function Page({
     }))
     .sort((a, b) => b.calls - a.calls);
 
+  const currentRange = asString(sp.range) || "7d";
 
   return (
     <div className="p-6 space-y-6">
@@ -197,7 +204,7 @@ export default async function Page({
               key={r}
               href={`/dashboard/analytics?range=${r}`}
               className={`rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50 ${
-                (searchParams?.range || "7d") === r ? "border-zinc-900" : ""
+                currentRange === r ? "border-zinc-900" : ""
               }`}
             >
               {r.toUpperCase()}

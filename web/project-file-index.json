@@ -1,0 +1,562 @@
+﻿[
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\proxy.ts",
+        "Length":  1605,
+        "LastWriteTime":  "\/Date(1767391724680)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\favicon.ico",
+        "Length":  25931,
+        "LastWriteTime":  "\/Date(1766989734693)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\globals.css",
+        "Length":  4704,
+        "LastWriteTime":  "\/Date(1767021219481)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\layout.tsx",
+        "Length":  309,
+        "LastWriteTime":  "\/Date(1767389760283)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\layout.tsx",
+        "Length":  362,
+        "LastWriteTime":  "\/Date(1767407484847)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\LoadingSkeleton.tsx",
+        "Length":  457,
+        "LastWriteTime":  "\/Date(1767127012092)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\actions.ts",
+        "Length":  290,
+        "LastWriteTime":  "\/Date(1767064758021)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\getDashboardOverview.ts",
+        "Length":  3151,
+        "LastWriteTime":  "\/Date(1767127760616)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\page.tsx",
+        "Length":  7545,
+        "LastWriteTime":  "\/Date(1767406665416)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\activity\\page.tsx",
+        "Length":  234,
+        "LastWriteTime":  "\/Date(1767126761383)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\agents\\page.tsx",
+        "Length":  5517,
+        "LastWriteTime":  "\/Date(1767249038654)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\agents\\new\\actions.ts",
+        "Length":  2677,
+        "LastWriteTime":  "\/Date(1767192162322)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\agents\\new\\page.tsx",
+        "Length":  3798,
+        "LastWriteTime":  "\/Date(1767126614819)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\agents\\[agentId]\\page.tsx",
+        "Length":  10058,
+        "LastWriteTime":  "\/Date(1767248854651)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\analytics\\page.tsx",
+        "Length":  12273,
+        "LastWriteTime":  "\/Date(1767393046433)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\billing\\page.tsx",
+        "Length":  233,
+        "LastWriteTime":  "\/Date(1767126761399)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\calls\\page.tsx",
+        "Length":  8993,
+        "LastWriteTime":  "\/Date(1767407822422)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\calls\\[callId]\\page.tsx",
+        "Length":  23988,
+        "LastWriteTime":  "\/Date(1767286240941)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\knowledge\\page.tsx",
+        "Length":  235,
+        "LastWriteTime":  "\/Date(1767126761383)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\knowledge\\[sourceId]\\page.tsx",
+        "Length":  242,
+        "LastWriteTime":  "\/Date(1767127394482)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\leads\\page.tsx",
+        "Length":  11447,
+        "LastWriteTime":  "\/Date(1767392972802)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\leads\\[leadId]\\page.tsx",
+        "Length":  12788,
+        "LastWriteTime":  "\/Date(1767297142535)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\risk\\page.tsx",
+        "Length":  243,
+        "LastWriteTime":  "\/Date(1767126761383)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\page.tsx",
+        "Length":  2210,
+        "LastWriteTime":  "\/Date(1767332397137)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\account\\profile\\page.tsx",
+        "Length":  1847,
+        "LastWriteTime":  "\/Date(1767331123543)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\account\\security\\page.tsx",
+        "Length":  1573,
+        "LastWriteTime":  "\/Date(1767331121527)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\agents\\page.tsx",
+        "Length":  15966,
+        "LastWriteTime":  "\/Date(1767332935399)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\agents\\[agentId]\\page.tsx",
+        "Length":  22232,
+        "LastWriteTime":  "\/Date(1767335020696)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\agents\\[agentId]\\advanced\\page.tsx",
+        "Length":  3533,
+        "LastWriteTime":  "\/Date(1767331118160)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\integrations\\page.tsx",
+        "Length":  1624,
+        "LastWriteTime":  "\/Date(1767331110951)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\audit\\page.tsx",
+        "Length":  960,
+        "LastWriteTime":  "\/Date(1767331108132)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\billing\\page.tsx",
+        "Length":  2002,
+        "LastWriteTime":  "\/Date(1767331105809)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\general\\page.tsx",
+        "Length":  11352,
+        "LastWriteTime":  "\/Date(1767332055000)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\keys\\page.tsx",
+        "Length":  1938,
+        "LastWriteTime":  "\/Date(1767331101188)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\members\\page.tsx",
+        "Length":  1911,
+        "LastWriteTime":  "\/Date(1767331098790)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\workspace\\usage\\page.tsx",
+        "Length":  1527,
+        "LastWriteTime":  "\/Date(1767331096310)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\_components\\Dropdown.tsx",
+        "Length":  3870,
+        "LastWriteTime":  "\/Date(1767330082700)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\_components\\SettingsCard.tsx",
+        "Length":  2123,
+        "LastWriteTime":  "\/Date(1767332362874)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\settings\\_components\\SettingsShell.tsx",
+        "Length":  1420,
+        "LastWriteTime":  "\/Date(1767330052446)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\tickets\\page.tsx",
+        "Length":  10856,
+        "LastWriteTime":  "\/Date(1767392984063)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\tickets\\[ticketId]\\page.tsx",
+        "Length":  7869,
+        "LastWriteTime":  "\/Date(1767290837506)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\tools\\page.tsx",
+        "Length":  231,
+        "LastWriteTime":  "\/Date(1767126761383)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\dashboard\\tools\\[toolId]\\page.tsx",
+        "Length":  238,
+        "LastWriteTime":  "\/Date(1767127394482)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\calls\\FilterToolbar.tsx",
+        "Length":  2437,
+        "LastWriteTime":  "\/Date(1767406649285)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\layout\\AppHeader.tsx",
+        "Length":  1876,
+        "LastWriteTime":  "\/Date(1767407462519)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\layout\\PageHeader.tsx",
+        "Length":  734,
+        "LastWriteTime":  "\/Date(1767406552656)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\layout\\PageShell.tsx",
+        "Length":  353,
+        "LastWriteTime":  "\/Date(1767406542986)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\Badge.tsx",
+        "Length":  324,
+        "LastWriteTime":  "\/Date(1767406584630)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\Button.tsx",
+        "Length":  1246,
+        "LastWriteTime":  "\/Date(1767406596147)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\Card.tsx",
+        "Length":  611,
+        "LastWriteTime":  "\/Date(1767406562797)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\DataTable.tsx",
+        "Length":  0,
+        "LastWriteTime":  "\/Date(1767406629655)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\EmptyState.tsx",
+        "Length":  802,
+        "LastWriteTime":  "\/Date(1767406609465)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(app)\\_components\\ui\\StatCard.tsx",
+        "Length":  642,
+        "LastWriteTime":  "\/Date(1767406620130)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\layout.tsx",
+        "Length":  576,
+        "LastWriteTime":  "\/Date(1767394069048)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\login\\error.tsx",
+        "Length":  521,
+        "LastWriteTime":  "\/Date(1767061751227)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\login\\loading.tsx",
+        "Length":  94,
+        "LastWriteTime":  "\/Date(1767061773042)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\login\\loginAction.ts",
+        "Length":  720,
+        "LastWriteTime":  "\/Date(1767064638349)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\login\\page.tsx",
+        "Length":  1483,
+        "LastWriteTime":  "\/Date(1767394094703)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\signup\\page.tsx",
+        "Length":  2112,
+        "LastWriteTime":  "\/Date(1767059815159)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\signup\\signupAction.ts",
+        "Length":  1483,
+        "LastWriteTime":  "\/Date(1767072952372)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(auth)\\verify-email\\page.tsx",
+        "Length":  976,
+        "LastWriteTime":  "\/Date(1767063934897)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\layout.tsx",
+        "Length":  390,
+        "LastWriteTime":  "\/Date(1767055467775)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\page.tsx",
+        "Length":  591,
+        "LastWriteTime":  "\/Date(1767052655779)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\about\\page.tsx",
+        "Length":  138,
+        "LastWriteTime":  "\/Date(1767023343291)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\contact\\page.tsx",
+        "Length":  146,
+        "LastWriteTime":  "\/Date(1767023488503)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\pricing\\page.tsx",
+        "Length":  339,
+        "LastWriteTime":  "\/Date(1767052595204)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\privacy\\page.tsx",
+        "Length":  1710,
+        "LastWriteTime":  "\/Date(1767023997408)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\terms\\page.tsx",
+        "Length":  1726,
+        "LastWriteTime":  "\/Date(1767023942558)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\(marketing)\\use-cases\\page.tsx",
+        "Length":  151,
+        "LastWriteTime":  "\/Date(1767023266154)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\admin\\page.tsx",
+        "Length":  5372,
+        "LastWriteTime":  "\/Date(1767072952347)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\by-ids\\route.ts",
+        "Length":  1134,
+        "LastWriteTime":  "\/Date(1767256016389)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\route.ts",
+        "Length":  2439,
+        "LastWriteTime":  "\/Date(1767248394624)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\calls\\route.ts",
+        "Length":  2080,
+        "LastWriteTime":  "\/Date(1767216845976)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\agents\\[agentId]\\kpi\\route.ts",
+        "Length":  2867,
+        "LastWriteTime":  "\/Date(1767216896712)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\appointments\\route.ts",
+        "Length":  1246,
+        "LastWriteTime":  "\/Date(1767072952356)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\calls\\route.ts",
+        "Length":  1251,
+        "LastWriteTime":  "\/Date(1767072952357)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\calls\\[callId]\\route.ts",
+        "Length":  2455,
+        "LastWriteTime":  "\/Date(1767218321046)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\leads\\route.ts",
+        "Length":  3368,
+        "LastWriteTime":  "\/Date(1767072952360)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\admin\\tickets\\route.ts",
+        "Length":  1364,
+        "LastWriteTime":  "\/Date(1767072952362)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\conversations\\message\\route.ts",
+        "Length":  4105,
+        "LastWriteTime":  "\/Date(1767132250224)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\conversations\\start\\route.ts",
+        "Length":  1313,
+        "LastWriteTime":  "\/Date(1767130218963)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\tools\\create-appointment\\route.ts",
+        "Length":  4061,
+        "LastWriteTime":  "\/Date(1767072952364)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\tools\\create-ticket\\route.ts",
+        "Length":  4155,
+        "LastWriteTime":  "\/Date(1767072952366)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\vapi\\assistants\\route.ts",
+        "Length":  2289,
+        "LastWriteTime":  "\/Date(1767133592844)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\app\\api\\webhooks\\vapi\\route.ts",
+        "Length":  10937,
+        "LastWriteTime":  "\/Date(1767292210028)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\theme-provider.tsx",
+        "Length":  343,
+        "LastWriteTime":  "\/Date(1767020800288)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\about-page.tsx",
+        "Length":  3968,
+        "LastWriteTime":  "\/Date(1767053653225)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\Button.tsx",
+        "Length":  1946,
+        "LastWriteTime":  "\/Date(1767390227848)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\contact-page.tsx",
+        "Length":  5949,
+        "LastWriteTime":  "\/Date(1767023845548)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\Container.tsx",
+        "Length":  254,
+        "LastWriteTime":  "\/Date(1767054952777)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\final-cta.tsx",
+        "Length":  1687,
+        "LastWriteTime":  "\/Date(1767055909437)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\Footer.tsx",
+        "Length":  1327,
+        "LastWriteTime":  "\/Date(1767048805987)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\hero.tsx",
+        "Length":  2161,
+        "LastWriteTime":  "\/Date(1767050442357)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\how-it-works.tsx",
+        "Length":  2065,
+        "LastWriteTime":  "\/Date(1767050682786)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\Navbar.tsx",
+        "Length":  5887,
+        "LastWriteTime":  "\/Date(1767389769159)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\pricing-preview.tsx",
+        "Length":  3938,
+        "LastWriteTime":  "\/Date(1767050891460)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\pricing-table.tsx",
+        "Length":  5054,
+        "LastWriteTime":  "\/Date(1767022943260)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\Section.tsx",
+        "Length":  353,
+        "LastWriteTime":  "\/Date(1767048782600)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\social-proof.tsx",
+        "Length":  3106,
+        "LastWriteTime":  "\/Date(1767050863248)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\use-cases-page.tsx",
+        "Length":  3899,
+        "LastWriteTime":  "\/Date(1767023244439)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\components\\marketing\\use-cases.tsx",
+        "Length":  2628,
+        "LastWriteTime":  "\/Date(1767056081626)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\config\\site.ts",
+        "Length":  396,
+        "LastWriteTime":  "\/Date(1767048800703)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\rateLimit.ts",
+        "Length":  585,
+        "LastWriteTime":  "\/Date(1766989734699)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseAdmin.ts",
+        "Length":  298,
+        "LastWriteTime":  "\/Date(1766989734701)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabaseClient.ts",
+        "Length":  257,
+        "LastWriteTime":  "\/Date(1766989734701)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\utils.ts",
+        "Length":  166,
+        "LastWriteTime":  "\/Date(1767020749808)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\auth\\basic.ts",
+        "Length":  565,
+        "LastWriteTime":  "\/Date(1766989734693)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\dashboard\\getAvgResponseTime.ts",
+        "Length":  3248,
+        "LastWriteTime":  "\/Date(1767130909027)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\dashboard\\getDashboardOverview.ts",
+        "Length":  5378,
+        "LastWriteTime":  "\/Date(1767131660150)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabase\\admin.ts",
+        "Length":  411,
+        "LastWriteTime":  "\/Date(1767072952374)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\supabase\\server.ts",
+        "Length":  1320,
+        "LastWriteTime":  "\/Date(1767129144501)\/"
+    },
+    {
+        "FullName":  "C:\\Users\\alien\\sovereign-ai\\web\\src\\lib\\vapi\\server.ts",
+        "Length":  794,
+        "LastWriteTime":  "\/Date(1767198794629)\/"
+    }
+]

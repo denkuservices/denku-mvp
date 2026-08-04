@@ -16,8 +16,11 @@ type CallRow = {
   cost_usd: number | string | null;
   outcome: string | null;
   transcript: string | null;
-  raw_payload: string | null; // DB’de text
+  raw_payload: string | null; // DB'de text
   created_at: string | null;
+  from_phone: string | null;
+  to_phone: string | null;
+  direction: string | null;
 };
 
 function formatDate(value?: string | null) {
@@ -29,9 +32,15 @@ function formatDate(value?: string | null) {
 
 function formatMoney(v?: number | string | null) {
   if (v === null || v === undefined || v === "") return "—";
-  const n = Number(v);
+  const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n)) return "—";
-  return `$${n.toFixed(4)}`;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 function maskPhoneNumber(phone?: string | null): string {
@@ -253,7 +262,7 @@ export default async function CallDetailPage({
   const { data: call, error: callErr } = await supabaseAdmin
     .from("calls")
     .select(
-      "id, vapi_call_id, org_id, agent_id, started_at, ended_at, duration_seconds, cost_usd, outcome, transcript, raw_payload, created_at"
+      "id, vapi_call_id, org_id, agent_id, started_at, ended_at, duration_seconds, cost_usd, outcome, transcript, raw_payload, created_at, from_phone, to_phone, direction"
     )
     .eq("id", callId)
     .maybeSingle<CallRow>();
@@ -404,6 +413,10 @@ export default async function CallDetailPage({
                 )}
               </dd>
             </div>
+            <div>
+              <dt className="text-xs text-gray-600">Caller</dt>
+              <dd className="text-sm text-gray-900 font-mono">{maskPhoneNumber(call.from_phone)}</dd>
+            </div>
           </dl>
         </div>
 
@@ -441,93 +454,60 @@ export default async function CallDetailPage({
       <div className="mt-6">
         <div className="rounded-md border bg-white p-4">
           <h2 className="text-base font-semibold leading-6 text-gray-900">Call Timeline</h2>
-          <div className="mt-4 flow-root">
-            <ul className="-mb-8">
-              <li>
-                <div className="relative pb-8">
-                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Call Started</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        <time>{formatDate(call.started_at)}</time>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div className="relative pb-8">
-                  <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-8 ring-white">
-                        <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Conversation</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        <span>{call.duration_seconds != null ? `${call.duration_seconds}s` : ""}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div className="relative">
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span
-                        className={`h-8 w-8 rounded-full ${
-                          call.ended_at ? "bg-green-500" : "bg-gray-200"
-                        } flex items-center justify-center ring-8 ring-white`}
-                      >
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <div>
-                        <p className="text-sm text-gray-800">Call Ended</p>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        {call.ended_at ? <time>{formatDate(call.ended_at)}</time> : <span>In progress</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            </ul>
+
+          <div className="mt-3 space-y-2.5">
+            {/* Call Started */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 flex h-5 w-5 items-center justify-center">
+                <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
+              </div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-sm font-medium text-gray-900">Call Started</span>
+                <time className="text-sm text-gray-500 shrink-0">{formatDate(call.started_at)}</time>
+              </div>
+            </div>
+
+            {/* Conversation */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 flex h-5 w-5 items-center justify-center">
+                <span className="h-2 w-2 rounded-full bg-gray-300" aria-hidden="true" />
+              </div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-sm font-medium text-gray-900">Conversation</span>
+                <span className="text-sm text-gray-500 shrink-0">
+                  {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+                </span>
+              </div>
+            </div>
+
+            {/* Call Ended */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 flex h-5 w-5 items-center justify-center">
+                <span
+                  className={`h-2 w-2 rounded-full ${call.ended_at ? "bg-green-500" : "bg-gray-300"}`}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-sm font-medium text-gray-900">Call Ended</span>
+                <span className="text-sm text-gray-500 shrink-0">
+                  {call.ended_at ? (
+                    <time>{formatDate(call.ended_at)}</time>
+                  ) : (call as any).endedAt ? (
+                    <time>{formatDate((call as any).endedAt)}</time>
+                  ) : (
+                    "In progress"
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+
+
+
 
       <div className="mt-6">
         <div className="rounded-md border bg-white p-4">
@@ -574,43 +554,49 @@ export default async function CallDetailPage({
       </div>
 
       <div className="mt-6">
-        <details className="group rounded-lg border bg-white p-4">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-gray-900 group-open:mb-4">
+        <details className="group rounded-lg border border-gray-200 bg-white">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 group-open:border-b group-open:border-gray-200">
             Audit & Metadata
           </summary>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <dt className="text-gray-600">Call ID</dt>
-              <dd className="font-mono text-gray-800">{call.id}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Provider Call ID</dt>
-              <dd className="font-mono text-gray-800">{call.vapi_call_id ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Agent</dt>
-              <dd className="text-gray-800">{agentName ?? call.agent_id ?? "Unassigned"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Direction</dt>
-              <dd className="text-gray-800">Inbound</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">From</dt>
-              <dd className="font-mono text-gray-800">{maskPhoneNumber(fromNumber)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">To</dt>
-              <dd className="font-mono text-gray-800">{maskPhoneNumber(toNumber)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Started</dt>
-              <dd className="text-gray-800">{formatDate(call.started_at)}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-600">Ended</dt>
-              <dd className="text-gray-800">{formatDate(call.ended_at)}</dd>
-            </div>
+          <div className="px-4 py-4">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Call ID</dt>
+                <dd className="mt-1 font-mono text-sm text-gray-900 break-all">{call.id}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Provider Call ID</dt>
+                <dd className="mt-1 font-mono text-sm text-gray-900 break-all">{call.vapi_call_id ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Direction</dt>
+                <dd className="mt-1 text-sm text-gray-900 capitalize">{call.direction ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Agent</dt>
+                <dd className="mt-1 text-sm text-gray-900">{agentName ?? "Unassigned"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Phone Line</dt>
+                <dd className="mt-1 text-sm text-gray-900">—</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Call Status</dt>
+                <dd className="mt-1 text-sm text-gray-900">{callStatus}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Started At</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(call.started_at)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ended At</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(call.ended_at) || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">Webhook Received</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(call.created_at)}</dd>
+              </div>
+            </dl>
           </div>
         </details>
       </div>

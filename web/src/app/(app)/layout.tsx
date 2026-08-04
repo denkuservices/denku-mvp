@@ -1,5 +1,4 @@
-import Link from "next/link";
-import DashboardHeader from "@/app/(app)/DashboardHeader";
+import AppHeader from "@/app/(app)/_components/layout/AppHeader";
 
 export default function AppLayout({
   children,
@@ -7,16 +6,9 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="border-b bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-3">
-          <DashboardHeader />
-        </div>
-      </div>
-
-      {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <main className="mx-auto w-full max-w-6xl p-4 sm:p-6">
         {children}
       </main>
     </div>

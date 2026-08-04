@@ -41,12 +41,14 @@ export function Navbar() {
             <span className="font-bold">{siteConfig.name}</span>
           </Link>
           <div className="hidden md:flex md:items-center md:space-x-6">
-            <nav className="flex items-center space-x-6 text-sm font-medium">
+            <nav className="flex items-center space-x-1 text-sm font-medium">
               <Link
                 href="/about"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
-                  pathname === "/about" ? "text-foreground" : "text-foreground/60"
+                  "rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  pathname === "/about"
+                    ? "bg-muted text-foreground"
+                    : "text-foreground/60 hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 About
@@ -54,10 +56,10 @@ export function Navbar() {
               <Link
                 href="/use-cases"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
+                  "rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   pathname?.startsWith("/use-cases")
-                    ? "text-foreground"
-                    : "text-foreground/60"
+                    ? "bg-muted text-foreground"
+                    : "text-foreground/60 hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 Use Cases
@@ -65,10 +67,10 @@ export function Navbar() {
               <Link
                 href="/pricing"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
+                  "rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   pathname?.startsWith("/pricing")
-                    ? "text-foreground"
-                    : "text-foreground/60"
+                    ? "bg-muted text-foreground"
+                    : "text-foreground/60 hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 Pricing
@@ -76,10 +78,10 @@ export function Navbar() {
               <Link
                 href="/contact"
                 className={cn(
-                  "transition-colors hover:text-foreground/80",
+                  "rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   pathname?.startsWith("/contact")
-                    ? "text-foreground"
-                    : "text-foreground/60"
+                    ? "bg-muted text-foreground"
+                    : "text-foreground/60 hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 Contact

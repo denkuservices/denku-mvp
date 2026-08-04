@@ -157,10 +157,11 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const q = asString(searchParams?.q).trim();
-  const status = asString(searchParams?.status).trim();
+  const sp = searchParams ? await searchParams : {};
+  const q = asString(sp.q).trim();
+  const status = asString(sp.status).trim();
 
   const orgId = await resolveOrgId();
   const rows = await getLeadsFromDb({ orgId, q: q || undefined, status: status || undefined });
