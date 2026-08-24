@@ -3,7 +3,11 @@ import { describe, it, expect, vi } from "vitest";
 // filterConversationViews is pure, but its module imports the fail-fast service-role client.
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn() } }));
 
-import { filterConversationViews } from "@/lib/platform/readModel/conversations";
+import {
+  filterConversationViews,
+  listConversationPage,
+  CONVERSATION_SCAN_LIMIT,
+} from "@/lib/platform/readModel/conversations";
 import type { ConversationView } from "@/lib/platform/readModel/types";
 
 /**
@@ -99,5 +103,80 @@ describe("filterConversationViews — handling facet", () => {
       humanHandledRefs: new Set(["a", "b"]),
     });
     expect(out.map((v) => v.id)).toEqual(["b"]);
+  });
+});
+
+/**
+ * FETCH-BY-ID CONTRACT (H2 fix).
+ *
+ * "Needs a person" conversations are identified by a separate table and can be arbitrarily old,
+ * so the Inbox fetches them BY ID instead of scanning a recent window. That is what makes the
+ * facet count, the rows it returns, and Home's exact count agree. Before this, an org whose
+ * human-handled thread fell outside the recent-500 window saw a badge promising more rows than
+ * the list could show.
+ */
+describe("listConversationPage — handling=human is fetched by id, not scanned", () => {
+  /** Records the options each listConversationViews call received. */
+  function trackingDb(rows: Record<string, unknown>[]) {
+    const calls: Array<{ table: string; ids?: string[]; limit?: number }> = [];
+    const db = {
+      from(table: string) {
+        const rec: { table: string; ids?: string[]; limit?: number } = { table };
+        calls.push(rec);
+        const b = {
+          select: () => b,
+          eq: () => b,
+          in: (_col: string, vals: string[]) => {
+            rec.ids = vals;
+            return b;
+          },
+          order: () => b,
+          limit: (n: number) => {
+            rec.limit = n;
+            return Promise.resolve({ data: table === "calls" ? rows : [], error: null });
+          },
+        };
+        return b;
+      },
+    };
+    return { db: db as never, calls };
+  }
+
+  it("queries the exact ref set rather than a recent window", async () => {
+    const { db, calls } = trackingDb([]);
+    await listConversationPage(
+      "org-1",
+      { handling: "human", humanHandledRefs: new Set(["a", "b"]) },
+      db
+    );
+    const callsQuery = calls.find((c) => c.table === "calls");
+    expect(callsQuery?.ids).toEqual(["a", "b"]);
+    // Not the 500-row scan window.
+    expect(callsQuery?.limit).toBe(2);
+  });
+
+  it("is never `bounded` — a ref set is not a window", async () => {
+    const { db } = trackingDb([]);
+    const page = await listConversationPage(
+      "org-1",
+      { handling: "human", humanHandledRefs: new Set(["a"]) },
+      db
+    );
+    expect(page.bounded).toBe(false);
+  });
+
+  it("returns nothing, without querying, when no conversation needs a person", async () => {
+    const { db, calls } = trackingDb([]);
+    const page = await listConversationPage("org-1", { handling: "human", humanHandledRefs: new Set() }, db);
+    expect(page).toEqual({ items: [], total: 0, bounded: false });
+    expect(calls).toEqual([]);
+  });
+
+  it("still scans for the default view — 'not in a small set' is not a query", async () => {
+    const { db, calls } = trackingDb([]);
+    await listConversationPage("org-1", { handling: "ai", humanHandledRefs: new Set(["a"]) }, db);
+    const callsQuery = calls.find((c) => c.table === "calls");
+    expect(callsQuery?.ids).toBeUndefined();
+    expect(callsQuery?.limit).toBe(CONVERSATION_SCAN_LIMIT);
   });
 });

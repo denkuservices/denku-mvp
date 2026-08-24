@@ -128,8 +128,10 @@ export async function getContactTimeline(
   if (!orgId || !contactRef) return [];
 
   const [requests, notes] = await Promise.all([
-    listRequestViews(orgId, {}, db)
-      .then((r) => r.items.filter((x) => x.contactId === contactRef))
+    // `contactId` is pushed into the query, so this is EVERY request for this person — not the
+    // org's most recent N with theirs filtered out of it.
+    listRequestViews(orgId, { contactId: contactRef }, db)
+      .then((r) => r.items)
       .catch(() => [] as RequestView[]),
     listContactNotes(orgId, contactRef, db).catch(() => [] as ContactNote[]),
   ]);

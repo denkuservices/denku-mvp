@@ -102,6 +102,15 @@ export interface ListRequestsOpts {
   status?: string;
   search?: string;
   limit?: number;
+  /**
+   * Restrict to one contact, **pushed into the query** rather than filtered afterwards.
+   *
+   * The contact timeline needs every request for one person, not the org's most recent N with
+   * that person's filtered out of them — scanning-then-filtering silently drops a customer's
+   * older history once the org passes the scan limit, on the one surface that promises a
+   * complete journey.
+   */
+  contactId?: string;
 }
 
 /** Filter requests in memory. Pure + testable. */
@@ -133,19 +142,24 @@ export async function listRequestViews(
   const limit = opts.limit ?? 200;
 
   try {
+    let ticketQuery = db
+      .from("tickets")
+      .select("id, subject, description, status, priority, created_at, call_id, lead_id")
+      .eq("org_id", orgId);
+    let appointmentQuery = db
+      .from("appointments")
+      .select("id, notes, status, start_at, created_at, call_id, lead_id")
+      .eq("org_id", orgId);
+
+    // Narrow at the database, not afterwards — see `contactId` on ListRequestsOpts.
+    if (opts.contactId) {
+      ticketQuery = ticketQuery.eq("lead_id", opts.contactId);
+      appointmentQuery = appointmentQuery.eq("lead_id", opts.contactId);
+    }
+
     const [t, a] = await Promise.all([
-      db
-        .from("tickets")
-        .select("id, subject, description, status, priority, created_at, call_id, lead_id")
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-      db
-        .from("appointments")
-        .select("id, notes, status, start_at, created_at, call_id, lead_id")
-        .eq("org_id", orgId)
-        .order("start_at", { ascending: false })
-        .limit(limit),
+      ticketQuery.order("created_at", { ascending: false }).limit(limit),
+      appointmentQuery.order("start_at", { ascending: false }).limit(limit),
     ]);
 
     const all = [

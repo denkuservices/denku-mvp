@@ -138,7 +138,11 @@ describe("employeeAttention", () => {
     const out = employeeAttention(
       employee({
         channels: [
-          channel({ label: "Phone", status: "weird-status" }), // unknown → warn
+          // `ChannelStatus` is a union in TypeScript, but the value originates from a free-text
+          // DB column — a status outside the union is reachable at runtime, and health treats
+          // an unrecognised one as `warn` rather than assuming it is healthy. Cast to exercise
+          // that real path.
+          channel({ label: "Phone", status: "weird-status" as ChannelView["status"] }),
           channel({ label: "Instagram", channel: "instagram", meta: { lastError: "Expired" } }), // critical
         ],
       })

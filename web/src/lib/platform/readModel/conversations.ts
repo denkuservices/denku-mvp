@@ -152,6 +152,22 @@ export interface ListConversationsOpts {
    */
   handling?: "human" | "ai";
   humanHandledRefs?: ReadonlySet<string>;
+  /**
+   * Restrict to one contact, **pushed into the query** (`calls.lead_id` / `conversations.contact_id`).
+   *
+   * The contact timeline needs every conversation for one person, not the org's most recent N
+   * with that person's filtered out of them — scanning-then-filtering silently drops a
+   * customer's older history once the org passes the scan limit.
+   */
+  contactId?: string;
+  /**
+   * Fetch these specific conversations by id, **pushed into the query**.
+   *
+   * Used by the "needs a person" filter: those conversations are identified by a separate table
+   * and can be arbitrarily old, so scanning a recent window would show fewer than the count
+   * promises. Fetching by id makes the badge, the list and Home's exact count agree.
+   */
+  ids?: string[];
 }
 
 export interface ConversationPage {
@@ -220,14 +236,16 @@ export async function listConversationViews(
   try {
     // Voice source (calls) unless a non-voice channel is requested.
     if (!opts.channel || opts.channel === "voice") {
-      const { data } = await db
+      let q = db
         .from("calls")
         .select(
           "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, transcript, duration_seconds, direction, started_at, ended_at, created_at"
         )
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(limit);
+        .eq("org_id", orgId);
+      // Narrow at the database — see `contactId` / `ids` on ListConversationsOpts.
+      if (opts.contactId) q = q.eq("lead_id", opts.contactId);
+      if (opts.ids) q = q.in("id", opts.ids);
+      const { data } = await q.order("created_at", { ascending: false }).limit(limit);
       for (const r of (data ?? []) as CallRow[]) {
         out.push(callRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
       }
@@ -238,11 +256,13 @@ export async function listConversationViews(
       let q = db
         .from("conversations")
         .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at")
-        .eq("org_id", orgId)
+        .eq("org_id", orgId);
+      if (opts.channel) q = q.eq("channel", opts.channel);
+      if (opts.contactId) q = q.eq("contact_id", opts.contactId);
+      if (opts.ids) q = q.in("id", opts.ids);
+      const { data } = await q
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(limit);
-      if (opts.channel) q = q.eq("channel", opts.channel);
-      const { data } = await q;
       for (const r of (data ?? []) as ConversationRow[]) {
         out.push(conversationRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
       }
@@ -273,6 +293,36 @@ export async function listConversationPage(
   const pageSize = opts.limit ?? 25;
   const offset = Math.max(0, opts.offset ?? 0);
   if (!orgId) return { items: [], total: 0, bounded: false };
+
+  /**
+   * `handling: "human"` is fetched BY ID, not scanned.
+   *
+   * Human-handled conversations are identified by a separate table and can be arbitrarily old,
+   * so scanning the most recent `CONVERSATION_SCAN_LIMIT` would show fewer than the facet count
+   * promises — and fewer than Home's exact count. Fetching the exact ref set makes all three
+   * agree, and the result is never bounded because it is not a window.
+   *
+   * `handling: "ai"` stays on the scan: "not in a small set" is not a query, and the AI-handled
+   * case is the default view, where a recent window is the right behaviour anyway.
+   */
+  const byRefSet = opts.handling === "human";
+  if (byRefSet) {
+    const refs = Array.from(opts.humanHandledRefs ?? []);
+    if (refs.length === 0) return { items: [], total: 0, bounded: false };
+
+    const fetched = await listConversationViews(
+      orgId,
+      { channel: opts.channel, ids: refs, limit: refs.length },
+      db
+    );
+    // Re-apply the remaining facets (search/date/intent); handling is already satisfied.
+    const filtered = filterConversationViews(fetched, { ...opts, handling: undefined });
+    return {
+      items: filtered.slice(offset, offset + pageSize),
+      total: filtered.length,
+      bounded: false,
+    };
+  }
 
   const scanned = await listConversationViews(orgId, { channel: opts.channel, limit: CONVERSATION_SCAN_LIMIT }, db);
   const filtered = filterConversationViews(scanned, opts);

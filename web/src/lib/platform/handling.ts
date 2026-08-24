@@ -96,20 +96,30 @@ export async function getHandlingState(
   return states.get(conversationRef) ?? defaultHandling(conversationRef);
 }
 
+export interface HumanHandledRefs {
+  refs: Set<string>;
+  /** True when the cap was hit, so `refs.size` is a floor — surface it as "N+", never as N. */
+  bounded: boolean;
+}
+
+/** How many human-handled refs we load at once. Also the "N+" threshold in the UI. */
+export const HUMAN_HANDLED_REF_LIMIT = 500;
+
 /**
  * Every conversation in this org currently owned by a human.
  *
- * Bounded deliberately: this is the set someone has explicitly touched, which stays small in
- * practice, and it feeds an in-memory filter over the already-scanned conversation window — so
- * the Inbox's truthful-count guarantee is unaffected.
+ * This set is the **single source** for both the Inbox's "Needs a person" count and the rows
+ * that filter shows — the Inbox fetches those conversations *by id* rather than scanning a
+ * recent window, so the badge and the list can never disagree. It reports `bounded` for the
+ * same reason every other count does: a capped result must read "N+", not N.
  */
 export async function listHumanHandledRefs(
   orgId: string,
   db: SupabaseClient = supabaseAdmin,
-  limit = 500
-): Promise<Set<string>> {
-  const out = new Set<string>();
-  if (!orgId) return out;
+  limit = HUMAN_HANDLED_REF_LIMIT
+): Promise<HumanHandledRefs> {
+  const empty: HumanHandledRefs = { refs: new Set<string>(), bounded: false };
+  if (!orgId) return empty;
 
   const { data, error } = await db
     .from("conversation_handling")
@@ -121,10 +131,11 @@ export async function listHumanHandledRefs(
 
   if (error) {
     console.warn("[PLATFORM][HANDLING][HUMAN_REFS][UNAVAILABLE]", { orgId, error: error.message });
-    return out;
+    return empty;
   }
-  for (const row of data ?? []) out.add(String(row.conversation_ref));
-  return out;
+  const refs = new Set<string>();
+  for (const row of data ?? []) refs.add(String(row.conversation_ref));
+  return { refs, bounded: refs.size >= limit };
 }
 
 /**

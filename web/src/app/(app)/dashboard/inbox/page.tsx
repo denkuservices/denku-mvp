@@ -55,9 +55,13 @@ export default async function ConversationsPage({
   const orgId = await resolveActiveOrgId();
 
   // Handling state lives in its own table (voice and chat come from two different sources, so it
-  // cannot be joined). Fetch the human-owned set once and both filter and annotate with it.
-  // Fails soft to an empty set when the migration is not applied — the list still renders.
-  const humanHandledRefs = orgId ? await listHumanHandledRefs(orgId) : new Set<string>();
+  // cannot be joined). This one set drives BOTH the facet count and the rows that filter returns
+  // — when `handling=human`, listConversationPage fetches those conversations by id rather than
+  // scanning a recent window, so the badge and the list can never disagree.
+  // Fails soft to an empty set when the migration is not applied; the list still renders.
+  const { refs: humanHandledRefs, bounded: humanRefsBounded } = orgId
+    ? await listHumanHandledRefs(orgId)
+    : { refs: new Set<string>(), bounded: false };
 
   const result = orgId
     ? await listConversationPage(orgId, {
@@ -128,7 +132,10 @@ export default async function ConversationsPage({
           >
             <UserCheck className="h-3.5 w-3.5" />
             Needs a person
-            <span className={handling === "human" ? "opacity-80" : "opacity-70"}>{humanHandledRefs.size}</span>
+            <span className={handling === "human" ? "opacity-80" : "opacity-70"}>
+              {humanHandledRefs.size}
+              {humanRefsBounded ? "+" : ""}
+            </span>
           </Link>
         ) : null}
       </div>
