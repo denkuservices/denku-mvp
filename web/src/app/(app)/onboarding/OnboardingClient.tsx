@@ -75,13 +75,19 @@ type OnboardingClientProps = {
 
 // UI step mapping: 0 = Workspace, 1 = Goal, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
 // DB step mapping: 0 = initial, 1 = Goal, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
+//
+// ⚠️ The UI step is the DB step MINUS ONE, and this mapping is load-bearing (see
+// skills/onboarding-flow.md). The redesign re-narrated these labels and NOTHING else: the step
+// machine, its forward-only writes, the `step >= 6` dashboard gate, the dual-path checkout
+// activation and resume-from-partial provisioning are all untouched. Renaming a label is safe;
+// renumbering a step is not.
 const STEPS = [
-  { id: 0, label: "Workspace", desc: "Your company & identity" },
-  { id: 1, label: "Agent goal", desc: "What your line handles" },
-  { id: 2, label: "Phone number", desc: "Claim your AI line" },
-  { id: 3, label: "Plan", desc: "Choose your capacity" },
-  { id: 4, label: "Activation", desc: "We provision everything" },
-  { id: 5, label: "Go live", desc: "Start taking calls" },
+  { id: 0, label: "Your business", desc: "Who your AI works for" },
+  { id: 1, label: "The role", desc: "What it handles for you" },
+  { id: 2, label: "Its number", desc: "The line it answers" },
+  { id: 3, label: "Plan", desc: "How much it can handle" },
+  { id: 4, label: "Setting up", desc: "Putting it to work" },
+  { id: 5, label: "First day", desc: "Your AI starts answering" },
 ];
 
 // Shared brand styling
@@ -94,6 +100,66 @@ const primaryBtn =
 const outlineBtn =
   "rounded-[10px] border border-[#0A1A2F]/12 bg-white px-6 h-11 text-sm font-medium text-[#0A1A2F] hover:border-[#1B6E6E] hover:text-[#1B6E6E]";
 const tealBtn = "rounded-[10px] bg-[#1B6E6E] px-6 h-11 text-sm font-medium text-white hover:bg-[#228585]";
+
+/** The role each goal describes, in the language a business owner would use. */
+const GOAL_LABELS: Record<"support" | "sales" | "ops", string> = {
+  support: "Customer support",
+  sales: "Sales & enquiries",
+  ops: "Bookings & operations",
+};
+
+/**
+ * The employee taking shape (Phase 7).
+ *
+ * Onboarding used to read as a provisioning checklist; this makes it read as hiring someone. It
+ * assembles from decisions the customer has ALREADY made — each line appears only once its fact
+ * exists, so the card never promises a detail we don't have. Presentational only: it holds no
+ * state and triggers nothing.
+ */
+function EmployeeCard({
+  businessName,
+  role,
+  language,
+  phoneNumber,
+  isLive,
+}: {
+  businessName: string | null;
+  role: string | null;
+  language: string | null;
+  phoneNumber: string | null;
+  isLive: boolean;
+}) {
+  const rows: Array<{ label: string; value: string }> = [];
+  if (businessName) rows.push({ label: "Works for", value: businessName });
+  if (role) rows.push({ label: "Role", value: role });
+  if (language) rows.push({ label: "Speaks", value: language.toUpperCase() });
+  if (phoneNumber) rows.push({ label: "Answers", value: phoneNumber });
+
+  // Nothing decided yet — a card of blanks would be worse than no card.
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-8 rounded-[14px] border border-white/[0.08] bg-white/[0.04] p-4">
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2 w-2 rounded-full ${isLive ? "bg-[#3FA3A3]" : "bg-white/25"}`}
+          aria-hidden="true"
+        />
+        <span className="text-xs font-medium text-[#F7F5F1]/80">
+          {isLive ? "Your AI employee · working" : "Your AI employee · in progress"}
+        </span>
+      </div>
+      <dl className="mt-3 space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-[11px] uppercase tracking-wide text-white/35">{r.label}</dt>
+            <dd className="min-w-0 truncate text-xs text-[#F7F5F1]/85">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 export function OnboardingClient({ initialState, checkoutStatus }: OnboardingClientProps) {
   const router = useRouter();
@@ -618,9 +684,23 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           <div className="mt-10">
             <div className="brand-eyebrow !text-[#3FA3A3] before:!bg-[#3FA3A3]">Welcome aboard</div>
             <h1 className="mt-4 font-display text-[28px] font-normal leading-[1.15] tracking-[-0.5px]">
-              Let&apos;s get your AI voice employee <em className="italic text-[#3FA3A3]">live</em>.
+              Let&apos;s build your <em className="italic text-[#3FA3A3]">AI team</em>.
             </h1>
+            <p className="mt-3 text-[13px] leading-relaxed text-[#F7F5F1]/55">
+              You&apos;re hiring your first AI employee. It answers every call, day or night, and
+              turns what it hears into work you can act on.
+            </p>
           </div>
+
+          {/* The employee taking shape. Reads only what has already been decided, so it can
+              never promise a detail the customer hasn't given us yet. */}
+          <EmployeeCard
+            businessName={state.orgName || null}
+            role={currentStep >= 1 ? GOAL_LABELS[goal] : null}
+            language={state.onboardingLanguage}
+            phoneNumber={displayPhoneNumber}
+            isLive={currentStep >= 5 && phoneStatus === "active"}
+          />
 
           {/* Vertical stepper */}
           <nav className="mt-10 flex-1">
@@ -703,12 +783,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 {state.orgId && <input type="hidden" name="orgId" value={state.orgId} />}
 
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 1 · Workspace</div>
+                  <div className="brand-eyebrow mb-4">Step 1 · Your business</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Set up your workspace
+                    Who will your AI work for?
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    A few details so we can personalize your AI employee and keep your account secure.
+                    Your AI employee introduces itself using your business name, so this is the first
+                    thing your customers will hear.
                   </p>
                 </div>
 
@@ -791,12 +872,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <input type="hidden" name="goal" value={goal} />
 
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 2 · Agent goal</div>
+                  <div className="brand-eyebrow mb-4">Step 2 · The role</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    What should your line handle?
+                    What are you hiring it for?
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    Choose the primary role for your AI employee. You can refine its behavior anytime.
+                    This sets how your AI opens a call and what it listens for. You can change its
+                    role and fine-tune how it speaks at any time.
                   </p>
                 </div>
 
@@ -858,12 +940,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             {currentStep === 2 && (
               <div className="space-y-7">
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 3 · Phone number</div>
+                  <div className="brand-eyebrow mb-4">Step 3 · Its number</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Claim your AI number
+                    Give your AI a phone line
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    This is the line your AI employee answers. We&apos;ll provision it for you instantly.
+                    This is the number it answers — 24 hours a day, without ringing out. Pick an area
+                    code your customers will recognise.
                   </p>
                 </div>
 
@@ -973,10 +1056,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <div>
                   <div className="brand-eyebrow mb-4">Step 4 · Plan</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Choose your capacity
+                    How much should it handle?
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    Select a plan to activate your line. You&apos;re charged now and can change plans anytime.
+                    Pick the monthly call volume that fits your business. You&apos;re charged now, and
+                    you can move up or down at any time.
                   </p>
                 </div>
 
@@ -1150,21 +1234,46 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     )}
                   </div>
                   <h2 className="mt-6 font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Activating your line
+                    {isActivating ? "Putting your AI to work" : "Your AI employee is ready"}
                   </h2>
                   <p className="mt-3 text-[15px] text-[#2C3E54]">
-                    Provisioning your phone number and configuring your Main Line.
+                    {isActivating
+                      ? "Claiming your number and teaching your AI how to answer for your business."
+                      : "Everything is set up. Next, it starts taking calls."}
                   </p>
                 </div>
 
+                {/*
+                  These describe what setup involves, not live per-step progress — the activation
+                  action reports one result, not a stream. They therefore render as a single
+                  in-progress/done state together. Showing three independently-ticking rows would
+                  be a progress bar we cannot actually back.
+                */}
                 <div className="mx-auto max-w-md space-y-3">
-                  {["Provisioning phone number", "Creating Main Line", "Binding number to agent"].map((label) => (
-                    <div key={label} className="flex items-center gap-3 rounded-[12px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-4">
-                      <div className={`h-2 w-2 rounded-full ${isActivating ? "bg-[#0A1A2F]/20" : "bg-[#1B6E6E]"}`} />
+                  {[
+                    "Claiming your phone number",
+                    "Creating your AI employee",
+                    "Connecting the two together",
+                  ].map((label) => (
+                    <div
+                      key={label}
+                      className="flex items-center gap-3 rounded-[12px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-4"
+                    >
+                      {isActivating ? (
+                        <div className="h-2 w-2 rounded-full bg-[#0A1A2F]/20" />
+                      ) : (
+                        <Check className="h-4 w-4 shrink-0 text-[#1B6E6E]" />
+                      )}
                       <span className="text-sm text-[#0A1A2F]">{label}</span>
                     </div>
                   ))}
                 </div>
+
+                {isActivating ? (
+                  <p className="mx-auto max-w-md text-center text-sm text-[#6B7888]">
+                    This usually takes a few seconds. You don&apos;t need to do anything.
+                  </p>
+                ) : null}
 
                 {activationError && (
                   <div className="mx-auto max-w-md rounded-[12px] border border-red-200 bg-red-50 p-4">
@@ -1184,20 +1293,21 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 {phoneStatus === "active" || (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ? (
                   <div>
                     <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                      Your AI phone line is live
+                      Your AI employee starts now
                     </h2>
                     <p className="mt-3 text-[15px] text-[#2C3E54]">
-                      {showActiveAnimation ? "Your number is now active." : "Your phone number is ready to receive calls."}
+                      Call the number below and hear it answer — that&apos;s exactly what your
+                      customers will get, day or night.
                     </p>
                   </div>
                 ) : (
                   <>
                     <div>
                       <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                        Activating your number
+                        Almost ready to answer
                       </h2>
                       <p className="mt-3 text-[15px] text-[#2C3E54]">
-                        We&apos;ve reserved your number. It can take up to ~2 minutes to activate.
+                        Your number is reserved. Carriers take up to ~2 minutes to switch it on.
                       </p>
                     </div>
 
@@ -1216,7 +1326,9 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <p className="text-sm text-[#6B7888]">Still activating… This usually completes within a few moments.</p>
                     )}
 
-                    <p className="text-sm text-[#6B7888]">Once active, you can call the number below to test.</p>
+                    <p className="text-sm text-[#6B7888]">
+                      As soon as it&apos;s on, call the number below to hear your AI answer.
+                    </p>
                   </>
                 )}
 
@@ -1248,16 +1360,18 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         Copy number
                       </Button>
                       {phoneStatus === "active" || (countdownRemaining === 0 && phoneStatus !== "activating") ? (
-                        <Button className={outlineBtn} asChild>
+                        // `tel:` works on a phone and is a no-op on most desktops, so the copy
+                        // below tells desktop users what to do instead of leaving a dead button.
+                        <Button className={tealBtn} asChild>
                           <a href={`tel:${displayPhoneNumber}`}>
                             <Phone className="h-4 w-4" />
-                            Call to test
+                            Call your AI now
                           </a>
                         </Button>
                       ) : (
                         <Button className={outlineBtn} disabled>
                           <Phone className="h-4 w-4" />
-                          Activating…
+                          Switching on…
                         </Button>
                       )}
                     </>
@@ -1273,6 +1387,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {displayPhoneNumber ? (
+                  <p className="text-sm text-[#6B7888]">
+                    On a computer? Copy the number and call it from your phone — every call your AI
+                    takes appears in your dashboard, with what it heard and what it booked.
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

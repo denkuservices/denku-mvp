@@ -49,7 +49,8 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
       {
         label: "Connected channels",
         href: "/dashboard/channels",
-        description: "Phone lines, Instagram, and the channels arriving next.",
+        description:
+          "Connect and monitor phone lines, Instagram, and the channels arriving next. This is the only place channels are managed — once connected, they appear as badges and filters throughout Inbox and CRM.",
         external: true,
       },
     ],

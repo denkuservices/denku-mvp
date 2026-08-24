@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessagesSquare, Search } from "lucide-react";
+import { MessagesSquare, Search, UserCheck } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listConversationPage } from "@/lib/platform/readModel/conversations";
+import { listHumanHandledRefs } from "@/lib/platform/handling";
 import { isKnownChannel, selectableChannels, channelMeta, type Channel } from "@/lib/platform/channels";
 import PageHeader from "../_platform/PageHeader";
 import ChannelBadge from "../_platform/ChannelBadge";
@@ -46,9 +47,22 @@ export default async function ConversationsPage({
   const from = one(sp?.from);
   const to = one(sp?.to);
   const intent = one(sp?.intent);
+  const handlingParam = one(sp?.handling);
+  const handling: "human" | "ai" | undefined =
+    handlingParam === "human" || handlingParam === "ai" ? handlingParam : undefined;
   const page = Math.max(1, Number(one(sp?.page)) || 1);
 
   const orgId = await resolveActiveOrgId();
+
+  // Handling state lives in its own table (voice and chat come from two different sources, so it
+  // cannot be joined). This one set drives BOTH the facet count and the rows that filter returns
+  // — when `handling=human`, listConversationPage fetches those conversations by id rather than
+  // scanning a recent window, so the badge and the list can never disagree.
+  // Fails soft to an empty set when the migration is not applied; the list still renders.
+  const { refs: humanHandledRefs, bounded: humanRefsBounded } = orgId
+    ? await listHumanHandledRefs(orgId)
+    : { refs: new Set<string>(), bounded: false };
+
   const result = orgId
     ? await listConversationPage(orgId, {
         channel,
@@ -56,12 +70,14 @@ export default async function ConversationsPage({
         from,
         to,
         intent,
+        handling,
+        humanHandledRefs,
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
       })
     : { items: [], total: 0, bounded: false };
 
-  const hasFilters = Boolean(search || from || to || intent || channel);
+  const hasFilters = Boolean(search || from || to || intent || channel || handling);
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const showingFrom = result.total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(page * PAGE_SIZE, result.total);
@@ -69,17 +85,17 @@ export default async function ConversationsPage({
   /** Preserve current filters when changing one facet. */
   const hrefWith = (patch: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    const merged = { channel: chParam, q: search, from, to, intent, ...patch };
+    const merged = { channel: chParam, q: search, from, to, intent, handling: handlingParam, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v);
     const qs = params.toString();
-    return `/dashboard/conversations${qs ? `?${qs}` : ""}`;
+    return `/dashboard/inbox${qs ? `?${qs}` : ""}`;
   };
 
   return (
     <div className="p-4 md:p-6">
       <PageHeader
-        title="Conversations"
-        subtitle="Every customer conversation across all channels, handled by your AI Employees."
+        title="Inbox"
+        subtitle="Every customer conversation, across every channel your AI team handles."
       />
 
       {/* Channel facets — derived from the registry (R-099), so new channels appear automatically. */}
@@ -102,11 +118,32 @@ export default async function ConversationsPage({
             );
           }
         )}
+
+        {/* Needs-a-person is a facet, not a search field: it is the one filter an owner reaches
+            for daily. Shown only when there is something to find, so it never dangles. */}
+        {humanHandledRefs.size > 0 || handling === "human" ? (
+          <Link
+            href={hrefWith({ handling: handling === "human" ? undefined : "human", page: undefined })}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              handling === "human"
+                ? "bg-amber-500 text-white"
+                : "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300"
+            }`}
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            Needs a person
+            <span className={handling === "human" ? "opacity-80" : "opacity-70"}>
+              {humanHandledRefs.size}
+              {humanRefsBounded ? "+" : ""}
+            </span>
+          </Link>
+        ) : null}
       </div>
 
       {/* Search + date range + intent. GET form → shareable, bookmarkable URLs. */}
       <form method="get" className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_auto_auto_auto]">
         {chParam ? <input type="hidden" name="channel" value={chParam} /> : null}
+        {handlingParam ? <input type="hidden" name="handling" value={handlingParam} /> : null}
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -154,7 +191,7 @@ export default async function ConversationsPage({
           </button>
           {hasFilters ? (
             <Link
-              href="/dashboard/conversations"
+              href="/dashboard/inbox"
               className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200"
             >
               Clear
@@ -182,7 +219,7 @@ export default async function ConversationsPage({
               icon={Search}
               title="No conversations match these filters"
               description="Try widening the date range, clearing the outcome filter, or searching for a different name or number."
-              action={{ label: "Clear filters", href: "/dashboard/conversations" }}
+              action={{ label: "Clear filters", href: "/dashboard/inbox" }}
             />
           ) : (
             <EmptyState
@@ -194,25 +231,33 @@ export default async function ConversationsPage({
           )
         ) : (
           <ListContainer>
-            {result.items.map((c) => (
-              <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/conversations/${c.id}`}>
-                <ChannelBadge channel={c.channel} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
-                    {c.contact.displayName || c.contact.handle || "Unknown contact"}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {c.summary || (c.employeeName ? `Handled by ${c.employeeName}` : "—")}
-                  </p>
-                </div>
-                {c.intent ? (
-                  <Pill tone="info" className="hidden md:inline-flex">
-                    {titleCase(c.intent)}
-                  </Pill>
-                ) : null}
-                <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
-              </ListRow>
-            ))}
+            {result.items.map((c) => {
+              const needsPerson = humanHandledRefs.has(c.id);
+              return (
+                <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/inbox/${c.id}`}>
+                  <ChannelBadge channel={c.channel} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
+                      {c.contact.displayName || c.contact.handle || "Unknown contact"}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">
+                      {c.summary || (c.employeeName ? `Handled by ${c.employeeName}` : "—")}
+                    </p>
+                  </div>
+                  {needsPerson ? (
+                    <Pill tone="warn" className="hidden md:inline-flex">
+                      Needs a person
+                    </Pill>
+                  ) : null}
+                  {c.intent ? (
+                    <Pill tone="info" className="hidden md:inline-flex">
+                      {titleCase(c.intent)}
+                    </Pill>
+                  ) : null}
+                  <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
+                </ListRow>
+              );
+            })}
           </ListContainer>
         )}
 

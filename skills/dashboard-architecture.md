@@ -14,9 +14,14 @@ app/(app)/layout.tsx                 → DM Sans font, HorizonStylesheet, getOnb
           └ HorizonShell             → MobileNavProvider + SidebarAdapter + main (xl:ml-[323px])
 ```
 
-- Sidebar nav = `components/horizon-shell/nav.tsx` → **exactly 8 flat items**: Dashboard, Phone
-  Lines, Calls, Tickets, Appointments, Usage, Analytics, Settings. No nesting — this was a
-  deliberate product decision; don't add nested menus.
+- Sidebar nav = `components/horizon-shell/nav.tsx`, **two variants** picked by `PLATFORM_UX_ENABLED`:
+  - `horizonNavRoutes` (**legacy**, flag OFF — what customers see today): 9 flat items —
+    Dashboard, Phone Lines, Instagram, Calls, Tickets, Appointments, Usage, Analytics, Settings.
+  - `platformNavRoutes` (**flag ON**): 6 flat items — Home, Inbox, CRM, AI Team, Analytics,
+    Settings. Channels is configuration under Settings, deliberately not a nav item.
+    Full IA + rationale: `skills/platform-architecture.md`.
+  No nesting in either — a deliberate product decision; don't add nested menus. Grouping happens
+  *inside* a hub (CRM tabs, Settings rail), never in the sidebar.
 - Route-title mapping via `horizon-shell/navigation.ts`; brand text computed client-side after
   mount to avoid hydration mismatch (keep that pattern).
 - Horizon assets: `next.config.ts` rewrites `/img|/fonts|/svg → /horizon/*` and webpack-aliases

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { listConversationViews } from "@/lib/platform/readModel/conversations";
+import { listConversationViews, sortByActivityDesc } from "@/lib/platform/readModel/conversations";
 import type { ConversationView } from "@/lib/platform/readModel/types";
 import type { Channel } from "@/lib/platform/channels";
 
@@ -110,12 +110,35 @@ export async function getContactView(
     if (!lead) return null;
 
     const base = leadRowToContactListView(lead);
-    // Conversation history: match by contact id (voice sets contact.id = lead_id) or handle.
-    const all = await listConversationViews(orgId, { limit: 200 }, db);
     const handle = base.primaryHandle;
-    const conversations = all.filter(
-      (c) => c.contact.id === lead.id || (handle && c.contact.handle === handle)
-    );
+
+    /**
+     * Conversation history, fetched TWO ways and merged:
+     *
+     *  1. `contactId` — pushed into the query (`calls.lead_id` / `conversations.contact_id`), so
+     *     a contact's linked history is complete regardless of how old it is. This is the part
+     *     that used to be lost: scanning the org's recent 200 and filtering afterwards silently
+     *     dropped a customer's earlier conversations once the org grew past that.
+     *  2. A recent-window scan matched on `handle` — voice calls from a number we never linked to
+     *     a lead carry no `lead_id`, so they are only findable by phone number. Bounded on
+     *     purpose: it is a heuristic, and widening it would trade a real cost for a guess.
+     */
+    const [linked, recent] = await Promise.all([
+      listConversationViews(orgId, { contactId: lead.id, limit: 200 }, db),
+      handle ? listConversationViews(orgId, { limit: 200 }, db) : Promise.resolve([]),
+    ]);
+
+    const seen = new Set(linked.map((c) => `${c.source}:${c.id}`));
+    const conversations = [...linked];
+    for (const c of recent) {
+      const key = `${c.source}:${c.id}`;
+      if (seen.has(key)) continue;
+      if (handle && c.contact.handle === handle) {
+        seen.add(key);
+        conversations.push(c);
+      }
+    }
+    conversations.sort(sortByActivityDesc);
 
     return {
       ...base,

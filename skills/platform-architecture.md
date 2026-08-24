@@ -83,24 +83,60 @@ renders, **decoupled from storage**.
 The whole new experience is gated by **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF) —
 independent of `PLATFORM_MODEL_ENABLED`, so the IA dark-launches over the read model.
 
-## The Platform UI / IA (Sprint 5)
+## The Platform UI / IA (Sprint 5 · consolidated 2026-08-24)
 
-The AI Employees experience is served behind **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF).
+The platform experience is served behind **`PLATFORM_UX_ENABLED`** (`flags.ts`, default OFF).
 
-- **Nav:** `platformNavRoutes` in `horizon-shell/nav.tsx` (Dashboard · AI Employees · Conversations ·
-  Contacts · Channels · Tickets · Appointments · Analytics · Settings). The shell picks legacy vs
-  platform nav via a server-resolved `platformUx` boolean threaded `(app)/layout.tsx` →
-  `AppShellWrapper` → `HorizonShell` (a boolean, never JSX, crosses the boundary).
-- **Surfaces** (`app/(app)/dashboard/{employees,conversations,channels,contacts}`) all read the P0
-  read model — no duplicated domain logic. Shared bits in `dashboard/_platform/` (PageHeader,
-  ChannelBadge, format, serverOrg resolver). New routes `notFound()` when the flag is OFF (fully dark).
+**The IA — six flat primary items** (`platformNavRoutes` in `horizon-shell/nav.tsx`):
+
+| Nav | Route | What it is |
+|---|---|---|
+| Home | `/dashboard` | the outcome layer — what did my AI team accomplish? |
+| Inbox | `/dashboard/inbox` | the communication workspace — every conversation, every channel |
+| CRM | `/dashboard/crm/{contacts,requests}` | the shared memory — one customer-shaped hub |
+| AI Team | `/dashboard/team` | the control plane — who works here, how are they doing |
+| Analytics | `/dashboard/analytics` | depth reporting |
+| Settings | `/dashboard/settings` | configuration |
+
+⚠️ **Channels is NOT primary navigation** — `/dashboard/channels` is reached from **Settings →
+Channels**. Connecting a channel is configuration you do once; channel presence surfaces as
+badges and filters inside Inbox and CRM. **This is what keeps the sidebar flat as
+WhatsApp/Telegram/Email arrive** — a new channel adds a registry line, never a nav item. Do not
+re-add a channel to the sidebar; `test/platform-cutover.test.ts` fails if you do.
+
+- **Renamed 2026-08-24 (Phase 2):** `conversations`→`inbox`, `employees`→`team`, and
+  `contacts`/`requests` moved under `crm/`. The old paths redirect. They never shipped to
+  production (the flag has always been off there), so this is not a compatibility debt.
+- The shell picks legacy vs platform nav via a server-resolved `platformUx` boolean threaded
+  `(app)/layout.tsx` → `AppShellWrapper` → `HorizonShell` (a boolean, never JSX, crosses the boundary).
+- **Surfaces** (`app/(app)/dashboard/{team,inbox,channels,crm/*}`) all read the P0 read model — no
+  duplicated domain logic. Shared bits in `dashboard/_platform/` (PageHeader, ChannelBadge, format,
+  serverOrg resolver, `crm/nav.ts` + `CrmTabs`). New routes `notFound()` when the flag is OFF.
+- **Two hub patterns, one grammar:** Settings uses a vertical rail (`_platform/settings/nav.ts` +
+  `SettingsNav`), CRM uses horizontal tabs (`_platform/crm/nav.ts` + `CrmTabs`). Both enforce the
+  same contract — *every navigable item resolves to a real page on disk* — so a section can never be
+  advertised before it exists (Companies/Deals/Pipeline are deliberately absent).
 - **Plugin conversation renderer** (`_platform/conversation/`): `<ConversationThread>` dispatches each
   turn to its channel's renderer via `renderers/registry.ts`. Add a channel renderer with
   `registerRenderer(channel, Component)` — the core never changes (requirement #2).
-- **Redirects** (`lib/platform/routeRedirects.ts`, run in middleware when the flag is ON): only the
-  fully-replaced **calls list** → `/dashboard/conversations`. Detail/management pages (call detail,
-  phone-lines, instagram, leads) stay reachable and are **linked from** the new surfaces — capability
-  is preserved, not hidden.
+- **Redirects** (`lib/platform/routeRedirects.ts`, run in middleware when the flag is ON): the
+  fully-replaced **lists** only — calls→Inbox, leads→CRM contacts, agents→AI Team,
+  tickets/appointments→CRM requests, plus the four renamed platform routes. Detail/management pages
+  (call detail, phone-lines, instagram, ticket detail, the create forms) stay reachable and are
+  **linked from** the new surfaces — capability is preserved, not hidden.
+
+## Cutover readiness (`lib/platform/cutover.ts`)
+
+**The two flags are INDEPENDENT.** `PLATFORM_UX_ENABLED` has **no dependency** on
+`PLATFORM_MODEL_ENABLED`: the read model sources `calls`, `conversations`, `agents`, `leads`,
+`tickets`, `appointments` — all predate the platform migrations — so the new IA shows real data
+with the model flag off. Sequencing the UX behind the dual-writes would block it on traffic that
+only exists once the model flag is already on.
+
+`evaluateCutover()` encodes the ordering (migrations → model flag → parity; backfill; UX flag;
+read cutover) and `/admin/readiness` renders it live with DONE/READY/BLOCKED/NOT BUILT/UNKNOWN.
+An unprobeable fact is `unknown`, never a pass or a fail; a missing table never counts as an empty
+one. Runbook: `docs/LAUNCH_RUNBOOK.md` Phase 8 (8a and 8b are independent, not a chain).
 
 ## Control plane vs data plane (Sprint 8)
 
