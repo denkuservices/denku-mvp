@@ -144,6 +144,14 @@ export interface ListConversationsOpts {
   intent?: string;
   /** Skip N results (simple offset pagination). */
   offset?: number;
+  /**
+   * Filter by who owns the conversation (Phase 3). Handling state lives in its own table and
+   * cannot be joined here — voice and chat come from two different sources — so the caller
+   * passes the human-owned ref set and this filters the already-scanned window in memory. That
+   * keeps the truthful-count guarantee intact: `total` still describes the same window.
+   */
+  handling?: "human" | "ai";
+  humanHandledRefs?: ReadonlySet<string>;
 }
 
 export interface ConversationPage {
@@ -154,10 +162,10 @@ export interface ConversationPage {
   bounded: boolean;
 }
 
-/** Apply search/date/intent filters to already-materialized views. Pure + testable. */
+/** Apply search/date/intent/handling filters to already-materialized views. Pure + testable. */
 export function filterConversationViews(
   views: ConversationView[],
-  opts: Pick<ListConversationsOpts, "search" | "from" | "to" | "intent">
+  opts: Pick<ListConversationsOpts, "search" | "from" | "to" | "intent" | "handling" | "humanHandledRefs">
 ): ConversationView[] {
   const q = (opts.search ?? "").trim().toLowerCase();
   const fromTs = opts.from ? Date.parse(opts.from) : null;
@@ -166,6 +174,14 @@ export function filterConversationViews(
 
   return views.filter((v) => {
     if (opts.intent && (v.intent ?? "") !== opts.intent) return false;
+
+    if (opts.handling) {
+      // A conversation with no recorded state is AI-handled by default, so "human" means
+      // present in the set and "ai" means absent from it.
+      const isHuman = opts.humanHandledRefs?.has(v.id) ?? false;
+      if (opts.handling === "human" && !isHuman) return false;
+      if (opts.handling === "ai" && isHuman) return false;
+    }
 
     if (fromTs !== null || toTs !== null) {
       const at = v.lastActivityAt ? Date.parse(v.lastActivityAt) : NaN;

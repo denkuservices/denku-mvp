@@ -1,20 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Ticket, Calendar } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationView } from "@/lib/platform/readModel/conversations";
+import { getHandlingState, handlingAvailable, defaultHandling } from "@/lib/platform/handling";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
 import ConversationThread from "../../_platform/conversation/ConversationThread";
+import ContextRail from "../../_platform/conversation/ContextRail";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Conversation detail (Sprint 5, P2) — the unified thread for any channel, rendered via the
- * plugin renderer registry. Deep-linkable; legacy /dashboard/calls/:id redirects here (the
- * call id IS the conversation id). Reachable only under PLATFORM_UX_ENABLED.
+ * Conversation detail — the unified thread for any channel (Sprint 5, P2 · rail added Phase 3).
+ *
+ * Layout is thread + customer context rail: the rail is what makes the Inbox and CRM read as two
+ * views of one relationship. The thread itself renders through the plugin renderer registry, so
+ * voice transcripts and chat bubbles share this page without the page knowing about either.
+ *
+ * Deep-linkable; legacy /dashboard/calls/:id redirects here (the call id IS the conversation id).
+ * Reachable only under PLATFORM_UX_ENABLED.
  */
 export default async function ConversationDetailPage({
   params,
@@ -29,13 +36,19 @@ export default async function ConversationDetailPage({
 
   if (!detail) notFound();
 
+  // Handling state is additive and inert until its migration is applied — the conversation must
+  // render either way, so a failed read degrades the controls only.
+  const [handling, controlsAvailable] = orgId
+    ? await Promise.all([getHandlingState(orgId, detail.id), handlingAvailable(orgId)])
+    : [defaultHandling(detail.id), false];
+
   return (
     <div className="p-4 md:p-6">
       <Link
         href="/dashboard/inbox"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
-        <ArrowLeft className="h-4 w-4" /> Conversations
+        <ArrowLeft className="h-4 w-4" /> Inbox
       </Link>
 
       <PageHeader
@@ -46,6 +59,11 @@ export default async function ConversationDetailPage({
 
       {/* Meta strip */}
       <div className="mb-6 flex flex-wrap items-center gap-2 text-xs">
+        {handling.handling === "human" ? (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
+            Needs a person
+          </span>
+        ) : null}
         {detail.status ? (
           <span className={`rounded-full px-2 py-0.5 font-medium ${statusPillClass(detail.status)}`}>
             {titleCase(detail.status)}
@@ -60,71 +78,11 @@ export default async function ConversationDetailPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Thread */}
         <div className="lg:col-span-2">
           <ConversationThread turns={detail.turns} />
         </div>
 
-        {/* Artifacts + contact */}
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Outcomes</p>
-            {detail.artifacts.length === 0 ? (
-              <p className="text-sm text-gray-500">No artifacts created.</p>
-            ) : (
-              <ul className="space-y-2">
-                {detail.artifacts.map((a) => (
-                  <li key={`${a.type}:${a.id}`}>
-                    <Link
-                      href={a.type === "ticket" ? `/dashboard/tickets/${a.id}` : `/dashboard/appointments`}
-                      className="flex items-center gap-2 rounded-lg border border-gray-100 p-2 text-sm transition hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
-                    >
-                      {a.type === "ticket" ? (
-                        <Ticket className="h-4 w-4 text-gray-500" />
-                      ) : (
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                      )}
-                      <span className="min-w-0 flex-1 truncate text-navy-700 dark:text-white">
-                        {a.title || titleCase(a.type)}
-                      </span>
-                      {a.status ? <span className="text-xs text-gray-400">{titleCase(a.status)}</span> : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Contact</p>
-            {detail.contact.id ? (
-              <Link
-                href={`/dashboard/crm/contacts/${detail.contact.id}`}
-                className="text-sm font-medium text-brand-600 hover:underline"
-              >
-                {detail.contact.displayName || detail.contact.handle || "View contact"}
-              </Link>
-            ) : (
-              <p className="text-sm font-medium text-navy-700 dark:text-white">
-                {detail.contact.displayName || "Unknown"}
-              </p>
-            )}
-            {detail.contact.handle ? (
-              <p className="mt-0.5 text-sm text-gray-500">{detail.contact.handle}</p>
-            ) : null}
-          </div>
-
-          {/* Voice conversations link through to the full call detail (recording, cost) —
-              capability preserved rather than duplicated. */}
-          {detail.channel === "voice" ? (
-            <Link
-              href={`/dashboard/calls/${detail.id}`}
-              className="block rounded-2xl border border-gray-200 bg-white p-4 text-sm font-medium text-brand-600 transition hover:bg-gray-50 dark:border-white/10 dark:bg-navy-800 dark:hover:bg-white/5"
-            >
-              Full call details (recording, cost) →
-            </Link>
-          ) : null}
-        </aside>
+        <ContextRail detail={detail} handling={handling} handlingAvailable={controlsAvailable} />
       </div>
     </div>
   );
