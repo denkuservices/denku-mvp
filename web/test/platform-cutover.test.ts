@@ -5,6 +5,8 @@ import { evaluateCutover, summarizeCutover, type CutoverFacts } from "@/lib/plat
 import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
 import { horizonNavRoutes, platformNavRoutes } from "@/components/horizon-shell/nav";
 import type { NavRoute } from "@/components/horizon-shell/types";
+import { allSettingsItems } from "@/app/(app)/dashboard/_platform/settings/nav";
+import { CRM_SECTIONS, CRM_DEFAULT_HREF, activeCrmSection } from "@/app/(app)/dashboard/_platform/crm/nav";
 
 const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
@@ -118,8 +120,8 @@ describe("functional parity — no legacy destination is lost when the flag flip
    * not a silent capability loss.
    */
   const PRESERVED_AND_LINKED: Record<string, string> = {
-    "/dashboard/phone-lines": "Channels → Manage",
-    "/dashboard/instagram": "Channels → Manage",
+    "/dashboard/phone-lines": "Settings → Channels → Manage",
+    "/dashboard/instagram": "Settings → Channels → Manage",
     "/dashboard/usage": "Settings → Billing & Usage",
   };
 
@@ -149,16 +151,25 @@ describe("functional parity — no legacy destination is lost when the flag flip
   });
 
   it("every redirect target resolves to a real page (no redirect into a 404)", () => {
-    // legacy source → the on-disk route its target must resolve to. Detail routes are listed
-    // with their dynamic segment because that is what exists on disk.
+    // legacy/renamed source → the on-disk route its target must resolve to. Detail routes are
+    // listed with their dynamic segment because that is what exists on disk.
     const cases: [source: string, expectedRoute: string][] = [
-      ["/dashboard/calls", "/dashboard/conversations"],
-      ["/dashboard/leads", "/dashboard/contacts"],
-      ["/dashboard/leads/lead-1", "/dashboard/contacts/[contactId]"],
-      ["/dashboard/agents", "/dashboard/employees"],
-      ["/dashboard/agents/emp-1", "/dashboard/employees/[employeeId]"],
-      ["/dashboard/tickets", "/dashboard/requests"],
-      ["/dashboard/appointments", "/dashboard/requests"],
+      // Voice-first legacy
+      ["/dashboard/calls", "/dashboard/inbox"],
+      ["/dashboard/leads", "/dashboard/crm/contacts"],
+      ["/dashboard/leads/lead-1", "/dashboard/crm/contacts/[contactId]"],
+      ["/dashboard/agents", "/dashboard/team"],
+      ["/dashboard/agents/emp-1", "/dashboard/team/[employeeId]"],
+      ["/dashboard/tickets", "/dashboard/crm/requests"],
+      ["/dashboard/appointments", "/dashboard/crm/requests"],
+      // First-generation platform routes renamed in Phase 2
+      ["/dashboard/conversations", "/dashboard/inbox"],
+      ["/dashboard/conversations/conv-1", "/dashboard/inbox/[conversationId]"],
+      ["/dashboard/employees", "/dashboard/team"],
+      ["/dashboard/employees/emp-1", "/dashboard/team/[employeeId]"],
+      ["/dashboard/contacts", "/dashboard/crm/contacts"],
+      ["/dashboard/contacts/c-1", "/dashboard/crm/contacts/[contactId]"],
+      ["/dashboard/requests", "/dashboard/crm/requests"],
     ];
 
     const broken: string[] = [];
@@ -173,10 +184,77 @@ describe("functional parity — no legacy destination is lost when the flag flip
     expect(broken).toEqual([]);
   });
 
+  it("Channels is reachable from Settings even though it left the primary nav", () => {
+    // Demoting Channels to configuration is only honest if there is still a way in.
+    const channels = allSettingsItems().find((i) => i.href === "/dashboard/channels");
+    expect(channels).toBeDefined();
+    expect(routeExists("/dashboard/channels")).toBe(true);
+    // ...and it must not be redirected away from underneath that link.
+    expect(platformRedirectTarget("/dashboard/channels")).toBeNull();
+  });
+
   it("no redirect target is itself redirected (no loops)", () => {
     for (const src of ["/dashboard/calls", "/dashboard/leads", "/dashboard/agents", "/dashboard/tickets"]) {
       const target = platformRedirectTarget(src)!.split("?")[0];
       expect(platformRedirectTarget(target)).toBeNull();
+    }
+  });
+});
+
+/**
+ * IA CONTRACT (Phase 2).
+ *
+ * The approved information architecture is six flat primary items with Contacts and Requests
+ * grouped under a CRM hub, and Channels demoted to configuration. These tests pin the shape so
+ * a future change cannot quietly re-add a channel to the sidebar (the HighLevel failure mode)
+ * or advertise a CRM section that does not exist.
+ */
+describe("information architecture", () => {
+  it("the primary nav is the approved six surfaces, in order", () => {
+    expect(platformNavRoutes.map((r) => r.name)).toEqual([
+      "Home",
+      "Inbox",
+      "CRM",
+      "AI Team",
+      "Analytics",
+      "Settings",
+    ]);
+  });
+
+  it("no channel is a primary nav item — channels are configuration", () => {
+    // A channel in the sidebar is the pattern this IA exists to avoid: it does not scale to
+    // WhatsApp/Telegram/Email and forces a navigation redesign per channel.
+    const names = platformNavRoutes.map((r) => r.name.toLowerCase());
+    for (const channelish of ["instagram", "whatsapp", "telegram", "email", "sms", "phone lines", "channels"]) {
+      expect(names).not.toContain(channelish);
+    }
+  });
+
+  it("every CRM section resolves to a real page", () => {
+    const missing = CRM_SECTIONS.filter((s) => !routeExists(s.href));
+    expect(missing.map((m) => `${m.label} → ${m.href}`)).toEqual([]);
+  });
+
+  it("CRM advertises only what exists — no Companies/Deals/Pipeline until they are built", () => {
+    const labels = CRM_SECTIONS.map((s) => s.label.toLowerCase());
+    expect(labels).toEqual(["contacts", "requests"]);
+  });
+
+  it("the CRM hub index has a real default destination", () => {
+    expect(CRM_SECTIONS.some((s) => s.href === CRM_DEFAULT_HREF)).toBe(true);
+    expect(routeExists(CRM_DEFAULT_HREF)).toBe(true);
+  });
+
+  it("resolves the active CRM section from a pathname, including detail routes", () => {
+    expect(activeCrmSection("/dashboard/crm/contacts")).toBe("/dashboard/crm/contacts");
+    expect(activeCrmSection("/dashboard/crm/contacts/lead-9")).toBe("/dashboard/crm/contacts");
+    expect(activeCrmSection("/dashboard/crm/requests")).toBe("/dashboard/crm/requests");
+    expect(activeCrmSection("/dashboard/inbox")).toBeNull();
+  });
+
+  it("every CRM section has a real, non-decorative description", () => {
+    for (const s of CRM_SECTIONS) {
+      expect(s.description.trim().length).toBeGreaterThan(10);
     }
   });
 });

@@ -151,7 +151,7 @@ export default async function PlatformDashboard() {
         <SectionHeader
           title="Today"
           action={
-            <Link href="/dashboard/conversations" className="text-xs text-brand-600 hover:underline">
+            <Link href="/dashboard/inbox" className="text-xs text-brand-600 hover:underline">
               All conversations
             </Link>
           }
@@ -161,7 +161,7 @@ export default async function PlatformDashboard() {
             label="Conversations"
             value={agg.total}
             note={agg.limited ? `recent ${agg.total}` : `last ${agg.windowDays} days`}
-            href="/dashboard/conversations"
+            href="/dashboard/inbox"
           />
           <StatCard label="Open requests" value={artifacts.openTickets} note="waiting on you" href="/dashboard/tickets" />
           <StatCard
@@ -174,7 +174,7 @@ export default async function PlatformDashboard() {
             label="AI Employees"
             value={employees.length}
             note={`${activeEmployees.length} active`}
-            href="/dashboard/employees"
+            href="/dashboard/team"
           />
         </div>
 
@@ -188,7 +188,7 @@ export default async function PlatformDashboard() {
           ) : (
             <ListContainer>
               {recent.map((c) => (
-                <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/conversations/${c.id}`}>
+                <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/inbox/${c.id}`}>
                   <ChannelBadge channel={c.channel} />
                   <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
                     {c.contact.displayName || c.contact.handle || "Unknown"}
@@ -229,7 +229,7 @@ export default async function PlatformDashboard() {
               <ul className="space-y-2">
                 {employees.slice(0, 5).map((e) => (
                   <li key={e.id}>
-                    <Link href={`/dashboard/employees/${e.id}`} className="flex items-center justify-between gap-2 transition hover:opacity-80">
+                    <Link href={`/dashboard/team/${e.id}`} className="flex items-center justify-between gap-2 transition hover:opacity-80">
                       <span className="min-w-0 truncate text-sm font-medium text-navy-700 dark:text-white">{e.name}</span>
                       <Pill tone={e.status === "active" ? "ok" : "neutral"}>{titleCase(e.status)}</Pill>
                     </Link>

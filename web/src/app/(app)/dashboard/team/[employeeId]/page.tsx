@@ -43,7 +43,7 @@ export default async function EmployeeDetailPage({
   return (
     <div className="p-4 md:p-6">
       <Link
-        href="/dashboard/employees"
+        href="/dashboard/team"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
         <ArrowLeft className="h-4 w-4" /> AI Employees
@@ -115,7 +115,7 @@ export default async function EmployeeDetailPage({
               {recent.map((c) => (
                 <li key={`${c.source}:${c.id}`}>
                   <Link
-                    href={`/dashboard/conversations/${c.id}`}
+                    href={`/dashboard/inbox/${c.id}`}
                     className="flex items-center gap-3 py-2.5 transition hover:opacity-80"
                   >
                     <ChannelBadge channel={c.channel} />

@@ -10,9 +10,7 @@ import {
   BarChart3,
   Settings,
   Users,
-  MessagesSquare,
   Contact,
-  Radio,
   Inbox,
 } from 'lucide-react';
 import { NavRoute } from './types';
@@ -36,20 +34,31 @@ export const horizonNavRoutes: NavRoute[] = [
 ];
 
 /**
- * PLATFORM (AI Employees) nav — served when PLATFORM_UX_ENABLED is ON (Sprint 5).
- * Organized around the platform model: Employees own Channels; interactions are
- * Conversations with Contacts; Tickets/Appointments are the artifacts. Voice-specific
- * resources (Phone Lines) + Instagram collapse into the channel-agnostic surfaces
- * (Conversations / Channels), so future channels (WhatsApp/Email/SMS/…) appear without
- * another navigation redesign. Route parity for old links is preserved via redirects.
+ * PLATFORM nav — served when PLATFORM_UX_ENABLED is ON. Restructured in the Phase 2 IA
+ * consolidation to the four-surface model:
+ *
+ *   Home     — the outcome layer: what did my AI team accomplish?
+ *   Inbox    — the communication workspace: every conversation, every channel
+ *   CRM      — the shared memory: contacts, their timeline, and their open requests
+ *   AI Team  — the control plane: who works here, and how are they doing?
+ *
+ * plus Analytics (depth) and Settings (configuration).
+ *
+ * **Channels is deliberately NOT here.** Connecting a channel is configuration you do once,
+ * not a place you visit; it lives at Settings → Channels (`/dashboard/channels`). Channel
+ * presence surfaces where it matters — as badges and filters inside Inbox and CRM. This is
+ * what keeps the sidebar flat as WhatsApp/Telegram/Email arrive: a new channel adds a
+ * registry line, never a nav item.
+ *
+ * Contacts and Requests are grouped under CRM (one customer-shaped hub with its own internal
+ * nav) rather than competing for top-level slots. Old links keep working via
+ * `lib/platform/routeRedirects.ts`; no capability is hidden.
  */
 export const platformNavRoutes: NavRoute[] = [
-  { name: 'Dashboard', layout: 'dashboard', path: '', icon: <LayoutDashboard className="h-6 w-6" /> },
-  { name: 'AI Employees', layout: 'dashboard', path: 'employees', icon: <Users className="h-6 w-6" /> },
-  { name: 'Conversations', layout: 'dashboard', path: 'conversations', icon: <MessagesSquare className="h-6 w-6" /> },
-  { name: 'Contacts', layout: 'dashboard', path: 'contacts', icon: <Contact className="h-6 w-6" /> },
-  { name: 'Channels', layout: 'dashboard', path: 'channels', icon: <Radio className="h-6 w-6" /> },
-  { name: 'Requests', layout: 'dashboard', path: 'requests', icon: <Inbox className="h-6 w-6" /> },
+  { name: 'Home', layout: 'dashboard', path: '', icon: <LayoutDashboard className="h-6 w-6" /> },
+  { name: 'Inbox', layout: 'dashboard', path: 'inbox', icon: <Inbox className="h-6 w-6" /> },
+  { name: 'CRM', layout: 'dashboard', path: 'crm', icon: <Contact className="h-6 w-6" /> },
+  { name: 'AI Team', layout: 'dashboard', path: 'team', icon: <Users className="h-6 w-6" /> },
   { name: 'Analytics', layout: 'dashboard', path: 'analytics', icon: <BarChart3 className="h-6 w-6" /> },
   { name: 'Settings', layout: 'dashboard', path: 'settings', icon: <Settings className="h-6 w-6" /> },
 ];

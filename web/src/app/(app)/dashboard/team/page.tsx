@@ -24,8 +24,8 @@ export default async function EmployeesPage() {
   return (
     <div className="p-4 md:p-6">
       <PageHeader
-        title="AI Employees"
-        subtitle="Your AI workforce. Each employee works across the channels it's connected to."
+        title="AI Team"
+        subtitle="Your AI workforce. Each employee works the channels it's connected to."
       />
 
       {employees.length === 0 ? (
@@ -42,7 +42,7 @@ export default async function EmployeesPage() {
           {employees.map((e) => (
             <Link
               key={e.id}
-              href={`/dashboard/employees/${e.id}`}
+              href={`/dashboard/team/${e.id}`}
               className="block"
             >
               <Surface className="h-full transition hover:shadow-xl">

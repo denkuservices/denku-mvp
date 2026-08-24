@@ -4,9 +4,9 @@ import { Inbox, Ticket, Calendar, Search, Plus } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listRequestViews, type RequestType } from "@/lib/platform/readModel/requests";
-import PageHeader from "../_platform/PageHeader";
-import { formatWhen, titleCase } from "../_platform/format";
-import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../_platform/ui";
+import PageHeader from "../../_platform/PageHeader";
+import { formatWhen, titleCase } from "../../_platform/format";
+import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +58,7 @@ export default async function RequestsPage({
     const merged = { type: typeParam, status, q: search, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v);
     const qs = params.toString();
-    return `/dashboard/requests${qs ? `?${qs}` : ""}`;
+    return `/dashboard/crm/requests${qs ? `?${qs}` : ""}`;
   };
 
   const tabs: Array<{ label: string; value?: RequestType; count: number }> = [
@@ -71,7 +71,7 @@ export default async function RequestsPage({
     <div className="p-4 md:p-6">
       <PageHeader
         title="Requests"
-        subtitle="Everything your AI Employees produced from a conversation — questions to answer and appointments to keep."
+        subtitle="Everything your AI team produced from a conversation — questions to answer and appointments to keep."
         action={
           <Link
             href="/dashboard/tickets/new"
@@ -136,7 +136,7 @@ export default async function RequestsPage({
         </button>
         {hasFilters ? (
           <Link
-            href="/dashboard/requests"
+            href="/dashboard/crm/requests"
             className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200"
           >
             Clear
@@ -157,14 +157,14 @@ export default async function RequestsPage({
               icon={Search}
               title="No requests match these filters"
               description="Try a different status, or clear the filters to see everything your AI Employees have produced."
-              action={{ label: "Clear filters", href: "/dashboard/requests" }}
+              action={{ label: "Clear filters", href: "/dashboard/crm/requests" }}
             />
           ) : (
             <EmptyState
               icon={Inbox}
               title="No requests yet"
               description="Every call and message your AI Employees handle becomes a request here — a question to answer, or an appointment to keep. Nothing ever dead-ends."
-              action={{ label: "View conversations", href: "/dashboard/conversations" }}
+              action={{ label: "View conversations", href: "/dashboard/inbox" }}
             />
           )
         ) : (

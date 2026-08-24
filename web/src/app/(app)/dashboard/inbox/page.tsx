@@ -72,14 +72,14 @@ export default async function ConversationsPage({
     const merged = { channel: chParam, q: search, from, to, intent, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v);
     const qs = params.toString();
-    return `/dashboard/conversations${qs ? `?${qs}` : ""}`;
+    return `/dashboard/inbox${qs ? `?${qs}` : ""}`;
   };
 
   return (
     <div className="p-4 md:p-6">
       <PageHeader
-        title="Conversations"
-        subtitle="Every customer conversation across all channels, handled by your AI Employees."
+        title="Inbox"
+        subtitle="Every customer conversation, across every channel your AI team handles."
       />
 
       {/* Channel facets — derived from the registry (R-099), so new channels appear automatically. */}
@@ -154,7 +154,7 @@ export default async function ConversationsPage({
           </button>
           {hasFilters ? (
             <Link
-              href="/dashboard/conversations"
+              href="/dashboard/inbox"
               className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200"
             >
               Clear
@@ -182,7 +182,7 @@ export default async function ConversationsPage({
               icon={Search}
               title="No conversations match these filters"
               description="Try widening the date range, clearing the outcome filter, or searching for a different name or number."
-              action={{ label: "Clear filters", href: "/dashboard/conversations" }}
+              action={{ label: "Clear filters", href: "/dashboard/inbox" }}
             />
           ) : (
             <EmptyState
@@ -195,7 +195,7 @@ export default async function ConversationsPage({
         ) : (
           <ListContainer>
             {result.items.map((c) => (
-              <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/conversations/${c.id}`}>
+              <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/inbox/${c.id}`}>
                 <ChannelBadge channel={c.channel} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-navy-700 dark:text-white">

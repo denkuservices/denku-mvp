@@ -32,7 +32,7 @@ export default async function ConversationDetailPage({
   return (
     <div className="p-4 md:p-6">
       <Link
-        href="/dashboard/conversations"
+        href="/dashboard/inbox"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
         <ArrowLeft className="h-4 w-4" /> Conversations
@@ -99,7 +99,7 @@ export default async function ConversationDetailPage({
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Contact</p>
             {detail.contact.id ? (
               <Link
-                href={`/dashboard/contacts/${detail.contact.id}`}
+                href={`/dashboard/crm/contacts/${detail.contact.id}`}
                 className="text-sm font-medium text-brand-600 hover:underline"
               >
                 {detail.contact.displayName || detail.contact.handle || "View contact"}

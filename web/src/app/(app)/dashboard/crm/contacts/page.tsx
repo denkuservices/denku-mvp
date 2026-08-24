@@ -4,10 +4,10 @@ import { Contact as ContactIcon, Search } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
-import PageHeader from "../_platform/PageHeader";
-import ChannelBadge from "../_platform/ChannelBadge";
-import { formatWhen, titleCase } from "../_platform/format";
-import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../_platform/ui";
+import PageHeader from "../../_platform/PageHeader";
+import ChannelBadge from "../../_platform/ChannelBadge";
+import { formatWhen, titleCase } from "../../_platform/format";
+import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +47,7 @@ export default async function ContactsPage({
     <div className="p-4 md:p-6">
       <PageHeader
         title="Contacts"
-        subtitle="Everyone your AI Employees have spoken with, unified across every channel."
+        subtitle="Everyone your AI team has spoken with, unified across every channel."
       />
 
       <form method="get" className="mb-4 flex gap-2">
@@ -70,7 +70,7 @@ export default async function ContactsPage({
         </button>
         {search ? (
           <Link
-            href="/dashboard/contacts"
+            href="/dashboard/crm/contacts"
             className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200"
           >
             Clear
@@ -95,20 +95,20 @@ export default async function ContactsPage({
               icon={Search}
               title="No contacts match that search"
               description="Try a different name, phone number, or email address."
-              action={{ label: "Clear search", href: "/dashboard/contacts" }}
+              action={{ label: "Clear search", href: "/dashboard/crm/contacts" }}
             />
           ) : (
             <EmptyState
               icon={ContactIcon}
               title="No contacts yet"
               description="Every person your AI Employees speak with is saved here automatically, with their history across every channel."
-              action={{ label: "View conversations", href: "/dashboard/conversations" }}
+              action={{ label: "View conversations", href: "/dashboard/inbox" }}
             />
           )
         ) : (
           <ListContainer>
             {contacts.map((c) => (
-              <ListRow key={c.id} href={`/dashboard/contacts/${c.id}`}>
+              <ListRow key={c.id} href={`/dashboard/crm/contacts/${c.id}`}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
                     {c.displayName || c.primaryHandle || "Unknown contact"}

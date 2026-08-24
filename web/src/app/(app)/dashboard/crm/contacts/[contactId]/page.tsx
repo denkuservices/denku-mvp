@@ -4,9 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getContactView } from "@/lib/platform/readModel/contacts";
-import PageHeader from "../../_platform/PageHeader";
-import ChannelBadge from "../../_platform/ChannelBadge";
-import { formatWhen, titleCase } from "../../_platform/format";
+import PageHeader from "../../../_platform/PageHeader";
+import ChannelBadge from "../../../_platform/ChannelBadge";
+import { formatWhen, titleCase } from "../../../_platform/format";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function ContactDetailPage({
   return (
     <div className="p-4 md:p-6">
       <Link
-        href="/dashboard/contacts"
+        href="/dashboard/crm/contacts"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
         <ArrowLeft className="h-4 w-4" /> Contacts
@@ -76,7 +76,7 @@ export default async function ContactDetailPage({
               {contact.conversations.map((c) => (
                 <li key={`${c.source}:${c.id}`}>
                   <Link
-                    href={`/dashboard/conversations/${c.id}`}
+                    href={`/dashboard/inbox/${c.id}`}
                     className="flex items-center gap-3 py-2.5 transition hover:opacity-80"
                   >
                     <ChannelBadge channel={c.channel} />
