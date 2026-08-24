@@ -6,7 +6,8 @@ import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
-import { formatWhen, titleCase } from "../../_platform/format";
+import { formatWhen } from "../../_platform/format";
+import { lifecycleMeta } from "@/lib/platform/lifecycle";
 import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
@@ -107,29 +108,32 @@ export default async function ContactsPage({
           )
         ) : (
           <ListContainer>
-            {contacts.map((c) => (
-              <ListRow key={c.id} href={`/dashboard/crm/contacts/${c.id}`}>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
-                    {c.displayName || c.primaryHandle || "Unknown contact"}
-                  </p>
-                  {c.primaryHandle && c.displayName ? (
-                    <p className="truncate text-xs text-gray-500">{c.primaryHandle}</p>
+            {contacts.map((c) => {
+              const stage = lifecycleMeta(c.status);
+              return (
+                <ListRow key={c.id} href={`/dashboard/crm/contacts/${c.id}`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
+                      {c.displayName || c.primaryHandle || "Unknown contact"}
+                    </p>
+                    {c.primaryHandle && c.displayName ? (
+                      <p className="truncate text-xs text-gray-500">{c.primaryHandle}</p>
+                    ) : null}
+                  </div>
+                  <div className="hidden shrink-0 gap-1.5 md:flex">
+                    {c.channels.map((ch) => (
+                      <ChannelBadge key={ch} channel={ch} />
+                    ))}
+                  </div>
+                  {stage ? (
+                    <Pill tone={stage.tone} className="hidden md:inline-flex">
+                      {stage.label}
+                    </Pill>
                   ) : null}
-                </div>
-                <div className="hidden shrink-0 gap-1.5 md:flex">
-                  {c.channels.map((ch) => (
-                    <ChannelBadge key={ch} channel={ch} />
-                  ))}
-                </div>
-                {c.status ? (
-                  <Pill tone="neutral" className="hidden md:inline-flex">
-                    {titleCase(c.status)}
-                  </Pill>
-                ) : null}
-                <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastSeenAt)}</span>
-              </ListRow>
-            ))}
+                  <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastSeenAt)}</span>
+                </ListRow>
+              );
+            })}
           </ListContainer>
         )}
       </Surface>
