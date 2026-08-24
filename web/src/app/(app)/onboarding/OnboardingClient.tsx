@@ -18,15 +18,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  saveOnboardingPreferences,
   bootstrapWorkspaceAction,
   saveWorkspaceAction,
   saveGoalAndLanguageAction,
   advanceToPlanAction,
-  activatePhoneNumber,
   runActivation,
-  completeOnboarding,
-  setOnboardingStepToPlan,
   startPlanCheckout,
   getOnboardingState,
   checkPhoneStatus,
@@ -557,81 +553,6 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       </button>
     );
   }
-
-  const handleActivateNumber = () => {
-    // Check gating conditions
-    if (state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due")) {
-      setError("BILLING_PAUSED");
-      return;
-    }
-
-    // If plan is not active, advance to inline plan selection (step 2) instead of redirecting
-    if (!state.isPlanActive) {
-      if (!state.orgId) {
-        setError("Organization ID is missing. Please refresh the page.");
-        return;
-      }
-      const orgId = state.orgId; // Extract for TypeScript narrowing
-      startTransition(async () => {
-        const result = await setOnboardingStepToPlan(orgId);
-        if (result.ok) {
-          // Advance to step 2 (choose plan) - stay on onboarding page
-          setCurrentStep(2);
-          setState((s) => ({ ...s, onboardingStep: 2 }));
-          setError(null);
-        } else {
-          setError(result.error || "Failed to advance to plan selection");
-        }
-      });
-      return;
-    }
-
-    // Plan is active - proceed with activation
-    // Guard: Ensure orgId is a string before calling activatePhoneNumber
-    const orgId = state.orgId;
-    if (!orgId) {
-      setError("We couldn't find your workspace. Please refresh and try again.");
-      return;
-    }
-
-    setIsActivating(true);
-    setError(null);
-
-    startTransition(async () => {
-      const result = await activatePhoneNumber(orgId, country, areaCode || undefined);
-      if (result.ok) {
-        setProvisionedPhoneNumber(result.phoneNumber || null);
-
-        // Refresh state from DB to get deterministic step advancement
-        const updatedState = await getOnboardingState();
-        setState(updatedState);
-        setCurrentStep(updatedState.onboardingStep);
-        setIsActivating(false);
-      } else {
-        if (result.error === "BILLING_PAUSED") {
-          setError("BILLING_PAUSED");
-        } else if (result.error === "NO_PLAN") {
-          // Plan became inactive - advance to plan selection
-          if (!state.orgId) {
-            setError("Organization ID is missing. Please refresh the page.");
-            setIsActivating(false);
-            return;
-          }
-          const orgIdForStep = state.orgId; // Extract for TypeScript narrowing
-          const stepResult = await setOnboardingStepToPlan(orgIdForStep);
-          if (stepResult.ok) {
-            setCurrentStep(2);
-            setState((s) => ({ ...s, onboardingStep: 2 }));
-          } else {
-            setError(stepResult.error || "Plan required. Please select a plan.");
-          }
-        } else {
-          setError(result.error || "Failed to activate number");
-        }
-        setIsActivating(false);
-      }
-    });
-  };
 
   const handleComplete = () => {
     // Navigate directly to dashboard - activation already set onboarding_step = 6
