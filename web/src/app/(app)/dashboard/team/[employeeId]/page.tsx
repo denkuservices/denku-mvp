@@ -44,7 +44,7 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div>
-      <p className="text-2xl font-semibold text-navy-700 dark:text-white">{value}</p>
+      <p className="text-2xl font-semibold tabular-nums text-navy-700 dark:text-white">{value}</p>
       <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
       {hint ? <p className="mt-0.5 text-xs text-gray-400">{hint}</p> : null}
     </div>

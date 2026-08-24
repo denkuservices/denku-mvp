@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { CopyIcon, CheckIcon, AlertTriangleIcon } from "lucide-react";
 
 type WebhooksCardProps = {
@@ -101,15 +100,6 @@ export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-zinc-200">
-        <Link
-          href="/dashboard/settings/integrations"
-          className="text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline"
-        >
-          Manage integrations →
-        </Link>
       </div>
     </section>
   );

@@ -11,7 +11,9 @@ const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
 /** Does a route actually exist on disk? (`/dashboard/x` → `src/app/(app)/dashboard/x/page.tsx`) */
 function routeExists(href: string): boolean {
-  const rel = href.replace(/^\//, "");
+  // A `#fragment` addresses a section of a page, not a different page — Sprint 9 · T5 points
+  // Usage at `/dashboard/settings/workspace/billing#usage`.
+  const rel = href.replace(/^\//, "").split("#")[0].split("?")[0];
   return fs.existsSync(path.join(APP_DIR, rel, "page.tsx"));
 }
 

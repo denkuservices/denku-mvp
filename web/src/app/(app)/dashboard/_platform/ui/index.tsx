@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import Card from "@/components/ui-horizon/card";
 
 /**
@@ -53,7 +54,7 @@ export function StatCard({
   const body = (
     <Surface className="transition hover:shadow-xl">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-navy-700 dark:text-white">{value}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-navy-700 dark:text-white">{value}</p>
       {note ? <p className="mt-1 text-xs text-gray-400">{note}</p> : null}
     </Surface>
   );
@@ -149,6 +150,61 @@ export function ListHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4 dark:border-white/10">
       {children}
+    </div>
+  );
+}
+
+/**
+ * The one form-control recipe for platform surfaces (Sprint 9 · T7/T9).
+ *
+ * Height, border, background, and focus treatment live here so a select on one surface can't
+ * drift from a select on another — and so the search field's left padding can never drift from
+ * the position of the icon overlaid on it, which is exactly how icon/placeholder collisions
+ * happen. Exported for the plain `<select>`/`<input>` elements that sit beside a SearchField.
+ */
+export const CONTROL_CLASS =
+  "h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-navy-700 outline-none transition " +
+  "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 " +
+  "dark:border-white/10 dark:bg-navy-800 dark:text-white";
+
+/**
+ * Search input with its magnifier.
+ *
+ * The icon is absolutely positioned at `left-3` and is 16px wide, so the text must start at
+ * 36px — `pl-9`. That pairing is the whole point of this component: the two values were
+ * previously repeated on three pages, where either could be edited without the other.
+ *
+ * Uses `type="search"` so browsers keep their native clear affordance, and `pr-9` so that
+ * affordance never sits on top of the value.
+ */
+export function SearchField({
+  name = "q",
+  defaultValue,
+  placeholder,
+  label,
+  className = "",
+}: {
+  name?: string;
+  defaultValue?: string;
+  placeholder: string;
+  /** Accessible name — the field has no visible <label>. */
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <Search
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+      />
+      <input
+        type="search"
+        name={name}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        aria-label={label}
+        className={`${CONTROL_CLASS} w-full pl-9 pr-9`}
+      />
     </div>
   );
 }

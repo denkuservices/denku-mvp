@@ -9,7 +9,16 @@ import { isKnownChannel, selectableChannels, channelMeta, type Channel } from "@
 import PageHeader from "../_platform/PageHeader";
 import ChannelBadge from "../_platform/ChannelBadge";
 import { formatWhen, titleCase } from "../_platform/format";
-import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../_platform/ui";
+import {
+  Surface,
+  ListContainer,
+  ListHeader,
+  ListRow,
+  EmptyState,
+  Pill,
+  SearchField,
+  CONTROL_CLASS,
+} from "../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -144,36 +153,30 @@ export default async function ConversationsPage({
       <form method="get" className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_auto_auto_auto]">
         {chParam ? <input type="hidden" name="channel" value={chParam} /> : null}
         {handlingParam ? <input type="hidden" name="handling" value={handlingParam} /> : null}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={search}
-            placeholder="Search name, number, or summary…"
-            aria-label="Search conversations"
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-navy-800 dark:text-white"
-          />
-        </div>
+        <SearchField
+          defaultValue={search}
+          placeholder="Search name, number, or summary…"
+          label="Search conversations"
+        />
         <input
           type="date"
           name="from"
           defaultValue={from}
           aria-label="From date"
-          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={CONTROL_CLASS}
         />
         <input
           type="date"
           name="to"
           defaultValue={to}
           aria-label="To date"
-          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={CONTROL_CLASS}
         />
         <select
           name="intent"
           defaultValue={intent}
           aria-label="Outcome"
-          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={CONTROL_CLASS}
         >
           <option value="">Any outcome</option>
           {INTENTS.map((i) => (

@@ -76,7 +76,7 @@ export function AgentsListClient({ agents: initialAgents }: AgentsListClientProp
     <>
       {/* KPI strip */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Total agents" value={String(totals.total)} />
+        <KpiCard label="Total AI employees" value={String(totals.total)} />
         <KpiCard label="Active" value={String(totals.active)} />
         <KpiCard label="Needs attention" value={String(totals.attention)} />
       </div>
@@ -123,7 +123,7 @@ export function AgentsListClient({ agents: initialAgents }: AgentsListClientProp
               title="Coming soon"
               className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 shadow-sm opacity-60"
             >
-              Create agent
+              Add AI employee
             </button>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function AgentsListClient({ agents: initialAgents }: AgentsListClientProp
             {filtered.length === 0 ? (
               <div className="px-6 py-12">
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center">
-                  <p className="text-base font-semibold text-zinc-900">No agents match your search</p>
+                  <p className="text-base font-semibold text-zinc-900">No AI employees match your search</p>
                   <p className="mt-2 text-sm text-zinc-600">Try adjusting your search query or filters.</p>
                 </div>
               </div>
@@ -264,7 +264,7 @@ function RowActions({
           </MenuButton>
 
           <MenuButton disabled title="Coming soon">
-            Duplicate agent (coming soon)
+            Duplicate (coming soon)
           </MenuButton>
         </div>
       ) : null}
@@ -370,16 +370,16 @@ function EmptyState() {
   return (
     <div className="px-6 py-12">
       <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center">
-        <p className="text-base font-semibold text-zinc-900">No agents yet</p>
+        <p className="text-base font-semibold text-zinc-900">No AI employees yet</p>
         <p className="mt-2 text-sm text-zinc-600">
-          Get started by creating your first agent to handle calls and conversations.
+          Get started by adding your first AI employee to handle calls and conversations.
         </p>
 
         <Link
           href="/dashboard/agents/new"
           className="mt-6 inline-block rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 transition"
         >
-          Create agent
+          Add AI employee
         </Link>
       </div>
     </div>

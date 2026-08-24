@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
 
 type RuntimeCardProps = {
@@ -42,15 +41,6 @@ export function RuntimeCard({
         <ReadOnlyRow label="Status" value={workspaceStatus === "active" ? "Active" : "Paused"} badge />
         <ReadOnlyRow label="Timezone" value={timezone || "—"} />
         <ReadOnlyRow label="Access" value={accessLabel} badge />
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-zinc-200">
-        <Link
-          href="/dashboard/settings/integrations"
-          className="text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline"
-        >
-          Manage integrations →
-        </Link>
       </div>
     </section>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AssignedAITabProps {
@@ -13,18 +12,21 @@ interface AssignedAITabProps {
   onSaveError?: () => void;
 }
 
-// Behavior preset: no DB column on phone_lines → read-only for now
-const BEHAVIOR_PRESETS = [
-  { value: "professional-friendly", label: "Professional & friendly" },
-  { value: "short-direct", label: "Short & direct" },
-  { value: "warm-conversational", label: "Warm & conversational" },
-] as const;
-
+/**
+ * The greeting this line answers with.
+ *
+ * Sprint 9 · T6: three controls were removed from this tab — a "Behavior preset" radio group, a
+ * fallback message and an escalation phrase. None of them had a column to save to: they rendered
+ * disabled, defaulted to hardcoded local state, and were labelled "Coming soon" while sitting
+ * among fields that do persist. A control presented as product functionality must be able to
+ * change something.
+ *
+ * What remains is `phone_lines.first_message`, which is real and saved. Where this tab belongs at
+ * all is a Sprint 10 question (employee configuration is being consolidated onto the employee) —
+ * this change only stops it lying.
+ */
 export function AssignedAITab({ line, onUpdate, onSaveError }: AssignedAITabProps) {
   const [firstMessage, setFirstMessage] = useState(line.first_message || "");
-  const [fallbackMessage, setFallbackMessage] = useState(""); // No DB → local only, read-only
-  const [escalationPhrase, setEscalationPhrase] = useState(""); // No DB → local only, read-only
-  const [behaviorPreset, setBehaviorPreset] = useState<typeof BEHAVIOR_PRESETS[number]["value"]>("professional-friendly");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -69,46 +71,16 @@ export function AssignedAITab({ line, onUpdate, onSaveError }: AssignedAITabProp
         </div>
       )}
 
-      {/* Behavior preset: read-only (no DB storage on phone_lines) */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
-          Behavior preset
-        </label>
-        <div className="space-y-2">
-          {BEHAVIOR_PRESETS.map((preset) => (
-            <label
-              key={preset.value}
-              className={`flex cursor-not-allowed items-center gap-3 rounded-lg border p-3 opacity-70 ${
-                behaviorPreset === preset.value
-                  ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950/20"
-                  : "border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5"
-              }`}
-            >
-              <input
-                type="radio"
-                name="behaviorPreset"
-                value={preset.value}
-                checked={behaviorPreset === preset.value}
-                disabled
-                readOnly
-                className="h-4 w-4 text-gray-400"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{preset.label}</span>
-            </label>
-          ))}
-        </div>
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          Coming soon
-        </p>
-      </div>
-
       {/* First message: persisted (phone_lines.first_message) */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
+        <label
+          htmlFor="first-message"
+          className="mb-2 block text-sm font-medium text-gray-700 dark:text-white"
+        >
           First message
         </label>
         <textarea
+          id="first-message"
           value={firstMessage}
           onChange={(e) => setFirstMessage(e.target.value)}
           disabled={isSaving}
@@ -118,44 +90,6 @@ export function AssignedAITab({ line, onUpdate, onSaveError }: AssignedAITabProp
         />
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           What callers hear when the call starts.
-        </p>
-      </div>
-
-      {/* Fallback message: read-only (no DB) */}
-      <div>
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-white">
-          If the caller can&apos;t be helped
-        </label>
-        <textarea
-          value={fallbackMessage}
-          readOnly
-          disabled
-          rows={3}
-          placeholder="Coming soon"
-          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
-        />
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          Used when no answer or action is possible. Coming soon.
-        </p>
-      </div>
-
-      {/* Escalation phrase: read-only (no DB) */}
-      <div>
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-white">
-          Escalation phrase
-        </label>
-        <input
-          type="text"
-          value={escalationPhrase}
-          readOnly
-          disabled
-          placeholder="Coming soon"
-          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
-        />
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          When the caller says this, the call is escalated. Coming soon.
         </p>
       </div>
 

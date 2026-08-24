@@ -33,12 +33,12 @@ export default async function AgentsListPage() {
     // No org found - show empty state
     return (
       <SettingsShell
-        title="Agents"
-        subtitle="Manage your agents — behavior, language, and advanced overrides."
+        title="AI Employees"
+        subtitle="Manage your AI employees — behavior, language, and advanced overrides."
         crumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Settings", href: "/dashboard/settings" },
-          { label: "Agents" },
+          { label: "AI Employees" },
         ]}
       >
         <div className="px-6 py-12">
@@ -64,12 +64,12 @@ export default async function AgentsListPage() {
 
   return (
     <SettingsShell
-      title="Agents"
-      subtitle="Manage your agents — behavior, language, and advanced overrides."
+      title="AI Employees"
+      subtitle="Manage your AI employees — behavior, language, and advanced overrides."
       crumbs={[
         { label: "Dashboard", href: "/dashboard" },
         { label: "Settings", href: "/dashboard/settings" },
-        { label: "Agents" },
+        { label: "AI Employees" },
       ]}
     >
       <AgentsListClient agents={agentList} />

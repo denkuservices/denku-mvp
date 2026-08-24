@@ -131,7 +131,7 @@ export function WorkspaceControlsCard({
                 ) : (
                   <ul className="mt-3 space-y-2 text-sm text-zinc-600 list-disc list-inside">
                     <li>Webhook events will not be processed</li>
-                    <li>Agent sync to Vapi will be disabled</li>
+                    <li>AI employee sync will be disabled</li>
                     <li>Existing data remains intact</li>
                     <li>You can resume anytime</li>
                   </ul>

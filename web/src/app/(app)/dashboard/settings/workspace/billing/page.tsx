@@ -765,8 +765,16 @@ export default function WorkspaceBillingPage() {
           </div>
         )}
 
-        {/* Usage KPI cards - matching dashboard style */}
+        {/* Usage KPI cards - matching dashboard style.
+            Sprint 9 · T5: labelled and anchored as `#usage` — Settings used to advertise a
+            separate "Usage" page that rendered em-dashes and a "Coming soon" note while these
+            real numbers already lived here. Billing is now the single usage surface. */}
         {summary?.preview && (
+          <div id="usage" className="scroll-mt-6 space-y-4">
+            <SectionTitle
+              title="Usage this period"
+              subtitle="Calls, billable minutes and peak concurrency for the current billing month."
+            />
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-4 3xl:grid-cols-4">
             <Widget
               icon={<Phone className="h-7 w-7" />}
@@ -809,6 +817,7 @@ export default function WorkspaceBillingPage() {
                 />
               );
             })()}
+          </div>
           </div>
         )}
 

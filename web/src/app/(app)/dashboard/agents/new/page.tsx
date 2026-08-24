@@ -12,7 +12,7 @@ export default async function NewAgentPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Create an agent</h1>
+          <h1 className="text-2xl font-semibold">Add an AI employee</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Configure the default behavior. You can refine tools and channels later.
           </p>
@@ -29,12 +29,12 @@ export default async function NewAgentPage() {
       <div className="rounded-2xl border p-6 bg-white">
         <form action={createAgentAction} className="space-y-5">
           <div>
-            <label className="text-sm font-medium">Agent name</label>
+            <label className="text-sm font-medium">Name</label>
             <input
               name="name"
               required
               className="mt-1 w-full rounded-md border px-3 py-2"
-              placeholder="e.g., Notus Support"
+              placeholder="e.g., Front Desk"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Shown internally and in your dashboard.
@@ -54,7 +54,7 @@ export default async function NewAgentPage() {
                 <option value="es">Spanish</option>
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Primary agent language.
+                The language this AI employee speaks.
               </p>
             </div>
 
@@ -94,7 +94,7 @@ export default async function NewAgentPage() {
           </div>
 
           <button className="w-full rounded-md bg-black text-white py-2 font-medium">
-            Create agent
+            Add AI employee
           </button>
         </form>
       </div>

@@ -456,7 +456,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
 
       {/* Section marker */}
       <div className="mt-6 flex items-center justify-between gap-2">
-        <span className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">Agent defaults</span>
+        <span className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">AI employee defaults</span>
 
         <span className="text-sm text-zinc-500">
           Power controls live in <span className="font-semibold text-zinc-700">Advanced</span>.
@@ -479,7 +479,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
 
               <LanguageChips value={language} onChange={setLanguage} />
 
-              <p className="text-xs text-zinc-500">Default for this agent.</p>
+              <p className="text-xs text-zinc-500">Default for this AI employee.</p>
             </div>
 
             {/* Timezone */}
@@ -503,7 +503,7 @@ export function AgentConfigurePage({ agent: initialAgent, workspaceStatus }: Age
 
             {/* Agent type */}
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-zinc-900">Agent type</p>
+              <p className="text-sm font-semibold text-zinc-900">Role</p>
               <select
                 value={agentType}
                 onChange={(e) => setAgentType(e.target.value)}

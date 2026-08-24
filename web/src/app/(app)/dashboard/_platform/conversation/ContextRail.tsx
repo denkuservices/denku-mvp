@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Ticket, Calendar, Phone, ArrowUpRight } from "lucide-react";
 import type { ConversationDetailView } from "@/lib/platform/readModel/types";
+import { appointmentHref } from "@/lib/platform/readModel/requests";
 import type { HandlingState } from "@/lib/platform/handling";
 import { formatWhen, titleCase } from "../format";
 import ChannelBadge from "../ChannelBadge";
@@ -88,7 +89,7 @@ export default function ContextRail({
             {detail.artifacts.map((a) => (
               <li key={`${a.type}:${a.id}`}>
                 <Link
-                  href={a.type === "ticket" ? `/dashboard/tickets/${a.id}` : "/dashboard/crm/requests?type=appointment"}
+                  href={a.type === "ticket" ? `/dashboard/tickets/${a.id}` : appointmentHref(a.id)}
                   className="flex items-center gap-2 rounded-lg border border-gray-100 p-2 text-sm transition hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
                 >
                   {a.type === "ticket" ? (

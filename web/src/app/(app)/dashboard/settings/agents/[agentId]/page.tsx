@@ -162,7 +162,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ ag
   return (
     <SettingsShell
       title={agent.name}
-      subtitle="Configure this agent's behavior and default experience."
+      subtitle="Configure this AI employee's behavior and default experience."
       crumbs={[
         { label: "Dashboard", href: "/dashboard" },
         { label: "Settings", href: "/dashboard/settings" },

@@ -73,7 +73,7 @@ export default async function TeamPage() {
                     {/* What it accomplished — the reason to visit this page. */}
                     <div className="flex items-baseline gap-4 border-y border-gray-100 py-3 dark:border-white/10">
                       <div>
-                        <p className="text-xl font-semibold text-navy-700 dark:text-white">
+                        <p className="text-xl font-semibold tabular-nums text-navy-700 dark:text-white">
                           {stats?.conversationsHandled ?? 0}
                           {stats?.bounded ? "+" : ""}
                         </p>
@@ -82,7 +82,7 @@ export default async function TeamPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xl font-semibold text-navy-700 dark:text-white">
+                        <p className="text-xl font-semibold tabular-nums text-navy-700 dark:text-white">
                           {stats?.requestsProduced ?? 0}
                           {stats?.bounded ? "+" : ""}
                         </p>

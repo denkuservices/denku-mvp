@@ -65,7 +65,7 @@ export default async function PlatformAnalytics() {
         {tiles.map((t) => (
           <div key={t.label} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
             <p className="text-sm text-gray-500">{t.label}</p>
-            <p className="mt-1 text-2xl font-semibold text-navy-700 dark:text-white">{t.value}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-navy-700 dark:text-white">{t.value}</p>
             <p className="mt-1 text-xs text-gray-400">{t.note}</p>
           </div>
         ))}

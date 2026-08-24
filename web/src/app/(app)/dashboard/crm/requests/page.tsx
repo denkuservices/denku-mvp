@@ -6,7 +6,16 @@ import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listRequestViews, type RequestType } from "@/lib/platform/readModel/requests";
 import PageHeader from "../../_platform/PageHeader";
 import { formatWhen, titleCase } from "../../_platform/format";
-import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../../_platform/ui";
+import {
+  Surface,
+  ListContainer,
+  ListHeader,
+  ListRow,
+  EmptyState,
+  Pill,
+  SearchField,
+  CONTROL_CLASS,
+} from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -105,22 +114,17 @@ export default async function RequestsPage({
 
       <form method="get" className="mb-4 flex flex-wrap gap-2">
         {typeParam ? <input type="hidden" name="type" value={typeParam} /> : null}
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={search}
-            placeholder="Search requests…"
-            aria-label="Search requests"
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-navy-800 dark:text-white"
-          />
-        </div>
+        <SearchField
+          className="min-w-[200px] flex-1"
+          defaultValue={search}
+          placeholder="Search requests…"
+          label="Search requests"
+        />
         <select
           name="status"
           defaultValue={status}
           aria-label="Status"
-          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={CONTROL_CLASS}
         >
           <option value="">Any status</option>
           <option value="open">Open</option>
