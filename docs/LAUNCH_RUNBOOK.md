@@ -88,11 +88,32 @@ usage threshold fires an alert (R-009).
 
 ## Phase 8 — Platform experience (optional; after voice is verified)
 
-Only once voice is proven live:
+> **The two flags are INDEPENDENT — do not treat this as one ordered sequence.** Corrected
+> 2026-08-24 during the authenticated-redesign Phase 1. `PLATFORM_UX_ENABLED` has **no
+> dependency** on `PLATFORM_MODEL_ENABLED`: the Platform Read Model sources `calls`,
+> `conversations`, `agents`, `leads`, `tickets`, `appointments` — all of which predate the
+> platform migrations — so the new IA shows real data with the model flag off. Sequencing the
+> UX behind the dual-writes would block it on traffic that only exists after the model flag is
+> already on. **`/admin/readiness` now renders this gate live** (Platform cutover section):
+> each stage shows DONE / READY / BLOCKED / NOT BUILT / UNKNOWN with its precondition, so you
+> never have to infer the order. `test/platform-cutover.test.ts` pins it.
+
+**8a — Model dual-writes** (requires the Phase 3 platform migrations):
 1. `PLATFORM_MODEL_ENABLED=true` → place a call + a signed IG Test event; confirm rows in
    `conversations`/`messages` and the back-links (see `docs/SPRINT_4.5_MIGRATION.md`).
-2. `PLATFORM_UX_ENABLED=true` → walk the AI Employees IA (Overview, Conversations, Employees,
-   Contacts, Channels) and the legacy redirects. *(Backfill R-081 is a separate, later reviewed step.)*
+2. Re-check `/admin/readiness` → "Dual-write parity observed" should reach **DONE** once every
+   call in the 7-day sample carries `conversation_id`. Calls that predate the flip stay unlinked;
+   confirm the gap is only historical.
+
+**8b — Platform experience** (independent of 8a; may be done first):
+1. Run the functional-parity suite: `npm run test -- platform-cutover conversation-filters`.
+2. `PLATFORM_UX_ENABLED=true` in a **preview/staging** env first → walk the IA (Home,
+   Conversations, Employees, Contacts, Channels, Requests) and every legacy redirect.
+3. Only then flip it on prod. Rollback is unsetting the variable — the legacy nav is still built.
+
+*(Backfill R-081 and read cutover R-085 are separate, later, reviewed steps. R-085 is
+deliberately last: once the UI reads one stable interface, swapping the source behind
+`ConversationView` is provably invisible to the surfaces.)*
 
 ## Go-live checklist
 
