@@ -141,6 +141,62 @@ export async function ensureCurrentRevision(
   }
 }
 
+/**
+ * The employee's revision history, newest first (Phase 5 — the History tab).
+ *
+ * This is the part of the manifest system that could never have been retrofitted: it answers
+ * "what prompt/model/voice was this employee running last Tuesday?" from records that only exist
+ * because they were written at the time. Surfacing it is a trust feature — customers can see
+ * every change to the thing answering their phone.
+ *
+ * Returns `[]` when the migration is not applied, so the tab renders an honest empty state
+ * rather than erroring.
+ */
+export async function listRevisions(
+  orgId: string,
+  employeeId: string,
+  db: SupabaseClient = supabaseAdmin,
+  limit = 50
+): Promise<ManifestRevision[]> {
+  if (!orgId || !employeeId) return [];
+  try {
+    const { data, error } = await db
+      .from("employee_manifests")
+      .select("id, org_id, employee_id, revision, manifest, content_hash, reason, created_at")
+      .eq("org_id", orgId)
+      .eq("employee_id", employeeId)
+      .order("revision", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data.map((d) => ({
+      id: String(d.id),
+      orgId: String(d.org_id),
+      employeeId: String(d.employee_id),
+      revision: Number(d.revision),
+      manifest: d.manifest as EmployeeManifest,
+      contentHash: String(d.content_hash),
+      reason: (d.reason as string | null) ?? null,
+      createdAt: String(d.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Is the manifest table present? Distinguishes "no revisions yet" from "not migrated". */
+export async function revisionsAvailable(
+  orgId: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<boolean> {
+  if (!orgId) return false;
+  const { error } = await db
+    .from("employee_manifests")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", orgId);
+  return !error;
+}
+
 /** The employee's latest revision, for inspection/diffing. Null when unavailable. */
 export async function getCurrentRevision(
   employeeId: string,

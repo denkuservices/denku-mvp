@@ -1,14 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings2 } from "lucide-react";
+import { ArrowLeft, Settings2, AlertTriangle, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getEmployeeView } from "@/lib/platform/readModel/employees";
+import { getEmployeeProfile } from "@/lib/platform/readModel/employeeProfile";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
+import {
+  getTeamActivity,
+  employeeAttention,
+  ACTIVITY_WINDOW_DAYS,
+} from "@/lib/platform/readModel/employeeActivity";
+import { listRevisions, revisionsAvailable } from "@/lib/platform/manifest/revisions";
 import { employeeChannelCapability, type EmployeeAction } from "@/lib/platform/employeeCapabilities";
+import { evaluateConnectionHealth } from "@/lib/platform/connectionHealth";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
+import { Pill } from "../../_platform/ui";
+import EmployeeTabs from "../../_platform/team/EmployeeTabs";
+import { EMPLOYEE_TAB_META, resolveEmployeeTab } from "../../_platform/team/tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -19,26 +30,74 @@ const ACTION_LABEL: Record<EmployeeAction, string> = {
   escalate: "escalate",
 };
 
+function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-navy-800">
+      {title ? (
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-semibold text-navy-700 dark:text-white">{value}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
+      {hint ? <p className="mt-0.5 text-xs text-gray-400">{hint}</p> : null}
+    </div>
+  );
+}
+
 /**
- * AI Employee detail (Sprint 5, P3). Employee-centric: shows the channels this employee
- * OWNS and the recent conversations it handled. "Configure" links through to the existing
- * agent settings surface (no duplicated config logic). Reachable only under PLATFORM_UX_ENABLED.
+ * AI Employee detail (Phase 5) — the control plane for one employee.
+ *
+ * Six tabs: Overview · Setup · Knowledge · Channels · Activity · History. Tabs are query params
+ * on one route because every tab reads the same employee; separate routes would refetch it six
+ * ways for no benefit.
+ *
+ * **Setup and Knowledge are read-only and link to the existing settings forms.** Those own
+ * validation, the Vapi sync and manifest minting — a second way to change how a live assistant
+ * behaves is exactly the kind of duplication this codebase has been paying down (R-094 folds
+ * them in properly, with tests).
  */
 export default async function EmployeeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ employeeId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!platformUxEnabled()) notFound();
 
   const { employeeId } = await params;
+  const sp = searchParams ? await searchParams : undefined;
+  const rawTab = Array.isArray(sp?.tab) ? sp?.tab[0] : sp?.tab;
+  const tab = resolveEmployeeTab(rawTab);
+
   const orgId = await resolveActiveOrgId();
   const employee = orgId ? await getEmployeeView(orgId, employeeId) : null;
-  if (!employee) notFound();
+  if (!employee || !orgId) notFound();
 
-  const recent = orgId
-    ? (await listConversationViews(orgId, { limit: 100 })).filter((c) => c.employeeId === employee.id).slice(0, 10)
-    : [];
+  const attention = employeeAttention(employee);
+  const meta = EMPLOYEE_TAB_META[tab];
+
+  // Fetch only what the active tab needs — six tabs on one route must not mean six queries.
+  const activity =
+    tab === "overview" ? (await getTeamActivity(orgId, [employee])).get(employee.id) ?? null : null;
+  const profile = tab === "setup" || tab === "knowledge" ? await getEmployeeProfile(orgId, employee.id) : null;
+  const conversations =
+    tab === "activity" || tab === "overview"
+      ? (await listConversationViews(orgId, { limit: 200 }))
+          .filter((c) => c.employeeId === employee.id)
+          .slice(0, tab === "activity" ? 50 : 5)
+      : [];
+  const [revisions, historyAvailable] =
+    tab === "history"
+      ? await Promise.all([listRevisions(orgId, employee.id), revisionsAvailable(orgId)])
+      : [[], false];
 
   return (
     <div className="p-4 md:p-6">
@@ -46,32 +105,196 @@ export default async function EmployeeDetailPage({
         href="/dashboard/team"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
-        <ArrowLeft className="h-4 w-4" /> AI Employees
+        <ArrowLeft className="h-4 w-4" /> AI Team
       </Link>
 
       <PageHeader
         title={employee.name}
         subtitle={`${(employee.language || "en").toUpperCase()}${employee.voice ? ` · ${employee.voice}` : ""}`}
         action={
-          <Link
-            href={`/dashboard/settings/agents/${employee.id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-          >
-            <Settings2 className="h-4 w-4" /> Configure
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPillClass(employee.status)}`}>
+              {titleCase(employee.status)}
+            </span>
+            <Link
+              href={`/dashboard/settings/agents/${employee.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+            >
+              <Settings2 className="h-4 w-4" /> Configure
+            </Link>
+          </div>
         }
       />
 
-      <div className="mb-6">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPillClass(employee.status)}`}>
-          {titleCase(employee.status)}
-        </span>
-      </div>
+      {attention ? (
+        <div
+          className={`mb-6 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+            attention.severity === "critical"
+              ? "border-red-200 bg-red-50 text-red-900 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-300"
+              : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300"
+          }`}
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{attention.message}</span>
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Channels owned */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-navy-800">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Channels</p>
+      <EmployeeTabs employeeId={employee.id} active={tab} />
+
+      <p className="mb-5 mt-4 text-sm text-gray-600 dark:text-gray-400">{meta.description}</p>
+
+      {tab === "overview" ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Card>
+            <div className="grid grid-cols-2 gap-4">
+              <Stat
+                label="Conversations handled"
+                value={`${activity?.conversationsHandled ?? 0}${activity?.bounded ? "+" : ""}`}
+                hint={`Last ${activity?.windowDays ?? ACTIVITY_WINDOW_DAYS} days`}
+              />
+              <Stat
+                label="Requests produced"
+                value={`${activity?.requestsProduced ?? 0}${activity?.bounded ? "+" : ""}`}
+                hint="Tickets & appointments"
+              />
+            </div>
+            <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-white/10">
+              Last active {formatWhen(activity?.lastActiveAt ?? null)}
+            </p>
+          </Card>
+
+          <Card title="Channels">
+            {employee.channels.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No channels connected.{" "}
+                <Link href="/dashboard/channels" className="text-brand-600 hover:underline">
+                  Connect one
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {employee.channels.map((c) => (
+                  <ChannelBadge key={c.connectionId ?? c.channel} channel={c.channel} />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card title="Recent conversations">
+            {conversations.length === 0 ? (
+              <p className="text-sm text-gray-500">No conversations yet.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 dark:divide-white/10">
+                {conversations.map((c) => (
+                  <li key={`${c.source}:${c.id}`}>
+                    <Link href={`/dashboard/inbox/${c.id}`} className="flex items-center gap-2 py-2 transition hover:opacity-80">
+                      <ChannelBadge channel={c.channel} />
+                      <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
+                        {c.contact.displayName || c.contact.handle || "Unknown contact"}
+                      </span>
+                      <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      ) : null}
+
+      {tab === "setup" ? (
+        <Card>
+          {!profile ? (
+            <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s setup.</p>
+          ) : (
+            <>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-400">Language</dt>
+                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
+                    {(profile.language || "en").toUpperCase()}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-400">Voice</dt>
+                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">{profile.voice || "Default"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-400">Timezone</dt>
+                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">{profile.timezone || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-400">Personality</dt>
+                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
+                    {profile.personaKey ? titleCase(profile.personaKey) : "Default"}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
+                <p className="text-xs uppercase tracking-wide text-gray-400">Opening line</p>
+                <p className="mt-1 text-sm text-navy-700 dark:text-white">
+                  {profile.firstMessage || "Uses the default greeting."}
+                </p>
+              </div>
+
+              {profile.hasPromptOverride ? (
+                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                  This employee has a custom instruction override, so it does not follow the
+                  behaviour derived from your business details.
+                </p>
+              ) : null}
+
+              <Link
+                href={`/dashboard/settings/agents/${employee.id}`}
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
+              >
+                <Settings2 className="h-4 w-4" /> Change setup
+              </Link>
+            </>
+          )}
+        </Card>
+      ) : null}
+
+      {tab === "knowledge" ? (
+        <Card>
+          {!profile || profile.businessContext.length === 0 ? (
+            <>
+              <p className="text-sm text-gray-500">
+                Nothing recorded yet. What you tell Denku about your business is what this employee
+                knows when it answers — hours, services, address, policies.
+              </p>
+              <Link
+                href={`/dashboard/settings/agents/${employee.id}`}
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
+              >
+                <Settings2 className="h-4 w-4" /> Add business details
+              </Link>
+            </>
+          ) : (
+            <>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {profile.businessContext.map((f) => (
+                  <div key={f.key}>
+                    <dt className="text-xs uppercase tracking-wide text-gray-400">{f.label}</dt>
+                    <dd className="mt-0.5 whitespace-pre-wrap text-sm text-navy-700 dark:text-white">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <Link
+                href={`/dashboard/settings/agents/${employee.id}`}
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
+              >
+                <Settings2 className="h-4 w-4" /> Edit business details
+              </Link>
+            </>
+          )}
+        </Card>
+      ) : null}
+
+      {tab === "channels" ? (
+        <Card>
           {employee.channels.length === 0 ? (
             <p className="text-sm text-gray-500">
               No channels connected.{" "}
@@ -81,55 +304,120 @@ export default async function EmployeeDetailPage({
               .
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <ul className="divide-y divide-gray-100 dark:divide-white/10">
               {employee.channels.map((c) => {
-                // Capabilities are derived (R-104), so a future channel shows correct
-                // "what this employee can do here" with no code change.
+                // Capabilities and health are both DERIVED (R-101/R-104), so a future channel
+                // shows correct "what this employee can do here" with no code change.
                 const cap = employeeChannelCapability(c.channel);
+                const health = evaluateConnectionHealth({
+                  status: c.status,
+                  adopted: c.status === "coming_soon" ? false : undefined,
+                  expiresAt: (c.meta?.tokenExpiresAt as string | undefined) ?? null,
+                  lastError: (c.meta?.lastError as string | undefined) ?? null,
+                });
                 return (
-                  <div key={c.connectionId ?? c.channel} className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between gap-2">
+                  <li key={c.connectionId ?? c.channel} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <ChannelBadge channel={c.channel} />
-                      <span className="text-xs text-gray-500">{c.identifier || titleCase(c.status)}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">{c.identifier || "—"}</span>
+                      <Pill
+                        tone={
+                          health.severity === "ok"
+                            ? "ok"
+                            : health.severity === "critical"
+                              ? "critical"
+                              : health.severity === "warn"
+                                ? "warn"
+                                : "neutral"
+                        }
+                        className="ml-auto"
+                      >
+                        {health.label}
+                      </Pill>
                     </div>
                     <p className="text-xs text-gray-500">
                       Can {cap.actions.map((a) => ACTION_LABEL[a]).join(" · ")}
                     </p>
+                    {/* Stated limitations, not omitted ones — "receives but can't reply yet". */}
                     {cap.limitations.map((l) => (
-                      <p key={l} className="text-xs text-amber-600 dark:text-amber-400">{l}</p>
+                      <p key={l} className="text-xs text-amber-600 dark:text-amber-400">
+                        {l}
+                      </p>
                     ))}
-                  </div>
+                    {health.detail ? <p className="text-xs text-gray-500">{health.detail}</p> : null}
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
-        </div>
+        </Card>
+      ) : null}
 
-        {/* Recent conversations */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 lg:col-span-2 dark:border-white/10 dark:bg-navy-800">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Recent conversations</p>
-          {recent.length === 0 ? (
-            <p className="text-sm text-gray-500">No conversations yet.</p>
+      {tab === "activity" ? (
+        <Card>
+          {conversations.length === 0 ? (
+            <p className="text-sm text-gray-500">This employee hasn&apos;t handled any conversations yet.</p>
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-white/10">
-              {recent.map((c) => (
+              {conversations.map((c) => (
                 <li key={`${c.source}:${c.id}`}>
-                  <Link
-                    href={`/dashboard/inbox/${c.id}`}
-                    className="flex items-center gap-3 py-2.5 transition hover:opacity-80"
-                  >
+                  <Link href={`/dashboard/inbox/${c.id}`} className="flex items-center gap-3 py-2.5 transition hover:opacity-80">
                     <ChannelBadge channel={c.channel} />
                     <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
                       {c.contact.displayName || c.contact.handle || "Unknown contact"}
                     </span>
+                    {c.intent ? <Pill tone="info" className="hidden md:inline-flex">{titleCase(c.intent)}</Pill> : null}
                     <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
                   </Link>
                 </li>
               ))}
             </ul>
           )}
-        </div>
-      </div>
+        </Card>
+      ) : null}
+
+      {tab === "history" ? (
+        <Card>
+          {!historyAvailable ? (
+            <p className="text-sm text-gray-500">
+              Configuration history isn&apos;t available on this environment yet — the employee
+              manifest migration hasn&apos;t been applied.
+            </p>
+          ) : revisions.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No changes recorded yet. Every future change to this employee&apos;s configuration is
+              saved here, so you can always see what it was running at any point in time.
+            </p>
+          ) : (
+            <ol className="divide-y divide-gray-100 dark:divide-white/10">
+              {revisions.map((r) => (
+                <li key={r.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 dark:border-white/10 dark:bg-navy-900 dark:text-gray-400">
+                    <HistoryIcon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-navy-700 dark:text-white">
+                        Revision {r.revision}
+                      </span>
+                      {r.revision === revisions[0].revision ? <Pill tone="ok">Current</Pill> : null}
+                    </div>
+                    <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+                      {r.reason || "Configuration updated."}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-400">{formatWhen(r.createdAt)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="mt-4 flex items-start gap-1.5 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-white/10">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Revisions are immutable — a saved change never rewrites an earlier one, so this history
+            is a permanent record of what answered your customers.
+          </p>
+        </Card>
+      ) : null}
     </div>
   );
 }
