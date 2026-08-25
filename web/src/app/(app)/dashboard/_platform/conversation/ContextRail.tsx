@@ -1,9 +1,10 @@
 import React from "react";
 import Link from "next/link";
-import { Ticket, Calendar, Phone, ArrowUpRight } from "lucide-react";
+import { Ticket, Calendar, ArrowUpRight } from "lucide-react";
 import type { ConversationDetailView } from "@/lib/platform/readModel/types";
-import { appointmentHref } from "@/lib/platform/readModel/requests";
+import { requestHref } from "@/lib/platform/readModel/requests";
 import type { HandlingState } from "@/lib/platform/handling";
+import type { VoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import { formatWhen, titleCase } from "../format";
 import ChannelBadge from "../ChannelBadge";
 import HandlingControl from "./HandlingControl";
@@ -33,10 +34,13 @@ export default function ContextRail({
   detail,
   handling,
   handlingAvailable,
+  voice,
 }: {
   detail: ConversationDetailView;
   handling: HandlingState;
   handlingAvailable: boolean;
+  /** Recording + cost for voice conversations; null for other channels or when unavailable. */
+  voice?: VoiceArtifacts | null;
 }) {
   const contactName = detail.contact.displayName || detail.contact.handle || "Unknown contact";
 
@@ -89,7 +93,7 @@ export default function ContextRail({
             {detail.artifacts.map((a) => (
               <li key={`${a.type}:${a.id}`}>
                 <Link
-                  href={a.type === "ticket" ? `/dashboard/tickets/${a.id}` : appointmentHref(a.id)}
+                  href={requestHref(a.type === "ticket" ? "ticket" : "appointment", a.id)}
                   className="flex items-center gap-2 rounded-lg border border-gray-100 p-2 text-sm transition hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
                 >
                   {a.type === "ticket" ? (
@@ -136,17 +140,49 @@ export default function ContextRail({
         </dl>
       </Card>
 
-      {/* Voice keeps its rich detail page — linked, never duplicated. */}
-      {detail.channel === "voice" ? (
-        <Link
-          href={`/dashboard/calls/${detail.id}`}
-          className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm font-medium text-brand-600 transition hover:bg-gray-50 dark:border-white/10 dark:bg-navy-800 dark:text-brand-300 dark:hover:bg-white/5"
-        >
-          <Phone className="h-4 w-4" />
-          Recording &amp; cost details
-          <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
-        </Link>
+      {/* Sprint 13: the recording plays here rather than on a separate, legacy-styled page.
+          Hearing the call was the one thing the thread could not do on its own. */}
+      {detail.channel === "voice" && voice ? (
+        <Card title="Recording">
+          {voice.recordingUrl ? (
+            <audio controls preload="none" className="w-full">
+              <source src={voice.recordingUrl} />
+              Your browser can&apos;t play this recording.
+            </audio>
+          ) : (
+            <p className="text-sm text-gray-500">No recording was captured for this call.</p>
+          )}
+
+          <dl className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-sm dark:border-white/10">
+            {voice.durationSeconds != null ? (
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Duration</dt>
+                <dd className="tabular-nums text-navy-700 dark:text-white">
+                  {formatDuration(voice.durationSeconds)}
+                </dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-2">
+              <dt className="text-gray-500">Cost</dt>
+              <dd className="tabular-nums text-navy-700 dark:text-white">
+                {/* An unknown cost is "—", never a confident $0.00. */}
+                {voice.costUsd == null ? "—" : `$${voice.costUsd.toFixed(2)}`}
+              </dd>
+            </div>
+          </dl>
+        </Card>
       ) : null}
     </aside>
   );
+}
+
+/** m:ss, or h:mm:ss past an hour. */
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+    : `${m}:${String(sec).padStart(2, "0")}`;
 }

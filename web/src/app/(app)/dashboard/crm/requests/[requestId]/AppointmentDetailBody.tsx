@@ -1,15 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, CalendarClock, MessageSquare, User } from "lucide-react";
-import { platformUxEnabled } from "@/lib/platform/flags";
-import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
-import { getAppointmentDetail } from "@/lib/platform/readModel/requests";
+import type { AppointmentDetailView } from "@/lib/platform/readModel/requests";
 import { getContactView } from "@/lib/platform/readModel/contacts";
-import PageHeader from "../../../../_platform/PageHeader";
-import { formatWhen, titleCase } from "../../../../_platform/format";
-import { Surface, Pill } from "../../../../_platform/ui";
-
-export const dynamic = "force-dynamic";
+import PageHeader from "../../../_platform/PageHeader";
+import { formatWhen, titleCase } from "../../../_platform/format";
+import { Surface, Pill } from "../../../_platform/ui";
 
 /**
  * Appointment detail (Sprint 9 · T4) — the interim fix for a circular dead end.
@@ -23,20 +18,13 @@ export const dynamic = "force-dynamic";
  * Request detail that serves tickets and appointments together — this is not that surface, and
  * should not grow into it.
  */
-export default async function AppointmentDetailPage({
-  params,
+export default async function AppointmentDetailBody({
+  orgId,
+  appointment,
 }: {
-  params: Promise<{ appointmentId: string }>;
+  orgId: string;
+  appointment: AppointmentDetailView;
 }) {
-  if (!platformUxEnabled()) notFound();
-
-  const { appointmentId } = await params;
-  const orgId = await resolveActiveOrgId();
-  const appointment = orgId ? await getAppointmentDetail(orgId, appointmentId) : null;
-
-  // Org-scoped read returns null for another tenant's id, so this 404 is also the isolation guard.
-  if (!appointment || !orgId) notFound();
-
   const contact = appointment.contactId ? await getContactView(orgId, appointment.contactId) : null;
   const contactName = contact?.displayName || contact?.primaryHandle || null;
 

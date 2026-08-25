@@ -146,13 +146,16 @@ describe("T3 · real user identity", () => {
 
 describe("T4 · the appointment dead end is closed", () => {
   it("an appointment links to a page about that appointment, not to a list", () => {
+    // Sprint 13 replaced the interim appointment-only route with the unified Request detail.
+    // The rule this test exists for is unchanged: the link must not be a list.
     const href = appointmentHref("appt-1");
-    expect(href).toBe("/dashboard/crm/requests/appointment/appt-1");
+    expect(href).toBe("/dashboard/crm/requests/appt-1?type=appointment");
     expect(href).not.toBe("/dashboard/appointments");
+    expect(href).not.toBe("/dashboard/crm/requests");
   });
 
   it("that destination exists on disk", () => {
-    expect(routeExists("/dashboard/crm/requests/appointment/[appointmentId]")).toBe(true);
+    expect(routeExists("/dashboard/crm/requests/[requestId]")).toBe(true);
   });
 
   it("the destination is not itself redirected — the loop is gone", () => {
@@ -173,13 +176,16 @@ describe("T4 · the appointment dead end is closed", () => {
       call_id: "call-1",
       lead_id: "lead-1",
     });
-    expect(view.href).toBe("/dashboard/crm/requests/appointment/appt-9");
+    expect(view.href).toBe("/dashboard/crm/requests/appt-9?type=appointment");
   });
 
   it("the conversation rail links artifacts to the artifact", () => {
+    // Sprint 13 unified both artifact types behind requestHref; the guarantee is the same —
+    // an artifact link resolves to that artifact, never to the list it sits in.
     const rail = readCode("app/(app)/dashboard/_platform/conversation/ContextRail.tsx");
-    expect(rail).toMatch(/appointmentHref\(a\.id\)/);
-    expect(rail).not.toMatch(/requests\?type=appointment/);
+    expect(rail).toMatch(/requestHref\(/);
+    expect(rail).toMatch(/a\.id/);
+    expect(rail).not.toMatch(/href=\{`\/dashboard\/crm\/requests`\}/);
   });
 });
 

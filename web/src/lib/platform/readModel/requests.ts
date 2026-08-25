@@ -70,7 +70,7 @@ export function ticketToRequest(row: TicketRow): RequestView {
     createdAt: row.created_at,
     callId: row.call_id,
     contactId: row.lead_id,
-    href: `/dashboard/tickets/${row.id}`,
+    href: requestHref("ticket", row.id),
   };
 }
 
@@ -83,7 +83,19 @@ export function ticketToRequest(row: TicketRow): RequestView {
  * product. Interim detail route until Sprint 13's unified Request detail replaces it.
  */
 export function appointmentHref(id: string): string {
-  return `/dashboard/crm/requests/appointment/${id}`;
+  return requestHref("appointment", id);
+}
+
+/**
+ * Where a request's detail lives — one URL shape for both types (Sprint 13).
+ *
+ * Tickets and appointments are one concept split across two tables, and until now they were also
+ * split across two URL shapes: a legacy ticket page and an interim appointment route. The type
+ * rides along as a query param so the page can dispatch without probing both tables; it is a
+ * hint, not a trust boundary — the page still resolves the id org-scoped either way.
+ */
+export function requestHref(type: RequestType, id: string): string {
+  return `/dashboard/crm/requests/${id}?type=${type}`;
 }
 
 export function appointmentToRequest(row: AppointmentRow): RequestView {

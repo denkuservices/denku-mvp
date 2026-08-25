@@ -5,6 +5,7 @@ import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationView } from "@/lib/platform/readModel/conversations";
 import { getHandlingState, handlingAvailable, defaultHandling } from "@/lib/platform/handling";
+import { getVoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
@@ -41,6 +42,10 @@ export default async function ConversationDetailPage({
   const [handling, controlsAvailable] = orgId
     ? await Promise.all([getHandlingState(orgId, detail.id), handlingAvailable(orgId)])
     : [defaultHandling(detail.id), false];
+
+  // Sprint 13: the recording and cost that used to live on the legacy call page. Voice only, and
+  // fetched separately so a chat conversation never pays for the lookup.
+  const voice = orgId && detail.channel === "voice" ? await getVoiceArtifacts(orgId, detail.id) : null;
 
   return (
     <div className="p-4 md:p-6">
@@ -82,7 +87,7 @@ export default async function ConversationDetailPage({
           <ConversationThread turns={detail.turns} />
         </div>
 
-        <ContextRail detail={detail} handling={handling} handlingAvailable={controlsAvailable} />
+        <ContextRail detail={detail} handling={handling} handlingAvailable={controlsAvailable} voice={voice} />
       </div>
     </div>
   );

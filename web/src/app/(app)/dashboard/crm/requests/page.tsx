@@ -83,7 +83,7 @@ export default async function RequestsPage({
         subtitle="Everything your AI team produced from a conversation — questions to answer and appointments to keep."
         action={
           <Link
-            href="/dashboard/tickets/new"
+            href="/dashboard/crm/requests/new"
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
           >
             <Plus className="h-4 w-4" /> New request
