@@ -55,12 +55,21 @@ export const BUSINESS_CONTEXT_FIELDS: Array<{
 /**
  * Languages, by display name.
  *
- * Stored as the NAME ("English", "Spanish"), which is what the previous form wrote — not an
- * ISO code. Preserved deliberately: `resolveLanguage` in the Vapi helper matches on a leading
- * "es", so changing the stored representation here would change which voice and transcriber a
- * live assistant gets. Any correction belongs in a change that owns that behaviour.
+ * Stored as the NAME ("English", "Spanish"), which is what the previous form wrote — not an ISO
+ * code. That representation is kept; what changed (R-135) is that `resolveLanguage` in the Vapi
+ * helper now understands it. It previously matched a leading "es", which the code "es" satisfies
+ * and the name "Spanish" does not — so selecting Spanish silently produced an English voice and
+ * an English transcriber.
+ *
+ * **French, German and Turkish were removed, not fixed.** Voice and transcriber defaults exist
+ * only for English and Spanish (`DEFAULT_VOICE_BY_LANGUAGE`), so those three could never do
+ * anything except deliver an English-speaking employee while the UI claimed otherwise. Offering
+ * a capability the product does not have is the fabrication this codebase bans (R-018).
+ *
+ * To add a language: add its voice + transcriber entry to `DEFAULT_VOICE_BY_LANGUAGE`, add every
+ * spelling to `LANGUAGE_ALIASES`, then add it here. The parity test fails if you skip a step.
  */
-export const SETUP_LANGUAGES = ["English", "Spanish", "French", "German", "Turkish"] as const;
+export const SETUP_LANGUAGES = ["English", "Spanish"] as const;
 
 /** The value that means "unset" for each of these two fields — sent to the action as null. */
 export const DEFAULT_LANGUAGE = "English";

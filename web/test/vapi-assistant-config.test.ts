@@ -9,6 +9,7 @@ import {
   CALL_MAX_DURATION_SECONDS,
   CALL_SILENCE_TIMEOUT_SECONDS,
 } from "@/lib/vapi/assistantConfig";
+import { SETUP_LANGUAGES } from "@/app/(app)/dashboard/_platform/team/setupFields";
 
 const [CREATE_TICKET, CREATE_APPT] = DENKU_TOOL_IDS;
 const PROD = { VAPI_WEBHOOK_BASE_URL: "https://denku-mvp.vercel.app" };
@@ -145,5 +146,65 @@ describe("language / voice / transcriber resolvers (R-051)", () => {
 
   it("resolveTranscriber is Deepgram nova-2 for the language", () => {
     expect(resolveTranscriber("es")).toEqual({ provider: "deepgram", model: "nova-2", language: "es" });
+  });
+});
+
+/**
+ * R-135 — the Setup editor stores the language NAME; onboarding stores the ISO CODE.
+ *
+ * The original resolver tested `startsWith("es")`, which the code "es" satisfies and the name
+ * "Spanish" does not — so a customer who picked Spanish got an English voice and an English
+ * transcriber while the UI kept showing "Spanish". The tests above missed it for one reason:
+ * they only ever passed ISO codes, never the value the editor actually persists.
+ */
+describe("resolveLanguage understands both spellings (R-135)", () => {
+  it("resolves the display NAME the Setup editor persists", () => {
+    expect(resolveLanguage("Spanish")).toBe("es");
+    expect(resolveLanguage("spanish")).toBe("es");
+    expect(resolveLanguage("  Spanish  ")).toBe("es");
+    expect(resolveLanguage("Español")).toBe("es");
+    expect(resolveLanguage("English")).toBe("en");
+  });
+
+  it("still resolves the ISO code onboarding persists, including locale forms", () => {
+    expect(resolveLanguage("es")).toBe("es");
+    expect(resolveLanguage("es-ES")).toBe("es");
+    expect(resolveLanguage("es_MX")).toBe("es");
+    expect(resolveLanguage("en-GB")).toBe("en");
+  });
+
+  it("falls back to en for empty and unknown values rather than breaking the call", () => {
+    expect(resolveLanguage(null)).toBe("en");
+    expect(resolveLanguage(undefined)).toBe("en");
+    expect(resolveLanguage("")).toBe("en");
+    expect(resolveLanguage("   ")).toBe("en");
+    expect(resolveLanguage("Klingon")).toBe("en");
+  });
+
+  it("does not match a language merely because it starts with the letters 'es'", () => {
+    // The old implementation's failure mode, inverted: "Estonian" is not Spanish.
+    expect(resolveLanguage("Estonian")).toBe("en");
+  });
+
+  /**
+   * The parity assertion. The defect class is "the editor's option list and the resolver
+   * disagree", and only this test prevents it recurring: adding a language to the picker
+   * without teaching the resolver (and the voice map) fails here rather than in production.
+   */
+  it("every language the Setup editor offers resolves to a DISTINCT supported code", () => {
+    const resolved = SETUP_LANGUAGES.map((name) => [name, resolveLanguage(name)] as const);
+
+    // No option may collapse onto another's code — that is precisely how "French" silently
+    // became an English-speaking employee.
+    const codes = resolved.map(([, code]) => code);
+    expect(new Set(codes).size).toBe(SETUP_LANGUAGES.length);
+
+    // And each option must produce a real voice + transcriber for its own code.
+    for (const [name, code] of resolved) {
+      expect(resolveVoice(name).voiceId, `${name} must have its own voice`).toBe(
+        resolveVoice(code).voiceId
+      );
+      expect(resolveTranscriber(name).language, `${name} must transcribe as ${code}`).toBe(code);
+    }
   });
 });

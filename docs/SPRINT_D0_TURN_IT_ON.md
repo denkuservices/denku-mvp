@@ -12,12 +12,34 @@
 ## 0. The proposition in one paragraph
 
 **Denku's product problem is not a product problem.** Six sprints (9–14) of authenticated-experience
-work sit on an unmerged, unpushed local branch. As last verified against the live prod DB
-(`FIRST_PAYING_CUSTOMER_AUDIT`, 2026-07-25): **10 of 11 migrations unapplied, both platform flags OFF,
-the webhook still processing forged requests** — the repo cannot see prod, so Phase 1 of the runbook
-re-establishes the true state before anything is changed. The marketing site carries SOC 2 / HIPAA
-claims that are not true. A customer who paid on that state would get an AI that doesn't know their
-business, broken member invites, silent overage, and the legacy CRUD panel. **D0 turns on what already exists — and writes no
+work sit on an unmerged branch, and the product they built has never handled a production call.
+The marketing site carried SOC 2 / HIPAA claims that were not true (fixed in D0-D).
+
+> ### ⚠️ Corrected 2026-08-25 by direct inspection of the live production DB
+>
+> This plan originally inherited the `FIRST_PAYING_CUSTOMER_AUDIT` finding (2026-07-25) that **10 of
+> 11 migrations were unapplied**, and treated a staging environment as the whole critical path. **Both
+> are stale.** Queried against `kebqwsdguxxjsijahrox`:
+>
+> - **The schema is fully current — 44/44 migrations applied.** R-134 closed the gap on 2026-07-30
+>   (40/40, zero one-sided rows), and `conversation_handling` + `contact_notes` landed 2026-08-24. So
+>   **Phase 3 below is already done**, including `agent_business_context`, the whole Sprint 4.5
+>   platform layer, `org_invites` and `employee_manifests`. The hardest, least reversible reason for
+>   staging — pushing migrations into a drifted schema over nine partially-applied landmines — **no
+>   longer exists.**
+> - **`PLATFORM_MODEL_ENABLED` is OFF, proven by data, not inference:** 182 calls, **0**
+>   `conversations`, **0** `calls.conversation_id`.
+> - **There are no customers to protect.** 39 orgs are test debris: 16 profiles on a disposable-email
+>   domain, 14 orgs with no user at all (the two-org-creation-paths landmine), 17 plans of which only
+>   one ever placed a call. One workspace holds 181 of the 182 calls — the founder's own testing.
+> - **No production call since 2026-02-20 — six months.** Intent classification (R-019) shipped
+>   2026-07-23, so *every call in the database predates it*. This fully explains 93 tickets and **0
+>   appointments**: the appointment path has never once run in production. It is not a bug; it is an
+>   untested path. Everything built in Sprints 4–14 is likewise unvalidated against a real call.
+>
+> **Consequence for this sprint:** staging is a convenience, not the gate. The remaining prod-touching
+> steps all have instant rollbacks (see §2), and there are no customers to disturb. **The gate is no
+> longer "is there a staging env?" — it is "has one real call been made end-to-end?"** **D0 turns on what already exists — and writes no
 new feature code at all.** Every prior audit (`FIRST_PAYING_CUSTOMER_AUDIT`, `RETROSPECTIVE`, doc 09 of
 the 2.0 package) reaches the same conclusion independently: this unblocks more value than all remaining
 code combined.
@@ -42,19 +64,30 @@ Plus: `/admin/readiness` **green** on prod (no required `fail`), and the Sprint 
 whole 2.0 program is that **deployment is part of every sprint's Definition of Done**; the
 "inert until migrated" pattern is banned for customer-facing work.
 
-## 2. The one prerequisite (the standing blocker, now in its second month)
+## 2. Staging: downgraded from gate to convenience (corrected 2026-08-25)
 
-**A staging / preview environment.** Named the #1 gate in `SPRINT_6_PROPOSAL.md` (2026-07-24), in the
-Launch Runbook Phase 0, and again in doc 09 of the 2.0 package. Nothing prod-writing (migrations,
-`enforce` flips, platform flags) may be verified without a place to test first.
+`SPRINT_6_PROPOSAL.md` (2026-07-24), Launch Runbook Phase 0 and doc 09 all name a staging environment
+as the #1 gate. **That was true when migrations were pending. It is no longer.**
 
-Requirement: a Supabase branch/project + a Vercel preview with its own env. **Every phase below runs on
-staging first, then repeats on prod.**
+Every remaining prod-touching step has a safe path or an instant rollback:
 
-> **This is the entire critical path.** D0's engineering content is close to zero; its calendar duration
-> is a function of when the operator provisions this environment. If the owner will not stand up
-> staging, that is a legitimate decision — but it must be made explicitly, because it converts every
-> subsequent phase from "verified" to "changed blind on production," and D1–D8 all sit behind it.
+| Step | Rollback / safe path |
+|---|---|
+| Secrets & env | Change and redeploy |
+| Vapi reconcile | Idempotent — re-runnable |
+| Webhook `enforce` | Runbook verifies `[…][OK]` **in observe mode on a real call first** |
+| `CSP_MODE=enforce` | Report-only first; review `/api/csp-report` |
+| Notification flags | `false` + redeploy |
+| **`PLATFORM_UX_ENABLED` / `PLATFORM_MODEL_ENABLED`** | **Unset the env var** — the legacy nav and bodies are still compiled in (Sprint 14 kept them deliberately, with tests asserting they remain) |
+
+What staging would still genuinely buy: a place to rehearse the **paid** signup flow (Stripe
+subscription + a real Vapi number purchase) without spending money or adding rows to prod. That is
+worth having — but it is not a reason to delay turning the product on, and with zero customers there is
+nothing on prod to protect.
+
+> **Revised gate:** not "is there a staging env?" but **"has one real call gone end-to-end?"** — the
+> Definition of Done in §1. Six months without a production call is the actual risk; a staging
+> environment does not reduce it, and waiting for one has already cost a month.
 
 ## 3. Scope — five workstreams
 
@@ -89,17 +122,19 @@ here for sequencing only — **the runbook is the authority, this is not a secon
 |---|---|---|
 | 1 | Baseline `/admin/readiness` — record every `fail`/`warn` | (baseline) |
 | 2 | Secrets & env in Vercel (staging → prod); **rotate** `ADMIN_USER`/`ADMIN_PASS`; `VAPI_WEBHOOK_BASE_URL` = canonical HTTPS prod URL (never localhost — R-077) | Core / Security / Voice / Email / Billing |
-| 3 | Apply the pending migrations in filename order (Sprint 3 RLS+billing views → F-001 `agent_business_context` → Sprint 4.5 platform model → F-002 `org_invites` → Sprint 8 `employee_manifests`) | `billing_views`, `platform_migrations` |
+| 3 | ~~Apply the pending migrations~~ — ✅ **ALREADY DONE.** 44/44 applied (R-134 on 2026-07-30, plus `conversation_handling` + `contact_notes` on 2026-08-24). Verify only: `supabase migration list` shows zero one-sided rows | `billing_views`, `platform_migrations` (expect pass) |
 | 4 | `POST /api/internal/reconcile-vapi-assistants` — every live assistant gets the prod `server.url` + `x-vapi-secret` | (precondition for Phase 5) |
 | 5 | Webhook: confirm `[VAPI][WEBHOOK][AUTH][…][OK]` in observe mode on a **real call**, *then* `VAPI_WEBHOOK_AUTH_MODE=enforce` (**R-001**, Critical) → review `/api/csp-report` → `CSP_MODE=enforce` | `webhook_enforce`, `csp_mode` |
 | 6 | Billing crons with `CRON_SECRET` → `BILLING_NOTIFICATIONS_ENABLED=true` (R-009) → `ARTIFACT_NOTIFICATIONS_ENABLED=true` (R-008, **only after** enforce) → Supabase password-reset redirect allowlist (R-011) | `billing_notifications` |
 | 7 | Live acceptance: voice/language, business context, appointment intent, recording playback, 15-min cap, 30-s silence, notification email, usage-threshold alert | (the DoD run) |
 | 8 | `PLATFORM_MODEL_ENABLED` → verify dual-writes; **independently** `PLATFORM_UX_ENABLED` → walk the IA. The two flags have **no dependency on each other** (corrected 2026-08-24); `/admin/readiness` renders this gate live | platform cutover section |
 
-⚠️ **Migration landmines** — read [docs/MIGRATION_DEPENDENCY_GRAPH.md](MIGRATION_DEPENDENCY_GRAPH.md)
-before Phase 3. Nine migrations are **partially applied** (`ADD COLUMN` landed, `CREATE INDEX` /
-`ADD CONSTRAINT` did not) — **never `migration repair` one of those**, it discards the missing half.
-`20250126000000` is **destructive if re-run** and its `relkind='r'` guard must not be removed.
+⚠️ **Migration landmines — historical, but do not undo them.** The nine partially-applied migrations
+were **completed** on 2026-07-30 (28/28 missing objects now exist, including the three CHECK
+constraints, so `workspace_status` / `paused_reason` are now enforced by the database and not only by
+application code — `CLAUDE.md` still says otherwise and is stale on that point). `20250126000000`
+remains **destructive if re-run**: its `relkind='r'` guard must never be removed. Full history:
+[docs/MIGRATION_DEPENDENCY_GRAPH.md](MIGRATION_DEPENDENCY_GRAPH.md).
 
 ### D0-C · Observability before acquisition (engineer, ~1 day)
 
@@ -148,9 +183,10 @@ legacy redirect. Record the DoD run (§1) as a screen recording; it doubles as D
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| **Staging env never provisioned** (open since 2026-07-24) | Blocks the entire 2.0 program | Owner decision required *before* D0 starts, not during. No staging ⇒ D0 becomes "change prod blind," which the runbook explicitly forbids |
-| **Sprint 9–14 exist only on one local disk** | Total loss of 6 sprints | D0-A, first action of the sprint |
-| Partially-applied migrations mishandled in Phase 3 | Silent schema divergence | Migration dependency graph is mandatory reading; never `migration repair` the partial nine |
+| **Six months with no production call** — every path built in Sprints 4–14 is unvalidated, and the appointment path has *never* run in prod | The product may not do the thing it is sold for | This is what the §1 DoD run exists to answer. Do it before a customer does |
+| ~~Staging env never provisioned~~ | ~~Blocks the program~~ | **Downgraded 2026-08-25** — see §2. Migrations are applied, rollbacks are instant, no customers to protect |
+| **Sprint 9–14 exist only on one local disk** | Total loss of 6 sprints | ✅ Resolved — pushed in D0-A |
+| ~~Partially-applied migrations mishandled~~ | — | ✅ Resolved 2026-07-30; do not undo the `relkind` guard |
 | `CSP_MODE=enforce` breaks the new PostHog/Sentry origins | Broken prod telemetry | D0-C lands the allowlist entries *before* Phase 5 |
 | `enforce` flip drops live calls (assistants not reconciled) | Dropped customer calls | Phase 4 precedes Phase 5; observe-mode `[…][OK]` on a real call is the gate |
 | Flipping `PLATFORM_UX_ENABLED` reveals a regression at scale | Customer-visible | Staging walk first; rollback is unsetting the variable (legacy nav still built) |

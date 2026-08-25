@@ -17,7 +17,25 @@ import { Mic, PhoneOff, Loader2 } from 'lucide-react';
 // Dynamic import for Vapi Web SDK to avoid SSR issues
 let Vapi: any = null;
 
-const DEMO_ASSISTANT_ID = '155b21ad-2f8b-4593-b33c-c5021e644328';
+/**
+ * The demo assistant id is fetched from `/api/vapi/start`, never hardcoded here.
+ *
+ * It used to be a literal in this client component — which both duplicated the constant in
+ * `api/vapi/start/route.ts` (whose own comment says it must not reach the client bundle) and
+ * made it the one Vapi-account-coupled value with NO environment override. Switching Vapi
+ * accounts would leave this button rendering normally and failing silently on every click.
+ * Now the server owns it, so `VAPI_AGENT_ID` alone is enough to repoint the demo.
+ */
+async function fetchDemoAssistantId(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/vapi/start', { method: 'POST' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { assistantId?: unknown };
+    return typeof data.assistantId === 'string' && data.assistantId ? data.assistantId : null;
+  } catch {
+    return null;
+  }
+}
 const MAX_CALL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const WARNING_THRESHOLD_MS = 60 * 1000; // Show warning in last 1 minute
 
@@ -173,6 +191,13 @@ export function DemoCallButton() {
     setError(null);
     setShowWarning(false);
 
+    const assistantId = await fetchDemoAssistantId();
+    if (!assistantId) {
+      setCallState('error');
+      setError('Voice agent is not available.');
+      return;
+    }
+
     try {
       // Initialize Vapi Web SDK
       // Note: If Vapi SDK supports disabling Krisp via config, add it here:
@@ -183,8 +208,8 @@ export function DemoCallButton() {
       // Reset ending flag when starting new call
       isEndingRef.current = false;
 
-      // Start call with hardcoded assistant ID
-      vapi.start(DEMO_ASSISTANT_ID);
+      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID)
+      vapi.start(assistantId);
 
       // Set up event handlers
       vapi.on('call-start', (data: any) => {

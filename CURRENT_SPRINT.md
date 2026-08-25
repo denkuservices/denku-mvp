@@ -20,10 +20,10 @@
 | | Workstream | Owner | Status |
 |---|---|---|---|
 | **D0-A** | Get the work out of the drawer | engineer | ✅ **Done 2026-08-25** |
-| **D0-B** | Launch Runbook phases 1–8 | **operator** | ⛔ **Blocked — no staging env** |
-| **D0-C** | PostHog + Sentry + CSP allowlist | engineer | ⛔ Blocked — needs accounts/DSNs (operator) |
+| **D0-B** | Launch Runbook phases 1–8 | **operator** | 🟢 **UNBLOCKED — Phase 3 already done (44/44 migrations); the rest is env + flips, all instantly reversible** |
+| **D0-C** | PostHog + Sentry + CSP allowlist | engineer | ⛔ Needs accounts/DSNs (operator) — not launch-blocking |
 | **D0-D** | Close two live exposures | engineer + counsel | 🟡 **R-004 marketing honesty: ✅ applied 2026-08-25** · R-030 rate limiting blocked on an Upstash/KV instance |
-| **D0-E** | Merge, deploy, walk the IA live | both | ⛔ Blocked on D0-B |
+| **D0-E** | Merge, deploy, walk the IA live | both | 🟡 Ready once D0-B runs |
 
 ## D0-A — done (2026-08-25)
 
@@ -76,16 +76,49 @@ still owed** on the replacement wording and the security page as a whole.
 state-dependent — it becomes true when `ARTIFACT_NOTIFICATIONS_ENABLED` flips in D0 Phase 6. Re-check
 at the go-live checklist rather than softening copy that is about to become accurate.
 
-## The one prerequisite (standing blocker, second month)
+## Pre-launch bug fixes — done (2026-08-25)
 
-**A staging / preview environment** — a Supabase branch/project + a Vercel preview with its own env.
-Named the #1 gate in `SPRINT_6_PROPOSAL.md` (2026-07-24), Launch Runbook Phase 0, and doc 09 of the 2.0
-package. Nothing prod-writing (migrations, `enforce` flips, platform flags) may be verified without it.
+Two defects that would have surfaced in front of the first customer.
 
-**This is the entire critical path.** D0's engineering content is near zero; its calendar duration is a
-function of when this is provisioned. Not standing it up is a legitimate decision — but it must be made
-explicitly, because it converts every runbook phase from *verified* to *changed blind on production*,
-and D1–D8 all sit behind it.
+**R-135 — a Spanish employee answered callers in English.** ✅ Fixed. `resolveLanguage` tested
+`startsWith("es")`, which the ISO code `"es"` satisfies and the display name `"Spanish"` — what the
+Setup editor actually persists — does not. It now resolves an explicit alias table covering both
+spellings plus locale forms (`es-ES`, `es_MX`), with an `en` fallback so an unrecognised value can
+never break a live call. **French, German and Turkish were removed from the picker rather than
+fixed:** voice and transcriber defaults exist only for `en`/`es`, so they could only ever deliver an
+English-speaking employee while the UI claimed otherwise — a fabricated capability (R-018).
+
+The old tests missed this for one reason: **they only ever passed ISO codes, never the value the
+editor stores.** The new parity test asserts every picker option resolves to a *distinct* supported
+code with its own voice and transcriber, so adding a language without teaching the resolver fails
+here instead of on a customer's call. Sprint 10's "keeps every choice the replaced form offered"
+assertion was updated, not deleted — the subtraction is documented as deliberate so re-adding a
+language stays a decision.
+
+**The demo assistant id was hardcoded in a client component with no env override.** ✅ Fixed.
+`DemoCallButton` carried `'155b21ad-…'` as a literal — duplicating the constant in
+`api/vapi/start/route.ts`, whose own comment says it must not reach the client bundle. Switching
+Vapi accounts would have left the marketing call button rendering normally and failing silently on
+every click. It now fetches the id from `POST /api/vapi/start`, so `VAPI_AGENT_ID` alone repoints it.
+
+**533 tests green** (was 527); build green.
+
+## ⚠️ Staging downgraded from gate to convenience (corrected 2026-08-25)
+
+Direct inspection of the live prod DB overturned the inherited blocker:
+
+- **Schema is fully current — 44/44 migrations applied.** R-134 closed it 2026-07-30; Sprint 9–14's own
+  migrations landed 2026-08-24. **Runbook Phase 3 is already done.** The scariest reason for staging
+  (migrations into a drifted schema over nine partial landmines) no longer exists.
+- **`PLATFORM_MODEL_ENABLED` is OFF, proven:** 182 calls → **0** conversations, **0** linked calls.
+- **No customers to protect.** 39 orgs are test debris — 16 profiles on a disposable-email domain, 14
+  orgs with no user (the two-org-creation-paths landmine), 17 plans of which one ever placed a call.
+- **No production call since 2026-02-20.** R-019 intent shipped 2026-07-23, so every call predates it —
+  which explains 93 tickets and **0 appointments**: that path has never run in prod.
+
+Every remaining prod step has an instant rollback (flags = unset the env var; the legacy nav and bodies
+are still compiled in). **The real gate is not "is there a staging env?" — it is "has one real call
+gone end-to-end?"** Six months without one is the actual risk, and staging does not reduce it.
 
 ## Out of scope (filed, not built)
 

@@ -111,7 +111,24 @@ describe("field parity · the editor writes exactly what the action accepts", ()
       "custom",
     ]);
     expect(AGENT_TYPES.map((t) => t.value)).toEqual(["support", "sales", "concierge", "general"]);
-    expect([...SETUP_LANGUAGES]).toEqual(["English", "Spanish", "French", "German", "Turkish"]);
+  });
+
+  /**
+   * The one deliberate subtraction from the replaced form (R-135, 2026-08-25).
+   *
+   * Sprint 10's rule was that nothing the old form offered may silently disappear in the move,
+   * and that rule still holds for presets, agent types and every business-context field above.
+   * Languages are the documented exception: the form offered five, but voice and transcriber
+   * defaults exist only for English and Spanish, so French, German and Turkish produced an
+   * English-speaking employee while the UI said otherwise. Removing them is not a lost choice —
+   * it is the removal of a choice that never worked.
+   *
+   * This assertion is kept (rather than deleted) so re-adding a language stays a decision:
+   * restoring one here without a voice entry and an alias will fail the parity test in
+   * `vapi-assistant-config.test.ts`.
+   */
+  it("offers only the languages the voice stack can actually speak (R-135)", () => {
+    expect([...SETUP_LANGUAGES]).toEqual(["English", "Spanish"]);
   });
 });
 

@@ -1861,7 +1861,20 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   round-trip. Do not add new ones; delete them when touching that code.
 
 ### R-135 — `resolveLanguage` silently gives non-English employees an English voice
-**Priority:** High · **Status:** Open · **Effort:** S · **Related audit:** — (found 2026-08-25 during Sprint 10, deliberately not fixed there)
+**Priority:** High · **Status:** ✅ **Completed 2026-08-25** · **Effort:** S · **Related audit:** — (found during Sprint 10, deliberately not fixed there; fixed in D0 pre-launch)
+> **Fix:** `resolveLanguage` now resolves an explicit alias table covering both spellings — the
+> display NAME the Setup editor persists ("Spanish", "Español") and the ISO code onboarding
+> persists ("es", "es-ES", "es_MX") — with an `en` fallback for anything unknown so an
+> unrecognised value can never break a live call.
+> **French, German and Turkish were REMOVED from the picker rather than fixed.** Voice and
+> transcriber defaults exist only for `en`/`es`, so those three could never do anything but
+> deliver an English-speaking employee while the UI claimed otherwise — a fabricated capability
+> (R-018). Adding a language now requires three coordinated edits (voice map, alias table,
+> picker) and the parity test fails if any is skipped.
+> **Guarded by** `test/vapi-assistant-config.test.ts`: the previous tests missed this defect for
+> one reason — they only ever passed ISO codes, never the value the editor actually stores. The
+> new parity test asserts every picker option resolves to a **distinct** supported code with its
+> own voice and transcriber.
 - **Business impact:** A customer configures their AI employee in Spanish; the employee **answers
   callers in English**, with an English transcriber. The setting appears saved and correct in the UI.
   This is a silent, customer-visible failure of a headline feature (multi-language) on the live call

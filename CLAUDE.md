@@ -189,17 +189,19 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
    with a golden-master TS mirror `lib/billing/usageMath.ts`. Key rule: `billable_minutes =
    Σ ceil(duration_seconds/60)` **per call** (rounds up each call). Full base-schema baseline is still
    R-031.
-   **Migration history reconciled 2026-07-30 (R-134)** — but read
-   [docs/MIGRATION_DEPENDENCY_GRAPH.md](docs/MIGRATION_DEPENDENCY_GRAPH.md) before touching
-   `supabase/migrations/`. Key facts: 4 migrations were applied straight to prod during a 5-month
-   commit gap and are now recovered into the repo; **9 migrations are only PARTIALLY applied**
-   (`ADD COLUMN`/`CREATE TABLE` landed, `CREATE INDEX`/`ADD CONSTRAINT` did not) — never
-   `migration repair` one of those, it discards the missing half; and `20250126000000` is
+   **Migration history reconciled 2026-07-30 (R-134); repo and prod are SYNCHRONIZED.**
+   Read [docs/MIGRATION_DEPENDENCY_GRAPH.md](docs/MIGRATION_DEPENDENCY_GRAPH.md) before touching
+   `supabase/migrations/`. Current state, **re-verified against live prod 2026-08-25**:
+   **44/44 migrations applied, zero one-sided rows.** 4 migrations that had been applied straight
+   to prod during a 5-month commit gap are recovered into the repo, and the 9 previously-PARTIAL
+   migrations were **completed** (28/28 missing objects now exist). `20250126000000` remains
    **destructive if re-run** (its `ALTER TABLE … RENAME` would rename the live `organizations`
-   VIEW away) so it carries a `relkind='r'` guard that must never be removed.
-   ⚠️ **The `workspace_status` / `paused_reason` enums in the business-rules table below are NOT
-   enforced by the database** — `check_workspace_status` and `check_paused_reason` were never
-   applied. Application code is currently the only guard.
+   VIEW away) so its `relkind='r'` guard must never be removed.
+   ✅ **Corrected 2026-08-25: the `workspace_status` / `paused_reason` enums ARE now enforced by
+   the database.** `check_workspace_status`, `check_paused_reason` and `check_billing_status` were
+   applied on 2026-07-30. An earlier version of this file said they "were never applied" and that
+   application code was the only guard — that is no longer true, and writing a value outside the
+   enum will now fail at the DB, not pass silently.
 10. **Supabase MCP: two projects are reachable — target Denku EXPLICITLY by id.** `list_projects`
     returns Denku prod `kebqwsdguxxjsijahrox` (`ACTIVE_HEALTHY`) **and** the unrelated `BondAI`
     (`ukosngcmvejbhfimggrn`). The old "points at the wrong project" warning meant BondAI is the
