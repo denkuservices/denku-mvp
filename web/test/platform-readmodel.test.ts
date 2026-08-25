@@ -47,7 +47,30 @@ describe("read model — pure mappers", () => {
     expect(v.lastActivityAt).toBe("2026-07-24T10:02:00Z");
     expect(v.meta.durationSeconds).toBe(84);
     expect(v.source).toBe("calls");
-    expect(v.summary).toContain("Denku");
+    // The summary is what the CALLER said, not how the AI opened. Every transcript starts with
+    // the assistant's greeting, so previewing from the start gave every Inbox row the same
+    // boilerplate first line and buried the only distinguishing content.
+    expect(v.summary).toContain("book Tuesday");
+    expect(v.summary).not.toMatch(/^AI:/);
+  });
+
+  it("summary prefers the caller's first turn over the assistant greeting", () => {
+    const withGreeting = callRowToConversationView(
+      { ...CALL, transcript: "AI: Hi. This is an agent for Acme. How can I help you today? User: My boiler is leaking. AI: I'm sorry to hear that." },
+      "Front Desk AI"
+    );
+    expect(withGreeting.summary).toBe("My boiler is leaking.");
+
+    // A call where nobody spoke still needs a row — fall back to the transcript rather than
+    // rendering an empty line.
+    const greetingOnly = callRowToConversationView(
+      { ...CALL, transcript: "AI: Hi. This is an agent for Acme." },
+      "Front Desk AI"
+    );
+    expect(greetingOnly.summary).toContain("Acme");
+
+    const noTranscript = callRowToConversationView({ ...CALL, transcript: null }, "Front Desk AI");
+    expect(noTranscript.summary).toBeNull();
   });
 
   it("conversationRowToConversationView maps chat into a ConversationView", () => {

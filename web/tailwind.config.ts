@@ -31,38 +31,55 @@ const config: Config = {
         '3xl': '1920px',
       },
       colors: {
-        // Horizon navy palette (blue-gray for dark mode backgrounds)
+        /**
+         * THE AUTHENTIC HORIZON PALETTE — extracted from `public/horizon/horizon.bundle.css`
+         * on 2026-08-25, not approximated.
+         *
+         * These tokens previously held *guessed* values: `brand-500` was `#3b82f6` (Tailwind's
+         * default blue) where Horizon's actual brand is `#422AFB` (indigo), and the whole navy
+         * scale was shifted — config `navy-700` held `#0b1437`, which is really Horizon's
+         * `navy-900`. The mismatch stayed invisible because the vendored bundle is injected
+         * UNLAYERED and therefore wins for every class Horizon's own build compiled (R-136).
+         *
+         * It was not harmless. Any shade the bundle did NOT compile fell through to these
+         * values, so a new `bg-brand-400` rendered Tailwind blue next to an existing
+         * `bg-brand-500` indigo — two different hues from one token family. And R-136's fix
+         * (layering the bundle so our utilities win) would have repainted the entire dashboard
+         * in the wrong palette the moment it landed.
+         *
+         * Verified values below come from the bundle itself; the few shades Horizon never
+         * compiled (brand 50/100, navy 50–300 and 600) are the documented Horizon UI values and
+         * are marked. Keep these in sync with the bundle — they are the same design system.
+         */
         navy: {
-          50: '#f0f4ff',
-          100: '#e0e9ff',
-          200: '#c7d4ff',
-          300: '#a4b5ff',
-          400: '#818cff',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#0b1437', // Darker navy for dark mode (common Horizon value)
-          800: '#1a1f3a', // Very dark navy
-          900: '#1e293b', // Almost black navy
+          50: '#d0dcfb',  // not in bundle — Horizon UI documented value
+          100: '#aac0fe', // not in bundle — Horizon UI documented value
+          200: '#a3b9f8', // not in bundle — Horizon UI documented value
+          300: '#728fea', // not in bundle — Horizon UI documented value
+          400: '#3652ba', // from bundle
+          500: '#1b3bbb', // from bundle
+          600: '#24388a', // not in bundle — Horizon UI documented value
+          700: '#1b254b', // from bundle
+          800: '#111c44', // from bundle
+          900: '#0b1437', // from bundle
         },
-        // Horizon brand palette (blue accent for active states)
         brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6', // Primary brand blue
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#e9e3ff',  // not in bundle — Horizon UI documented value
+          100: '#c0b8fe', // not in bundle — Horizon UI documented value
+          200: '#a195fd', // from bundle
+          300: '#8171fc', // from bundle
+          400: '#7551ff', // from bundle
+          500: '#422afb', // from bundle — the primary. NOT #3b82f6.
+          600: '#3311db', // from bundle — the hover state
+          700: '#2111a5', // from bundle
+          800: '#190793', // from bundle
+          900: '#11047a', // from bundle
         },
-        // Horizon lightPrimary (light blue tint for search/nav backgrounds)
-        lightPrimary: '#e0f2fe',
-        // Horizon background shades (main layout backgrounds)
+        // Horizon lightPrimary — from bundle (was #e0f2fe, a guess)
+        lightPrimary: '#f4f7fe',
         background: {
-          100: '#f4f7fe', // Light gray-blue background
-          900: '#0b1437', // Dark navy background
+          100: '#f4f7fe', // from bundle
+          900: '#070f2e', // from bundle (was #0b1437, which is navy-900)
         },
       },
       boxShadow: {

@@ -28,10 +28,45 @@ import type { Channel } from "@/lib/platform/channels";
 
 const SUMMARY_LEN = 140;
 
+/**
+ * Matches a speaker label at the start of a turn in a Vapi transcript
+ * ("AI:", "User:", "Assistant:", "Customer:"), case-insensitively.
+ */
+const SPEAKER_TURN = /\b(ai|assistant|bot|user|customer|caller|human)\s*:\s*/gi;
+const CALLER_SPEAKERS = new Set(["user", "customer", "caller", "human"]);
+
+/**
+ * What the CALLER said, not how the AI opened.
+ *
+ * Transcripts always begin with the assistant's greeting, so truncating from the start gave every
+ * row in the Inbox the same opening — twenty-five consecutive lines of
+ * "AI: Hi. This is an agent for … How can I help you today? User:…". The list showed the AI
+ * talking to itself and buried the one thing that distinguishes one conversation from another.
+ *
+ * So: prefer the caller's first turn. Fall back to the raw transcript when there is no caller
+ * turn at all (a call where nobody spoke), because an empty row is worse than a boilerplate one.
+ */
 function preview(text: string | null | undefined): string | null {
   const t = (text ?? "").trim().replace(/\s+/g, " ");
   if (!t) return null;
-  return t.length > SUMMARY_LEN ? `${t.slice(0, SUMMARY_LEN)}…` : t;
+
+  // Each turn records where its label begins and where its words begin, so a turn's text is
+  // simply [contentAt, next turn's labelAt).
+  const turns: Array<{ speaker: string; labelAt: number; contentAt: number }> = [];
+  SPEAKER_TURN.lastIndex = 0;
+  for (let m = SPEAKER_TURN.exec(t); m; m = SPEAKER_TURN.exec(t)) {
+    turns.push({ speaker: m[1].toLowerCase(), labelAt: m.index, contentAt: m.index + m[0].length });
+  }
+
+  let body = t;
+  const i = turns.findIndex((x) => CALLER_SPEAKERS.has(x.speaker));
+  if (i !== -1) {
+    const end = i + 1 < turns.length ? turns[i + 1].labelAt : t.length;
+    const said = t.slice(turns[i].contentAt, end).trim();
+    if (said) body = said;
+  }
+
+  return body.length > SUMMARY_LEN ? `${body.slice(0, SUMMARY_LEN)}…` : body;
 }
 
 // --- pure mappers -----------------------------------------------------------

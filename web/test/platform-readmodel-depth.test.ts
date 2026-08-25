@@ -68,8 +68,11 @@ describe("aggregate — assembly over fake db", () => {
   beforeEach(() => {
     db = makeFakeDb();
     db.tables.agents = [{ id: "e1", org_id: "o1", name: "A", created_at: "2026-01-01" }];
+    // Dated relative to now: every aggregate is windowed, so a fixed past date would silently
+    // fall out of the window as time passes and the test would rot.
+    const recent = new Date(Date.now() - 2 * 86_400_000).toISOString();
     db.tables.calls = [
-      { id: "c1", org_id: "o1", agent_id: "e1", from_phone: "+1", transcript: "AI: hi", intent: "appointment", started_at: "2026-07-24T10:00:00Z", ended_at: "2026-07-24T10:01:00Z", created_at: "2026-07-24T10:00:00Z" },
+      { id: "c1", org_id: "o1", agent_id: "e1", from_phone: "+1", transcript: "AI: hi", intent: "appointment", started_at: recent, ended_at: recent, created_at: recent },
     ];
     db.tables.conversations = [];
   });
@@ -80,6 +83,26 @@ describe("aggregate — assembly over fake db", () => {
     expect(agg.limited).toBe(false);
     const small = await getConversationAggregates("o1", { limit: 1 }, db as any);
     expect(small.limited).toBe(true); // hit the bound → "recent", not all-time
+  });
+
+  it("counts only the window it claims — not everything scanned", async () => {
+    // The defect this pins: `windowDays` reached only the chart, so Home rendered
+    // "Conversations handled 181 · last 7 days" from an all-time total, above a chart of the
+    // same seven days showing almost nothing. A true number under a false label.
+    const old = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    db.tables.calls.push({
+      id: "c-old", org_id: "o1", agent_id: "e1", from_phone: "+2", transcript: "AI: hi",
+      intent: "support", started_at: old, ended_at: old, created_at: old,
+    });
+
+    const week = await getConversationAggregates("o1", { limit: 500, windowDays: 7 }, db as any);
+    expect(week.total).toBe(1);
+    expect(week.byIntent.support).toBeUndefined();
+    expect(week.byDay.reduce((s: number, d: { count: number }) => s + d.count, 0)).toBe(week.total);
+
+    // Widen the window and the older conversation comes back — it was excluded, not lost.
+    const quarter = await getConversationAggregates("o1", { limit: 500, windowDays: 120 }, db as any);
+    expect(quarter.total).toBe(2);
   });
 });
 

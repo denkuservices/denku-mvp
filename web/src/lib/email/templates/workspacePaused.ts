@@ -24,8 +24,8 @@ export function workspacePausedTemplate(params: {
 
   const isHardCap = reason === "hard_cap";
   const subject = isHardCap
-    ? "⚠️ Your Denku AI line is paused — usage cap reached"
-    : "⚠️ Your Denku AI line is paused — payment needed";
+    ? "⚠️ Your Denku phone line is paused — usage cap reached"
+    : "⚠️ Your Denku phone line is paused — payment needed";
 
   const headline = isHardCap
     ? "Your AI line has been paused"
@@ -60,7 +60,7 @@ export function workspacePausedTemplate(params: {
       </a>
     </div>
     <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin-top:32px;">
-      You're receiving this because your Denku AI line was paused. This is a service alert, not marketing.
+      You're receiving this because your Denku phone line was paused. This is a service alert, not marketing.
     </p>
   </div>
 </div>

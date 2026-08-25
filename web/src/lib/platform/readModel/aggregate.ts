@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { listConversationViews } from "@/lib/platform/readModel/conversations";
+import { listConversationViews, filterConversationViews } from "@/lib/platform/readModel/conversations";
 import type { ConversationView } from "@/lib/platform/readModel/types";
 import type { Channel } from "@/lib/platform/channels";
 
@@ -101,14 +101,35 @@ export async function getConversationAggregates(
   };
   if (!orgId) return empty;
 
-  const views = await listConversationViews(orgId, { limit }, db);
+  const scanned = await listConversationViews(orgId, { limit }, db);
+
+  /**
+   * Restrict every aggregate to the window before counting.
+   *
+   * `windowDays` used to reach only `aggregateByDay`, so the chart showed the last N days while
+   * `total`, `byChannel`, `byEmployee` and `byIntent` counted everything scanned — and Home
+   * printed all of them under an "Accomplished · last 7 days" heading. On this workspace that
+   * rendered "Conversations handled 181 / last 7 days" above a chart of the same seven days
+   * showing single digits, because the newest call was six months old. The number was true of
+   * all time and false of the label, which is exactly the R-018 failure the honesty rule exists
+   * to prevent: a real figure made misleading by its frame.
+   *
+   * `listConversationViews` applies no date bound (only `contactId` / `ids` reach the query), so
+   * the window is applied here, over the scanned page, using the same `from` semantics the list
+   * surfaces use.
+   */
+  const from = new Date(Date.now() - windowDays * 86_400_000).toISOString();
+  const views = filterConversationViews(scanned, { from });
+
   return {
     total: views.length,
     byChannel: aggregateByChannel(views),
     byEmployee: aggregateByEmployee(views),
     byDay: aggregateByDay(views, windowDays),
     byIntent: aggregateByIntent(views),
-    limited: views.length >= limit,
+    // `limited` describes the SCAN, not the window: it means older conversations may exist
+    // beyond the scanned page, so a windowed count could be a floor rather than a total.
+    limited: scanned.length >= limit,
     windowDays,
   };
 }

@@ -84,7 +84,7 @@ export function artifactNotificationTemplate(
       </a>
     </div>
     <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin-top:32px;">
-      You're receiving this because your Denku AI created a work item from a call.
+      You're receiving this because your AI employee created a work item from a call.
       Manage notifications in your workspace settings.
     </p>
   </div>
