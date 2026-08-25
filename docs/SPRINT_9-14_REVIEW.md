@@ -97,12 +97,15 @@ writing this document.
 4. **`IMPLEMENTATION_ROADMAP.md` was last updated 2026-07-25** and its highest ID was R-133, so
    **R-134** (the 2026-07-30 migration-history/RLS correction, recorded in `CLAUDE.md`) was **never
    filed**. Six sprints of R-item movement went untracked.
-5. **The decisions that shaped the arc (D1–D7) are not written down anywhere.** They are referenced
-   by number in five of the six commit messages — "per decision D3", "per decision D7" — and exist in
-   **no document in this repository**. The commit messages are currently the only record that they
-   were made at all. *(Recorded here; see the table in §2 for what each visibly produced. The
-   register itself is not reconstructable and should be re-established going forward, not invented
-   retroactively.)*
+5. **The decisions that shaped the arc are not written down anywhere.** Verified by searching every
+   `.md` in the repo outside `node_modules`: **no document records them.** They survive only as
+   numbered references inside **three of the six commit messages** — `c9b68a2` cites **D6** (nav "CRM"
+   → "Customers"), `f90163d` cites **D7** (create things where they live), `9d5b8c0` cites **D3**
+   (ApexCharts) and **D4** (estimated savings on Home). Sprint 14's body additionally describes a
+   **D1** ("go single-track") without naming it as such.
+   **So: four decisions are recoverable by number and effect; the register as a whole — how many
+   there were, what D2 or D5 said — is not.** It should be re-established going forward, never
+   invented retroactively.
 
 The commit messages themselves are unusually good — genuinely better than most of the review docs
 they should have fed. That is what makes the omission worth naming: **the discipline was present in

@@ -127,10 +127,12 @@ was not visually verified (no authenticated browser access) · manifest revision
 time, now asserted by a test.
 
 **The process failure, recorded:** six sprints shipped with **no closing ritual** — unpushed branch, no
-reviews, stale roadmap, and the decisions that shaped the arc (**D1–D7**) exist in **no document**, only
-as numbered references inside five commit messages. The commit messages are excellent; the filing did
-not happen. Reconciled in D0-A; the register itself is not reconstructable and should be re-established
-going forward rather than invented retroactively.
+reviews, stale roadmap, and the decisions that shaped the arc exist in **no document** (verified across
+every `.md` in the repo). Four are recoverable by number and effect from three commit messages — **D3**
+ApexCharts, **D4** savings on Home, **D6** "CRM" → "Customers", **D7** create-where-they-live — plus an
+unnamed **D1** ("go single-track") described in Sprint 14's body. The register as a whole is not
+reconstructable. The commit messages are excellent; the filing did not happen. Reconciled in D0-A; the
+register should be re-established going forward rather than invented retroactively.
 
 ---
 
