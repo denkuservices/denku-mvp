@@ -38,6 +38,12 @@ export interface ConnectionHealth {
   detail: string | null;
   /** True when the customer must act (reconnect, fix credentials). */
   actionRequired: boolean;
+  /**
+   * Machine-readable reason, when a UI needs to offer a specific remedy rather than a generic
+   * one. `state` says how healthy the connection is; this says *why*, so a surface can render
+   * "Assign an employee" instead of "Manage" without matching on the human-readable label.
+   */
+  code?: "unassigned";
 }
 
 /** Warn this many days before a credential expires. */
@@ -52,6 +58,13 @@ export interface ConnectionHealthInput {
   lastError?: string | null;
   /** False when the channel has no adapter yet (declared, unbuilt). */
   adopted?: boolean;
+  /**
+   * True when this channel can be assigned to an AI Employee (the registry gives it an
+   * `ownerColumn`). Voice can; org-level Instagram cannot, today.
+   */
+  assignable?: boolean;
+  /** The employee that owns this connection, when the channel is assignable. */
+  assignedTo?: string | null;
   /** Now, injectable for tests. */
   now?: Date;
 }
@@ -119,6 +132,28 @@ export function evaluateConnectionHealth(input: ConnectionHealthInput = {}): Con
         label: `Expires in ${days === 0 ? "less than a day" : `${days} day${days === 1 ? "" : "s"}`}`,
         detail: "Reconnect soon to avoid an interruption.",
         actionRequired: true,
+      };
+    }
+    /**
+     * Connected is not the same as working.
+     *
+     * A phone line can be live in Vapi and assigned to nobody — which is exactly the state this
+     * workspace was in: the Channels page said "Connected" for +1 321 392 8560 while the employee
+     * page said "No channels connected" and Home said no employee was reachable. All three were
+     * true and described different things, and the one a customer would act on — *callers are
+     * hearing nothing* — was the one no screen stated.
+     *
+     * So an assignable connection with no owner is action-required, not healthy. The channel is
+     * plumbed; nobody is on the other end.
+     */
+    if (input.assignable && !input.assignedTo) {
+      return {
+        state: "degraded",
+        severity: "warn",
+        label: "No employee assigned",
+        detail: "Customers reaching this channel aren't answered until you assign an AI employee.",
+        actionRequired: true,
+        code: "unassigned",
       };
     }
     return { state: "connected", severity: "ok", label: "Connected", detail: null, actionRequired: false };

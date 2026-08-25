@@ -81,6 +81,41 @@ describe("connection health (R-101)", () => {
     expect(h).toMatchObject({ state: "error", severity: "critical", actionRequired: true });
   });
 
+  it("a live connection nobody owns is NOT healthy — it is unanswered", () => {
+    // The state this workspace was actually in: a phone line live in Vapi, assigned to no
+    // employee. Channels said "Connected", the employee page said "No channels connected", and
+    // Home said no employee was reachable — all true, all describing different things, and the
+    // one a customer would act on (callers hear nothing) stated by none of them.
+    const h = evaluateConnectionHealth({ status: "live", assignable: true, assignedTo: null, now: NOW });
+    expect(h.state).toBe("degraded");
+    expect(h.severity).toBe("warn");
+    expect(h.actionRequired).toBe(true);
+    expect(h.code).toBe("unassigned");
+  });
+
+  it("the same connection with an owner is healthy", () => {
+    const h = evaluateConnectionHealth({ status: "live", assignable: true, assignedTo: "agent-1", now: NOW });
+    expect(h).toMatchObject({ state: "connected", severity: "ok", actionRequired: false });
+    expect(h.code).toBeUndefined();
+  });
+
+  it("a channel that cannot be assigned is unaffected", () => {
+    // Instagram is org-level today — it has no owner column, so absence of an owner says nothing.
+    const h = evaluateConnectionHealth({ status: "connected", assignable: false, assignedTo: null, now: NOW });
+    expect(h.state).toBe("connected");
+  });
+
+  it("expiry and provider errors still outrank an unassigned connection", () => {
+    // Ordering matters: a revoked credential is a bigger problem than an unassigned one, and
+    // fixing the assignment would not fix the channel.
+    expect(
+      evaluateConnectionHealth({ status: "live", assignable: true, assignedTo: null, expiresAt: inDays(-1), now: NOW }).state
+    ).toBe("error");
+    expect(
+      evaluateConnectionHealth({ status: "live", assignable: true, assignedTo: null, lastError: "Revoked", now: NOW }).state
+    ).toBe("error");
+  });
+
   it("a provider error outranks an otherwise-healthy status", () => {
     const h = evaluateConnectionHealth({ status: "connected", lastError: "Token revoked by user", now: NOW });
     expect(h.state).toBe("error");

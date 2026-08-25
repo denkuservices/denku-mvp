@@ -88,7 +88,18 @@ export function rowToChannelView(
   const status = source.statusColumn ? (row[source.statusColumn] as string | null) : null;
   const expiresAt = source.expiresColumn ? (row[source.expiresColumn] as string | null) : null;
   const lastError = source.errorColumn ? (row[source.errorColumn] as string | null) : null;
-  const health = evaluateConnectionHealth({ status, expiresAt, lastError, adopted: meta.adopted });
+  // A channel is assignable when the registry names the column that binds it to an employee.
+  // Passing ownership in lets health distinguish "plumbed" from "actually answered".
+  const assignable = Boolean(source.ownerColumn);
+  const assignedTo = source.ownerColumn ? ((row[source.ownerColumn] as string | null) ?? null) : null;
+  const health = evaluateConnectionHealth({
+    status,
+    expiresAt,
+    lastError,
+    adopted: meta.adopted,
+    assignable,
+    assignedTo,
+  });
 
   const extra: Record<string, unknown> = {};
   for (const col of source.metaColumns ?? []) extra[col] = row[col] ?? null;

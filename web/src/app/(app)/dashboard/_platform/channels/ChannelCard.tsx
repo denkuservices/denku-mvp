@@ -71,13 +71,18 @@ export default function ChannelCard({ view }: { view: ChannelView }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
-          {view.identifier || meta.label}
-        </p>
-        <p className="mt-0.5 text-xs text-gray-500">{meta.description}</p>
+        {/* The badge above already names the channel. Repeating it here printed "WhatsApp
+            WhatsApp" on every unconnected card — so this line is the connection's own identity
+            (a phone number, an @handle) or nothing at all. */}
+        {view.identifier ? (
+          <p className="truncate text-sm font-medium text-navy-700 dark:text-white">{view.identifier}</p>
+        ) : null}
+        <p className={`text-xs text-gray-500 ${view.identifier ? "mt-0.5" : ""}`}>{meta.description}</p>
       </div>
 
-      <HealthLine health={health} />
+      {/* A coming-soon card already says so on its disabled button; the health line would be the
+          third time the same two words appear on one card. */}
+      {isComingSoon ? null : <HealthLine health={health} />}
 
       <div className="mt-auto pt-1">
         {isComingSoon ? (
@@ -94,7 +99,15 @@ export default function ChannelCard({ view }: { view: ChannelView }) {
             href={manage}
             className="inline-flex w-full items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
           >
-            {isConnected ? "Manage" : health.actionRequired ? "Reconnect" : "Connect"}
+            {/* When the connection exists but no employee owns it, the job isn't "manage" — it's
+                the one thing standing between this channel and answering a customer. */}
+            {health.code === "unassigned"
+              ? "Assign an employee"
+              : isConnected
+                ? "Manage"
+                : health.actionRequired
+                  ? "Reconnect"
+                  : "Connect"}
           </Link>
         ) : (
           <button

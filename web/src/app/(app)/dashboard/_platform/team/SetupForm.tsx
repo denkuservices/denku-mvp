@@ -155,7 +155,7 @@ export default function SetupForm({
 
       <Surface>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field label="Language" hint="What this employee speaks on a call.">
+          <Field label="Language">
             <select
               value={form.language}
               onChange={(e) => set("language", e.target.value)}
@@ -181,7 +181,7 @@ export default function SetupForm({
             />
           </Field>
 
-          <Field label="Role" hint="What this employee is mainly for.">
+          <Field label="Role">
             <select
               value={form.agentType}
               onChange={(e) => set("agentType", e.target.value)}
@@ -197,7 +197,7 @@ export default function SetupForm({
             </select>
           </Field>
 
-          <Field label="Personality" hint="How it sounds on most calls.">
+          <Field label="Personality">
             <select
               value={form.behaviorPresetId ?? ""}
               onChange={(e) => set("behaviorPresetId", e.target.value || null)}

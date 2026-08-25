@@ -17,7 +17,7 @@ import { evaluateConnectionHealth } from "@/lib/platform/connectionHealth";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
-import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
+import { formatWhen, statusPillClass, titleCase, languageLabel } from "../../_platform/format";
 import { Pill } from "../../_platform/ui";
 import EmployeeTabs from "../../_platform/team/EmployeeTabs";
 import SetupForm from "../../_platform/team/SetupForm";
@@ -116,7 +116,8 @@ export default async function EmployeeDetailPage({
 
       <PageHeader
         title={employee.name}
-        subtitle={`${(employee.language || "en").toUpperCase()}${employee.voice ? ` · ${employee.voice}` : ""}`}
+        // Same rule as the roster: the language in words, never the raw voice id ("EN · alloy").
+        subtitle={languageLabel(employee.language)}
         action={
           // Configuration is a tab on this page now (Sprint 10), not a page in Settings — so the
           // header carries status, not an escape hatch out of the surface you are already on.
