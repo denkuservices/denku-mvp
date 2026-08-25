@@ -134,10 +134,9 @@ describe("creating a request happens inside Requests", () => {
 });
 
 describe("a call is a conversation", () => {
-  it("the recording and cost render in the conversation rail", () => {
+  it("the recording renders in the conversation rail", () => {
     const rail = readCode("app/(app)/dashboard/_platform/conversation/ContextRail.tsx");
     expect(rail).toMatch(/<audio/);
-    expect(rail).toMatch(/voice\.costUsd/);
     // No longer a link out to the legacy page.
     expect(rail).not.toMatch(/\/dashboard\/calls\//);
   });
@@ -148,9 +147,24 @@ describe("a call is a conversation", () => {
     expect(page).toMatch(/detail\.channel === "voice"/);
   });
 
-  it("an unknown cost renders as em-dash, never a confident zero", () => {
+  /**
+   * Sprint 13 rendered `calls.cost_usd` here as "Cost". That column is COGS - what Denku pays
+   * Vapi (`lib/billing/reconciliation.ts`) - not what the customer is charged, so every
+   * conversation published our margin, and did it wrongly: a 25-second call showed "$0.07" while
+   * the customer is billed a full minute at their plan rate. The rail now shows how the call
+   * counted against their allowance, using the golden-master rounding rule.
+   */
+  it("never shows the customer what the call cost US", () => {
     const rail = read("app/(app)/dashboard/_platform/conversation/ContextRail.tsx");
-    expect(rail).toMatch(/voice\.costUsd == null \? "—"/);
+    expect(rail).not.toMatch(/\$\{voice\.costUsd/);
+    expect(rail).not.toMatch(/costUsd\.toFixed/);
+  });
+
+  it("shows what the call cost THEM, via the golden-master rounding rule", () => {
+    const rail = read("app/(app)/dashboard/_platform/conversation/ContextRail.tsx");
+    expect(rail).toMatch(/billableMinutesForCall\(voice\.durationSeconds\)/);
+    // Sourced from the billing golden master, never a local ceil() that could drift from it.
+    expect(rail).toMatch(/from "@\/lib\/billing\/usageMath"/);
   });
 
   it("finds the recording URL in every payload shape seen in production", () => {

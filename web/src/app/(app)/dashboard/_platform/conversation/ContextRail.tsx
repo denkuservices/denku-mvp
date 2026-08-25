@@ -5,6 +5,7 @@ import type { ConversationDetailView } from "@/lib/platform/readModel/types";
 import { requestHref } from "@/lib/platform/readModel/requests";
 import type { HandlingState } from "@/lib/platform/handling";
 import type { VoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
+import { billableMinutesForCall } from "@/lib/billing/usageMath";
 import { formatWhen, titleCase } from "../format";
 import ChannelBadge from "../ChannelBadge";
 import HandlingControl from "./HandlingControl";
@@ -162,13 +163,26 @@ export default function ContextRail({
                 </dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-2">
-              <dt className="text-gray-500">Cost</dt>
-              <dd className="tabular-nums text-navy-700 dark:text-white">
-                {/* An unknown cost is "—", never a confident $0.00. */}
-                {voice.costUsd == null ? "—" : `$${voice.costUsd.toFixed(2)}`}
-              </dd>
-            </div>
+            {/*
+              This row used to render `calls.cost_usd` as "Cost".
+
+              That column is **COGS — what Denku pays Vapi for the call** (see
+              `lib/billing/reconciliation.ts`), not what the customer is charged. Showing it to
+              them published our margin on every conversation and, worse, was wrong: a 25-second
+              call showed "$0.07" while the customer is billed a whole minute at their plan rate.
+
+              What they can act on is how the call counted against their allowance, and the rule
+              is the one the billing page already explains — every call rounds up to the next
+              minute (`billable_minutes = Σ ceil(duration_seconds/60)`, the golden master).
+            */}
+            {voice.durationSeconds != null ? (
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Billed as</dt>
+                <dd className="tabular-nums text-navy-700 dark:text-white">
+                  {billableMinutesForCall(voice.durationSeconds)} min
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </Card>
       ) : null}
