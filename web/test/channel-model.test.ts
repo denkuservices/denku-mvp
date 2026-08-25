@@ -9,6 +9,7 @@ import {
   comingSoonChannels,
 } from "@/lib/platform/channels";
 import { evaluateConnectionHealth, daysUntil, EXPIRY_WARN_DAYS } from "@/lib/platform/connectionHealth";
+import { channelToneClass } from "@/app/(app)/dashboard/_platform/ChannelBadge";
 
 const NOW = new Date("2026-07-24T12:00:00Z");
 const inDays = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOString();
@@ -134,5 +135,36 @@ describe("connection health (R-101)", () => {
     expect(daysUntil(null)).toBeNull();
     expect(daysUntil("not-a-date")).toBeNull();
     expect(daysUntil(inDays(EXPIRY_WARN_DAYS), NOW)).toBe(EXPIRY_WARN_DAYS);
+  });
+});
+
+describe("channel colour is identification, not decoration", () => {
+  /**
+   * Every badge used to be the same grey, which made the channel column of the Inbox unreadable
+   * at a glance - the one place a customer needs to tell a phone call from an Instagram DM
+   * without reading. Tone now comes from the registry.
+   *
+   * The invariant that matters is the restraint: a channel that does not work yet stays neutral.
+   * Brand colour on a coming-soon card would make the unavailable thing the most eye-catching
+   * item on the page, which is the opposite of what the honesty rule asks for.
+   */
+  it("every channel declares a tone", () => {
+    for (const c of CHANNEL_ORDER) {
+      expect(channelMeta(c).tone, `${c} needs a tone`).toBeTruthy();
+    }
+  });
+
+  it("working channels are coloured; unbuilt ones stay neutral", () => {
+    for (const c of CHANNEL_ORDER) {
+      const cls = channelToneClass(c);
+      const neutral = /border-gray-200/.test(cls);
+      expect(neutral, `${c} (adopted=${channelMeta(c).adopted})`).toBe(!channelMeta(c).adopted);
+    }
+  });
+
+  it("tones are distinct per channel, so two channels never look alike", () => {
+    const adopted = CHANNEL_ORDER.filter((c) => channelMeta(c).adopted);
+    const classes = adopted.map((c) => channelToneClass(c));
+    expect(new Set(classes).size).toBe(adopted.length);
   });
 });

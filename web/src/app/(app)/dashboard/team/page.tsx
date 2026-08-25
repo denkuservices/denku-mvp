@@ -78,7 +78,10 @@ export default async function TeamPage() {
                           {languageLabel(e.language)}
                         </p>
                       </div>
-                      <Pill tone={e.status === "active" ? "ok" : "neutral"}>{titleCase(e.status)}</Pill>
+                      {/* A dot reads faster than a word for "is this one working right now?" */}
+                      <Pill tone={e.status === "active" ? "ok" : "neutral"} dot>
+                        {e.status === "active" ? "On shift" : titleCase(e.status)}
+                      </Pill>
                     </div>
 
                     {/* What it accomplished — the reason to visit this page. */}

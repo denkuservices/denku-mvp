@@ -107,12 +107,29 @@ export function EmptyState({
 export function Pill({
   children,
   tone = "neutral",
+  dot = false,
   className = "",
 }: {
   children: React.ReactNode;
   tone?: "neutral" | "ok" | "warn" | "critical" | "info";
+  /**
+   * Show a status dot before the label.
+   *
+   * For live state — "is this employee answering right now?" — a coloured word is slower to read
+   * than a coloured dot. The `ok` dot pulses because it means *currently working*; every other
+   * tone is a steady state and a pulse there would be decoration. `motion-reduce` stops it for
+   * anyone who has asked the OS not to animate.
+   */
+  dot?: boolean;
   className?: string;
 }) {
+  const dots: Record<string, string> = {
+    ok: "bg-green-500",
+    warn: "bg-amber-500",
+    critical: "bg-red-500",
+    info: "bg-blue-500",
+    neutral: "bg-gray-400",
+  };
   const tones: Record<string, string> = {
     ok: "bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/20",
     warn: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
@@ -121,7 +138,17 @@ export function Pill({
     neutral: "bg-gray-50 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-gray-300 dark:border-white/10",
   };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}
+    >
+      {dot ? (
+        <span
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[tone]} ${
+            tone === "ok" ? "animate-pulse motion-reduce:animate-none" : ""
+          }`}
+        />
+      ) : null}
       {children}
     </span>
   );

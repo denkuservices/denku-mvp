@@ -64,6 +64,15 @@ export interface ChannelMeta {
   description: string;
   /** Icon key resolved by the UI icon map (keeps lucide out of this server-safe module). */
   icon: string;
+  /**
+   * Colour key resolved by the UI (keeps Tailwind out of this server-safe module).
+   *
+   * Colour here is identification, not decoration: in an Inbox where every row carries a channel
+   * badge, an all-grey badge makes the channel column unreadable at a glance. The UI deliberately
+   * renders this tone ONLY for channels that actually work — a coming-soon channel stays neutral,
+   * because brand colour would make an unavailable thing the most eye-catching item on the page.
+   */
+  tone: string;
   kind: ChannelKind;
   connection: ConnectionMethod;
   capabilities: ChannelCapabilities;
@@ -88,6 +97,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "Voice",
     description: "A phone number answered 24/7 by your AI Employee.",
     icon: "phone",
+    tone: "voice",
     kind: "voice",
     connection: "provisioned",
     capabilities: { inbound: true, outbound: true, threaded: false, attachments: false, meteredByMinutes: true },
@@ -99,6 +109,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "Instagram",
     description: "Receive Instagram direct messages from your business account.",
     icon: "instagram",
+    tone: "instagram",
     kind: "chat",
     connection: "oauth",
     // Receive-only by design (Sprint 1.5). Do NOT flip outbound without the reply epic.
@@ -111,6 +122,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "WhatsApp",
     description: "Answer WhatsApp Business messages.",
     icon: "whatsapp",
+    tone: "whatsapp",
     kind: "chat",
     connection: "oauth",
     capabilities: chat({ outbound: true }),
@@ -122,6 +134,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "Telegram",
     description: "Answer Telegram messages via a bot.",
     icon: "telegram",
+    tone: "telegram",
     kind: "chat",
     connection: "credentials",
     capabilities: chat({ outbound: true }),
@@ -133,6 +146,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "Email",
     description: "Reply to customer email in a shared inbox.",
     icon: "email",
+    tone: "email",
     kind: "chat",
     connection: "oauth",
     capabilities: chat({ outbound: true }),
@@ -144,6 +158,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "SMS",
     description: "Answer text messages sent to your number.",
     icon: "sms",
+    tone: "sms",
     kind: "chat",
     connection: "provisioned",
     capabilities: chat({ outbound: true, attachments: false }),
@@ -155,6 +170,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     label: "Web Chat",
     description: "A chat widget on your website.",
     icon: "web",
+    tone: "web",
     kind: "chat",
     connection: "embed",
     capabilities: chat({ outbound: true }),
