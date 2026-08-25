@@ -8,7 +8,7 @@ import { getTeamActivity, employeeAttention } from "@/lib/platform/readModel/emp
 import { comingSoonChannelViews } from "@/lib/platform/readModel/channels";
 import PageHeader from "../_platform/PageHeader";
 import ChannelBadge from "../_platform/ChannelBadge";
-import { formatWhen, titleCase } from "../_platform/format";
+import { formatWhen, titleCase, languageLabel } from "../_platform/format";
 import { Surface, EmptyState, Pill } from "../_platform/ui";
 
 export const dynamic = "force-dynamic";
@@ -70,9 +70,12 @@ export default async function TeamPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-base font-semibold text-navy-700 dark:text-white">{e.name}</p>
+                        {/* Language in words, never the raw voice id. This read "EN · alloy" —
+                            `alloy` is an OpenAI TTS identifier, and CLAUDE.md's rule is that a
+                            business owner is never shown model or engine names. What they care
+                            about is which language their employee answers in. */}
                         <p className="mt-0.5 text-xs text-gray-500">
-                          {(e.language || "en").toUpperCase()}
-                          {e.voice ? ` · ${e.voice}` : ""}
+                          {languageLabel(e.language)}
                         </p>
                       </div>
                       <Pill tone={e.status === "active" ? "ok" : "neutral"}>{titleCase(e.status)}</Pill>
@@ -146,14 +149,11 @@ export default async function TeamPage() {
             when they are — nothing to sign up for.
           </p>
           <div className="flex flex-wrap gap-2">
+            {/* ChannelBadge already renders the registry label — printing `c.label` beside it
+                produced "WhatsApp WhatsApp", inside a bordered span wrapping an already-bordered
+                pill. One badge, dimmed to read as not-yet-available. */}
             {upcoming.map((c) => (
-              <span
-                key={c.channel}
-                className="inline-flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 dark:border-white/15 dark:text-gray-400"
-              >
-                <ChannelBadge channel={c.channel} />
-                {c.label}
-              </span>
+              <ChannelBadge key={c.channel} channel={c.channel} className="opacity-60" />
             ))}
           </div>
         </section>

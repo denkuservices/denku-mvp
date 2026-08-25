@@ -209,13 +209,33 @@ export function SearchField({
         aria-hidden="true"
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
       />
+      {/*
+        Padding is inline, not a utility, and that is deliberate.
+
+        `public/horizon/horizon.bundle.css` is a compiled Tailwind v3 bundle injected UNLAYERED by
+        `HorizonStylesheet.tsx`. It carries a full preflight including
+        `button,input,optgroup,select,textarea { margin:0; padding:0 }`. Unlayered declarations beat
+        layered ones regardless of specificity, and our Tailwind v4 utilities live in
+        `@layer utilities` — so on every form control in the dashboard `pl-*`, `pr-*`, `ps-*` and
+        `pe-*` silently compute to 0. Verified in production: a `<div class="pl-10">` gets 40px, an
+        `<input class="pl-10">` gets 0px. Only `px-*` survives (it emits `padding-inline`, a
+        different property from the reset's physical shorthand).
+
+        That is why this collision outlived one "fix" already — the class was always right and never
+        applied. An inline style sits above every author rule, so it cannot be reset away.
+
+        The root fix (layering the Horizon bundle) is R-136: verified to work, but it also reverts
+        `bg-brand-500` from Denku's #422AFB to Tailwind's default blue, because the brand palette
+        currently lives in that same unlayered bundle. It needs the theme ported first.
+      */}
       <input
         type="search"
         name={name}
         defaultValue={defaultValue}
         placeholder={placeholder}
         aria-label={label}
-        className={`${CONTROL_BASE} w-full pl-10 pr-3`}
+        style={{ paddingInlineStart: "2.5rem", paddingInlineEnd: "0.75rem" }}
+        className={`${CONTROL_BASE} w-full`}
       />
     </div>
   );

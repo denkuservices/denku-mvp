@@ -141,7 +141,7 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-136
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-137
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
 > reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
 > 2026-08-25.)*
@@ -1889,3 +1889,38 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   existing rows), then assert with a table-driven test over every language the Setup editor offers —
   the defect class is "the editor's option list and the resolver disagree," which only a parity test
   prevents from recurring.
+
+### R-136 — The unlayered Horizon bundle silently kills padding utilities on every form control
+**Priority:** High · **Status:** Open (workaround shipped) · **Effort:** M · **Related audit:** [docs/PRODUCT_UI_SKELETON.md](PRODUCT_UI_SKELETON.md)
+> Found 2026-08-25 by inspecting the **live production dashboard** in a browser — the first time
+> anyone had looked. It explains a class of "the class is right but nothing happens" defects, and it
+> is why the search icon/placeholder collision survived a Sprint 9 "fix": the class was always
+> correct and never applied.
+- **Business impact:** Form controls across the whole dashboard render with **zero horizontal
+  padding** wherever the code asked for it directionally — text jammed against the border, and the
+  Contacts search placeholder printed underneath its own magnifier. It is the single biggest
+  contributor to the product looking unfinished, and no amount of correcting the markup fixes it.
+- **Technical impact:** `public/horizon/horizon.bundle.css` is a **compiled Tailwind v3 bundle**
+  injected **unlayered** by `HorizonStylesheet.tsx`. It ships a full preflight including
+  `button,input,optgroup,select,textarea { margin:0; padding:0 }`. **Unlayered declarations beat
+  layered ones regardless of specificity**, and our Tailwind v4 utilities live in `@layer utilities`.
+  Measured in production:
+
+  | Element | `px-4` | `pl-10` / `ps-10` / `pe-3` |
+  |---|---|---|
+  | `<div>` | 16px ✓ | 40px ✓ |
+  | `<input>` (any type) | 16px ✓ | **0px ✗** |
+
+  `px-*` survives because it emits `padding-inline`, a different property from the reset's physical
+  shorthand; every directional utility loses. The same applies to `margin-*` on form controls.
+- **Verified fix, and why it is not shipped yet:** wrapping the bundle in a cascade layer
+  (`@layer horizon { … }`) was tested live and **works** — the input went 0px → 40px immediately.
+  But the same experiment showed it **reverts `bg-brand-500` from Denku's `#422AFB` to Tailwind's
+  default blue `#3B82F6`**, because the brand palette also lives in that unlayered bundle. Nav item
+  height shifted 40px → 42px and document height 869 → 895.
+- **Recommended solution:** port Horizon's theme tokens (brand palette, navy scale, shadows) into
+  the Tailwind v4 `@theme` block **first**, then layer the bundle, then delete the duplicated
+  preflight from it entirely. Needs a visual pass over the dashboard — not a launch-week change.
+- **Workaround shipped 2026-08-25:** `SearchField` sets its padding with an inline style, which sits
+  above every author rule and cannot be reset away. Any new control needing asymmetric padding must
+  do the same until this is closed — or use `px-*`, which works.
