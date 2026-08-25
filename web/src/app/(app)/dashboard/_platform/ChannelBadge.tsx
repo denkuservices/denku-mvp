@@ -19,6 +19,12 @@ import { channelMeta, type Channel } from "@/lib/platform/channels";
  * A channel that does not work yet stays **neutral on purpose**: brand colour on a coming-soon
  * card would make the unavailable thing the most eye-catching item on the page, which is the
  * opposite of what the honesty rule asks for.
+ *
+ * ⚠️ The `border-*` classes below are currently **inert** (R-136): the unlayered Horizon bundle
+ * pins one border colour for the whole dashboard, so a badge's border renders grey no matter what
+ * is asked for here. Background and text carry the identification meanwhile, and the borders come
+ * to life for free when R-136 lands. They are declared rather than dropped so nothing has to be
+ * re-derived then.
  */
 const ICON_BY_KEY: Record<string, React.ComponentType<{ className?: string }>> = {
   phone: Phone,

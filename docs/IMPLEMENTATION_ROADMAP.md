@@ -1921,6 +1921,13 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
 - **Recommended solution:** port Horizon's theme tokens (brand palette, navy scale, shadows) into
   the Tailwind v4 `@theme` block **first**, then layer the bundle, then delete the duplicated
   preflight from it entirely. Needs a visual pass over the dashboard — not a launch-week change.
+- **Wider than padding — confirmed 2026-08-26.** The same rule kills **`border-{color}`** on every
+  element in the dashboard: `border-teal-200`, `border-pink-200` and a bare `border` all compute to
+  the identical `rgb(218, 222, 236)`, because the unlayered bundle sets a global border colour.
+  Every card, input, badge and state banner therefore has one grey border regardless of what the
+  code asks for — including the amber "needs attention" and red "critical" borders. Background and
+  text colours are unaffected, so states remain distinguishable; the border is simply inert. Found
+  while adding channel tones, whose `bg-*` and `text-*` land correctly and whose `border-*` does not.
 - **Workaround shipped 2026-08-25:** `SearchField` sets its padding with an inline style, which sits
   above every author rule and cannot be reset away. Any new control needing asymmetric padding must
   do the same until this is closed — or use `px-*`, which works.
