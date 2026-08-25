@@ -10,7 +10,7 @@ const benefits = [
   { icon: CalendarCheck, title: 'Appointments auto-booked', desc: 'Straight into your calendar, confirmed on the call.' },
   { icon: Link2, title: 'CRM integration', desc: 'Every lead, call, and booking synced to your existing tools.' },
   { icon: FileText, title: 'Instant call summaries', desc: 'Every call transcribed, summarized, and sent to your inbox.' },
-  { icon: TrendingUp, title: 'Revenue you were losing', desc: 'The average business misses 35% of inbound calls. That stops now.' },
+  { icon: TrendingUp, title: 'Revenue you were losing', desc: 'Missed calls are missed customers. Your AI employee answers the ones you can\'t.' },
   { icon: Zap, title: 'First to respond wins', desc: 'Denku answers before your competitors even pick up.' },
 ];
 

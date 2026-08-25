@@ -119,7 +119,7 @@ export const pricingPlans: PricingPlan[] = [
       '$0.13/min overage',
       '1 phone included',
       'Unlimited personas',
-      'HIPAA & audit logs',
+      'Audit logs & advanced access controls',
       'SLA',
       'Account manager',
       'API access',

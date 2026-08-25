@@ -60,7 +60,7 @@ const featureGroups = [
     features: [
       { name: 'Tenant isolation', starter: '✓', growth: '✓', scale: '✓' },
       { name: 'Audit logs', starter: 'Basic', growth: 'Full', scale: 'Full + Immutable' },
-      { name: 'HIPAA compliance', starter: '—', growth: '—', scale: '✓' },
+      { name: 'Advanced access controls', starter: '—', growth: '—', scale: '✓' },
       { name: 'Webhook signature verification', starter: '—', growth: '✓', scale: '✓' },
     ],
   },

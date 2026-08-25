@@ -21,7 +21,7 @@ const tabContent = {
     metrics: [
       { label: 'Active Agents', value: '12' },
       { label: 'Avg Response Time', value: '1.2s' },
-      { label: 'Success Rate', value: '98.5%' },
+      { label: 'Calls Today', value: '148' },
     ],
   },
   control: {
@@ -86,6 +86,12 @@ export function ProductPreview() {
         {/* Tab Content */}
         <div className="mt-8">
           <div className="relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-3xl p-8">
+            {/* R-004/R-018 honesty: this frame is an illustration of the interface, not live data.
+                Every figure below is invented for the mock, so the frame says so rather than
+                asserting numbers Denku has not measured. */}
+            <div className="absolute right-6 top-6 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500">
+              Sample data
+            </div>
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-navy-700">
                 {tabContent[activeTab as keyof typeof tabContent].title}

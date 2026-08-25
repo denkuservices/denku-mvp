@@ -65,7 +65,7 @@ export function AboutPage() {
           <Reveal delay={1} className="rounded-[18px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-6">
             <div className="mb-3 font-display text-[17px] font-medium text-[#0A1A2F]">What you get</div>
             <p className="mb-6 text-sm text-[#2C3E54]">
-              A platform that starts simple and grows with you: from one agent to many, from one channel to omnichannel, from basic logging to enterprise-grade controls.
+              A platform that starts simple and grows with you: from one AI employee to many, starting with voice and adding channels as we ship them, from basic logging to advanced access controls.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link href="/pricing" className="inline-flex h-10 items-center justify-center rounded-[10px] border border-[#0A1A2F]/10 px-4 text-sm font-medium text-[#0A1A2F] transition-all hover:border-[#1B6E6E] hover:text-[#1B6E6E]">View pricing</Link>
