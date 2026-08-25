@@ -160,7 +160,7 @@ export function WorkspaceGeneralForm({
           label="Workspace name"
           value={formState.workspace_name}
           onChange={(v) => handleChange("workspace_name", v)}
-          helper="Your organization's name (required). Used across the platform."
+          helper="How your AI introduces your business on a call."
           readOnly={isReadOnly}
           required
         />
@@ -169,7 +169,7 @@ export function WorkspaceGeneralForm({
           label="Default language"
           value={formState.default_language}
           onChange={(v) => handleChange("default_language", v)}
-          helper="Default for new agents. Individual agents can override."
+          helper="Starting point for new employees; each can override it."
           readOnly={isReadOnly}
         />
 
@@ -177,7 +177,7 @@ export function WorkspaceGeneralForm({
           label="Timezone"
           value={formState.default_timezone}
           onChange={(v) => handleChange("default_timezone", v)}
-          helper="Used for reporting, logs, and scheduling behavior."
+          helper="Used when your AI talks about your hours."
           readOnly={isReadOnly}
           timezoneOptions={timezoneOptions}
         />
@@ -186,7 +186,6 @@ export function WorkspaceGeneralForm({
           label="Billing email"
           value={formState.billing_email}
           onChange={(v) => handleChange("billing_email", v)}
-          helper="Email address for billing notifications."
           readOnly={isReadOnly}
           type="email"
         />

@@ -1,45 +1,30 @@
-"use client";
-
-import { useState, useEffect } from "react";
-
 type RuntimeCardProps = {
-  timezone: string | null;
   accessLabel: string;
   workspaceStatus: "active" | "paused";
 };
 
-export function RuntimeCard({
-  timezone,
-  accessLabel,
-  workspaceStatus: initialWorkspaceStatus,
-}: RuntimeCardProps) {
-  const [workspaceStatus, setWorkspaceStatus] = useState<"active" | "paused">(initialWorkspaceStatus);
-
-  // Update when initialWorkspaceStatus changes (from router.refresh())
-  useEffect(() => {
-    setWorkspaceStatus(initialWorkspaceStatus);
-  }, [initialWorkspaceStatus]);
-
-  // Listen for updates from WorkspaceControlsCard
-  useEffect(() => {
-    (window as any).__updateRuntimeWorkspaceStatus = (newStatus: "active" | "paused") => {
-      setWorkspaceStatus(newStatus);
-    };
-    return () => {
-      delete (window as any).__updateRuntimeWorkspaceStatus;
-    };
-  }, []);
+/**
+ * Workspace runtime facts.
+ *
+ * This card used to mirror `window.__updateRuntimeWorkspaceStatus` into local state — but its
+ * parent (`WorkspaceGeneralContent`) assigns the same global and passes the result down as a prop.
+ * React runs child effects before parent ones, so the parent's assignment always overwrote this
+ * one and the listener here never fired: dead code that looked like a subscription. The prop is
+ * the single source now.
+ *
+ * Two rows were also dropped. "Environment: Production" is developer context — a customer has no
+ * other environment to be in — and "Timezone" repeated the editable field sitting directly above
+ * this card on the same page.
+ */
+export function RuntimeCard({ accessLabel, workspaceStatus }: RuntimeCardProps) {
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
       <div>
         <p className="text-base font-semibold text-navy-700 dark:text-white">Runtime</p>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Operational context for this workspace.</p>
-      </div>
+        </div>
 
       <div className="mt-4 space-y-3">
-        <ReadOnlyRow label="Environment" value="Production" badge />
         <ReadOnlyRow label="Status" value={workspaceStatus === "active" ? "Active" : "Paused"} badge />
-        <ReadOnlyRow label="Timezone" value={timezone || "—"} />
         <ReadOnlyRow label="Access" value={accessLabel} badge />
       </div>
     </section>

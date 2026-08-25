@@ -85,11 +85,7 @@ export function WorkspaceGeneralContent({
       </section>
 
       {/* Runtime */}
-      <RuntimeCard
-        timezone={timezone}
-        accessLabel={accessLabel}
-        workspaceStatus={workspaceStatus}
-      />
+      <RuntimeCard accessLabel={accessLabel} workspaceStatus={workspaceStatus} />
     </div>
   );
 }
