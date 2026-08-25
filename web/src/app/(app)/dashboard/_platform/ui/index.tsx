@@ -162,10 +162,22 @@ export function ListHeader({ children }: { children: React.ReactNode }) {
  * the position of the icon overlaid on it, which is exactly how icon/placeholder collisions
  * happen. Exported for the plain `<select>`/`<input>` elements that sit beside a SearchField.
  */
-export const CONTROL_CLASS =
-  "h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-navy-700 outline-none transition " +
+/**
+ * Control chrome WITHOUT horizontal padding.
+ *
+ * Split out because `CONTROL_CLASS` used to carry `px-3`, and `SearchField` tried to override it
+ * with `pl-9` to clear the magnifier. In Tailwind v4 those are different properties — `px-*` is
+ * the `padding-inline` shorthand, `pl-*` is `padding-inline-start` — so which one wins depends on
+ * their order in the generated stylesheet, not on the order they appear in the class attribute.
+ * When the shorthand won, the placeholder rendered underneath the icon. Padding is now composed
+ * per control instead of overridden, so the collision cannot come back.
+ */
+const CONTROL_BASE =
+  "h-10 rounded-lg border border-gray-200 bg-white text-sm text-navy-700 outline-none transition " +
   "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 " +
   "dark:border-white/10 dark:bg-navy-800 dark:text-white";
+
+export const CONTROL_CLASS = `${CONTROL_BASE} px-3`;
 
 /**
  * Search input with its magnifier.
@@ -203,7 +215,7 @@ export function SearchField({
         defaultValue={defaultValue}
         placeholder={placeholder}
         aria-label={label}
-        className={`${CONTROL_CLASS} w-full pl-9 pr-9`}
+        className={`${CONTROL_BASE} w-full pl-10 pr-3`}
       />
     </div>
   );

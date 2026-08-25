@@ -1,7 +1,16 @@
 import { resend } from "./resend";
 import { resolveSender } from "./senders";
+import { getBaseUrl } from "@/lib/utils/url";
 
-const APP_URL = "https://denku-mvp.vercel.app";
+/**
+ * Verification links must point at the canonical site, not a build host.
+ *
+ * This was frozen to `https://denku-mvp.vercel.app`, so every verification email a real customer
+ * received linked them to the Vercel deployment URL instead of denku.io — the same class of defect
+ * as R-077 (a non-canonical URL baked into a customer-facing path). Resolved per send from
+ * `NEXT_PUBLIC_SITE_URL`, so the address follows the deployment.
+ */
+const appUrl = () => getBaseUrl().replace(/\/+$/, "");
 
 export async function sendVerifyEmail(email: string, token: string) {
   // Skip if Resend is not configured (domainless beta)
@@ -19,7 +28,7 @@ export async function sendVerifyEmail(email: string, token: string) {
     }
   }
 
-  const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+  const verifyUrl = `${appUrl()}/verify-email?token=${encodeURIComponent(token)}`;
 
   console.log("[Resend] sendVerifyEmail ->", { email, verifyUrl });
 

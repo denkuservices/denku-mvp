@@ -5,6 +5,7 @@
 import { HiX } from 'react-icons/hi';
 import SidebarLinks from './Links';
 import { NavRoute } from './types';
+import { SITE_NAME } from '@/config/site';
 
 /**
  * Sidebar adapter for Horizon shell.
@@ -38,8 +39,10 @@ function SidebarAdapter(props: { routes: NavRoute[]; [x: string]: any }) {
 
         {/* Desktop: keep original spacing, mobile: no top padding (drawer is on top) */}
         <div className={`mx-[56px] mt-[50px] flex items-center`}>
+          {/* The product is not called "Denku MVP". SITE_NAME is the single source of truth
+              (CLAUDE.md: the brand is "Denku" — never a suffix, never "Denku AI"). */}
           <div className="ml-1 mt-1 h-2.5 font-poppins text-[26px] font-bold uppercase text-navy-700 dark:text-white">
-            Denku <span className="font-medium">MVP</span>
+            {SITE_NAME}
           </div>
         </div>
         <div className="mb-7 mt-[58px] h-px bg-gray-300 dark:bg-white/30" />

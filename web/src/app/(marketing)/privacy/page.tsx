@@ -8,7 +8,8 @@ export default function PrivacyPage() {
           <div className="brand-eyebrow mb-5">Legal</div>
           <h1 className="font-display text-[clamp(36px,4.5vw,56px)] font-normal tracking-[-1.5px] text-[#0A1A2F]">Privacy Policy</h1>
           <p className="mt-4 text-[17px] text-[#2C3E54]">
-            This is an MVP policy page. We will expand this document as we finalize product scope and compliance requirements.
+            A summary of what we collect, why, and how to reach us about it. We expand this document
+            as the product grows — if anything here is unclear, ask us and we will answer plainly.
           </p>
           <div className="mt-10 space-y-4">
             {[

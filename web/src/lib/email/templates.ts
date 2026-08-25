@@ -4,7 +4,16 @@
  * at send time, not hardcoded here.
  */
 
-const BASE_URL = "https://denku-mvp.vercel.app";
+import { getBaseUrl } from "@/lib/utils/url";
+
+/**
+ * Canonical site URL, resolved per render.
+ *
+ * This was frozen to `https://denku-mvp.vercel.app`, so verification and password-reset emails
+ * sent customers to the Vercel build host rather than denku.io. Same defect class as R-077: a
+ * non-canonical URL baked into a customer-facing path. Now follows `NEXT_PUBLIC_SITE_URL`.
+ */
+const baseUrl = () => getBaseUrl().replace(/\/+$/, "");
 
 export interface VerificationEmailParams {
   email: string;
@@ -26,10 +35,10 @@ export function getVerificationEmailHtml({ email, token, redirectTo }: Verificat
   // Supabase will automatically append the confirmation token when the user clicks
   // If we have a token, use it directly; otherwise use the callback URL
   const verifyUrl = token
-    ? `${BASE_URL}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
+    ? `${baseUrl()}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
     : redirectTo
     ? redirectTo // Supabase callback URL - Supabase will add the token
-    : `${BASE_URL}/verify-email?email=${encodeURIComponent(email)}`;
+    : `${baseUrl()}/verify-email?email=${encodeURIComponent(email)}`;
 
   return `
 <!DOCTYPE html>
@@ -98,7 +107,7 @@ export function getOtpEmailHtml({ email, token }: VerificationEmailParams): stri
  * Password reset email template
  */
 export function getPasswordResetEmailHtml({ email, token }: PasswordResetEmailParams): string {
-  const resetUrl = `${BASE_URL}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  const resetUrl = `${baseUrl()}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
   return `
 <!DOCTYPE html>
@@ -128,5 +137,3 @@ export function getPasswordResetEmailHtml({ email, token }: PasswordResetEmailPa
 </html>
   `.trim();
 }
-
-export { BASE_URL };
