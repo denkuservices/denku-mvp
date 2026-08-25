@@ -64,6 +64,11 @@ function preview(text: string | null | undefined): string | null {
     const end = i + 1 < turns.length ? turns[i + 1].labelAt : t.length;
     const said = t.slice(turns[i].contentAt, end).trim();
     if (said) body = said;
+  } else if (turns.length > 0) {
+    // Nobody called in — the transcript is the assistant's greeting alone. Show it, but without
+    // the "AI:" label: the channel badge on the row already says who was speaking, and the raw
+    // label is the noise that made every one of these rows look identical.
+    body = t.slice(turns[0].contentAt).trim() || t;
   }
 
   return body.length > SUMMARY_LEN ? `${body.slice(0, SUMMARY_LEN)}…` : body;

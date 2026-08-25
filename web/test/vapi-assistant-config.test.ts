@@ -10,6 +10,7 @@ import {
   CALL_SILENCE_TIMEOUT_SECONDS,
 } from "@/lib/vapi/assistantConfig";
 import { SETUP_LANGUAGES } from "@/app/(app)/dashboard/_platform/team/setupFields";
+import { LANGUAGE_OPTIONS } from "@/app/(app)/dashboard/settings/_lib/options";
 
 const [CREATE_TICKET, CREATE_APPT] = DENKU_TOOL_IDS;
 const PROD = { VAPI_WEBHOOK_BASE_URL: "https://denku-mvp.vercel.app" };
@@ -191,6 +192,28 @@ describe("resolveLanguage understands both spellings (R-135)", () => {
    * disagree", and only this test prevents it recurring: adding a language to the picker
    * without teaching the resolver (and the voice map) fails here rather than in production.
    */
+  /**
+   * The workspace default feeds every new employee, so it is the same contract one level up.
+   * Turkish lived here after being removed from the Setup editor — a workspace set to Turkish
+   * silently produced English-speaking employees while three screens claimed otherwise.
+   */
+  it("every workspace default language also resolves to a DISTINCT supported code", () => {
+    const codes = LANGUAGE_OPTIONS.map((o) => resolveLanguage(o.value));
+    expect(new Set(codes).size).toBe(LANGUAGE_OPTIONS.length);
+    for (const o of LANGUAGE_OPTIONS) {
+      expect(resolveTranscriber(o.value).language, `${o.label} must transcribe as itself`).toBe(
+        resolveLanguage(o.value)
+      );
+    }
+  });
+
+  it("both language pickers offer the same set of languages", () => {
+    // Two pickers over one capability. They drifted once; this makes drift fail loudly.
+    const fromSetup = new Set(SETUP_LANGUAGES.map((n) => resolveLanguage(n)));
+    const fromWorkspace = new Set(LANGUAGE_OPTIONS.map((o) => resolveLanguage(o.value)));
+    expect([...fromWorkspace].sort()).toEqual([...fromSetup].sort());
+  });
+
   it("every language the Setup editor offers resolves to a DISTINCT supported code", () => {
     const resolved = SETUP_LANGUAGES.map((name) => [name, resolveLanguage(name)] as const);
 

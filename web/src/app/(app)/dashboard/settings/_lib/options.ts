@@ -7,9 +7,21 @@ export type LanguageOption = {
   label: string;
 };
 
+/**
+ * The workspace default language — the languages the voice stack can actually speak.
+ *
+ * Turkish was removed here for the same reason it was removed from the employee Setup editor
+ * (R-135): voice and transcriber defaults exist only for English and Spanish, so `resolveLanguage`
+ * sends anything else to English. A workspace set to Turkish silently became the default for every
+ * new employee, each of which then answered callers in English while three separate screens said
+ * Turkish.
+ *
+ * This list and `SETUP_LANGUAGES` are two pickers over one capability; `vapi-assistant-config.test.ts`
+ * asserts both resolve to distinct supported languages, so adding one here without teaching the
+ * resolver fails in CI rather than on a customer's call.
+ */
 export const LANGUAGE_OPTIONS: LanguageOption[] = [
   { value: "en", label: "English" },
-  { value: "tr", label: "Turkish" },
   { value: "es", label: "Spanish" },
 ];
 
