@@ -26,13 +26,29 @@ export interface SettingsNavGroup {
   /** lucide icon key, resolved by the nav component. */
   icon: string;
   items: SettingsNavItem[];
+  /**
+   * True when the group's destinations live OUTSIDE Settings.
+   *
+   * "AI Employees" and "Channels" are wayfinding, not settings: configuration for both was
+   * deliberately moved onto the object it belongs to (Sprint 10 · R-094, Sprint 11). Marking them
+   * lets the rail show them as pointers rather than as peers of Billing and Account, which is the
+   * truth and also stops the rail implying five sections when there are three.
+   */
+  elsewhere?: boolean;
 }
+
+/**
+ * Where `/dashboard/settings` lands. Settings has no index of its own — see `settings/page.tsx`.
+ * Kept here so the nav data and the redirect cannot drift apart.
+ */
+export const SETTINGS_LANDING = "/dashboard/settings/workspace/general";
 
 export const SETTINGS_GROUPS: SettingsNavGroup[] = [
   {
     id: "employees",
     label: "AI Employees",
     icon: "users",
+    elsewhere: true,
     items: [
       {
         // Sprint 10 · R-094: configuration lives on the employee, so this points at AI Team
@@ -40,7 +56,7 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
         label: "Your employees",
         href: "/dashboard/team",
         description:
-          "Behavior, language, voice and business knowledge — configured on each AI Employee, under Setup and Knowledge.",
+          "Behaviour, language and business knowledge — set on each employee.",
         external: true,
       },
     ],
@@ -49,12 +65,12 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
     id: "channels",
     label: "Channels",
     icon: "radio",
+    elsewhere: true,
     items: [
       {
         label: "Connected channels",
         href: "/dashboard/channels",
-        description:
-          "Connect and monitor phone lines, Instagram, and the channels arriving next. This is the only place channels are managed — once connected, they appear as badges and filters throughout Inbox and Customers.",
+        description: "Phone lines, Instagram, and the channels arriving next.",
         external: true,
       },
     ],

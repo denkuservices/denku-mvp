@@ -5,6 +5,7 @@ import {
   SETTINGS_GROUPS,
   allSettingsItems,
   activeSettingsGroup,
+  SETTINGS_LANDING,
 } from "@/app/(app)/dashboard/_platform/settings/nav";
 
 const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
@@ -66,5 +67,38 @@ describe("settings navigation contract", () => {
     expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBeNull();
     expect(activeSettingsGroup("/dashboard/settings/account/security")).toBe("account");
     expect(activeSettingsGroup("/dashboard/nowhere")).toBeNull();
+  });
+});
+
+describe("settings has one place to navigate, not two", () => {
+  /**
+   * Sprint 8.5 gave Settings a nav rail — correct, it had none. But the index kept listing every
+   * destination as well, so `/dashboard/settings` rendered all nine items twice: once in the rail
+   * and once as cards with a paragraph each. The index now redirects to its first section.
+   */
+  it("the landing target is a real page", () => {
+    expect(routeExists(SETTINGS_LANDING)).toBe(true);
+  });
+
+  it("lands on a section that lives inside Settings", () => {
+    expect(SETTINGS_LANDING.startsWith("/dashboard/settings/")).toBe(true);
+    const owning = SETTINGS_GROUPS.find((g) => g.items.some((i) => i.href === SETTINGS_LANDING));
+    expect(owning, "landing page must be an item in the rail").toBeTruthy();
+    expect(owning!.elsewhere ?? false, "must not land on a wayfinding pointer").toBe(false);
+  });
+
+  it("the settings index does not re-render the rail", () => {
+    const page = fs.readFileSync(path.join(APP_DIR, "dashboard", "settings", "page.tsx"), "utf8");
+    expect(page).toMatch(/redirect\(SETTINGS_LANDING\)/);
+    expect(page, "the duplicate index must not come back").not.toMatch(/PlatformSettingsIndex/);
+  });
+
+  it("groups whose destinations leave Settings are marked as such", () => {
+    // Employee behaviour and channel connections were moved onto their objects (R-094, Sprint 11).
+    // Marking them keeps the rail honest about how many settings sections there actually are.
+    for (const g of SETTINGS_GROUPS) {
+      const allExternal = g.items.every((i) => i.external);
+      expect(g.elsewhere ?? false, `group ${g.id}`).toBe(allExternal);
+    }
   });
 });
