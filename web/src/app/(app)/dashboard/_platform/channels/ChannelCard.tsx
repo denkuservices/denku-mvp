@@ -19,8 +19,11 @@ import { Surface, Pill } from "../ui";
 
 /** Where a channel's existing management UI lives, until generic connect flows are built. */
 const MANAGE_HREF: Partial<Record<Channel, (v: ChannelView) => string>> = {
-  voice: (v) => (v.connectionId ? `/dashboard/phone-lines/${v.connectionId}` : "/dashboard/phone-lines"),
-  instagram: () => "/dashboard/instagram",
+  voice: (v) =>
+    v.connectionId
+      ? `/dashboard/channels/phone-numbers/${v.connectionId}`
+      : "/dashboard/channels/phone-numbers",
+  instagram: () => "/dashboard/channels/instagram",
 };
 
 function HealthLine({ health }: { health: ConnectionHealth }) {

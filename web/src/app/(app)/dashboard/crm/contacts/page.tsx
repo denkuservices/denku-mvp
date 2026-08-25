@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Contact as ContactIcon, Search } from "lucide-react";
+import { Contact as ContactIcon, Search, Plus } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
@@ -49,6 +49,14 @@ export default async function ContactsPage({
       <PageHeader
         title="Contacts"
         subtitle="Everyone your AI team has spoken with, unified across every channel."
+        action={
+          <Link
+            href="/dashboard/crm/contacts/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" /> Add contact
+          </Link>
+        }
       />
 
       <form method="get" className="mb-4 flex gap-2">

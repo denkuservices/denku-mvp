@@ -18,8 +18,9 @@
  * **The no-capability-loss rule.** Only LIST views redirect. Rich detail and management pages
  * stay reachable and are LINKED from the new surfaces rather than hidden:
  *   - /dashboard/calls/:id       — full call detail (recording, cost) ← linked from the thread
- *   - /dashboard/phone-lines[/…] — number purchase/management        ← linked from Channels
- *   - /dashboard/instagram       — IG connect/management             ← linked from Channels
+ *   - /dashboard/channels/phone-numbers[/…] — number purchase/management (Sprint 11: moved
+ *     under Channels; the old /dashboard/phone-lines URLs forward there)
+ *   - /dashboard/channels/instagram         — IG connect/management (same move)
  *   - /dashboard/tickets/:id, /tickets/new, /leads/new, /agents/new  — no replacement yet
  * `test/platform-cutover.test.ts` fails if any of those becomes unreachable.
  *

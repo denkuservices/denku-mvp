@@ -353,7 +353,7 @@ describe("one door · employee configuration lives on the employee", () => {
 // PHONE LINES — no longer an employee-config surface
 // ---------------------------------------------------------------------------
 describe("Phone Lines no longer edits the employee", () => {
-  const advanced = readCode("app/(app)/dashboard/phone-lines/[lineId]/_tabs/AdvancedTab.tsx");
+  const advanced = readCode("app/(app)/dashboard/channels/phone-numbers/[lineId]/_tabs/AdvancedTab.tsx");
 
   it("the line's Advanced tab no longer writes the employee prompt", () => {
     expect(advanced).not.toMatch(/system_prompt_override/);
@@ -372,7 +372,7 @@ describe("Phone Lines no longer edits the employee", () => {
   });
 
   it("the line's own greeting field is untouched — it is line config, not employee config", () => {
-    const assigned = read("app/(app)/dashboard/phone-lines/[lineId]/_tabs/AssignedAITab.tsx");
+    const assigned = read("app/(app)/dashboard/channels/phone-numbers/[lineId]/_tabs/AssignedAITab.tsx");
     expect(assigned).toMatch(/first_message/);
   });
 });

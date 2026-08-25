@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Users, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2, Plus } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
@@ -39,6 +39,14 @@ export default async function TeamPage() {
       <PageHeader
         title="AI Team"
         subtitle="Your AI workforce. Each employee works the channels it's connected to."
+        action={
+          <Link
+            href="/dashboard/team/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" /> Hire an AI employee
+          </Link>
+        }
       />
 
       {employees.length === 0 ? (
@@ -46,8 +54,8 @@ export default async function TeamPage() {
           <EmptyState
             icon={Users}
             title="No AI Employees yet"
-            description="An AI Employee answers your customers on the channels you connect it to — around the clock. Finish setup to hire your first one."
-            action={{ label: "Go to channels", href: "/dashboard/channels" }}
+            description="An AI Employee answers your customers on the channels you connect it to — around the clock. Hire one to get started."
+            action={{ label: "Hire an AI employee", href: "/dashboard/team/new" }}
           />
         </Surface>
       ) : (

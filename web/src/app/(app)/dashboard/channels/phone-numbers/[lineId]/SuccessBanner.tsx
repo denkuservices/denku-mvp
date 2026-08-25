@@ -24,7 +24,7 @@ export function SuccessBanner() {
         </p>
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/phone-lines"
+            href="/dashboard/channels/phone-numbers"
             className="text-sm font-medium text-green-700 hover:text-green-800 dark:text-green-300 dark:hover:text-green-200"
           >
             Back to Phone Lines

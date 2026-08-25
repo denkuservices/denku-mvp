@@ -124,7 +124,7 @@ function PhoneLineActionsMenu({
               role="menuitem"
               onClick={(e) => {
                 e.stopPropagation();
-                handleAction(() => router.push(`/dashboard/phone-lines/${lineId}`));
+                handleAction(() => router.push(`/dashboard/channels/phone-numbers/${lineId}`));
               }}
               className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-navy-700 transition-colors hover:bg-gray-50 hover:font-medium dark:text-white dark:hover:bg-white/5 text-left focus:outline-none focus:bg-gray-50 dark:focus:bg-white/5"
             >
@@ -423,11 +423,11 @@ export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPrev
         {phoneLines.map((line) => (
           <div
             key={line.id}
-            onClick={() => router.push(`/dashboard/phone-lines/${line.id}`)}
+            onClick={() => router.push(`/dashboard/channels/phone-numbers/${line.id}`)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                router.push(`/dashboard/phone-lines/${line.id}`);
+                router.push(`/dashboard/channels/phone-numbers/${line.id}`);
               }
             }}
             tabIndex={0}
@@ -505,11 +505,11 @@ export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPrev
             {phoneLines.map((line) => (
               <tr
                 key={line.id}
-                onClick={() => router.push(`/dashboard/phone-lines/${line.id}`)}
+                onClick={() => router.push(`/dashboard/channels/phone-numbers/${line.id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    router.push(`/dashboard/phone-lines/${line.id}`);
+                    router.push(`/dashboard/channels/phone-numbers/${line.id}`);
                   }
                 }}
                 tabIndex={0}
@@ -562,7 +562,7 @@ export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPrev
                       Default
                     </span>
                     <Link
-                      href={`/dashboard/phone-lines/${line.id}`}
+                      href={`/dashboard/channels/phone-numbers/${line.id}`}
                       onClick={(e) => e.stopPropagation()}
                       className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1"
                     >

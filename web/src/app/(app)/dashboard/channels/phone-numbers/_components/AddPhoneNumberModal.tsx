@@ -186,14 +186,14 @@ export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneN
   const handleViewDetails = () => {
     if (createdLineId) {
       handleClose();
-      router.push(`/dashboard/phone-lines/${createdLineId}`);
+      router.push(`/dashboard/channels/phone-numbers/${createdLineId}`);
     }
   };
 
   const handleTestCall = () => {
     if (createdLineId) {
       handleClose();
-      router.push(`/dashboard/phone-lines/${createdLineId}?test=1`);
+      router.push(`/dashboard/channels/phone-numbers/${createdLineId}?test=1`);
     }
   };
 

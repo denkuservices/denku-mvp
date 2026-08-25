@@ -224,7 +224,7 @@ describe("T5 · Usage and Integrations are honest", () => {
 });
 
 describe("T6 · no fake controls, no dead files", () => {
-  const tab = readCode("app/(app)/dashboard/phone-lines/[lineId]/_tabs/AssignedAITab.tsx");
+  const tab = readCode("app/(app)/dashboard/channels/phone-numbers/[lineId]/_tabs/AssignedAITab.tsx");
 
   it("the phone-line tab shows only fields that persist", () => {
     // These three had no column to save to and rendered disabled under "Coming soon".

@@ -1121,7 +1121,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                           startTransition(async () => {
                             const result = await continueWithoutPlan(state.orgId!);
                             if (result.ok) {
-                              router.push("/dashboard/phone-lines");
+                              router.push("/dashboard/channels/phone-numbers");
                             } else {
                               setError(result.error || "Failed to continue without plan");
                             }

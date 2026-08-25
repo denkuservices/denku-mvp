@@ -144,7 +144,7 @@ export function PhoneLineDetailClient({
           router.refresh();
         }}
         onDeleted={() => {
-          router.push("/dashboard/phone-lines");
+          router.push("/dashboard/channels/phone-numbers");
           router.refresh();
         }}
       />
