@@ -277,24 +277,6 @@ export default async function PhoneLineDetailPage({
     capacityLabel = `Concurrent calls: ${planLimits.concurrency_limit}`;
   }
 
-  // Fetch agent for Advanced tab (system_prompt_override, vapi_assistant_id)
-  let agentForAdvanced: { vapi_assistant_id: string | null; system_prompt_override: string | null } | null = null;
-  const assignedAgentId = (line as { assigned_agent_id?: string | null }).assigned_agent_id;
-  if (assignedAgentId) {
-    const { data: agent } = await supabaseAdmin
-      .from("agents")
-      .select("vapi_assistant_id, system_prompt_override")
-      .eq("id", assignedAgentId)
-      .eq("org_id", orgId)
-      .maybeSingle<{ vapi_assistant_id: string | null; system_prompt_override: string | null }>();
-    if (agent) {
-      agentForAdvanced = {
-        vapi_assistant_id: agent.vapi_assistant_id ?? null,
-        system_prompt_override: agent.system_prompt_override ?? null,
-      };
-    }
-  }
-
   // Normalize line at boundary so client receives string | null (not undefined) for required fields
   const normalizedLine = {
     id: line.id,
@@ -316,8 +298,6 @@ export default async function PhoneLineDetailPage({
       {showSuccessBanner && <SuccessBanner />}
       <PhoneLineDetailClient
         line={normalizedLine}
-        orgId={orgId}
-        agentForAdvanced={agentForAdvanced}
         isPreviewMode={previewMode}
         todayInboundCalls={todayInboundCalls ?? 0}
         lastCallFormatted={lastCallFormatted}

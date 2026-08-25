@@ -35,9 +35,13 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
     icon: "users",
     items: [
       {
+        // Sprint 10 · R-094: configuration lives on the employee, so this points at AI Team
+        // rather than a parallel editor in Settings — the same pattern as Channels below.
         label: "Your employees",
-        href: "/dashboard/settings/agents",
-        description: "Behavior, language, voice and business knowledge for each AI Employee.",
+        href: "/dashboard/team",
+        description:
+          "Behavior, language, voice and business knowledge — configured on each AI Employee, under Setup and Knowledge.",
+        external: true,
       },
     ],
   },

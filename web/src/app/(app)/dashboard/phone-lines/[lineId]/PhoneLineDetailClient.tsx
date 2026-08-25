@@ -17,11 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-export type AgentForAdvanced = {
-  vapi_assistant_id: string | null;
-  system_prompt_override: string | null;
-} | null;
-
 interface PhoneLineDetailClientProps {
   line: {
     id: string;
@@ -36,8 +31,6 @@ interface PhoneLineDetailClientProps {
     vapi_phone_number_id?: string | null;
     assigned_agent_id?: string | null;
   };
-  orgId: string;
-  agentForAdvanced: AgentForAdvanced;
   isPreviewMode?: boolean;
   todayInboundCalls?: number;
   lastCallFormatted?: string;
@@ -48,8 +41,6 @@ type Tab = "configuration" | "assigned-ai" | "advanced";
 
 export function PhoneLineDetailClient({
   line: initialLine,
-  orgId,
-  agentForAdvanced,
   isPreviewMode = false,
   todayInboundCalls = 0,
   lastCallFormatted = "—",
@@ -236,19 +227,9 @@ export function PhoneLineDetailClient({
               onSaveError={() => setSaveToast("Couldn't save changes")}
             />
           )}
-          {activeTab === "advanced" && (
-            <AdvancedTab
-              lineId={line.id}
-              line={line}
-              orgId={orgId}
-              agentForAdvanced={agentForAdvanced}
-              isPreviewMode={isPreviewMode}
-              onSaveToast={() => setSaveToast("Saved")}
-              onResetToast={() => setSaveToast("Reset")}
-              onSaveError={() => setSaveToast("Couldn't save changes")}
-              onSaved={() => router.refresh()}
-            />
-          )}
+          {/* Sprint 10: the Advanced tab no longer writes anything — employee behaviour is
+              configured on the employee — so it needs only the line it is describing. */}
+          {activeTab === "advanced" && <AdvancedTab line={line} />}
         </div>
       </div>
     </div>

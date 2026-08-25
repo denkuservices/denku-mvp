@@ -60,7 +60,10 @@ describe("settings navigation contract", () => {
   it("resolves the active group from a pathname (longest match wins)", () => {
     expect(activeSettingsGroup("/dashboard/settings/workspace/billing")).toBe("billing");
     expect(activeSettingsGroup("/dashboard/settings/workspace/members")).toBe("organization");
-    expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBe("employees");
+    // Sprint 10 · R-094: the AI Employees group points at /dashboard/team, and
+    // /dashboard/settings/agents/* is now only a redirect — not a settings destination.
+    expect(activeSettingsGroup("/dashboard/team")).toBe("employees");
+    expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBeNull();
     expect(activeSettingsGroup("/dashboard/settings/account/security")).toBe("account");
     expect(activeSettingsGroup("/dashboard/nowhere")).toBeNull();
   });

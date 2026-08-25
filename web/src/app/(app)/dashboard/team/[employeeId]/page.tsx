@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings2, AlertTriangle, CheckCircle2, History as HistoryIcon } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getEmployeeView } from "@/lib/platform/readModel/employees";
-import { getEmployeeProfile } from "@/lib/platform/readModel/employeeProfile";
+import { getEmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
 import {
   getTeamActivity,
@@ -14,11 +14,14 @@ import {
 import { listRevisions, revisionsAvailable } from "@/lib/platform/manifest/revisions";
 import { employeeChannelCapability, type EmployeeAction } from "@/lib/platform/employeeCapabilities";
 import { evaluateConnectionHealth } from "@/lib/platform/connectionHealth";
+import { getWorkspaceStatus } from "@/lib/workspace-status";
 import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen, statusPillClass, titleCase } from "../../_platform/format";
 import { Pill } from "../../_platform/ui";
 import EmployeeTabs from "../../_platform/team/EmployeeTabs";
+import SetupForm from "../../_platform/team/SetupForm";
+import KnowledgeForm from "../../_platform/team/KnowledgeForm";
 import { EMPLOYEE_TAB_META, resolveEmployeeTab } from "../../_platform/team/tabs";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +90,10 @@ export default async function EmployeeDetailPage({
   // Fetch only what the active tab needs — six tabs on one route must not mean six queries.
   const activity =
     tab === "overview" ? (await getTeamActivity(orgId, [employee])).get(employee.id) ?? null : null;
-  const profile = tab === "setup" || tab === "knowledge" ? await getEmployeeProfile(orgId, employee.id) : null;
+  const isEditorTab = tab === "setup" || tab === "knowledge";
+  const [config, workspaceStatus] = isEditorTab
+    ? await Promise.all([getEmployeeConfig(orgId, employee.id), getWorkspaceStatus(orgId)])
+    : [null, "active" as const];
   const conversations =
     tab === "activity" || tab === "overview"
       ? (await listConversationViews(orgId, { limit: 200 }))
@@ -112,17 +118,11 @@ export default async function EmployeeDetailPage({
         title={employee.name}
         subtitle={`${(employee.language || "en").toUpperCase()}${employee.voice ? ` · ${employee.voice}` : ""}`}
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPillClass(employee.status)}`}>
-              {titleCase(employee.status)}
-            </span>
-            <Link
-              href={`/dashboard/settings/agents/${employee.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-            >
-              <Settings2 className="h-4 w-4" /> Configure
-            </Link>
-          </div>
+          // Configuration is a tab on this page now (Sprint 10), not a page in Settings — so the
+          // header carries status, not an escape hatch out of the surface you are already on.
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPillClass(employee.status)}`}>
+            {titleCase(employee.status)}
+          </span>
         }
       />
 
@@ -204,93 +204,23 @@ export default async function EmployeeDetailPage({
       ) : null}
 
       {tab === "setup" ? (
-        <Card>
-          {!profile ? (
+        config ? (
+          <SetupForm employee={config} workspaceStatus={workspaceStatus} />
+        ) : (
+          <Card>
             <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s setup.</p>
-          ) : (
-            <>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-gray-400">Language</dt>
-                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
-                    {(profile.language || "en").toUpperCase()}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-gray-400">Voice</dt>
-                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">{profile.voice || "Default"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-gray-400">Timezone</dt>
-                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">{profile.timezone || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-gray-400">Personality</dt>
-                  <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
-                    {profile.personaKey ? titleCase(profile.personaKey) : "Default"}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
-                <p className="text-xs uppercase tracking-wide text-gray-400">Opening line</p>
-                <p className="mt-1 text-sm text-navy-700 dark:text-white">
-                  {profile.firstMessage || "Uses the default greeting."}
-                </p>
-              </div>
-
-              {profile.hasPromptOverride ? (
-                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
-                  This employee has a custom instruction override, so it does not follow the
-                  behaviour derived from your business details.
-                </p>
-              ) : null}
-
-              <Link
-                href={`/dashboard/settings/agents/${employee.id}`}
-                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
-              >
-                <Settings2 className="h-4 w-4" /> Change setup
-              </Link>
-            </>
-          )}
-        </Card>
+          </Card>
+        )
       ) : null}
 
       {tab === "knowledge" ? (
-        <Card>
-          {!profile || profile.businessContext.length === 0 ? (
-            <>
-              <p className="text-sm text-gray-500">
-                Nothing recorded yet. What you tell Denku about your business is what this employee
-                knows when it answers — hours, services, address, policies.
-              </p>
-              <Link
-                href={`/dashboard/settings/agents/${employee.id}`}
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
-              >
-                <Settings2 className="h-4 w-4" /> Add business details
-              </Link>
-            </>
-          ) : (
-            <>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {profile.businessContext.map((f) => (
-                  <div key={f.key}>
-                    <dt className="text-xs uppercase tracking-wide text-gray-400">{f.label}</dt>
-                    <dd className="mt-0.5 whitespace-pre-wrap text-sm text-navy-700 dark:text-white">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <Link
-                href={`/dashboard/settings/agents/${employee.id}`}
-                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
-              >
-                <Settings2 className="h-4 w-4" /> Edit business details
-              </Link>
-            </>
-          )}
-        </Card>
+        config ? (
+          <KnowledgeForm employee={config} workspaceStatus={workspaceStatus} />
+        ) : (
+          <Card>
+            <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s knowledge.</p>
+          </Card>
+        )
       ) : null}
 
       {tab === "channels" ? (

@@ -280,10 +280,12 @@ describe("T7 · one search-input recipe", () => {
 
 describe("T8 · terminology", () => {
   it('customer-facing surfaces say "AI employee", not "agent"', () => {
+    // Sprint 10 folded the Settings agent editor into the employee and deleted its components;
+    // what remains customer-facing is the hire form plus the employee surfaces that replaced it.
     const surfaces = [
-      "app/(app)/dashboard/settings/agents/page.tsx",
-      "app/(app)/dashboard/settings/agents/_components/AgentsListClient.tsx",
       "app/(app)/dashboard/agents/new/page.tsx",
+      "app/(app)/dashboard/team/page.tsx",
+      "app/(app)/dashboard/_platform/team/KnowledgeForm.tsx",
     ];
     for (const p of surfaces) {
       const body = read(p);
