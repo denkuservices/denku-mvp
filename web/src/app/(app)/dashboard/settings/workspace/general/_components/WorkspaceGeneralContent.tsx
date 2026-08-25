@@ -65,10 +65,10 @@ export function WorkspaceGeneralContent({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
       {/* Identity */}
-      <section className="lg:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <section className="lg:col-span-2 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
         <div>
-          <p className="text-base font-semibold text-zinc-900">Workspace identity</p>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="text-base font-semibold text-navy-700 dark:text-white">Workspace identity</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Used across your agents and messaging. Company name can be injected into greetings automatically.
           </p>
         </div>

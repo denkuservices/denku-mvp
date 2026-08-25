@@ -25,29 +25,29 @@ export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
   const hasUrl = webhookUrl !== null;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
       <div>
-        <p className="text-base font-semibold text-zinc-900">Webhooks</p>
-        <p className="mt-1 text-sm text-zinc-600">
+        <p className="text-base font-semibold text-navy-700 dark:text-white">Webhooks</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Inbound events for call reporting and lifecycle tracking.
         </p>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-zinc-900">Webhook URL</p>
+          <p className="text-sm font-semibold text-navy-700 dark:text-white">Webhook URL</p>
           {hasUrl ? (
             <>
               <div className="flex gap-2">
                 <input
                   readOnly
                   value={webhookUrl}
-                  className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-mono shadow-sm"
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm font-mono shadow-sm"
                 />
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 transition-colors"
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                   title="Copy to clipboard"
                 >
                   {copied ? (
@@ -63,7 +63,7 @@ export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-gray-500">
                 Use this endpoint to receive real-time call lifecycle events from Denku in your
                 backend or automation system.
               </p>
@@ -86,13 +86,13 @@ export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-zinc-900">Subscribed events</p>
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-sm font-semibold text-navy-700 dark:text-white">Subscribed events</p>
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
             <div className="flex flex-wrap gap-2">
               {events.map((e) => (
                 <span
                   key={e}
-                  className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700"
+                  className="inline-flex items-center rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-200"
                 >
                   {e}
                 </span>

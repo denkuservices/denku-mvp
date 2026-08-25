@@ -30,10 +30,10 @@ export function RuntimeCard({
     };
   }, []);
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
       <div>
-        <p className="text-base font-semibold text-zinc-900">Runtime</p>
-        <p className="mt-1 text-sm text-zinc-600">Operational context for this workspace.</p>
+        <p className="text-base font-semibold text-navy-700 dark:text-white">Runtime</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Operational context for this workspace.</p>
       </div>
 
       <div className="mt-4 space-y-3">
@@ -56,14 +56,14 @@ function ReadOnlyRow({
   badge?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-      <span className="text-sm font-medium text-zinc-700">{label}</span>
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3">
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
       {badge ? (
-        <span className="inline-flex rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+        <span className="inline-flex rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
           {value}
         </span>
       ) : (
-        <span className="text-sm font-semibold text-zinc-900">{value}</span>
+        <span className="text-sm font-semibold text-navy-700 dark:text-white">{value}</span>
       )}
     </div>
   );

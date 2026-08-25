@@ -71,14 +71,14 @@ export function AccountSecurityClient({
   return (
     <div className="space-y-6">
       {/* Email Section */}
-      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
         <p className="text-base font-semibold text-foreground">Email</p>
         <p className="mt-1 text-sm text-muted-foreground">{email}</p>
         <p className="mt-2 text-xs text-muted-foreground">Managed by your authentication provider.</p>
       </div>
 
       {/* Password Section */}
-      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
         <p className="text-base font-semibold text-foreground">Password</p>
         
         {isPasswordManagedByProvider ? (
@@ -105,7 +105,7 @@ export function AccountSecurityClient({
                   onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
                   disabled={isPasswordPending}
                   minLength={8}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
               </div>
@@ -121,7 +121,7 @@ export function AccountSecurityClient({
                   onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); }}
                   disabled={isPasswordPending}
                   minLength={8}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
               </div>
@@ -141,7 +141,7 @@ export function AccountSecurityClient({
               <button
                 type="submit"
                 disabled={isPasswordPending}
-                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 {isPasswordPending ? "Updating..." : "Update password"}
               </button>
@@ -151,7 +151,7 @@ export function AccountSecurityClient({
       </div>
 
       {/* Sessions Section */}
-      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
         <p className="text-base font-semibold text-foreground">Active sessions</p>
         <p className="mt-1 text-sm text-muted-foreground">
           This will sign you out on all devices.
@@ -160,7 +160,7 @@ export function AccountSecurityClient({
           type="button"
           onClick={handleSignOutAll}
           disabled={isSignOutPending}
-          className="mt-4 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {isSignOutPending ? "Signing out..." : "Sign out all devices"}
         </button>

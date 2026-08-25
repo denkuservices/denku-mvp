@@ -90,9 +90,9 @@ export default async function WorkspaceAuditPage() {
           { label: "Audit" },
         ]}
       >
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
-          <p className="text-sm font-semibold text-zinc-900">No organization</p>
-          <p className="mt-1 text-sm text-zinc-600">You are not part of an organization.</p>
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
+          <p className="text-sm font-semibold text-navy-700 dark:text-white">No organization</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">You are not part of an organization.</p>
         </div>
       </SettingsShell>
     );

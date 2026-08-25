@@ -34,26 +34,26 @@ export function Dropdown({
 
   return (
     <div className="space-y-2" ref={ref}>
-      <p className="text-sm font-semibold tracking-tight text-zinc-900">{label}</p>
+      <p className="text-sm font-semibold tracking-tight text-navy-700 dark:text-white">{label}</p>
 
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left text-base shadow-sm outline-none transition hover:bg-zinc-50 focus:ring-4 focus:ring-zinc-100"
+          className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-left text-base shadow-sm outline-none transition hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-4 focus:ring-brand-500/15"
           aria-haspopup="listbox"
           aria-expanded={open}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate font-medium text-zinc-900">{selected.label}</p>
+              <p className="truncate font-medium text-navy-700 dark:text-white">{selected.label}</p>
               {selected.description ? (
-                <p className="truncate text-xs text-zinc-500">{selected.description}</p>
+                <p className="truncate text-xs text-gray-500">{selected.description}</p>
               ) : null}
             </div>
 
             <svg
-              className={`h-5 w-5 flex-none text-zinc-500 transition ${open ? "rotate-180" : ""}`}
+              className={`h-5 w-5 flex-none text-gray-500 transition ${open ? "rotate-180" : ""}`}
               viewBox="0 0 20 20"
               fill="currentColor"
               aria-hidden="true"
@@ -70,7 +70,7 @@ export function Dropdown({
         {open ? (
           <div
             role="listbox"
-            className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg"
+            className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 shadow-lg"
           >
             <div className="max-h-72 overflow-auto">
               {options.map((o) => {
@@ -86,14 +86,14 @@ export function Dropdown({
                       setOpen(false);
                     }}
                     className={`w-full px-4 py-3 text-left transition ${
-                      active ? "bg-zinc-900 text-white" : "hover:bg-zinc-50 text-zinc-900"
+                      active ? "bg-brand-500 text-white" : "hover:bg-gray-50 dark:hover:bg-white/5 text-navy-700 dark:text-white"
                     }`}
                   >
-                    <p className={`text-base font-medium ${active ? "text-white" : "text-zinc-900"}`}>
+                    <p className={`text-base font-medium ${active ? "text-white" : "text-navy-700 dark:text-white"}`}>
                       {o.label}
                     </p>
                     {o.description ? (
-                      <p className={`text-xs ${active ? "text-zinc-200" : "text-zinc-500"}`}>
+                      <p className={`text-xs ${active ? "text-gray-200" : "text-gray-500"}`}>
                         {o.description}
                       </p>
                     ) : null}
@@ -105,7 +105,7 @@ export function Dropdown({
         ) : null}
       </div>
 
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+      {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
     </div>
   );
 }

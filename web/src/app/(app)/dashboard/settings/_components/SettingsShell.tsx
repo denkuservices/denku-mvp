@@ -23,9 +23,9 @@ export function SettingsShell({
     <div className="p-6 space-y-8">
       {/* Header - only render if title provided */}
       {title && (
-        <div className="rounded-2xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50 p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gradient-to-b from-white to-gray-50 dark:to-navy-900 p-6 shadow-sm">
           {crumbs && crumbs.length > 0 ? (
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
               {crumbs.map((c, idx) => (
                 <React.Fragment key={`${c.label}-${idx}`}>
                   {c.href ? (
@@ -33,16 +33,16 @@ export function SettingsShell({
                       {c.label}
                     </Link>
                   ) : (
-                    <span className="text-zinc-900 font-medium">{c.label}</span>
+                    <span className="text-navy-700 dark:text-white font-medium">{c.label}</span>
                   )}
-                  {idx < crumbs.length - 1 ? <span className="text-zinc-400">/</span> : null}
+                  {idx < crumbs.length - 1 ? <span className="text-gray-400">/</span> : null}
                 </React.Fragment>
               ))}
             </div>
           ) : null}
 
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-zinc-600">{subtitle}</p> : null}
+          <h1 className="text-2xl font-semibold tracking-tight text-navy-700 dark:text-white">{title}</h1>
+          {subtitle ? <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{subtitle}</p> : null}
         </div>
       )}
 
