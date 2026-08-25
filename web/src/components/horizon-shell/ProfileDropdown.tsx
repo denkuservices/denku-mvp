@@ -47,13 +47,13 @@ export default function ProfileDropdown({ firstName = 'there' }: ProfileDropdown
       {/* Menu items */}
       <div className="ml-4 mt-3 flex flex-col">
         <Link
-          href="/dashboard/settings/account/profile"
+          href="/dashboard/settings/account"
           className="text-sm text-gray-800 dark:text-white hover:dark:text-white"
         >
           Account Settings
         </Link>
         <Link
-          href="/dashboard/settings/workspace/general"
+          href="/dashboard/settings/workspace"
           className="mt-3 text-sm text-gray-800 dark:text-white hover:dark:text-white"
         >
           Workspace Settings

@@ -1,159 +1,92 @@
 /**
- * Settings information architecture (Sprint 8.5 / R-094, audit S-004).
+ * Settings information architecture.
  *
- * **Grouped by what the customer manages, not by which table it lives in.** The previous structure
- * mirrored the org chart (Account / Workspace / Agents / Billing / Usage) and had no home for
- * Channels, Knowledge or Automations — so WhatsApp/Telegram/Email settings had nowhere natural to
- * land. Here they land under **Channels** automatically, via the Sprint 7 registry.
+ * **Three destinations, not nine.** Sprint 8.5 grouped Settings by what the customer manages
+ * rather than by which table things live in — the right instinct — but it left nine separate
+ * pages behind five group headings, and an index that listed all of them a second time. A
+ * customer changing their password crossed three navigation layers to get there: the product nav,
+ * the settings rail, and a tab strip inside Account.
  *
- * Rule enforced by `settings-nav.test.ts`: **every item must be a real destination.** The old index
- * advertised "Invoices", "Payment methods", "Limits", "Behavior" as if they were pages — they were
- * plain text, several with no page at all.
+ * What actually differs is narrower than nine pages:
+ *   - **Workspace** — the business, who can reach it, how it runs (was General + Members + the
+ *     runtime and control cards, joined by quick-links).
+ *   - **Billing & usage** — money. Usage is a section of it, never a peer (Sprint 9 · T5).
+ *   - **Account** — *me*, as opposed to the workspace (was Profile + Security + their own layout).
+ *
+ * Everything else that looked like a settings section was configuration that belongs on the
+ * object it configures: employee behaviour lives on the employee (R-094), channel connections
+ * live under Channels (Sprint 11). Those are wayfinding, marked `external`, and rendered apart
+ * so the rail never implies five sections where there are three.
+ *
+ * The audit log keeps its own route, linked from Workspace: it is a paginated record rather than
+ * a setting, and embedding it would leave that page with no bottom.
+ *
+ * Rules enforced by `settings-nav.test.ts`: every item resolves to a real page, no item is
+ * reachable from two places, and the landing target is a real section rather than a pointer.
  */
 
 export interface SettingsNavItem {
   label: string;
   href: string;
-  /** One-line purpose, shown on the index. Never decorative. */
+  /** One-line purpose. Never decorative. */
   description: string;
   /** True when the destination is outside Settings (e.g. the Channels surface). */
   external?: boolean;
 }
 
-export interface SettingsNavGroup {
-  id: string;
-  label: string;
-  /** lucide icon key, resolved by the nav component. */
-  icon: string;
-  items: SettingsNavItem[];
-  /**
-   * True when the group's destinations live OUTSIDE Settings.
-   *
-   * "AI Employees" and "Channels" are wayfinding, not settings: configuration for both was
-   * deliberately moved onto the object it belongs to (Sprint 10 · R-094, Sprint 11). Marking them
-   * lets the rail show them as pointers rather than as peers of Billing and Account, which is the
-   * truth and also stops the rail implying five sections when there are three.
-   */
-  elsewhere?: boolean;
-}
+/** Where `/dashboard/settings` lands — Settings has no index of its own. */
+export const SETTINGS_LANDING = "/dashboard/settings/workspace";
 
-/**
- * Where `/dashboard/settings` lands. Settings has no index of its own — see `settings/page.tsx`.
- * Kept here so the nav data and the redirect cannot drift apart.
- */
-export const SETTINGS_LANDING = "/dashboard/settings/workspace/general";
-
-export const SETTINGS_GROUPS: SettingsNavGroup[] = [
+/** The settings sections themselves. */
+export const SETTINGS_ITEMS: SettingsNavItem[] = [
   {
-    id: "employees",
-    label: "AI Employees",
-    icon: "users",
-    elsewhere: true,
-    items: [
-      {
-        // Sprint 10 · R-094: configuration lives on the employee, so this points at AI Team
-        // rather than a parallel editor in Settings — the same pattern as Channels below.
-        label: "Your employees",
-        href: "/dashboard/team",
-        description:
-          "Behaviour, language and business knowledge — set on each employee.",
-        external: true,
-      },
-    ],
+    label: "Workspace",
+    href: "/dashboard/settings/workspace",
+    description: "Your business, who can access it, and how it runs.",
   },
   {
-    id: "channels",
-    label: "Channels",
-    icon: "radio",
-    elsewhere: true,
-    items: [
-      {
-        label: "Connected channels",
-        href: "/dashboard/channels",
-        description: "Phone lines, Instagram, and the channels arriving next.",
-        external: true,
-      },
-    ],
+    label: "Billing & usage",
+    href: "/dashboard/settings/workspace/billing",
+    description: "Plan, minutes used, invoices and payment method.",
   },
   {
-    id: "organization",
-    label: "Organization",
-    icon: "building",
-    items: [
-      {
-        label: "General",
-        href: "/dashboard/settings/workspace/general",
-        description: "Company identity, timezone and operational defaults.",
-      },
-      {
-        label: "Team",
-        href: "/dashboard/settings/workspace/members",
-        description: "Who can access this workspace, and invitations.",
-      },
-      {
-        label: "Audit log",
-        href: "/dashboard/settings/workspace/audit",
-        description: "A record of key actions taken in this workspace.",
-      },
-    ],
+    label: "Account",
+    href: "/dashboard/settings/account",
+    description: "Your details and how you sign in.",
   },
-  {
-    id: "billing",
-    label: "Billing & Usage",
-    icon: "credit-card",
-    items: [
-      {
-        label: "Plan & invoices",
-        href: "/dashboard/settings/workspace/billing",
-        description: "Your plan, payment method, add-ons and invoice history.",
-      },
-      {
-        // Sprint 9 · T5: Usage is a section of Billing, not a destination of its own. It used to
-        // be a separate page promising minutes and overage while rendering "—" and "Coming soon";
-        // the real numbers were already on Billing. One concept, one place.
-        label: "Usage",
-        href: "/dashboard/settings/workspace/billing#usage",
-        description: "Minutes used this period, included allowance and overage.",
-      },
-    ],
-  },
-  {
-    id: "account",
-    label: "Your account",
-    icon: "user",
-    items: [
-      {
-        label: "Profile",
-        href: "/dashboard/settings/account/profile",
-        description: "Your name and contact details.",
-      },
-      {
-        label: "Security",
-        href: "/dashboard/settings/account/security",
-        description: "Password and sign-in security.",
-      },
-    ],
-  },
-  // Sprint 9 · T5: **Integrations is deliberately absent.** It advertised "Connect Denku to the
-  // tools you already use" and delivered two disabled "Coming soon" cards — a destination that
-  // was never a destination. It returns as a group when the first integration is real (R-020
-  // calendar is the likely first); until then Settings promises nothing it cannot do.
 ];
 
-/** Flattened items — used by the nav and by the "every item is real" contract test. */
+/**
+ * Reachable from Settings, configured elsewhere. Kept because someone hunting in Settings for
+ * "where do I change what my AI says" should find the way out, not a dead end.
+ */
+export const SETTINGS_ELSEWHERE: SettingsNavItem[] = [
+  {
+    label: "AI Employees",
+    href: "/dashboard/team",
+    description: "Behaviour, language and business knowledge — set on each employee.",
+    external: true,
+  },
+  {
+    label: "Channels",
+    href: "/dashboard/channels",
+    description: "Phone lines, Instagram, and the channels arriving next.",
+    external: true,
+  },
+];
+
+/** Everything navigable from the rail — used by the nav and the "every item is real" test. */
 export function allSettingsItems(): SettingsNavItem[] {
-  return SETTINGS_GROUPS.flatMap((g) => g.items);
+  return [...SETTINGS_ITEMS, ...SETTINGS_ELSEWHERE];
 }
 
-/** The group whose item best matches a pathname (longest match wins). */
-export function activeSettingsGroup(pathname: string): string | null {
-  let best: { id: string; len: number } | null = null;
-  for (const g of SETTINGS_GROUPS) {
-    for (const it of g.items) {
-      if (pathname === it.href || pathname.startsWith(`${it.href}/`)) {
-        if (!best || it.href.length > best.len) best = { id: g.id, len: it.href.length };
-      }
+/** The item whose href best matches a pathname (longest match wins), or null. */
+export function activeSettingsItem(pathname: string): SettingsNavItem | null {
+  let best: { item: SettingsNavItem; len: number } | null = null;
+  for (const item of allSettingsItems()) {
+    if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+      if (!best || item.href.length > best.len) best = { item, len: item.href.length };
     }
   }
-  return best?.id ?? null;
+  return best?.item ?? null;
 }

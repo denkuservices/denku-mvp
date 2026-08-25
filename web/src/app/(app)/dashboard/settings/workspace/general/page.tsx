@@ -1,84 +1,9 @@
-import Link from "next/link";
-import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
-import { getWorkspaceGeneral } from "@/app/(app)/dashboard/settings/_actions/workspace";
-import { WorkspaceGeneralContent } from "./_components/WorkspaceGeneralContent";
-import { WebhooksCard } from "./_components/WebhooksCard";
-import { WorkspaceControlsCard } from "./_components/WorkspaceControlsCard";
+import { redirect } from "next/navigation";
 
 /**
- * Get webhook URL from environment variable.
- * Uses NEXT_PUBLIC_APP_URL as the single source of truth.
+ * Identity is a section of Workspace now (Settings 9 → 4), not a route of its own.
+ * The URL is kept so shipped links and bookmarks still resolve.
  */
-function getWebhookUrl(): string | null {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) {
-    return null;
-  }
-  // Ensure no trailing slash
-  const baseUrl = appUrl.replace(/\/$/, "");
-  return `${baseUrl}/api/webhooks/vapi`;
-}
-
-export default async function WorkspaceGeneralPage() {
-  // Fetch initial data
-  const { orgId, role, orgName, settings } = await getWorkspaceGeneral();
-
-  // Compute webhook URL
-  const webhookUrl = getWebhookUrl();
-  const webhookEvents = ["end-of-call-report", "call-started", "call-ended"];
-
-  // Determine access badge
-  const accessLabel = role === "owner" ? "Owner" : role === "admin" ? "Admin" : role || "Member";
-
-  // Get workspace status (default to 'active' if not set)
-  const workspaceStatus = (settings?.workspace_status as "active" | "paused") || "active";
-  const pausedReason = settings?.paused_reason as "manual" | "hard_cap" | "past_due" | null | undefined;
-
-  return (
-    <SettingsShell
-      title="Workspace"
-      subtitle="Company identity, defaults, and operational settings."
-      crumbs={[
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Settings", href: "/dashboard/settings" },
-        { label: "Workspace" },
-        { label: "General" },
-      ]}
-    >
-      {/* Quick links */}
-      <div className="flex flex-wrap gap-2">
-        <QuickLink href="/dashboard/settings/workspace/members" label="Members" />
-        <QuickLink href="/dashboard/settings/workspace/audit" label="Audit log" />
-      </div>
-
-      {/* Top: Identity + Runtime */}
-      <WorkspaceGeneralContent
-        initialSettings={settings}
-        role={role}
-        orgId={orgId}
-        orgName={orgName}
-        accessLabel={accessLabel}
-        workspaceStatus={workspaceStatus}
-      />
-
-      {/* Webhooks */}
-      <WebhooksCard webhookUrl={webhookUrl} events={webhookEvents} />
-
-      {/* Workspace controls */}
-      <WorkspaceControlsCard role={role} workspaceStatus={workspaceStatus} pausedReason={pausedReason} />
-    </SettingsShell>
-  );
-}
-
-/* ----------------------------- UI bits ----------------------------- */
-
-function QuickLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5"
-    >
-      {label}
-    </Link>
-  );
+export default function WorkspaceGeneralRedirect() {
+  redirect("/dashboard/settings/workspace#identity");
 }

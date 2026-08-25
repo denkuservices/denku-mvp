@@ -6,7 +6,7 @@ import path from "node:path";
 // pure helpers, so the client is stubbed rather than configured.
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn() } }));
 
-import { SETTINGS_GROUPS, allSettingsItems } from "@/app/(app)/dashboard/_platform/settings/nav";
+import { allSettingsItems } from "@/app/(app)/dashboard/_platform/settings/nav";
 import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
 import { appointmentHref, appointmentToRequest } from "@/lib/platform/readModel/requests";
 import { deriveInitials, deriveFirstName } from "@/components/horizon-shell/useProfileIdentity";
@@ -191,13 +191,17 @@ describe("T4 · the appointment dead end is closed", () => {
 
 describe("T5 · Usage and Integrations are honest", () => {
   it("Settings advertises no Integrations destination", () => {
-    expect(SETTINGS_GROUPS.map((g) => g.id)).not.toContain("integrations");
     expect(allSettingsItems().some((i) => /integration/i.test(i.label))).toBe(false);
   });
 
-  it("Usage points at the Billing section that holds the real numbers", () => {
-    const usage = allSettingsItems().find((i) => /usage/i.test(i.label));
-    expect(usage?.href).toBe("/dashboard/settings/workspace/billing#usage");
+  it("Usage is part of Billing, never a destination of its own", () => {
+    // T5 folded Usage into Billing as an anchor. The rail then went from nine items to three, so
+    // Usage is now named inside the Billing item rather than listed beside it — same rule, fewer
+    // links: one concept, one place.
+    const usageItems = allSettingsItems().filter((i) => /usage/i.test(i.label));
+    expect(usageItems).toHaveLength(1);
+    expect(usageItems[0].href).toBe("/dashboard/settings/workspace/billing");
+    expect(usageItems[0].label).toMatch(/billing/i);
   });
 
   it("Billing actually has that anchor", () => {

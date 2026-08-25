@@ -21,7 +21,7 @@ export function PausedWorkspaceBanner({ workspaceStatus }: PausedWorkspaceBanner
           <p className="mt-1 text-sm text-amber-800">
             Calls are blocked and agents are inactive.{" "}
             <Link
-              href="/dashboard/settings/workspace/general"
+              href="/dashboard/settings/workspace"
               className="font-medium underline hover:text-amber-900"
             >
               Resume workspace →

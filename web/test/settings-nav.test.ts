@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  SETTINGS_GROUPS,
+  SETTINGS_ITEMS,
+  SETTINGS_ELSEWHERE,
   allSettingsItems,
-  activeSettingsGroup,
+  activeSettingsItem,
   SETTINGS_LANDING,
 } from "@/app/(app)/dashboard/_platform/settings/nav";
 
@@ -12,19 +13,19 @@ const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
 /** Does a route actually exist on disk? (`/dashboard/x` → `src/app/(app)/dashboard/x/page.tsx`) */
 function routeExists(href: string): boolean {
-  // A `#fragment` addresses a section of a page, not a different page — Sprint 9 · T5 points
-  // Usage at `/dashboard/settings/workspace/billing#usage`.
+  // A `#fragment` addresses a section of a page, not a different page.
   const rel = href.replace(/^\//, "").split("#")[0].split("?")[0];
   return fs.existsSync(path.join(APP_DIR, rel, "page.tsx"));
 }
 
+const read = (rel: string) => fs.readFileSync(path.join(APP_DIR, rel), "utf8");
+
 /**
- * SETTINGS CONTRACT (Sprint 8.5 / audit S-003).
+ * SETTINGS CONTRACT (Sprint 8.5 / audit S-003, extended when Settings went 9 → 3).
  *
- * The old settings index advertised "Invoices", "Payment methods", "Limits", "Behavior" and
+ * The original index advertised "Invoices", "Payment methods", "Limits", "Behavior" and
  * "Advanced" as if they were destinations — they were plain text, several with no page at all.
- * This test makes that class of dishonesty impossible: **every navigable item must resolve to a
- * real page on disk.**
+ * That class of dishonesty stays impossible: every navigable item must resolve to a real page.
  */
 describe("settings navigation contract", () => {
   it("every item points at a route that actually exists", () => {
@@ -44,61 +45,88 @@ describe("settings navigation contract", () => {
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it("groups the platform model, with a home for Channels (so future channels need no new section)", () => {
-    const ids = SETTINGS_GROUPS.map((g) => g.id);
-    expect(ids).toContain("employees");
-    expect(ids).toContain("channels");
-    expect(ids).toContain("organization");
-    expect(ids).toContain("billing");
-    expect(ids).toContain("account");
+  it("resolves the active item from a pathname (longest match wins)", () => {
+    expect(activeSettingsItem("/dashboard/settings/workspace")?.label).toBe("Workspace");
+    // A section of a page still resolves to that page's rail item.
+    expect(activeSettingsItem("/dashboard/settings/workspace/audit")?.label).toBe("Workspace");
+    // Billing sits under the workspace path but is its own destination — the longer href wins.
+    expect(activeSettingsItem("/dashboard/settings/workspace/billing")?.label).toMatch(/billing/i);
+    expect(activeSettingsItem("/dashboard/settings/account")?.label).toBe("Account");
+    expect(activeSettingsItem("/dashboard/nowhere")).toBeNull();
+  });
+});
+
+describe("settings is three sections, not nine pages", () => {
+  it("the rail lists exactly the three settings destinations", () => {
+    expect(SETTINGS_ITEMS.map((i) => i.label)).toEqual(["Workspace", "Billing & usage", "Account"]);
   });
 
-  it("Usage lives under Billing — it is not a separate top-level concept", () => {
-    const billing = SETTINGS_GROUPS.find((g) => g.id === "billing")!;
-    expect(billing.items.some((i) => /usage/i.test(i.label))).toBe(true);
+  it("nothing in the rail proper leaves Settings, and everything in 'elsewhere' does", () => {
+    // The distinction is what stops the rail implying five sections where there are three.
+    expect(SETTINGS_ITEMS.every((i) => !i.external)).toBe(true);
+    expect(SETTINGS_ITEMS.every((i) => i.href.startsWith("/dashboard/settings/"))).toBe(true);
+    expect(SETTINGS_ELSEWHERE.every((i) => i.external)).toBe(true);
+    expect(SETTINGS_ELSEWHERE.every((i) => !i.href.startsWith("/dashboard/settings"))).toBe(true);
   });
 
-  it("resolves the active group from a pathname (longest match wins)", () => {
-    expect(activeSettingsGroup("/dashboard/settings/workspace/billing")).toBe("billing");
-    expect(activeSettingsGroup("/dashboard/settings/workspace/members")).toBe("organization");
-    // Sprint 10 · R-094: the AI Employees group points at /dashboard/team, and
-    // /dashboard/settings/agents/* is now only a redirect — not a settings destination.
-    expect(activeSettingsGroup("/dashboard/team")).toBe("employees");
-    expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBeNull();
-    expect(activeSettingsGroup("/dashboard/settings/account/security")).toBe("account");
-    expect(activeSettingsGroup("/dashboard/nowhere")).toBeNull();
+  it("employee and channel configuration is reachable, but not as a settings section", () => {
+    // R-094 put employee behaviour on the employee; Sprint 11 put channels under Channels.
+    const hrefs = SETTINGS_ELSEWHERE.map((i) => i.href);
+    expect(hrefs).toContain("/dashboard/team");
+    expect(hrefs).toContain("/dashboard/channels");
   });
 });
 
 describe("settings has one place to navigate, not two", () => {
-  /**
-   * Sprint 8.5 gave Settings a nav rail — correct, it had none. But the index kept listing every
-   * destination as well, so `/dashboard/settings` rendered all nine items twice: once in the rail
-   * and once as cards with a paragraph each. The index now redirects to its first section.
-   */
-  it("the landing target is a real page", () => {
+  it("the landing target is a real page and a real rail item", () => {
     expect(routeExists(SETTINGS_LANDING)).toBe(true);
+    const owning = SETTINGS_ITEMS.find((i) => i.href === SETTINGS_LANDING);
+    expect(owning, "landing page must be a section, not a pointer").toBeTruthy();
   });
 
-  it("lands on a section that lives inside Settings", () => {
-    expect(SETTINGS_LANDING.startsWith("/dashboard/settings/")).toBe(true);
-    const owning = SETTINGS_GROUPS.find((g) => g.items.some((i) => i.href === SETTINGS_LANDING));
-    expect(owning, "landing page must be an item in the rail").toBeTruthy();
-    expect(owning!.elsewhere ?? false, "must not land on a wayfinding pointer").toBe(false);
-  });
-
-  it("the settings index does not re-render the rail", () => {
-    const page = fs.readFileSync(path.join(APP_DIR, "dashboard", "settings", "page.tsx"), "utf8");
+  it("the settings index redirects rather than re-rendering the rail", () => {
+    const page = read("dashboard/settings/page.tsx");
     expect(page).toMatch(/redirect\(SETTINGS_LANDING\)/);
     expect(page, "the duplicate index must not come back").not.toMatch(/PlatformSettingsIndex/);
   });
+});
 
-  it("groups whose destinations leave Settings are marked as such", () => {
-    // Employee behaviour and channel connections were moved onto their objects (R-094, Sprint 11).
-    // Marking them keeps the rail honest about how many settings sections there actually are.
-    for (const g of SETTINGS_GROUPS) {
-      const allExternal = g.items.every((i) => i.external);
-      expect(g.elsewhere ?? false, `group ${g.id}`).toBe(allExternal);
-    }
+describe("the merged pages keep every old URL working", () => {
+  /**
+   * Profile, Security, General and Members became sections. Their URLs are shipped in emails,
+   * bookmarks and the profile dropdown, so each must still land on the right place rather than
+   * 404 — the same rule that has held through every route move since Sprint 11.
+   */
+  const redirects: Array<[string, string]> = [
+    ["dashboard/settings/account/profile/page.tsx", "/dashboard/settings/account#profile"],
+    ["dashboard/settings/account/security/page.tsx", "/dashboard/settings/account#security"],
+    ["dashboard/settings/workspace/general/page.tsx", "/dashboard/settings/workspace#identity"],
+    ["dashboard/settings/workspace/members/page.tsx", "/dashboard/settings/workspace#members"],
+  ];
+
+  it.each(redirects)("%s redirects to %s", (file, target) => {
+    expect(read(file)).toContain(`redirect("${target}")`);
+  });
+
+  it("the merged pages render the sections those redirects point at", () => {
+    const account = read("dashboard/settings/account/page.tsx");
+    expect(account).toMatch(/id="profile"/);
+    expect(account).toMatch(/id="security"/);
+
+    const workspace = read("dashboard/settings/workspace/page.tsx");
+    expect(workspace).toMatch(/id="identity"/);
+    expect(workspace).toMatch(/id="members"/);
+  });
+
+  it("Account no longer carries its own tab strip", () => {
+    // Profile/Security tabs inside a layout were a third navigation layer over two short cards.
+    expect(fs.existsSync(path.join(APP_DIR, "dashboard/settings/account/layout.tsx"))).toBe(false);
+  });
+
+  it("the audit log keeps its own route — it is a record, not a setting", () => {
+    expect(routeExists("/dashboard/settings/workspace/audit")).toBe(true);
+    expect(read("dashboard/settings/workspace/page.tsx")).toContain(
+      "/dashboard/settings/workspace/audit"
+    );
   });
 });

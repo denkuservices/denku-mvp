@@ -194,7 +194,7 @@ export default async function WorkspaceAuditPage() {
         { label: "Audit" },
       ]}
     >
-      <Link href="/dashboard/settings/workspace/general">
+      <Link href="/dashboard/settings/workspace">
         <Button variant="ghost" size="sm" className="mb-4">
           <ArrowLeft className="h-4 w-4" />
           Back
