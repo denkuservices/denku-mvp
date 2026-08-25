@@ -29,11 +29,11 @@ export function LanguageSelect({
     const selected = LANGUAGE_OPTIONS.find((opt) => opt.value === value);
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-zinc-900">{label}</p>
-        <div className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base">
-          <span className="text-zinc-900">{selected?.label || value || "—"}</span>
+        <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
+        <div className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-base">
+          <span className="text-navy-700 dark:text-white">{selected?.label || value || "—"}</span>
         </div>
-        {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+        {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
       </div>
     );
   }
@@ -43,9 +43,9 @@ export function LanguageSelect({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
+      <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
       <Select value={selectValue} onValueChange={onChange}>
-        <SelectTrigger className="w-full h-12 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base shadow-sm hover:bg-zinc-50 focus:ring-4 focus:ring-zinc-100">
+        <SelectTrigger className="w-full h-12 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-4 focus:ring-brand-500/15">
           <SelectValue placeholder="Select a language" />
         </SelectTrigger>
         <SelectContent className="max-h-[260px]">
@@ -56,7 +56,7 @@ export function LanguageSelect({
           ))}
         </SelectContent>
       </Select>
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+      {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
     </div>
   );
 }

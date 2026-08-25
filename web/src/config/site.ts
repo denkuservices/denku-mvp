@@ -9,7 +9,7 @@ export const siteConfig = {
   url: "https://www.denku.io",
   ogImage: "https://www.denku.io/og.jpg",
   description:
-    "Denku builds AI voice employees that answer every call, qualify every lead, and book every appointment — 24/7.",
+    "Denku builds AI voice employees that answer your calls 24/7, capture every lead, and turn conversations into booked appointments and tickets.",
   links: {
     twitter: "https://twitter.com/denku-ai",
     github: "https://github.com/denku-ai/denku-ai",

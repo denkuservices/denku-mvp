@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * then redirects to Meta's authorize dialog.
  */
 export async function GET(req: NextRequest) {
-  const dash = new URL("/dashboard/instagram", req.nextUrl.origin);
+  const dash = new URL("/dashboard/channels/instagram", req.nextUrl.origin);
 
   if (!isInstagramOAuthConfigured()) {
     dash.searchParams.set("error", "not_configured");
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/login?next=/dashboard/instagram", req.nextUrl.origin));
+    return NextResponse.redirect(new URL("/login?next=/dashboard/channels/instagram", req.nextUrl.origin));
   }
 
   let orgId: string | null = null;

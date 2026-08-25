@@ -1,32 +1,37 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Info, Moon, Sun, Menu } from 'lucide-react';
+import { Moon, Sun, Menu, User } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useProfileIdentity } from './useProfileIdentity';
 
 interface ProfileWidgetProps {
   onToggleMobileNav?: () => void;
 }
 
 /**
- * Horizon UI Profile Widget (right-side capsule)
- * Extracted from DashboardHeader for global use across all authenticated pages.
- * Includes: search, bell, info, moon/sun toggle, and avatar dropdown.
- * On mobile: includes hamburger menu button.
+ * The authenticated topbar capsule (Sprint 9 · T1–T3).
+ *
+ * Holds exactly three things, and nothing decorative: the mobile menu button, the
+ * theme toggle, and the account menu. The global search box, the notifications bell
+ * and the info button were removed — all three were controls a user could focus and
+ * click that did nothing (the search stored typed text and never read it back).
+ *
+ * Identity comes from the signed-in profile: the user's own avatar when they have one,
+ * otherwise their initials. Never a stock template image.
  */
 export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps) {
-  const [searchValue, setSearchValue] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [avatarSrc, setAvatarSrc] = useState('/horizon/img/avatars/avatar4.png');
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const identity = useProfileIdentity();
 
   // Initialize dark mode from localStorage or system preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     let isDark = false;
-    
+
     if (savedTheme === 'dark') {
       isDark = true;
       document.documentElement.classList.add('dark');
@@ -40,31 +45,8 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
         document.documentElement.classList.add('dark');
       }
     }
-    
-    setIsDarkMode(isDark);
-  }, []);
 
-  // Fetch user avatar on mount
-  useEffect(() => {
-    async function fetchAvatar() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('avatar_url')
-            .eq('auth_user_id', user.id)
-            .limit(1);
-          if (profiles && profiles[0]?.avatar_url) {
-            setAvatarSrc(profiles[0].avatar_url);
-          }
-        }
-      } catch (error) {
-        // Silently fail, use default avatar
-      }
-    }
-    fetchAvatar();
+    setIsDarkMode(isDark);
   }, []);
 
   // Close profile dropdown when clicking outside
@@ -82,7 +64,7 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
-    
+
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -92,26 +74,12 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
     }
   };
 
-  return (
-    <div className="flex w-full max-w-full items-center justify-end sm:w-[420px] sm:max-w-[420px]">
-      <div className="flex h-[61px] w-full flex-nowrap items-center justify-between rounded-full bg-white px-2 shadow-shadow-100 dark:!bg-navy-800 dark:shadow-none sm:w-[420px] sm:max-w-[420px]">
-        {/* Search section - first */}
-        <div className="flex h-[45px] min-w-0 flex-1 items-center gap-2 rounded-full bg-lightPrimary px-4 dark:bg-navy-900/20">
-          <span className="shrink-0 text-gray-500 dark:text-white/70">
-            <Search className="h-4 w-4" />
-          </span>
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search..."
-            data-testid="dashboard-search-input"
-            className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-navy-700 outline-none placeholder:font-medium placeholder:text-gray-400 dark:text-white dark:placeholder:text-white/50"
-          />
-        </div>
+  const showImage = Boolean(identity.avatarUrl) && !avatarFailed;
 
-        {/* Mobile hamburger menu button - after search, mobile only */}
-        {/* MUST be hidden on desktop: lg:hidden (do not remove) */}
+  return (
+    <div className="flex items-center justify-end">
+      <div className="flex h-[61px] flex-nowrap items-center gap-1 rounded-full bg-white px-2 shadow-shadow-100 dark:!bg-navy-800 dark:shadow-none">
+        {/* Mobile menu button — hidden on desktop (do not remove). */}
         {onToggleMobileNav && (
           <button
             type="button"
@@ -120,60 +88,47 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
               e.stopPropagation();
               onToggleMobileNav();
             }}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10 lg:!hidden"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-white/70 dark:hover:bg-white/10 lg:!hidden"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </button>
         )}
 
-        {/* Icons: Bell, Info, Moon, Avatar - no separators */}
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
-
-        <button
-          className="hidden shrink-0 sm:flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
-          aria-label="Information"
-        >
-          <Info className="h-5 w-5" />
-        </button>
-
-        <button
+          type="button"
           onClick={toggleDarkMode}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/10"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-white/70 dark:hover:bg-white/10"
           aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {isDarkMode ? (
-            <Sun className="h-5 w-5" />
-          ) : (
-            <Moon className="h-5 w-5" />
-          )}
+          {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
 
-        {/* Avatar Dropdown */}
+        {/* Account menu */}
         <div className="relative shrink-0" ref={profileDropdownRef}>
           <button
+            type="button"
             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-white dark:ring-navy-700"
-            aria-label="Profile menu"
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-500 text-sm font-semibold text-white ring-2 ring-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:ring-navy-700"
+            aria-label="Account menu"
+            aria-expanded={showProfileDropdown}
           >
-            <img
-              src={avatarSrc}
-              alt="Profile"
-              className="h-full w-full rounded-full object-cover"
-              onError={(e) => {
-                // Fallback to default avatar on error
-                (e.target as HTMLImageElement).src = '/horizon/img/avatars/avatar4.png';
-              }}
-            />
+            {showImage ? (
+              <img
+                src={identity.avatarUrl as string}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : identity.initials ? (
+              <span aria-hidden="true">{identity.initials}</span>
+            ) : (
+              <User className="h-5 w-5" aria-hidden="true" />
+            )}
           </button>
           {showProfileDropdown && (
             <div className="absolute right-0 top-12 z-[9999]">
-              <ProfileDropdown avatarSrc={avatarSrc} />
+              <ProfileDropdown firstName={identity.firstName} />
             </div>
           )}
         </div>

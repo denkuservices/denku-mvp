@@ -83,10 +83,10 @@ export function AuditLogList({ logs }: AuditLogListProps) {
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-          <p className="text-sm font-semibold text-zinc-900">No audit entries</p>
-          <p className="mt-1 text-sm text-zinc-600">
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
+          <p className="text-sm font-semibold text-navy-700 dark:text-white">No audit entries</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Audit entries will appear here when workspace settings are updated.
           </p>
         </div>
@@ -95,8 +95,8 @@ export function AuditLogList({ logs }: AuditLogListProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="divide-y divide-zinc-200">
+    <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 shadow-sm">
+      <div className="divide-y divide-gray-200 dark:divide-white/10">
         {visibleLogs.map((log) => {
           const isExpanded = expandedIds.has(log.id);
           const hasChanges = log.changes.length > 0;
@@ -107,11 +107,11 @@ export function AuditLogList({ logs }: AuditLogListProps) {
                 {/* Left: Timestamp and Action */}
                 <div className="flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-zinc-900">{formatAction(log.action)}</span>
-                    <span className="text-xs text-zinc-500">{formatEntityType(log.entity_type)}</span>
+                    <span className="text-sm font-semibold text-navy-700 dark:text-white">{formatAction(log.action)}</span>
+                    <span className="text-xs text-gray-500">{formatEntityType(log.entity_type)}</span>
                   </div>
-                  <p className="text-xs text-zinc-500">{formatTimestamp(log.created_at)}</p>
-                  <p className="text-xs text-zinc-600">
+                  <p className="text-xs text-gray-500">{formatTimestamp(log.created_at)}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     by <span className="font-medium">{getActorDisplayName(log.actor_name, log.actor_email)}</span>
                   </p>
                 </div>
@@ -121,7 +121,7 @@ export function AuditLogList({ logs }: AuditLogListProps) {
                   <button
                     type="button"
                     onClick={() => toggleExpanded(log.id)}
-                    className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
+                    className="flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-white/5"
                   >
                     <span>{isExpanded ? "Hide" : "Show"} changes</span>
                     <svg
@@ -138,28 +138,28 @@ export function AuditLogList({ logs }: AuditLogListProps) {
 
               {/* Expanded: Field changes */}
               {isExpanded && hasChanges && (
-                <div className="mt-4 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
                   {log.changes.map((change, idx) => (
                     <div key={idx} className="space-y-1.5">
-                      <p className="text-xs font-semibold text-zinc-900">
+                      <p className="text-xs font-semibold text-navy-700 dark:text-white">
                         {change.field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                       </p>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <div className="rounded-lg border border-zinc-200 bg-white p-2.5">
-                          <p className="text-xs font-medium text-zinc-500">Before</p>
-                          <p className="mt-0.5 text-sm text-zinc-900">
+                        <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-2.5">
+                          <p className="text-xs font-medium text-gray-500">Before</p>
+                          <p className="mt-0.5 text-sm text-navy-700 dark:text-white">
                             {change.before_value === null ? (
-                              <span className="italic text-zinc-400">(empty)</span>
+                              <span className="italic text-gray-400">(empty)</span>
                             ) : (
                               change.before_value
                             )}
                           </p>
                         </div>
-                        <div className="rounded-lg border border-zinc-200 bg-white p-2.5">
-                          <p className="text-xs font-medium text-zinc-500">After</p>
-                          <p className="mt-0.5 text-sm text-zinc-900">
+                        <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-2.5">
+                          <p className="text-xs font-medium text-gray-500">After</p>
+                          <p className="mt-0.5 text-sm text-navy-700 dark:text-white">
                             {change.after_value === null ? (
-                              <span className="italic text-zinc-400">(empty)</span>
+                              <span className="italic text-gray-400">(empty)</span>
                             ) : (
                               change.after_value
                             )}
@@ -175,11 +175,11 @@ export function AuditLogList({ logs }: AuditLogListProps) {
         })}
       </div>
       {hasMore && (
-        <div className="p-4 border-t border-zinc-200">
+        <div className="p-4 border-t border-gray-200 dark:border-white/10">
           <button
             type="button"
             onClick={() => setShowAll(!showAll)}
-            className="text-sm text-zinc-600 hover:text-zinc-900 font-medium"
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-navy-700 dark:hover:text-white font-medium"
           >
             {showAll ? "Show less" : `Show more (${logs.length - 5} more)`}
           </button>

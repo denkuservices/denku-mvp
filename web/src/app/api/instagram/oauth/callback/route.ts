@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  * persists an encrypted per-org connection. No business logic beyond connect.
  */
 export async function GET(req: NextRequest) {
-  const dash = new URL("/dashboard/instagram", req.nextUrl.origin);
+  const dash = new URL("/dashboard/channels/instagram", req.nextUrl.origin);
   const fail = (reason: string) => {
     dash.searchParams.set("error", reason);
     return NextResponse.redirect(dash);
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/login?next=/dashboard/instagram", url.origin));
+  if (!user) return NextResponse.redirect(new URL("/login?next=/dashboard/channels/instagram", url.origin));
 
   let sessionOrgId: string | null = null;
   try {

@@ -1,0 +1,404 @@
+"use client";
+
+import * as React from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Plus, X } from "lucide-react";
+import {
+  updateAgentConfiguration,
+  updateAgentPromptOverride,
+  type UpdateAgentConfigResult,
+  type UpdateAgentPromptOverrideResult,
+} from "@/app/(app)/dashboard/settings/_actions/agents";
+import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
+import { Surface, CONTROL_CLASS } from "../ui";
+import {
+  AGENT_TYPES,
+  PRESETS,
+  SETUP_LANGUAGES,
+  toSetupFormState,
+  toUpdateAgentConfigPayload,
+  type SetupFormState,
+} from "./setupFields";
+
+/**
+ * Setup — the employee editor (Sprint 10 / R-094).
+ *
+ * This is the form that used to live at Settings → Agents → [id]. It moved here because the
+ * employee is what a customer thinks they are configuring; Settings owned it only because that
+ * is where it was first built. Four surfaces could write this row, one of them a phone-line tab.
+ * Now there is one.
+ *
+ * **The write path did not move with it.** Both server actions are called exactly as before —
+ * they own validation, the owner/admin gate, the paused-workspace gate, prompt derivation, the
+ * Vapi sync and the audit log. Every value collapse (`"English"` → null, preset label → id) is
+ * in `setupFields.ts` and is pinned by the parity test, because those values feed the derived
+ * system prompt a live assistant speaks from.
+ *
+ * The prompt override sits behind an `<details>` disclosure rather than a separate page: it is
+ * the one place "agent" language is sanctioned, and it is genuinely dangerous — a saved override
+ * means the employee stops following the business details above it.
+ */
+export default function SetupForm({
+  employee,
+  workspaceStatus,
+}: {
+  employee: EmployeeConfig;
+  workspaceStatus: "active" | "paused";
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [status, setStatus] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const initial = React.useMemo(
+    () =>
+      toSetupFormState({
+        name: employee.name,
+        language: employee.language,
+        timezone: employee.timezone,
+        behaviorPreset: employee.behaviorPreset,
+        agentType: employee.agentType,
+        firstMessage: employee.firstMessage,
+        emphasisPoints: employee.emphasisPoints,
+        businessContext: employee.businessContext,
+      }),
+    [employee]
+  );
+
+  const [form, setForm] = React.useState<SetupFormState>(initial);
+  const [newPoint, setNewPoint] = React.useState("");
+  const [override, setOverride] = React.useState(employee.systemPromptOverride ?? "");
+
+  // Re-sync when the server sends fresh props (after router.refresh()).
+  React.useEffect(() => {
+    setForm(initial);
+    setOverride(employee.systemPromptOverride ?? "");
+  }, [initial, employee.systemPromptOverride]);
+
+  const paused = workspaceStatus === "paused";
+
+  const isDirty =
+    form.language !== initial.language ||
+    form.timezone !== initial.timezone ||
+    form.behaviorPresetId !== initial.behaviorPresetId ||
+    form.agentType !== initial.agentType ||
+    form.firstMessage !== initial.firstMessage ||
+    JSON.stringify(form.emphasisPoints) !== JSON.stringify(initial.emphasisPoints);
+
+  const overrideDirty = override !== (employee.systemPromptOverride ?? "");
+
+  const set = <K extends keyof SetupFormState>(key: K, value: SetupFormState[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const addPoint = () => {
+    const v = newPoint.trim();
+    if (!v) return;
+    set("emphasisPoints", [...form.emphasisPoints, v]);
+    setNewPoint("");
+  };
+
+  const handleSave = () => {
+    if (!isDirty || isPending || paused) return;
+    startTransition(async () => {
+      setStatus(null);
+      // business_context is owned by the Knowledge tab; send what is stored so a Setup save
+      // never blanks it (the action only overwrites the key when it is present).
+      const result: UpdateAgentConfigResult = await updateAgentConfiguration(
+        toUpdateAgentConfigPayload(employee.id, { ...form, businessContext: initial.businessContext })
+      );
+      if (result.ok) {
+        setStatus({ type: "success", text: syncNote(result.data.vapiSyncStatus) });
+        router.refresh();
+      } else {
+        setStatus({ type: "error", text: result.error });
+      }
+    });
+  };
+
+  const handleSaveOverride = () => {
+    if (!overrideDirty || isPending || paused) return;
+    startTransition(async () => {
+      setStatus(null);
+      const result: UpdateAgentPromptOverrideResult = await updateAgentPromptOverride({
+        agentId: employee.id,
+        system_prompt_override: override.trim() || null,
+      });
+      if (result.ok) {
+        setStatus({ type: "success", text: syncNote(result.data.vapiSyncStatus) });
+        router.refresh();
+      } else {
+        setStatus({ type: "error", text: result.error });
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {paused ? (
+        <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          This workspace is paused, so configuration can&apos;t be changed. Resume it to edit.
+        </p>
+      ) : null}
+
+      {status ? (
+        <p
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            status.type === "success"
+              ? "border-green-200 bg-green-50 text-green-800 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300"
+              : "border-red-200 bg-red-50 text-red-800 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+          }`}
+        >
+          {status.text}
+        </p>
+      ) : null}
+
+      <Surface>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field label="Language" hint="What this employee speaks on a call.">
+            <select
+              value={form.language}
+              onChange={(e) => set("language", e.target.value)}
+              disabled={paused}
+              className={`${CONTROL_CLASS} w-full`}
+            >
+              {SETUP_LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Timezone" hint="Used when it talks about your hours.">
+            <input
+              type="text"
+              value={form.timezone}
+              onChange={(e) => set("timezone", e.target.value)}
+              disabled={paused}
+              placeholder="UTC"
+              className={`${CONTROL_CLASS} w-full`}
+            />
+          </Field>
+
+          <Field label="Role" hint="What this employee is mainly for.">
+            <select
+              value={form.agentType}
+              onChange={(e) => set("agentType", e.target.value)}
+              disabled={paused}
+              className={`${CONTROL_CLASS} w-full`}
+            >
+              <option value="">Not set</option>
+              {AGENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Personality" hint="How it sounds on most calls.">
+            <select
+              value={form.behaviorPresetId ?? ""}
+              onChange={(e) => set("behaviorPresetId", e.target.value || null)}
+              disabled={paused}
+              className={`${CONTROL_CLASS} w-full`}
+            >
+              <option value="">Not set</option>
+              {PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="mt-5">
+          <Field label="Opening line" hint="The first thing a caller hears.">
+            <textarea
+              value={form.firstMessage}
+              onChange={(e) => set("firstMessage", e.target.value)}
+              disabled={paused}
+              rows={3}
+              className={`${CONTROL_CLASS} h-auto w-full py-2`}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5">
+          <Field label="Emphasis points" hint="Things it should always remember to do.">
+            <div className="flex flex-wrap gap-2">
+              {form.emphasisPoints.map((point, i) => (
+                <span
+                  key={`${point}-${i}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm text-navy-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
+                >
+                  {point}
+                  <button
+                    type="button"
+                    onClick={() => set("emphasisPoints", form.emphasisPoints.filter((_, idx) => idx !== i))}
+                    disabled={paused}
+                    aria-label={`Remove ${point}`}
+                    className="text-gray-400 transition hover:text-red-500 disabled:opacity-40"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ))}
+              {form.emphasisPoints.length === 0 ? (
+                <span className="text-sm text-gray-500">None yet.</span>
+              ) : null}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newPoint}
+                onChange={(e) => setNewPoint(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addPoint();
+                  }
+                }}
+                disabled={paused}
+                placeholder="e.g. Always confirm the address"
+                aria-label="New emphasis point"
+                className={`${CONTROL_CLASS} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={addPoint}
+                disabled={paused || !newPoint.trim()}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-40 dark:border-white/10 dark:text-gray-200"
+              >
+                <Plus className="h-4 w-4" /> Add
+              </button>
+            </div>
+          </Field>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!isDirty || isPending || paused}
+            title={paused ? "Workspace is paused" : undefined}
+            className="inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? "Saving…" : "Save changes"}
+          </button>
+          {isDirty && !paused ? <span className="text-xs text-gray-500">Unsaved changes</span> : null}
+          <span className="ml-auto text-xs text-gray-400">{syncLabel(employee)}</span>
+        </div>
+      </Surface>
+
+      {/* Advanced — the sanctioned "agent" context, and the one control that can override
+          everything above it. Collapsed by default so it is a deliberate choice to open. */}
+      <Surface>
+        <details className="group">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-navy-700 marker:content-none dark:text-white">
+            <span className="inline-flex items-center gap-2">
+              <span className="text-gray-400 transition group-open:rotate-90">▸</span>
+              Advanced — system prompt override
+            </span>
+          </summary>
+
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Replaces the instructions Denku writes from the settings above and the business
+              details in Knowledge. While this is set, changes there stop affecting how this
+              employee answers. Leave it empty unless you need full control.
+            </p>
+
+            {employee.systemPromptOverride ? (
+              <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                An override is active right now.
+              </p>
+            ) : null}
+
+            <textarea
+              value={override}
+              onChange={(e) => setOverride(e.target.value)}
+              disabled={paused}
+              rows={10}
+              placeholder="Leave empty to use the instructions derived from Setup and Knowledge."
+              aria-label="System prompt override"
+              className={`${CONTROL_CLASS} h-auto w-full py-2 font-mono text-xs`}
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveOverride}
+                disabled={!overrideDirty || isPending || paused}
+                className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
+              >
+                {isPending ? "Saving…" : "Save override"}
+              </button>
+              {override.trim() && !paused ? (
+                <button
+                  type="button"
+                  onClick={() => setOverride("")}
+                  disabled={isPending}
+                  className="text-sm font-medium text-gray-500 transition hover:text-red-600 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            {employee.effectiveSystemPrompt ? (
+              <div className="mt-2">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Instructions in effect now
+                </p>
+                <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-100 bg-gray-50 p-3 font-mono text-xs text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                  {employee.effectiveSystemPrompt}
+                </pre>
+              </div>
+            ) : null}
+          </div>
+        </details>
+      </Surface>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">{label}</label>
+      {children}
+      {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
+    </div>
+  );
+}
+
+/** Report the sync outcome honestly — a failed Vapi push is not a successful save. */
+function syncNote(vapiSyncStatus: string | null): string {
+  if (vapiSyncStatus && vapiSyncStatus.startsWith("error:")) {
+    return `Saved, but syncing to the phone system failed: ${vapiSyncStatus.replace("error:", "").trim()}`;
+  }
+  return "Saved. Your AI employee is using the new settings.";
+}
+
+function syncLabel(employee: EmployeeConfig): string {
+  if (!employee.vapiSyncStatus) return "Never synced";
+  if (employee.vapiSyncStatus.startsWith("error:")) return "Last sync failed";
+  if (!employee.vapiSyncedAt) return "Synced";
+  try {
+    return `Synced ${new Date(employee.vapiSyncedAt).toLocaleString()}`;
+  } catch {
+    return "Synced";
+  }
+}

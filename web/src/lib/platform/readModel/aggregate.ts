@@ -148,3 +148,112 @@ export async function getArtifactCounts(
     return empty;
   }
 }
+
+// --- Sprint 12: ranges, comparison and rhythm -------------------------------
+
+/** An analytics range, in days. The three the legacy analytics offered. */
+export const ANALYTICS_RANGES = [7, 30, 90] as const;
+export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
+
+export function resolveRange(value: string | null | undefined): AnalyticsRange {
+  const n = Number((value ?? "").replace(/[^0-9]/g, ""));
+  return (ANALYTICS_RANGES as readonly number[]).includes(n) ? (n as AnalyticsRange) : 7;
+}
+
+/** Per-hour-of-day counts (UTC), zero-filled — the "when is my phone busiest" shape. */
+export function aggregateByHour(views: ConversationView[]): number[] {
+  const buckets = new Array(24).fill(0) as number[];
+  for (const v of views) {
+    const ts = v.lastActivityAt ?? v.startedAt;
+    if (!ts) continue;
+    const h = new Date(ts).getUTCHours();
+    if (Number.isFinite(h) && h >= 0 && h < 24) buckets[h] += 1;
+  }
+  return buckets;
+}
+
+/** UTC midnight `days` ago. */
+function cutoff(days: number, now = new Date()): number {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1));
+}
+
+/** Split a scan into the current window and the one immediately before it. Pure. */
+export function splitByPeriod(
+  views: ConversationView[],
+  days: number,
+  now = new Date()
+): { current: ConversationView[]; previous: ConversationView[] } {
+  const startCurrent = cutoff(days, now);
+  const startPrevious = cutoff(days * 2, now);
+  const current: ConversationView[] = [];
+  const previous: ConversationView[] = [];
+
+  for (const v of views) {
+    const ts = Date.parse(v.lastActivityAt ?? v.startedAt ?? "");
+    if (Number.isNaN(ts)) continue;
+    if (ts >= startCurrent) current.push(v);
+    else if (ts >= startPrevious) previous.push(v);
+  }
+  return { current, previous };
+}
+
+export interface RangedAggregates extends ConversationAggregates {
+  byHour: number[];
+  /** Conversation count over the immediately preceding window of the same length. */
+  previousTotal: number;
+  /**
+   * True when the scan hit its bound, so the *previous* period is under-counted and any
+   * comparison against it would flatter the current one. Callers must not render a delta.
+   */
+  comparisonBounded: boolean;
+}
+
+/**
+ * Range-aware aggregates (Sprint 12).
+ *
+ * The scan is still bounded, and that bound is still reported rather than hidden — but the
+ * figures are now scoped to the requested window instead of "whatever the last N conversations
+ * happened to be", so a 30-day range means thirty days.
+ *
+ * The comparison is deliberately suppressed when the scan is bounded: a truncated scan loses
+ * the OLDEST rows first, which is exactly the previous period, and a delta computed against a
+ * partial baseline reads as growth that did not happen (R-018).
+ */
+export async function getRangedAggregates(
+  orgId: string,
+  opts: { range?: AnalyticsRange; limit?: number } = {},
+  db: SupabaseClient = supabaseAdmin
+): Promise<RangedAggregates> {
+  const range = opts.range ?? 7;
+  const limit = opts.limit ?? 1000;
+  const empty: RangedAggregates = {
+    total: 0,
+    byChannel: {},
+    byEmployee: [],
+    byDay: aggregateByDay([], range),
+    byIntent: {},
+    byHour: new Array(24).fill(0),
+    limited: false,
+    previousTotal: 0,
+    comparisonBounded: false,
+    windowDays: range,
+  };
+  if (!orgId) return empty;
+
+  const views = await listConversationViews(orgId, { limit }, db);
+  const bounded = views.length >= limit;
+  const { current, previous } = splitByPeriod(views, range);
+
+  return {
+    total: current.length,
+    byChannel: aggregateByChannel(current),
+    byEmployee: aggregateByEmployee(current),
+    byDay: aggregateByDay(current, range),
+    byIntent: aggregateByIntent(current),
+    byHour: aggregateByHour(current),
+    limited: bounded,
+    previousTotal: previous.length,
+    comparisonBounded: bounded,
+    windowDays: range,
+  };
+}

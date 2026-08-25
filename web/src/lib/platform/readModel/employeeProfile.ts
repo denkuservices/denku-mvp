@@ -4,12 +4,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
- * Employee configuration, read-only (Phase 5 — the Setup and Knowledge tabs).
+ * Employee configuration reads (Phase 5 · extended for Sprint 10 / R-094).
  *
- * Deliberately a **read** model, not an edit surface. Editing lives in the existing agent
- * settings pages, which own validation, the Vapi sync and manifest minting; duplicating any of
- * that here would create a second way to change how a live assistant behaves. The tabs show what
- * is configured and link through to change it (folding those forms in properly is R-094).
+ * `getEmployeeProfile` renders the *display* shape. `getEmployeeConfig` returns the raw stored
+ * values the Setup and Knowledge editors need to populate their inputs.
+ *
+ * Both are reads only. Writing still goes through `updateAgentConfiguration` /
+ * `updateAgentPromptOverride`, which own validation, the role and paused gates, prompt
+ * derivation and the Vapi sync — Sprint 10 moved the forms onto the employee, it did not give
+ * the read model a way to change a live assistant.
  *
  * Org-scoped and never throws — a failed read renders an honest empty state.
  */
@@ -106,6 +109,85 @@ export async function getEmployeeProfile(
     };
   } catch (err) {
     console.error("[PLATFORM][READMODEL][EMPLOYEE_PROFILE]", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/**
+ * The raw, editable configuration for one employee (Sprint 10 · the Setup/Knowledge editors).
+ *
+ * Deliberately separate from `EmployeeProfile`: that one is shaped for reading (a flattened
+ * business context, a `hasPromptOverride` boolean), while an editor needs the stored values
+ * themselves. Sync status rides along so Setup can report the last Vapi sync exactly as the
+ * page it replaces did.
+ */
+export interface EmployeeConfig {
+  id: string;
+  name: string;
+  language: string | null;
+  timezone: string | null;
+  behaviorPreset: string | null;
+  agentType: string | null;
+  firstMessage: string | null;
+  emphasisPoints: unknown;
+  businessContext: unknown;
+  systemPromptOverride: string | null;
+  effectiveSystemPrompt: string | null;
+  vapiSyncStatus: string | null;
+  vapiSyncedAt: string | null;
+}
+
+const CONFIG_COLUMNS =
+  "id, name, language, timezone, behavior_preset, agent_type, first_message, emphasis_points, " +
+  "business_context, system_prompt_override, effective_system_prompt, vapi_sync_status, vapi_synced_at";
+
+export async function getEmployeeConfig(
+  orgId: string,
+  employeeId: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<EmployeeConfig | null> {
+  if (!orgId || !employeeId) return null;
+  try {
+    const { data, error } = await db
+      .from("agents")
+      .select(CONFIG_COLUMNS)
+      .eq("org_id", orgId)
+      .eq("id", employeeId)
+      .maybeSingle<{
+        id: string;
+        name: string | null;
+        language: string | null;
+        timezone: string | null;
+        behavior_preset: string | null;
+        agent_type: string | null;
+        first_message: string | null;
+        emphasis_points: unknown;
+        business_context: unknown;
+        system_prompt_override: string | null;
+        effective_system_prompt: string | null;
+        vapi_sync_status: string | null;
+        vapi_synced_at: string | null;
+      }>();
+
+    if (error || !data) return null;
+
+    return {
+      id: String(data.id),
+      name: data.name ?? "AI Employee",
+      language: data.language,
+      timezone: data.timezone,
+      behaviorPreset: data.behavior_preset,
+      agentType: data.agent_type,
+      firstMessage: data.first_message,
+      emphasisPoints: data.emphasis_points,
+      businessContext: data.business_context,
+      systemPromptOverride: data.system_prompt_override,
+      effectiveSystemPrompt: data.effective_system_prompt,
+      vapiSyncStatus: data.vapi_sync_status,
+      vapiSyncedAt: data.vapi_synced_at,
+    };
+  } catch (err) {
+    console.error("[PLATFORM][READMODEL][EMPLOYEE_CONFIG]", err instanceof Error ? err.message : String(err));
     return null;
   }
 }

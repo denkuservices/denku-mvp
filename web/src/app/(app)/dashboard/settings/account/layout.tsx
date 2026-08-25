@@ -25,17 +25,17 @@ export default function AccountLayout({
       </Link>
 
       {/* Header with tabs */}
-      <div className="rounded-2xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50 p-6 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gradient-to-b from-white to-gray-50 dark:to-navy-900 p-6 shadow-sm">
         {/* Breadcrumb */}
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Link href="/dashboard" className="hover:underline">
             Dashboard
           </Link>
-          <span className="text-zinc-400">/</span>
+          <span className="text-gray-400">/</span>
           <Link href="/dashboard/settings" className="hover:underline">
             Settings
           </Link>
-          <span className="text-zinc-400">/</span>
+          <span className="text-gray-400">/</span>
           <span className="text-foreground font-medium">Account</span>
         </div>
 
@@ -43,7 +43,7 @@ export default function AccountLayout({
         <p className="mt-1 text-sm text-muted-foreground">Manage your personal account settings.</p>
 
         {/* Tabs */}
-        <div className="mt-6 flex gap-1 border-b border-zinc-200">
+        <div className="mt-6 flex gap-1 border-b border-gray-200 dark:border-white/10">
           <TabLink 
             href="/dashboard/settings/account/profile" 
             label="Profile" 

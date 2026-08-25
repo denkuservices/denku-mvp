@@ -18,7 +18,7 @@ const features = [
   {
     name: 'Secure by Design',
     description:
-      'From webhook authentication to SOC 2 compliance, we provide the security foundation you need.',
+      'From webhook authentication to tenant isolation and audited access, we provide the security foundation you need.',
     icon: Lock,
   },
 ];

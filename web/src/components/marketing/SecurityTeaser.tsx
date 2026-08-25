@@ -8,7 +8,7 @@ const pillars = [
   { icon: Shield, title: 'Multi-tenant isolation', desc: 'Strict data boundaries between every workspace. RBAC enforced at every layer.' },
   { icon: FileText, title: 'Audit logs & webhooks', desc: 'Immutable audit trails and webhook signature verification on all events.' },
   { icon: Lock, title: 'Encryption everywhere', desc: 'AES-256 at rest and TLS 1.3 in transit. Zero plaintext secrets.' },
-  { icon: Server, title: 'Infrastructure security', desc: 'SOC 2-aligned infrastructure. HIPAA compliance available on Scale.' },
+  { icon: Server, title: 'Infrastructure security', desc: 'Security-first infrastructure: encrypted data, tenant isolation, audited access. Formal SOC 2 / HIPAA are on our roadmap, not yet certified.' },
 ];
 
 export function SecurityTeaser() {
@@ -19,7 +19,7 @@ export function SecurityTeaser() {
           <Reveal>
             <div className="brand-eyebrow mb-5">Security &amp; compliance</div>
             <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
-              Enterprise-grade security,
+              Security you can verify,
               <br />
               <em className="font-medium italic text-[#1B6E6E]">without</em> the complexity.
             </h2>

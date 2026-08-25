@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, AlertTriangle, CheckCircle2, Ticket, Calendar, Radio, UserCheck } from "lucide-react";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationAggregates, getArtifactCounts } from "@/lib/platform/readModel/aggregate";
+import { getEstimatedSavings } from "@/lib/platform/readModel/savings";
 import { getOutcomeCounts } from "@/lib/platform/readModel/outcomes";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
 import { getTeamActivity, employeeAttention } from "@/lib/platform/readModel/employeeActivity";
@@ -12,6 +13,7 @@ import type { ConnectionHealth } from "@/lib/platform/connectionHealth";
 import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
+import TrendChart from "../charts/TrendChart";
 import ChannelBadge from "../ChannelBadge";
 import { formatWhen, titleCase } from "../format";
 import { Surface, SectionHeader, StatCard, EmptyState, Pill, ListContainer, ListRow } from "../ui";
@@ -34,7 +36,7 @@ const WINDOW_DAYS = 7;
 export default async function PlatformDashboard() {
   const orgId = await resolveActiveOrgId();
 
-  const [agg, artifacts, outcomes, employees, recent, connectedChannels, needsHuman] = orgId
+  const [agg, artifacts, outcomes, employees, recent, connectedChannels, needsHuman, savings] = orgId
     ? await Promise.all([
         getConversationAggregates(orgId, { windowDays: WINDOW_DAYS, limit: 500 }),
         getArtifactCounts(orgId),
@@ -43,6 +45,7 @@ export default async function PlatformDashboard() {
         listConversationViews(orgId, { limit: 6 }),
         listConnectedChannelViews(orgId),
         countNeedsHuman(orgId),
+        getEstimatedSavings(orgId, WINDOW_DAYS),
       ])
     : [
         { total: 0, byChannel: {}, byEmployee: [], byDay: [], byIntent: {}, limited: false, windowDays: WINDOW_DAYS },
@@ -57,6 +60,7 @@ export default async function PlatformDashboard() {
         [],
         [],
         [],
+        null,
         null,
       ];
 
@@ -222,6 +226,19 @@ export default async function PlatformDashboard() {
             href="/dashboard/crm/requests?type=ticket"
           />
         </div>
+
+        {/* The outcome translated into money. An estimate, and labelled as one — $25/hour is a
+            stand-in for a human answering the phone, not a measured rate for this business. */}
+        {savings && savings.minutes > 0 ? (
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+            Roughly{" "}
+            <span className="font-semibold tabular-nums text-navy-700 dark:text-white">
+              ${Math.round(savings.usd).toLocaleString()}
+            </span>{" "}
+            of answering time your team didn&apos;t have to cover — an estimate based on{" "}
+            {Math.round(savings.minutes)} minutes handled, valued at $25/hour.
+          </p>
+        ) : null}
       </section>
 
       {/* 3. WHO DID IT — the AI team, with real outcomes per employee. */}
@@ -320,6 +337,17 @@ export default async function PlatformDashboard() {
             </Link>
           }
         />
+        <Surface className="mb-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Conversations per day
+          </p>
+          <TrendChart
+            labels={agg.byDay.map((d) => d.date.slice(5))}
+            values={agg.byDay.map((d) => d.count)}
+            height={200}
+          />
+        </Surface>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Surface>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">By channel</p>

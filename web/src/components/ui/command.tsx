@@ -66,8 +66,13 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div
+      // `min-h-9`, not `h-9` (Sprint 9 · T7): the input inside is `h-10` by default and callers
+      // raise it further (TimezoneCombobox passes `h-12` to match its trigger). A fixed 36px
+      // wrapper meant a 40–48px input overflowed it, pushing the field's text off the centre line
+      // the magnifier is aligned to. The wrapper now grows with its input, keeping icon and text
+      // on one baseline at any height.
       data-slot="command-input-wrapper"
-      className="flex h-9 items-center gap-2 border-b px-3"
+      className="flex min-h-9 items-center gap-2 border-b px-3"
     >
       <SearchIcon className="size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input

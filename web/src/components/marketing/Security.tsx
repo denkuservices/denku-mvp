@@ -54,7 +54,7 @@ export function Security() {
             Security & Compliance
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm text-gray-600">
-            Built for teams that need enterprise-grade security without the complexity.
+            Strong, practical security: encryption in transit, tenant-scoped data, webhook authentication.
           </p>
         </div>
 

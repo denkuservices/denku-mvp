@@ -22,6 +22,7 @@ import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
 import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import PlatformAnalytics from "../_platform/analytics/PlatformAnalytics";
+import { resolveRange } from "@/lib/platform/readModel/aggregate";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,11 @@ export default async function AnalyticsPage({
   // Employees experience is enabled; the legacy (voice) analytics otherwise. Zero
   // regression: the entire legacy body below is untouched and served when the flag is OFF.
   if (platformUxEnabled()) {
-    return <PlatformAnalytics />;
+    // Sprint 12: the range lives in the URL so a view is shareable, like every other
+    // platform filter. Resolved server-side and defaulted rather than 404-ing on junk.
+    const sp = await searchParams;
+    const raw = Array.isArray(sp?.range) ? sp.range[0] : sp?.range;
+    return <PlatformAnalytics range={resolveRange(raw)} />;
   }
 
   // Next.js 16: searchParams is a Promise, must await before use

@@ -17,7 +17,7 @@ export default function CrmTabs() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav aria-label="CRM" className="border-b border-gray-200 dark:border-white/10">
+    <nav aria-label="Customers" className="border-b border-gray-200 dark:border-white/10">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {CRM_SECTIONS.map((item) => {
           const active = isActive(item.href);

@@ -70,11 +70,11 @@ export function WorkspaceControlsCard({
   };
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-base font-semibold text-zinc-900">Workspace controls</p>
-          <p className="mt-1 text-sm text-zinc-600">Manage workspace operational state.</p>
+          <p className="text-base font-semibold text-navy-700 dark:text-white">Workspace controls</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage workspace operational state.</p>
         </div>
         {/* Workspace status badge - shows current status */}
         <WorkspaceStatusBadge
@@ -83,13 +83,13 @@ export function WorkspaceControlsCard({
         />
       </div>
 
-      <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+      <div className="mt-5 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-zinc-900">
+            <p className="text-sm font-semibold text-navy-700 dark:text-white">
               {isPaused ? "Resume workspace" : "Pause workspace"}
             </p>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               {isPaused
                 ? "Resume webhook processing and agent sync."
                 : "Pausing stops processing webhooks and disables agent sync. Calls may still reach your phone provider unless you disable the phone number routing."}
@@ -106,13 +106,13 @@ export function WorkspaceControlsCard({
               variant="outline"
               onClick={() => canControl && setOpen(true)}
               disabled={!canControl || (isPaused && !canResume)}
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               title={isPaused && isBillingPaused ? "Payment required to resume service." : undefined}
             >
               {isPaused ? "Resume workspace" : "Pause workspace"}
             </Button>
             {isPaused && isBillingPaused && (
-              <p className="text-xs text-zinc-600 text-right">
+              <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
                 Payment required to resume service.
               </p>
             )}
@@ -129,9 +129,9 @@ export function WorkspaceControlsCard({
                 {isPaused ? (
                   "Webhook processing and agent sync will resume."
                 ) : (
-                  <ul className="mt-3 space-y-2 text-sm text-zinc-600 list-disc list-inside">
+                  <ul className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
                     <li>Webhook events will not be processed</li>
-                    <li>Agent sync to Vapi will be disabled</li>
+                    <li>AI employee sync will be disabled</li>
                     <li>Existing data remains intact</li>
                     <li>You can resume anytime</li>
                   </ul>
@@ -141,7 +141,7 @@ export function WorkspaceControlsCard({
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-900">
+              <label className="text-sm font-medium text-navy-700 dark:text-white">
                 Type <span className="font-mono font-semibold">{confirmWord}</span> to confirm:
               </label>
               <input
@@ -149,7 +149,7 @@ export function WorkspaceControlsCard({
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 placeholder={confirmWord}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm focus:ring-4 focus:ring-zinc-100"
+                className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm shadow-sm focus:ring-4 focus:ring-brand-500/15"
                 autoFocus
               />
             </div>
@@ -176,7 +176,7 @@ export function WorkspaceControlsCard({
               type="button"
               onClick={handleAction}
               disabled={!isConfirmed || isPending}
-              className="rounded-xl border border-zinc-200 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white text-slate-900 shadow-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-gray-200 dark:border-white/10 bg-brand-500 px-4 py-2 text-sm font-semibold text-white text-slate-900 shadow-sm hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending
                 ? isPaused

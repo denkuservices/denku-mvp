@@ -43,9 +43,44 @@ const DEFAULT_VOICE_BY_LANGUAGE: Record<SupportedLanguage, { provider: string; v
   es: { provider: "openai", voiceId: "nova" },
 };
 
-/** Normalize any stored language string to a supported code (default en). Pure. */
+/**
+ * Every spelling of a language this system can actually speak, mapped to its code.
+ *
+ * R-135: the Setup editor persists the language **NAME** ("Spanish"), while onboarding persists
+ * the ISO **code** ("es"). The original implementation tested `startsWith("es")`, which matches
+ * the code but NOT the name — so a customer who selected Spanish got an English voice and an
+ * English transcriber, silently, with the UI still showing "Spanish". Both spellings resolve here.
+ *
+ * Keys must be lowercase. Locale forms ("es-ES", "es_MX") are handled by the base-tag fallback.
+ */
+const LANGUAGE_ALIASES: Readonly<Record<string, SupportedLanguage>> = {
+  en: "en",
+  eng: "en",
+  english: "en",
+  es: "es",
+  spa: "es",
+  spanish: "es",
+  español: "es",
+  espanol: "es",
+  castellano: "es",
+};
+
+/**
+ * Normalize any stored language string to a supported code. Pure.
+ *
+ * Unknown values fall back to `en` deliberately: voice and transcriber are only defined for the
+ * two supported languages, so an unrecognised value must resolve to something speakable rather
+ * than break the call. Anything the picker offers MUST appear above — `assistant-config.test.ts`
+ * asserts that, because a picker option with no alias is exactly the R-135 defect returning.
+ */
 export function resolveLanguage(language?: string | null): SupportedLanguage {
-  return (language ?? "").toLowerCase().startsWith("es") ? "es" : "en";
+  const raw = (language ?? "").trim().toLowerCase();
+  if (!raw) return "en";
+  const exact = LANGUAGE_ALIASES[raw];
+  if (exact) return exact;
+  // "es-ES" / "es_MX" / "en-GB" → base subtag
+  const base = raw.split(/[-_]/)[0];
+  return LANGUAGE_ALIASES[base] ?? "en";
 }
 
 /** Vapi `voice` object from language + optional explicit voiceId. Pure. */

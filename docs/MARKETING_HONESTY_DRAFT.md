@@ -1,8 +1,40 @@
 # Marketing Honesty Pass — Draft for Review (R-004)
 
-> **Status: DRAFT for owner + legal/counsel review. NOT shipped.** Sprint 6 (L5) deliberately does NOT
-> edit the live marketing copy — over-claims (especially compliance) must be reviewed by the owner and
-> counsel before any change. This catalogs each over-claim, why it's a risk, and an honest replacement.
+> ## ⚠️ STATUS UPDATED 2026-08-25 — SEVERITY 1 AND 2 ARE NOW **APPLIED** (D0-D)
+>
+> **What shipped:** every **Severity 1** compliance claim and every **Severity 2** fabricated metric
+> was removed, plus the two unambiguous Severity 3 over-claims (the absolute "book every appointment"
+> guarantee and "omnichannel"). Guarded against regression by `web/test/marketing-honesty.test.ts`
+> (6 assertions; 527 tests green).
+>
+> **Why this was applied without waiting for counsel**, against the Sprint 6 instruction below:
+> the instruction protects against *asserting something new and wrong*. Every change here is a
+> **removal or a negation** of a claim Denku cannot back — leaving a false SOC 2 / HIPAA claim on a
+> live site is the exposure; deleting it cannot create a new one. **Counsel review is still owed on
+> the replacement wording and on the security page as a whole** — that review is now about accuracy
+> of what remains, not about whether to stop claiming a certification Denku does not hold.
+>
+> **Two instances this draft missed**, found by enumerating the source on 2026-08-25 and also fixed:
+> - `app/(marketing)/pricing/page.tsx:63` — **"HIPAA compliance" sold as a Scale-plan feature row**
+>   (arguably the worst instance: it is a paid promise, not a description) → "Advanced access controls".
+> - `app/(marketing)/security/page.tsx:30` — "SOC 2-ready infrastructure" in the data-storage FAQ →
+>   an accurate description **plus an explicit "not SOC 2 or HIPAA certified"** statement.
+>
+> **One instance the label did not cure:** `ProductPreview.tsx` renders nine invented metrics. The
+> frame is now marked **"Sample data"**, which is the right fix for illustrative counts — but
+> **"Success Rate 98.5%" was removed outright**, because labelling a frame does not cure a
+> *performance claim about the product*, which is the number a buyer repeats back.
+>
+> **Still open (deliberately):** Severity 3's `OutcomesStrip` "Instant call summaries … sent to your
+> inbox" — genuinely state-dependent (true once `ARTIFACT_NOTIFICATIONS_ENABLED` is on, which is D0
+> Phase 6). Re-check at the go-live checklist rather than softening copy that is about to become true.
+>
+> ---
+>
+> **Original status (superseded): DRAFT for owner + legal/counsel review. NOT shipped.** Sprint 6 (L5)
+> deliberately does NOT edit the live marketing copy — over-claims (especially compliance) must be
+> reviewed by the owner and counsel before any change. This catalogs each over-claim, why it's a risk,
+> and an honest replacement.
 >
 > **Product truth (2026-07-24):** Voice is the only production-ready channel. Instagram is receive-only.
 > There are no paying customers yet. Denku holds **no** SOC 2 or HIPAA certification. Booking works but

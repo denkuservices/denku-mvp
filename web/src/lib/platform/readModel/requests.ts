@@ -70,8 +70,32 @@ export function ticketToRequest(row: TicketRow): RequestView {
     createdAt: row.created_at,
     callId: row.call_id,
     contactId: row.lead_id,
-    href: `/dashboard/tickets/${row.id}`,
+    href: requestHref("ticket", row.id),
   };
+}
+
+/**
+ * Where an appointment's detail lives.
+ *
+ * Sprint 9 · T4: this used to be the bare `/dashboard/appointments` list, which the platform
+ * middleware redirects straight back to Requests — so clicking an appointment returned you to
+ * the page you clicked from, and no appointment's details were reachable anywhere in the
+ * product. Interim detail route until Sprint 13's unified Request detail replaces it.
+ */
+export function appointmentHref(id: string): string {
+  return requestHref("appointment", id);
+}
+
+/**
+ * Where a request's detail lives — one URL shape for both types (Sprint 13).
+ *
+ * Tickets and appointments are one concept split across two tables, and until now they were also
+ * split across two URL shapes: a legacy ticket page and an interim appointment route. The type
+ * rides along as a query param so the page can dispatch without probing both tables; it is a
+ * hint, not a trust boundary — the page still resolves the id org-scoped either way.
+ */
+export function requestHref(type: RequestType, id: string): string {
+  return `/dashboard/crm/requests/${id}?type=${type}`;
 }
 
 export function appointmentToRequest(row: AppointmentRow): RequestView {
@@ -86,7 +110,7 @@ export function appointmentToRequest(row: AppointmentRow): RequestView {
     createdAt: row.created_at,
     callId: row.call_id,
     contactId: row.lead_id,
-    href: `/dashboard/appointments`,
+    href: appointmentHref(row.id),
   };
 }
 
@@ -130,6 +154,43 @@ export function filterRequests(rows: RequestView[], opts: ListRequestsOpts): Req
 export interface RequestsResult {
   items: RequestView[];
   counts: { all: number; ticket: number; appointment: number };
+}
+
+export interface AppointmentDetailView extends RequestView {
+  /** Appointment end time, when the booking recorded one. */
+  endsAt: string | null;
+}
+
+/**
+ * One appointment, org-scoped (Sprint 9 · T4).
+ *
+ * Returns null when it doesn't exist or belongs to another org — the caller renders a 404, so a
+ * guessed id can never confirm another tenant's appointment. Fails soft on read errors.
+ */
+export async function getAppointmentDetail(
+  orgId: string,
+  appointmentId: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<AppointmentDetailView | null> {
+  if (!orgId || !appointmentId) return null;
+
+  try {
+    const { data, error } = await db
+      .from("appointments")
+      .select("id, notes, status, start_at, end_at, created_at, call_id, lead_id")
+      .eq("id", appointmentId)
+      .eq("org_id", orgId)
+      .maybeSingle<AppointmentRow & { end_at: string | null }>();
+
+    if (error || !data) return null;
+    return { ...appointmentToRequest(data), endsAt: data.end_at ?? null };
+  } catch (err) {
+    console.error(
+      "[PLATFORM][READMODEL][REQUESTS][DETAIL]",
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
+  }
 }
 
 export async function listRequestViews(

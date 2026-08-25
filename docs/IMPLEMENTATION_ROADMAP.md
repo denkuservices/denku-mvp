@@ -5,7 +5,23 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-07-25 (**FIRST-PAYING-CUSTOMER AUDIT — the roadmap is now ordered by shortest
+> **Last updated:** 2026-08-25 (**SPRINTS 9–14 RECONCILED + DENKU 2.0 PROGRAM OPENED.** Six sprints
+> (9–14, the Phase-2 IA arc) shipped between 2026-08-24 and 08-25 with **no closing ritual**: the branch
+> `feat/sprint-9-one-product` had never been pushed (the entire IA on one local disk), no review docs
+> existed, `CURRENT_SPRINT.md` still described Sprint 8.5, and this file had not moved since 2026-07-25 —
+> so **R-134 was never filed** despite `CLAUDE.md` referencing it in four places. All reconciled today:
+> branch pushed, [docs/SPRINT_9-14_REVIEW.md](SPRINT_9-14_REVIEW.md) written (one review for the arc),
+> **R-134 retro-filed** (migration history + RLS reality — required reading before applying migrations),
+> **R-135 filed** (`resolveLanguage` gives non-English employees an English voice — found in Sprint 10,
+> deliberately not fixed there). **R-133 was announced as "next free" and never assigned; it stays
+> retired.** Verified at reconcile time: **520 tests pass (47 files), exit 0.**
+> **The backlog is now consumed by a program, not a sprint list:** `docs/denku-2.0/` (21 research docs,
+> Creato benchmark + US competitor/pricing research) proposes **D0–D8**, and its finding is that Denku's
+> gap is *not product depth* — it is that the product is **dark**. **D0 = "Turn It On"**
+> ([docs/SPRINT_D0_TURN_IT_ON.md](SPRINT_D0_TURN_IT_ON.md)) writes **no feature code**; it executes the
+> Launch Runbook, merges Sprints 9–14, and closes two live exposures (**R-004/F-012** false SOC 2/HIPAA
+> claims, **R-030** rate limiting). P0 is unchanged and now in its second month: **a staging environment.**)
+> **Prior:** 2026-07-25 (**FIRST-PAYING-CUSTOMER AUDIT — the roadmap is now ordered by shortest
 > path to revenue, not by sprint tidiness.** Verified against the **live production DB**: 10 of 11
 > migrations unapplied, both platform flags OFF. A paying customer today gets an AI that doesn't know
 > their business, broken invites, no overage protection, and the CRUD panel — because five sprints of
@@ -125,7 +141,10 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-133
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-136
+> *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
+> reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
+> 2026-08-25.)*
 
 **Effort scale:** S = ≤1 day · M = 1–3 days · L = 1–2 weeks · XL = multi-week
 **Audits:** [00 = Technical architecture](audits/00-technical-architecture-audit.md) ·
@@ -1815,3 +1834,58 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
 - **Dependencies:** Do it after the Dev-Mode webhook verification (Sprint 1.5 closure §c) confirms
   the subscription path works — the button exists to enable that verification without a terminal.
 - **Recommended solution:** Revert the two TEMP blocks; keep the Basic-Auth endpoint.
+
+### R-134 — Migration history + RLS reality reconciled (retro-filed)
+**Priority:** Critical · **Status:** ✅ Completed (2026-07-30) · **Effort:** L · **Related audit:** [docs/MIGRATION_DEPENDENCY_GRAPH.md](MIGRATION_DEPENDENCY_GRAPH.md)
+> **Retro-filed 2026-08-25.** This work shipped on 2026-07-30 and is described in `CLAUDE.md`, but was
+> never given a roadmap entry — the roadmap's last update predates it (2026-07-25) and its highest ID
+> was R-132, with R-133 announced as "next free" and never assigned. The ID **R-134** is kept as-is
+> because `CLAUDE.md` already references it in four places; **R-133 was never used and stays retired.**
+- **Business impact:** Two load-bearing beliefs recorded in `CLAUDE.md` were **false and dangerous**.
+  (1) "RLS exists on a few tables but is NOT the enforcement layer" — in fact RLS is enabled on
+  **13 of 14** tenant tables with 1–4 policies each, scoped via `profiles → org_id`, and ~60 files read
+  through it. Disabling a policy on the old assumption would have opened a cross-tenant hole.
+  (2) `organizations_legacy` was documented as a live half-finished dual-write; it had actually been
+  `DROP`ped in production by `20260405185521`. Three code paths were broken by the lag and are fixed:
+  `ensureDefaultOrg` hard-failed, onboarding showed an empty workspace name, `getAvgResponseTime` was dead.
+- **Technical impact:** Migration history reconciled — 4 migrations applied straight to prod during a
+  5-month commit gap are recovered into the repo; **9 migrations are only PARTIALLY applied**
+  (`ADD COLUMN`/`CREATE TABLE` landed, `CREATE INDEX`/`ADD CONSTRAINT` did not) and must **never** be
+  `migration repair`ed — that discards the missing half. `20250126000000` is **destructive if re-run**
+  (its `ALTER TABLE … RENAME` would rename the live `organizations` VIEW away) and carries a
+  `relkind='r'` guard that must never be removed. Also recorded: the `workspace_status` /
+  `paused_reason` CHECK constraints were **never applied** — application code is the only guard.
+- **Dependencies:** None. Prerequisite reading for D0 Phase 3 (applying pending migrations).
+- **Remaining:** ~24 dead `organizations_legacy` "ensure FK parent" blocks in `onboarding/_actions.ts`
+  and `signupAction.ts` — they discard their errors, so they are harmless no-ops that waste a
+  round-trip. Do not add new ones; delete them when touching that code.
+
+### R-135 — `resolveLanguage` silently gives non-English employees an English voice
+**Priority:** High · **Status:** ✅ **Completed 2026-08-25** · **Effort:** S · **Related audit:** — (found during Sprint 10, deliberately not fixed there; fixed in D0 pre-launch)
+> **Fix:** `resolveLanguage` now resolves an explicit alias table covering both spellings — the
+> display NAME the Setup editor persists ("Spanish", "Español") and the ISO code onboarding
+> persists ("es", "es-ES", "es_MX") — with an `en` fallback for anything unknown so an
+> unrecognised value can never break a live call.
+> **French, German and Turkish were REMOVED from the picker rather than fixed.** Voice and
+> transcriber defaults exist only for `en`/`es`, so those three could never do anything but
+> deliver an English-speaking employee while the UI claimed otherwise — a fabricated capability
+> (R-018). Adding a language now requires three coordinated edits (voice map, alias table,
+> picker) and the parity test fails if any is skipped.
+> **Guarded by** `test/vapi-assistant-config.test.ts`: the previous tests missed this defect for
+> one reason — they only ever passed ISO codes, never the value the editor actually stores. The
+> new parity test asserts every picker option resolves to a **distinct** supported code with its
+> own voice and transcriber.
+- **Business impact:** A customer configures their AI employee in Spanish; the employee **answers
+  callers in English**, with an English transcriber. The setting appears saved and correct in the UI.
+  This is a silent, customer-visible failure of a headline feature (multi-language) on the live call
+  path — the customer discovers it from their own callers, not from the product.
+- **Technical impact:** `resolveLanguage` matches on a leading `"es"`, but Settings persists the
+  language **NAME**, not its code — so `"Spanish"` matches the English branch and both the voice and
+  the transcriber are resolved wrong. Pre-existing; **Sprint 10 was required to preserve the write
+  path byte-for-byte**, so it was recorded rather than fixed (see `237e692`).
+- **Dependencies:** None in code. Behaviour change on a live assistant path ⇒ verify on a real test
+  call, so it is naturally D0 Phase 7-adjacent rather than a blind fix.
+- **Recommended solution:** Resolve from an explicit name→code map (or persist the code and migrate
+  existing rows), then assert with a table-driven test over every language the Setup editor offers —
+  the defect class is "the editor's option list and the resolver disagree," which only a parity test
+  prevents from recurring.

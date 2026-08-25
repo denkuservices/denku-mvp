@@ -2,6 +2,8 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getBaseUrl } from "@/lib/utils/url";
+import { platformUxEnabled } from "@/lib/platform/flags";
+import { appointmentHref } from "@/lib/platform/readModel/requests";
 import { sendArtifactNotificationEmail } from "@/lib/email/send";
 import {
   artifactNotificationTemplate,
@@ -229,8 +231,11 @@ export async function notifyNewArtifactsForCall(callId: string, orgId: string): 
         caller: maskPhoneForDisplay(recipient.callerPhone),
         snippet: cleanSnippet(a.notes),
         orgName: recipient.orgName,
-        // No appointment detail route exists yet — link to the list.
-        deepLink: `${deepBase}/dashboard/appointments`,
+        // Sprint 9 · T4: an appointment detail surface exists now, but only under the platform
+        // experience — when the flag is off it 404s, so the legacy list stays the link there.
+        deepLink: platformUxEnabled()
+          ? `${deepBase}${appointmentHref(a.id)}`
+          : `${deepBase}/dashboard/appointments`,
       });
     }
   } catch (err) {

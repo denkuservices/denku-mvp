@@ -34,7 +34,7 @@ export default async function AccountSecurityPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
+    <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm space-y-6">
       <AccountSecurityClient
         email={userEmail ?? "—"}
         isPasswordManagedByProvider={isPasswordManagedByProvider}

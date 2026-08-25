@@ -57,7 +57,10 @@ export const horizonNavRoutes: NavRoute[] = [
 export const platformNavRoutes: NavRoute[] = [
   { name: 'Home', layout: 'dashboard', path: '', icon: <LayoutDashboard className="h-6 w-6" /> },
   { name: 'Inbox', layout: 'dashboard', path: 'inbox', icon: <Inbox className="h-6 w-6" /> },
-  { name: 'CRM', layout: 'dashboard', path: 'crm', icon: <Contact className="h-6 w-6" /> },
+  // "Customers", not "CRM" (Sprint 9 · T8 / decision D6): the surface's own subtitle already
+  // says "everyone your AI team has talked to". CRM is category jargon a small-business owner
+  // has to translate; the route stays /dashboard/crm so every shipped link still resolves.
+  { name: 'Customers', layout: 'dashboard', path: 'crm', icon: <Contact className="h-6 w-6" /> },
   { name: 'AI Team', layout: 'dashboard', path: 'team', icon: <Users className="h-6 w-6" /> },
   { name: 'Analytics', layout: 'dashboard', path: 'analytics', icon: <BarChart3 className="h-6 w-6" /> },
   { name: 'Settings', layout: 'dashboard', path: 'settings', icon: <Settings className="h-6 w-6" /> },

@@ -19,7 +19,7 @@ interface DashboardClientProps {
 }
 
 /**
- * Client component wrapper for Horizon Main Dashboard.
+ * Client component wrapper for the legacy (pre-platform) dashboard home.
  * This renders the Horizon UI layout 1:1 while using our real data.
  * All Horizon components that use hooks (charts, tables, calendars) are rendered here.
  */

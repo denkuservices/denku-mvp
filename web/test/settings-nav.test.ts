@@ -11,7 +11,9 @@ const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
 /** Does a route actually exist on disk? (`/dashboard/x` → `src/app/(app)/dashboard/x/page.tsx`) */
 function routeExists(href: string): boolean {
-  const rel = href.replace(/^\//, "");
+  // A `#fragment` addresses a section of a page, not a different page — Sprint 9 · T5 points
+  // Usage at `/dashboard/settings/workspace/billing#usage`.
+  const rel = href.replace(/^\//, "").split("#")[0].split("?")[0];
   return fs.existsSync(path.join(APP_DIR, rel, "page.tsx"));
 }
 
@@ -58,7 +60,10 @@ describe("settings navigation contract", () => {
   it("resolves the active group from a pathname (longest match wins)", () => {
     expect(activeSettingsGroup("/dashboard/settings/workspace/billing")).toBe("billing");
     expect(activeSettingsGroup("/dashboard/settings/workspace/members")).toBe("organization");
-    expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBe("employees");
+    // Sprint 10 · R-094: the AI Employees group points at /dashboard/team, and
+    // /dashboard/settings/agents/* is now only a redirect — not a settings destination.
+    expect(activeSettingsGroup("/dashboard/team")).toBe("employees");
+    expect(activeSettingsGroup("/dashboard/settings/agents/abc")).toBeNull();
     expect(activeSettingsGroup("/dashboard/settings/account/security")).toBe("account");
     expect(activeSettingsGroup("/dashboard/nowhere")).toBeNull();
   });

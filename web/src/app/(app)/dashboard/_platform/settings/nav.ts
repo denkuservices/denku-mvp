@@ -35,9 +35,13 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
     icon: "users",
     items: [
       {
+        // Sprint 10 · R-094: configuration lives on the employee, so this points at AI Team
+        // rather than a parallel editor in Settings — the same pattern as Channels below.
         label: "Your employees",
-        href: "/dashboard/settings/agents",
-        description: "Behavior, language, voice and business knowledge for each AI Employee.",
+        href: "/dashboard/team",
+        description:
+          "Behavior, language, voice and business knowledge — configured on each AI Employee, under Setup and Knowledge.",
+        external: true,
       },
     ],
   },
@@ -50,7 +54,7 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
         label: "Connected channels",
         href: "/dashboard/channels",
         description:
-          "Connect and monitor phone lines, Instagram, and the channels arriving next. This is the only place channels are managed — once connected, they appear as badges and filters throughout Inbox and CRM.",
+          "Connect and monitor phone lines, Instagram, and the channels arriving next. This is the only place channels are managed — once connected, they appear as badges and filters throughout Inbox and Customers.",
         external: true,
       },
     ],
@@ -88,8 +92,11 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
         description: "Your plan, payment method, add-ons and invoice history.",
       },
       {
+        // Sprint 9 · T5: Usage is a section of Billing, not a destination of its own. It used to
+        // be a separate page promising minutes and overage while rendering "—" and "Coming soon";
+        // the real numbers were already on Billing. One concept, one place.
         label: "Usage",
-        href: "/dashboard/settings/workspace/usage",
+        href: "/dashboard/settings/workspace/billing#usage",
         description: "Minutes used this period, included allowance and overage.",
       },
     ],
@@ -111,18 +118,10 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
       },
     ],
   },
-  {
-    id: "integrations",
-    label: "Integrations",
-    icon: "plug",
-    items: [
-      {
-        label: "Integrations",
-        href: "/dashboard/settings/integrations",
-        description: "Connect Denku to the tools you already use.",
-      },
-    ],
-  },
+  // Sprint 9 · T5: **Integrations is deliberately absent.** It advertised "Connect Denku to the
+  // tools you already use" and delivered two disabled "Coming soon" cards — a destination that
+  // was never a destination. It returns as a group when the first integration is real (R-020
+  // calendar is the likely first); until then Settings promises nothing it cannot do.
 ];
 
 /** Flattened items — used by the nav and by the "every item is real" contract test. */

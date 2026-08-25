@@ -11,7 +11,9 @@ import { CRM_SECTIONS, CRM_DEFAULT_HREF, activeCrmSection } from "@/app/(app)/da
 const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
 function routeExists(href: string): boolean {
-  const rel = href.replace(/^\//, "");
+  // Strip a #fragment before resolving: Sprint 9 · T5 points the Usage nav item at
+  // `/dashboard/settings/workspace/billing#usage`, a section of a real page.
+  const rel = href.replace(/^\//, "").split("#")[0].split("?")[0];
   return fs.existsSync(path.join(APP_DIR, rel, "page.tsx"));
 }
 
@@ -214,7 +216,8 @@ describe("information architecture", () => {
     expect(platformNavRoutes.map((r) => r.name)).toEqual([
       "Home",
       "Inbox",
-      "CRM",
+      // Sprint 9 · T8 / decision D6 — renamed from "CRM"; the route stays /dashboard/crm.
+      "Customers",
       "AI Team",
       "Analytics",
       "Settings",

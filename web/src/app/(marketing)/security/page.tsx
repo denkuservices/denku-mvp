@@ -27,7 +27,7 @@ const detailedControls = [
 ];
 
 const securityFaqs = [
-  { question: 'Where is data stored?', answer: 'Data is stored in secure, SOC 2-ready infrastructure. Specific region information available upon request under NDA.' },
+  { question: 'Where is data stored?', answer: 'Data is stored in managed cloud infrastructure with encryption in transit and at rest, and tenant-scoped access. Specific region information available upon request under NDA. We are not SOC 2 or HIPAA certified — those are on our roadmap.' },
   { question: 'How are webhooks verified?', answer: 'Every webhook payload includes an HMAC-SHA256 signature in the X-Signature header. Use your webhook secret to verify authenticity on your servers.' },
   { question: 'What retention options are available?', answer: 'Retention policies vary by plan. Starter includes 30 days, Growth includes 90 days, and Scale offers custom retention periods.' },
   { question: 'When will SSO/SAML be available?', answer: 'SSO/SAML is on our roadmap for enterprise plans. Contact us for timeline and early access information.' },
@@ -42,10 +42,11 @@ export default function SecurityPage() {
           <Reveal className="mx-auto max-w-3xl text-center">
             <div className="brand-eyebrow centered mb-5 justify-center">Security &amp; compliance</div>
             <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal leading-[1.06] tracking-[-1.5px] text-[#0A1A2F]">
-              Enterprise-grade <em className="font-medium italic text-[#1B6E6E]">security</em>.
+              Security you can <em className="font-medium italic text-[#1B6E6E]">verify</em>.
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-[18px] leading-relaxed text-[#2C3E54]">
-              Enterprise-grade controls without the complexity.
+              Practical controls, plainly described: encryption in transit and at rest, tenant-scoped
+              data, webhook authentication, audited access.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[#0A1A2F] px-6 py-3.5 text-sm font-medium text-[#F7F5F1] transition-all hover:-translate-y-0.5 hover:bg-[#1B6E6E]">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Contact as ContactIcon, Search } from "lucide-react";
+import { Contact as ContactIcon, Search, Plus } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
@@ -8,7 +8,7 @@ import PageHeader from "../../_platform/PageHeader";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen } from "../../_platform/format";
 import { lifecycleMeta } from "@/lib/platform/lifecycle";
-import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill } from "../../_platform/ui";
+import { Surface, ListContainer, ListHeader, ListRow, EmptyState, Pill, SearchField } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -49,20 +49,23 @@ export default async function ContactsPage({
       <PageHeader
         title="Contacts"
         subtitle="Everyone your AI team has spoken with, unified across every channel."
+        action={
+          <Link
+            href="/dashboard/crm/contacts/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" /> Add contact
+          </Link>
+        }
       />
 
       <form method="get" className="mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={one(sp?.q)}
-            placeholder="Search by name, phone, or email…"
-            aria-label="Search contacts"
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-navy-800 dark:text-white"
-          />
-        </div>
+        <SearchField
+          className="flex-1"
+          defaultValue={one(sp?.q)}
+          placeholder="Search by name, phone, or email…"
+          label="Search contacts"
+        />
         <button
           type="submit"
           className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600"

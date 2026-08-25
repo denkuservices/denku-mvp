@@ -1,11 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import {
-  getActiveNavbar,
-  getActiveRoute,
-} from './navigation';
+import { useEffect } from 'react';
 import React from 'react';
 import SidebarAdapter from './SidebarAdapter';
 import { horizonNavRoutes, platformNavRoutes } from './nav';
@@ -30,17 +26,6 @@ function HorizonShellInner({ children, platformUx = false }: HorizonShellProps) 
   const pathname = usePathname();
 
   const navRoutes = platformUx ? platformNavRoutes : horizonNavRoutes;
-
-  // Compute brandText and secondary only on client to avoid hydration mismatch
-  // Use stable initial values that match server render
-  const [brandText, setBrandText] = useState<string>('Dashboard');
-  const [secondary, setSecondary] = useState(false);
-
-  // Update brandText and secondary after mount and when pathname changes
-  useEffect(() => {
-    setBrandText(getActiveRoute(navRoutes, pathname));
-    setSecondary(getActiveNavbar(navRoutes, pathname));
-  }, [pathname, navRoutes]);
 
   // Close mobile drawer when route changes (mobile only)
   // Only depend on pathname - don't include mobileNavOpen to avoid closing when opening

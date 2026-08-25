@@ -36,25 +36,25 @@ export function TimezoneCombobox({
   if (readOnly) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-zinc-900">{label}</p>
-        <div className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base">
-          <span className="text-zinc-900">{value || "—"}</span>
+        <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
+        <div className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-base">
+          <span className="text-navy-700 dark:text-white">{value || "—"}</span>
         </div>
-        {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+        {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold text-zinc-900">{label}</p>
+      <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full h-12 justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base font-normal shadow-sm hover:bg-zinc-50 focus:ring-4 focus:ring-zinc-100 data-[variant=outline]:bg-white"
+            className="w-full h-12 justify-between rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base font-normal shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-4 focus:ring-brand-500/15 data-[variant=outline]:bg-white dark:bg-navy-800"
           >
             <span className="truncate text-left">{value || "Type or select a timezone"}</span>
             <ChevronsUpDownIcon className="ml-2 h-5 w-5 shrink-0 opacity-50" />
@@ -93,7 +93,7 @@ export function TimezoneCombobox({
           </Command>
         </PopoverContent>
       </Popover>
-      {helper ? <p className="text-xs text-zinc-500">{helper}</p> : null}
+      {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
     </div>
   );
 }
