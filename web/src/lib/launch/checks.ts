@@ -10,6 +10,8 @@
  * `required: true` checks gate launch: any required check that is `fail` ⇒ NOT ready.
  */
 
+import { resolveLlmProvider } from "@/lib/llm/provider";
+
 export type CheckStatus = "pass" | "warn" | "fail";
 export type CheckCategory = "Core" | "Security" | "Voice" | "Email" | "Billing" | "Platform";
 
@@ -100,10 +102,17 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
     checks.push(check("webhook_base_url", "Vapi webhook base URL", "Voice", true, status,
       !present(base) ? "VAPI_WEBHOOK_BASE_URL missing" : isLocalish(base!) ? `localhost — live assistants would call your dev machine (R-077): ${base}` : base!));
   }
-  checks.push(
-    check("openai_api_key", "OpenAI API key (AI intent)", "Voice", false, present(env.OPENAI_API_KEY) ? "pass" : "warn",
-      present(env.OPENAI_API_KEY) ? "Set — AI-primary intent (R-019)" : "Missing — intent falls back to regex-only")
-  );
+  {
+    // Either provider satisfies this: the classifier reaches Gemini through its OpenAI-compatible
+    // endpoint, so the question is "is a model reachable", not "is it OpenAI".
+    const llm = resolveLlmProvider(env);
+    checks.push(
+      check("llm_api_key", "AI model key (call intent)", "Voice", false, llm ? "pass" : "warn",
+        llm
+          ? `Set — ${llm.id} / ${llm.model}, AI-primary intent (R-019)`
+          : "Missing — set GEMINI_API_KEY or OPENAI_API_KEY; intent falls back to regex-only")
+    );
+  }
 
   // --- Email ---
   checks.push(

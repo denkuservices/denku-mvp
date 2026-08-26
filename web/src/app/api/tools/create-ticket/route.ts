@@ -248,13 +248,25 @@ export async function POST(request: NextRequest) {
         },
       });
       
-      return NextResponse.json({
-        ok: false,
-        error: {
-          code: "UNAUTHORIZED",
-          recoverable: false,
+      /**
+       * 401, not 200.
+       *
+       * This returned `{ ok: false, UNAUTHORIZED }` with an HTTP **200** — which Vapi reads as a
+       * successful tool call. The model would then tell the caller "I've created your ticket"
+       * while nothing had been created, and the failure was invisible to every log and alert that
+       * counts non-2xx responses. `create-appointment` has always answered 401 here; the two are
+       * now consistent, and the shape stays the `{ ok }` envelope the rest of the API uses.
+       */
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "UNAUTHORIZED",
+            recoverable: false,
+          },
         },
-      });
+        { status: 401 }
+      );
     }
     
     // Log diagnostic info for auth success

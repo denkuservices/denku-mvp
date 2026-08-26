@@ -57,13 +57,32 @@ describe("readiness — pure evaluation", () => {
     expect(summary.requiredFailures).toContain("webhook_secret");
   });
 
-  it("missing OpenAI key WARNs but does not block (regex fallback)", () => {
+  it("no AI model key WARNs but does not block (regex fallback)", () => {
     const env = { ...READY_ENV } as Record<string, string | undefined>;
     delete env.OPENAI_API_KEY;
+    delete env.GEMINI_API_KEY;
     const c = byId(env);
-    expect(c.get("openai_api_key")!.status).toBe("warn");
-    expect(c.get("openai_api_key")!.required).toBe(false);
+    expect(c.get("llm_api_key")!.status).toBe("warn");
+    expect(c.get("llm_api_key")!.required).toBe(false);
     expect(summarizeReadiness(evaluateReadiness(env)).ready).toBe(true);
+  });
+
+  /**
+   * The classifier reaches Gemini through its OpenAI-compatible endpoint, so readiness asks
+   * "is a model reachable", not "is it OpenAI". Either key alone has to satisfy it, or an org
+   * running on Gemini would see a permanent warning about a key it deliberately does not have.
+   */
+  it("either provider's key satisfies the AI check", () => {
+    const base = { ...READY_ENV } as Record<string, string | undefined>;
+    delete base.OPENAI_API_KEY;
+
+    const gemini = byId({ ...base, GEMINI_API_KEY: "AIza-test" });
+    expect(gemini.get("llm_api_key")!.status).toBe("pass");
+    expect(gemini.get("llm_api_key")!.detail).toMatch(/gemini/);
+
+    const openai = byId({ ...base, OPENAI_API_KEY: "sk-test" });
+    expect(openai.get("llm_api_key")!.status).toBe("pass");
+    expect(openai.get("llm_api_key")!.detail).toMatch(/openai/);
   });
 
   it("resend.dev sandbox sender FAILS the sender check (R-080), non-blocking", () => {

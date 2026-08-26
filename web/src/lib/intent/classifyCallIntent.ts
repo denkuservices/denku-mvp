@@ -1,6 +1,7 @@
 import "server-only";
 
 import OpenAI from "openai";
+import { resolveLlmProvider } from "@/lib/llm/provider";
 
 /**
  * R-019 — call intent classification on the FINAL transcript.
@@ -52,13 +53,20 @@ const SYSTEM_PROMPT =
 
 /** LLM classification. Returns null on any failure/timeout so the caller falls back. */
 async function classifyIntentLlm(transcript: string): Promise<IntentResult | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  // Provider-agnostic: OpenAI or Gemini (through its OpenAI-compatible endpoint), whichever key
+  // is configured. No key at all → null, and the caller falls back to regex. See lib/llm/provider.
+  const provider = resolveLlmProvider();
+  if (!provider) return null;
 
-  const client = new OpenAI({ apiKey, maxRetries: 0, timeout: LLM_TIMEOUT_MS });
+  const client = new OpenAI({
+    apiKey: provider.apiKey,
+    baseURL: provider.baseURL,
+    maxRetries: 0,
+    timeout: LLM_TIMEOUT_MS,
+  });
 
   const call = client.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: provider.model,
     temperature: 0,
     max_tokens: 200,
     response_format: { type: "json_object" },
