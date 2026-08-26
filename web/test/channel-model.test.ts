@@ -16,7 +16,7 @@ const inDays = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOStri
 
 describe("channel registry — identity + capability model (R-100/R-102)", () => {
   it("includes every channel in the platform vision (incl. Telegram + Web Chat)", () => {
-    for (const c of ["voice", "instagram", "whatsapp", "telegram", "email", "sms", "web"]) {
+    for (const c of ["voice", "instagram", "messenger", "whatsapp", "telegram", "email", "sms", "web"]) {
       expect(isKnownChannel(c)).toBe(true);
     }
     expect(CHANNEL_ORDER).toHaveLength(Object.keys(CHANNELS).length);
@@ -25,7 +25,7 @@ describe("channel registry — identity + capability model (R-100/R-102)", () =>
   it("only voice is production-ready; only voice+instagram are adopted (no over-claim)", () => {
     expect(productionChannels()).toEqual(["voice"]);
     expect(adoptedChannels()).toEqual(["voice", "instagram"]);
-    expect(comingSoonChannels()).toEqual(["whatsapp", "telegram", "email", "sms", "web"]);
+    expect(comingSoonChannels()).toEqual(["messenger", "whatsapp", "telegram", "email", "sms", "web"]);
   });
 
   it("Instagram stays receive-only — outbound must not be silently enabled", () => {

@@ -205,8 +205,15 @@ describe("Inbox v2 — the split view", () => {
 
   it("builds its channel chips from the registry, so a new channel needs no edit here", () => {
     const list = read("app/(app)/dashboard/inbox/_components/ConversationList.tsx");
-    expect(list).toMatch(/selectableChannels\(\)/);
+    expect(list).toMatch(/CHANNEL_ORDER\.map/);
     expect(list).toMatch(/channelMeta\(c\)\.label/);
+  });
+
+  it("answers a channel it cannot receive on with the truth, not with \"no results\"", () => {
+    const list = read("app/(app)/dashboard/inbox/_components/ConversationList.tsx");
+    // The chip row shows every channel, so the empty state has to carry the honesty.
+    expect(list).toMatch(/isn't connected yet/);
+    expect(list).toMatch(/\/dashboard\/channels/);
   });
 
   it("keeps the messaging palette in one file, out of the rest of the dashboard", () => {

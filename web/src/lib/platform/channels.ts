@@ -22,6 +22,7 @@
 export type Channel =
   | "voice"
   | "instagram"
+  | "messenger"
   | "whatsapp"
   | "telegram"
   | "email"
@@ -117,6 +118,18 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     productionReady: false,
     adopted: true,
   },
+  messenger: {
+    id: "messenger",
+    label: "Messenger",
+    description: "Answer Facebook Messenger conversations from your Page.",
+    icon: "messenger",
+    tone: "messenger",
+    kind: "chat",
+    connection: "oauth",
+    capabilities: chat({ outbound: true }),
+    productionReady: false,
+    adopted: false,
+  },
   whatsapp: {
     id: "whatsapp",
     label: "WhatsApp",
@@ -183,6 +196,9 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
 export const CHANNEL_ORDER: readonly Channel[] = Object.freeze([
   "voice",
   "instagram",
+  // Messenger sits beside Instagram: same Meta plumbing, and a business that connects one
+  // almost always means to connect the other.
+  "messenger",
   "whatsapp",
   "telegram",
   "email",

@@ -4,11 +4,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Bot, MessagesSquare, SearchX, Star, UserCheck } from "lucide-react";
-import { selectableChannels, channelMeta, isKnownChannel, type Channel } from "@/lib/platform/channels";
+import { CHANNEL_ORDER, channelMeta, isKnownChannel, type Channel } from "@/lib/platform/channels";
 import type { InboxFilter, InboxPage, InboxRow } from "@/lib/platform/readModel/inbox";
 import { SearchField } from "../../_platform/ui";
 import Avatar from "../../_platform/Avatar";
-import ChannelBadge, { channelIcon } from "../../_platform/ChannelBadge";
+import ChannelBadge, { channelIcon, channelIconClass } from "../../_platform/ChannelBadge";
 import { formatShortWhen } from "../../_platform/format";
 import { fetchInboxPageAction } from "../_actions";
 import { inbox } from "./theme";
@@ -26,8 +26,8 @@ import { inbox } from "./theme";
  * in the search box does not push a new URL, because that would re-render the conversation open
  * beside it on every keystroke.
  *
- * Channel chips are built from the channel registry (`selectableChannels()`), so a new channel
- * appears here with no edit to this file — the rule `test/channel-contract.test.ts` enforces.
+ * Channel chips are built from the channel registry (`CHANNEL_ORDER`), so a new channel appears
+ * here with no edit to this file — the rule `test/channel-contract.test.ts` enforces.
  */
 
 const PAGE_SIZE = 25;
@@ -154,10 +154,23 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
   const clearUnread = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, unread: 0 } : r)));
 
+  /**
+   * Every channel, not only the two that work.
+   *
+   * The chip row is how a customer reads what this inbox is *for*, and an inbox that shows only
+   * Voice and Instagram reads as a voice product with a DM bolt-on. Showing the row in full says
+   * what Denku is: one place for every channel a business is reachable on. Selecting a channel we
+   * have not connected is answered honestly by the empty state below — never by a fabricated row.
+   *
+   * Registry-ordered, so a new channel appears here with no edit to this file.
+   */
   const channelFacets: Facet[] = [
     { key: "all", label: "All" },
-    ...selectableChannels().map((c) => ({ key: c, label: channelMeta(c).label, channel: c })),
+    ...CHANNEL_ORDER.map((c) => ({ key: c, label: channelMeta(c).label, channel: c })),
   ];
+
+  /** The channel currently filtered on, when it is one we cannot receive on yet. */
+  const unconnected = channel && !channelMeta(channel).adopted ? channelMeta(channel) : null;
 
   const hasFilters = Boolean(channel || query || filter !== "all");
 
@@ -188,7 +201,9 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
                   active ? inbox.chipActive : inbox.chipIdle
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                {/* The glyph keeps its brand colour whether or not the chip is on: that is how
+                    the row is scannable at a glance, and it is what the reference does. */}
+                <Icon className={`h-3.5 w-3.5 ${f.channel ? channelIconClass(f.channel) : ""}`} />
                 {f.label}
               </button>
             );
@@ -241,7 +256,16 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
             body="Something went wrong on our side. Try a different filter, or reload the page."
           />
         ) : rows.length === 0 ? (
-          hasFilters ? (
+          unconnected ? (
+            // Says which channel, and what would make it work — never "no results" for something
+            // that could not have had any.
+            <Notice
+              icon={SearchX}
+              title={`${unconnected.label} isn't connected yet`}
+              body={`${unconnected.description} Connect it from Channels and its conversations land here.`}
+              action={{ label: "Go to Channels", href: "/dashboard/channels" }}
+            />
+          ) : hasFilters ? (
             <Notice
               icon={SearchX}
               title="Nothing matches"
@@ -372,10 +396,12 @@ function Notice({
   icon: Icon,
   title,
   body,
+  action,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   body: string;
+  action?: { label: string; href: string };
 }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
@@ -384,6 +410,14 @@ function Notice({
       </span>
       <p className={`text-sm font-semibold ${inbox.strong}`}>{title}</p>
       <p className={`mt-1 max-w-[15rem] text-xs ${inbox.meta}`}>{body}</p>
+      {action ? (
+        <Link
+          href={action.href}
+          className="mt-3 inline-flex items-center rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-95"
+        >
+          {action.label}
+        </Link>
+      ) : null}
     </div>
   );
 }
