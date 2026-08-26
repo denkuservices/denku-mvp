@@ -66,9 +66,40 @@ export function channelToneClass(channel: Channel): string {
   return TONE_CLASS[meta.tone] ?? NEUTRAL_CLASS;
 }
 
-export default function ChannelBadge({ channel, className = "" }: { channel: Channel; className?: string }) {
+export default function ChannelBadge({
+  channel,
+  compact = false,
+  className = "",
+}: {
+  channel: Channel;
+  /**
+   * Icon only, no label.
+   *
+   * For list rows, where the badge sits beside a name that is already the row's subject: the full
+   * pill repeated down a column is louder than the content it labels, and the colour alone
+   * distinguishes the channels. The label survives as the accessible name, so nothing is lost to
+   * a screen reader or to a hover.
+   */
+  compact?: boolean;
+  className?: string;
+}) {
   const meta = channelMeta(channel);
   const Icon = channelIcon(channel);
+
+  if (compact) {
+    return (
+      <span
+        title={meta.label}
+        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${channelToneClass(
+          channel
+        )} ${className}`}
+      >
+        <Icon className="h-3 w-3" />
+        <span className="sr-only">{meta.label}</span>
+      </span>
+    );
+  }
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${channelToneClass(

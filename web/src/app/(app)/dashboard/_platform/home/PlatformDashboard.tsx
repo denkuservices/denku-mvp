@@ -14,6 +14,7 @@ import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
 import TrendChart from "../charts/TrendChart";
+import Avatar from "../Avatar";
 import ChannelBadge from "../ChannelBadge";
 import { formatWhen, titleCase } from "../format";
 import { Surface, SectionHeader, StatCard, EmptyState, Pill, ListContainer, ListRow } from "../ui";
@@ -310,9 +311,14 @@ export default async function PlatformDashboard() {
             <ListContainer>
               {recent.map((c) => (
                 <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/inbox/${c.id}`}>
-                  <ChannelBadge channel={c.channel} />
-                  <span className="min-w-0 flex-1 truncate text-sm text-navy-700 dark:text-white">
-                    {c.contact.displayName || c.contact.handle || "Unknown"}
+                  {/* Same row grammar as the Inbox — avatar first, channel as a dot beside the
+                      name — so the two surfaces read as one product rather than two lists. */}
+                  <Avatar name={c.contact.displayName} seed={c.contact.handle || c.id} />
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="truncate text-sm text-navy-700 dark:text-white">
+                      {c.contact.displayName || c.contact.handle || "Unknown"}
+                    </span>
+                    <ChannelBadge channel={c.channel} compact />
                   </span>
                   {c.intent ? (
                     <Pill tone="info" className="hidden md:inline-flex">

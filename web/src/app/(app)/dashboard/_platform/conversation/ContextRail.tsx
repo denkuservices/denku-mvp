@@ -7,6 +7,7 @@ import type { HandlingState } from "@/lib/platform/handling";
 import type { VoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import { billableMinutesForCall } from "@/lib/billing/usageMath";
 import { formatWhen, titleCase } from "../format";
+import Avatar from "../Avatar";
 import ChannelBadge from "../ChannelBadge";
 import HandlingControl from "./HandlingControl";
 
@@ -49,14 +50,17 @@ export default function ContextRail({
     <aside className="space-y-4">
       {/* Who — the bridge into the CRM. */}
       <Card title="Customer">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        <div className="flex items-start gap-3">
+          {/* The same avatar the Inbox and Customers rows use, one size up: arriving here from
+              either list, the person you clicked is still recognisably the person you clicked. */}
+          <Avatar name={detail.contact.displayName} seed={detail.contact.handle || detail.id} size="md" />
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-navy-700 dark:text-white">{contactName}</p>
             {detail.contact.handle && detail.contact.displayName ? (
               <p className="mt-0.5 truncate text-sm text-gray-500">{detail.contact.handle}</p>
             ) : null}
           </div>
-          <ChannelBadge channel={detail.channel} />
+          <ChannelBadge channel={detail.channel} compact />
         </div>
 
         {detail.contact.id ? (

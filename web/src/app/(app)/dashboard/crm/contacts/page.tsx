@@ -5,6 +5,7 @@ import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
 import PageHeader from "../../_platform/PageHeader";
+import Avatar from "../../_platform/Avatar";
 import ChannelBadge from "../../_platform/ChannelBadge";
 import { formatWhen } from "../../_platform/format";
 import { lifecycleMeta } from "@/lib/platform/lifecycle";
@@ -115,18 +116,23 @@ export default async function ContactsPage({
               const stage = lifecycleMeta(c.status);
               return (
                 <ListRow key={c.id} href={`/dashboard/crm/contacts/${c.id}`}>
+                  {/* Same anchor as the Inbox, deliberately: a customer is the same person on
+                      both surfaces and should be findable by the same shape and colour. */}
+                  <Avatar name={c.displayName} seed={c.primaryHandle || c.id} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
-                      {c.displayName || c.primaryHandle || "Unknown contact"}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
+                        {c.displayName || c.primaryHandle || "Unknown contact"}
+                      </p>
+                      {/* Where we have reached them — icons, because a contact can carry several
+                          and three full pills would crowd out the name they belong to. */}
+                      {c.channels.map((ch) => (
+                        <ChannelBadge key={ch} channel={ch} compact />
+                      ))}
+                    </div>
                     {c.primaryHandle && c.displayName ? (
                       <p className="truncate text-xs text-gray-500">{c.primaryHandle}</p>
                     ) : null}
-                  </div>
-                  <div className="hidden shrink-0 gap-1.5 md:flex">
-                    {c.channels.map((ch) => (
-                      <ChannelBadge key={ch} channel={ch} />
-                    ))}
                   </div>
                   {stage ? (
                     <Pill tone={stage.tone} className="hidden md:inline-flex">

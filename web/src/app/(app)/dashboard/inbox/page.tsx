@@ -7,6 +7,7 @@ import { listConversationPage } from "@/lib/platform/readModel/conversations";
 import { listHumanHandledRefs } from "@/lib/platform/handling";
 import { isKnownChannel, selectableChannels, channelMeta, type Channel } from "@/lib/platform/channels";
 import PageHeader from "../_platform/PageHeader";
+import Avatar from "../_platform/Avatar";
 import ChannelBadge from "../_platform/ChannelBadge";
 import { formatWhen, titleCase } from "../_platform/format";
 import {
@@ -238,17 +239,24 @@ export default async function ConversationsPage({
               const needsPerson = humanHandledRefs.has(c.id);
               return (
                 <ListRow key={`${c.source}:${c.id}`} href={`/dashboard/inbox/${c.id}`}>
-                  <ChannelBadge channel={c.channel} />
+                  {/* The avatar is the row's anchor — you find a conversation by who it is with,
+                      before reading a word of it. The channel rides beside the name as a coloured
+                      dot rather than a full pill: repeated down a column, the pill was louder than
+                      the content it labelled. */}
+                  <Avatar name={c.contact.displayName} seed={c.contact.handle || c.id} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
-                      {c.contact.displayName || c.contact.handle || "Unknown contact"}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
+                        {c.contact.displayName || c.contact.handle || "Unknown contact"}
+                      </p>
+                      <ChannelBadge channel={c.channel} compact />
+                    </div>
                     <p className="truncate text-xs text-gray-500">
                       {c.summary || (c.employeeName ? `Handled by ${c.employeeName}` : "—")}
                     </p>
                   </div>
                   {needsPerson ? (
-                    <Pill tone="warn" className="hidden md:inline-flex">
+                    <Pill tone="warn" dot className="hidden md:inline-flex">
                       Needs a person
                     </Pill>
                   ) : null}
@@ -257,7 +265,9 @@ export default async function ConversationsPage({
                       {titleCase(c.intent)}
                     </Pill>
                   ) : null}
-                  <span className="shrink-0 text-xs text-gray-400">{formatWhen(c.lastActivityAt)}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-gray-400">
+                    {formatWhen(c.lastActivityAt)}
+                  </span>
                 </ListRow>
               );
             })}
