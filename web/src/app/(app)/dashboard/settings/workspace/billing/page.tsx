@@ -2,10 +2,34 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowUpCircle,
+  Building2,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  CreditCard,
+  Gauge,
+  Hash,
+  Layers,
+  Loader2,
+  Minus,
+  Phone,
+  PhoneCall,
+  Plus,
+  ReceiptText,
+  RefreshCw,
+  Sparkles,
+  Timer,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { formatUsd } from "@/lib/utils";
-import Widget from "@/components/dashboard/Widget";
-import { Phone, Clock, Users, Timer, ArrowLeft, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +38,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button as UIButton } from "@/components/ui/button";
-import { InlineBanner } from "@/components/marketing/InlineBanner";
+import { EmptyState } from "@/app/(app)/dashboard/_platform/ui";
+import {
+  Meter,
+  Notice,
+  Panel,
+  PanelHeader,
+  SettingsButton,
+  SettingsHero,
+  SettingsSection,
+  StatTile,
+  StatusPill,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 
 // API response types
 type BillingSummary = {
@@ -110,90 +144,11 @@ const PLAN_ORDER: Record<string, number> = {
   scale: 3,
 };
 
-// Utility function for className merging
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-// Button component
-function Button(
-  props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "primary" | "secondary" | "destructive";
-  }
-) {
-  const { variant = "secondary", className, ...rest } = props;
-  const base =
-    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
-  const styles =
-    variant === "primary"
-      ? "bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700"
-      : variant === "destructive"
-      ? "border border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/30 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-900/20"
-      : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:bg-white/5";
-  return <button type="button" className={cn(base, styles, className)} {...rest} />;
-}
-
-// Card component
-function Card({ className, children }: React.PropsWithChildren<{ className?: string }>) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm",
-        "dark:border-white/10 dark:bg-zinc-950",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-// Section title component
-function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="space-y-1">
-      <h2 className="text-base font-semibold text-zinc-900 dark:text-white">{title}</h2>
-      {subtitle && <p className="text-sm text-zinc-600 dark:text-zinc-400">{subtitle}</p>}
-    </div>
-  );
-}
-
-// Badge component
-function Badge({
-  children,
-  variant = "success",
-}: {
-  children: React.ReactNode;
-  variant?: "success" | "warning" | "neutral";
-}) {
-  const styles =
-    variant === "success"
-      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-      : variant === "warning"
-      ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-      : "bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-300";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-        styles
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-// Usage stat component
-function UsageStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-white/5">
-      <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-white">{value}</p>
-      {hint && <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{hint}</p>}
-    </div>
-  );
-}
+/** A glyph per add-on, so two steppers aren't distinguishable only by their label. */
+const ADDON_ICONS: Record<string, typeof Phone> = {
+  extra_concurrency: Users,
+  extra_phone: Phone,
+};
 
 // Format month string to readable date
 function formatMonth(monthStr: string): string {
@@ -209,7 +164,7 @@ function formatMonth(monthStr: string): string {
 // Map invoice status to user-friendly label
 function formatInvoiceStatus(status: string | null): string {
   if (!status) return "—";
-  
+
   const statusMap: Record<string, string> = {
     draft: "Draft",
     stale: "Replaced",
@@ -219,12 +174,12 @@ function formatInvoiceStatus(status: string | null): string {
     uncollectible: "Uncollectible",
     error: "Needs review",
   };
-  
+
   const normalized = status.toLowerCase();
   if (statusMap[normalized]) {
     return statusMap[normalized];
   }
-  
+
   // Default: Title Case
   return status
     .split("_")
@@ -232,6 +187,48 @@ function formatInvoiceStatus(status: string | null): string {
     .join(" ");
 }
 
+/** Invoice status → pill tone. Paid is the only success; anything unresolved reads as warning. */
+function invoiceTone(status: string | null): "ok" | "warn" | "critical" | "neutral" {
+  const s = (status ?? "").toLowerCase();
+  if (s === "paid") return "ok";
+  if (s === "open" || s === "draft") return "warn";
+  if (s === "uncollectible" || s === "error") return "critical";
+  return "neutral";
+}
+
+/** One line of a plan's contents. */
+function PlanFeature({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+      <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-500" />
+      <span>{children}</span>
+    </li>
+  );
+}
+
+/**
+ * Billing & usage.
+ *
+ * **What the visual pass changed, beyond skin.**
+ *
+ * 1. **Usage got a shape.** The one question a customer opens this page with is "how much of what
+ *    I pay for have I used", and the page answered it with four flat counters — or, when the
+ *    month's preview row didn't exist yet, with nothing at all, silently, so the section
+ *    advertised in the nav as "Billing & usage" showed no usage whatsoever. Minutes are now drawn
+ *    against the plan's included minutes as a meter that changes tone as it fills, and a month with
+ *    no calls says so instead of vanishing.
+ * 2. **Plans became cards you can compare.** Three plans were stacked in a narrow right-hand
+ *    column as name/price/button rows, so choosing between them meant reading. They are a
+ *    three-across grid listing what each one actually contains.
+ * 3. **One visual language.** This page was written in `zinc` with its own local `Button`, `Card`
+ *    and `Badge`, while the two pages either side of it in the settings rail used `gray`/`navy`
+ *    Horizon components — visibly a different product. It renders through the shared settings kit
+ *    now, and the second header (a gradient card carrying a four-level breadcrumb, under a nav
+ *    rail that already said where you were) is gone.
+ *
+ * Every fetch, handler and state transition below is unchanged: this is money, and the failure
+ * mode of a redesign that quietly alters a Stripe call is not a visual one.
+ */
 export default function WorkspaceBillingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -242,19 +239,18 @@ export default function WorkspaceBillingPage() {
   const [summary, setSummary] = React.useState<BillingSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [changingPlan, setChangingPlan] = React.useState(false);
   const [portalLoading, setPortalLoading] = React.useState(false);
   const [portalError, setPortalError] = React.useState<string | null>(null);
   const [updatingAddon, setUpdatingAddon] = React.useState<string | null>(null);
-  
+
   // Checkout sync state
   const [checkoutSyncing, setCheckoutSyncing] = React.useState(false);
   const [checkoutSyncMessage, setCheckoutSyncMessage] = React.useState<string | null>(null);
   const [checkoutSyncError, setCheckoutSyncError] = React.useState<string | null>(null);
-  
+
   // Ref for upgrade plan section scroll/focus
   const upgradePlanRef = React.useRef<HTMLDivElement>(null);
-  
+
   // State for highlighting plan selection card
   const [highlightPlans, setHighlightPlans] = React.useState(false);
 
@@ -296,7 +292,11 @@ export default function WorkspaceBillingPage() {
       const returnTo = sessionStorage.getItem("onboarding_return_to");
       if (returnTo && summary?.plans && summary.plans.length > 0) {
         // Check if user now has a plan
-        const hasPlan = summary.plans.some((p) => p.plan_code === (summary as any).plan_limits?.plan_code);
+        // `summary` is narrowed non-null by the guard above, so the `as any` this line carried
+        // (and the lint error with it) was never buying anything.
+        const hasPlan = summary.plans.some(
+          (p) => p.plan_code === summary.plan_limits?.plan_code
+        );
         if (hasPlan) {
           // Clear flag and redirect
           sessionStorage.removeItem("onboarding_return_to");
@@ -314,7 +314,7 @@ export default function WorkspaceBillingPage() {
   React.useEffect(() => {
     const checkout = searchParams.get("checkout");
     const sessionId = searchParams.get("session_id");
-    
+
     if (checkout === "success" && sessionId) {
       // Sync plan activation before refreshing summary (same logic as webhook)
       const syncCheckout = async () => {
@@ -322,16 +322,16 @@ export default function WorkspaceBillingPage() {
           setCheckoutSyncing(true);
           setCheckoutSyncMessage("Activating your plan…");
           setCheckoutSyncError(null);
-          
+
           // Call sync-checkout API (replicates webhook logic)
           const res = await fetch("/api/billing/stripe/sync-checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ session_id: sessionId }),
           });
-          
+
           const data = await res.json();
-          
+
           if (data.ok) {
             setCheckoutSyncMessage("Plan activated successfully");
             // Refresh summary to show updated plan
@@ -360,9 +360,9 @@ export default function WorkspaceBillingPage() {
           setCheckoutSyncing(false);
         }
       };
-      
+
       syncCheckout();
-      
+
       // Clear query params to avoid re-processing on refresh
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete("checkout");
@@ -392,7 +392,7 @@ export default function WorkspaceBillingPage() {
     try {
       setPortalLoading(true);
       setPortalError(null);
-      
+
       // Prevent portal redirect in preview mode
       const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
       const hasActivePlan = Boolean(currentPlanCode);
@@ -401,7 +401,7 @@ export default function WorkspaceBillingPage() {
         setPortalLoading(false);
         return;
       }
-      
+
       const res = await fetch("/api/billing/stripe/portal", {
         method: "POST",
         headers: {
@@ -440,19 +440,19 @@ export default function WorkspaceBillingPage() {
     try {
       setConfirmLoading(true);
       setConfirmError(null);
-      
+
       // Derive plan state from current summary
       const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
       const hasActivePlan = Boolean(currentPlanCode);
-      
+
       // If no plan exists (preview mode), use Stripe checkout flow
       if (!hasActivePlan) {
         const res = await fetch("/api/billing/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             plan_code: planCode,
-            return_to: "/dashboard/settings/workspace/billing"
+            return_to: "/dashboard/settings/workspace/billing",
           }),
         });
         const data = await res.json();
@@ -465,7 +465,7 @@ export default function WorkspaceBillingPage() {
         }
         return;
       }
-      
+
       // If plan exists (paid user), use plan change endpoint
       const res = await fetch("/api/billing/plan/change", {
         method: "POST",
@@ -529,66 +529,105 @@ export default function WorkspaceBillingPage() {
 
   // Get current plan code from plan_limits (org_plan_limits) - explicitly nullable, no fallback
   const currentPlanCode = summary?.plan_limits?.plan_code ?? null;
-  
+
   // Derive plan state
   const hasPlan = Boolean(currentPlanCode);
-  
+
   // Find current plan object from summary.plans (only if plan exists)
-  const currentPlan = hasPlan ? (summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null) : null;
-  
+  const currentPlan = hasPlan
+    ? summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null
+    : null;
+
   // Get current plan order (0 if no plan)
-  const currentPlanOrder = hasPlan ? (PLAN_ORDER[currentPlanCode!] || 0) : 0;
+  const currentPlanOrder = hasPlan ? PLAN_ORDER[currentPlanCode!] || 0 : 0;
+
+  /** The header, shared by every state so loading and error don't lose the page's identity. */
+  const hero = (
+    <SettingsHero
+      icon={CreditCard}
+      title="Billing & usage"
+      subtitle="Your plan, what you've used this month, and every invoice."
+      pills={
+        <>
+          {/* Only claim a plan state once the summary has actually arrived — while loading,
+              `hasPlan` is false, and a header that says "No plan" to a paying customer for the
+              second the fetch takes is worse than a header that says nothing. */}
+          {summary ? (
+            <StatusPill tone={hasPlan ? "brand" : "warn"} icon={Layers}>
+              {currentPlan?.display_name ?? (hasPlan ? currentPlanCode : "No plan")}
+            </StatusPill>
+          ) : null}
+          {summary ? (
+            <StatusPill tone={summary.billing_status === "active" ? "ok" : "critical"} dot>
+              {summary.billing_status === "active"
+                ? "Billing active"
+                : formatInvoiceStatus(summary.billing_status)}
+            </StatusPill>
+          ) : null}
+          {summary?.month ? (
+            <StatusPill tone="neutral" icon={Clock}>
+              {formatMonth(summary.month)}
+            </StatusPill>
+          ) : null}
+        </>
+      }
+      action={
+        <SettingsButton
+          type="button"
+          variant="primary"
+          onClick={handlePortalRedirect}
+          disabled={portalLoading || !hasPlan}
+          title={!hasPlan ? "Available after you choose a plan" : undefined}
+        >
+          {portalLoading ? <Loader2 className="animate-spin" /> : <Wallet />}
+          {portalLoading ? "Opening…" : "Payment & invoices"}
+        </SettingsButton>
+      }
+    />
+  );
 
   // Error state
   if (error && !summary) {
     return (
-      <SettingsShell
-        title="Billing"
-        subtitle="Plan, payment method, and invoices."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Billing" },
-        ]}
-      >
-        <Card>
-          <div className="text-center py-12">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">{error}</p>
-            <Button variant="primary" onClick={fetchSummary}>
-              Retry
-            </Button>
+      <div className="space-y-8">
+        {hero}
+        <Panel>
+          <EmptyState
+            icon={AlertTriangle}
+            title="We couldn't load your billing details"
+            description={error}
+          />
+          <div className="flex justify-center pb-6">
+            <SettingsButton type="button" variant="primary" onClick={fetchSummary}>
+              <RefreshCw />
+              Try again
+            </SettingsButton>
           </div>
-        </Card>
-      </SettingsShell>
+        </Panel>
+      </div>
     );
   }
 
   // Loading state
   if (loading && !summary) {
     return (
-      <SettingsShell
-        title="Billing"
-        subtitle="Plan, payment method, and invoices."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Billing" },
-        ]}
-      >
-        <Card>
-          <div className="text-center py-12">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading...</p>
-          </div>
-        </Card>
-      </SettingsShell>
+      <div className="space-y-8">
+        {hero}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-2xl border border-gray-200/80 bg-gray-100/70 dark:border-white/10 dark:bg-white/5"
+            />
+          ))}
+        </div>
+        <div className="h-56 animate-pulse rounded-[20px] border border-gray-200/80 bg-gray-100/70 dark:border-white/10 dark:bg-white/5" />
+      </div>
     );
   }
 
   const preview = summary?.preview;
   const invoiceRun = summary?.invoice_run;
-  const planLimits = summary?.plan_limits;
   const plansRaw = summary?.plans || [];
 
   // Sort plans client-side as safety net: starter, growth, scale
@@ -601,814 +640,695 @@ export default function WorkspaceBillingPage() {
   // If plans array is empty, show empty state
   if (plans.length === 0) {
     return (
-      <SettingsShell
-        title="Billing"
-        subtitle="Plan, payment method, and invoices."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Billing" },
-        ]}
-      >
-        <Card>
-          <div className="text-center py-12">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">No plans available</p>
-            <Button variant="primary" onClick={fetchSummary}>
-              Retry
-            </Button>
+      <div className="space-y-8">
+        {hero}
+        <Panel>
+          <EmptyState
+            icon={Layers}
+            title="No plans available"
+            description="We couldn't load the plan catalogue. This is usually temporary."
+          />
+          <div className="flex justify-center pb-6">
+            <SettingsButton type="button" variant="primary" onClick={fetchSummary}>
+              <RefreshCw />
+              Try again
+            </SettingsButton>
           </div>
-        </Card>
-      </SettingsShell>
+        </Panel>
+      </div>
     );
   }
 
+  const includedMinutes = currentPlan?.included_minutes ?? summary?.pricing?.included_minutes ?? 0;
+  const usedMinutes = preview?.billable_minutes ?? 0;
+  const totalCalls = preview?.total_calls ?? 0;
+
+  /** Average call duration, derived the same way it always was. */
+  const avgDuration = (() => {
+    if (!(totalCalls > 0 && usedMinutes > 0)) return "—";
+    const avgMinutes = usedMinutes / totalCalls;
+    const minutes = Math.floor(avgMinutes);
+    const seconds = Math.round((avgMinutes - minutes) * 60);
+    if (minutes > 0) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes} min`;
+    return `${seconds}s`;
+  })();
+
   return (
-    <SettingsShell
-      title="Billing"
-      subtitle="Plan, payment method, and invoices."
-      crumbs={[
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Settings", href: "/dashboard/settings" },
-        { label: "Workspace" },
-        { label: "Billing" },
-      ]}
-    >
-      <div className="space-y-6">
-        {/* Checkout sync status banner */}
-        {checkoutSyncing && checkoutSyncMessage && (
-          <InlineBanner
-            type="success"
-            message={
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{checkoutSyncMessage}</span>
-              </div>
-            }
-          />
-        )}
-        {checkoutSyncMessage && !checkoutSyncing && (
-          <InlineBanner
-            type="success"
-            message={checkoutSyncMessage}
-            onDismiss={() => setCheckoutSyncMessage(null)}
-          />
-        )}
-        {checkoutSyncError && (
-          <InlineBanner
-            type="error"
-            message={checkoutSyncError}
-            onDismiss={() => setCheckoutSyncError(null)}
-          />
-        )}
-        
-        {/* Onboarding flow banner */}
-        {isOnboardingFlow && (
-          <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-900/30 dark:bg-brand-950/50">
-            <div className="flex items-start gap-3">
-              <ArrowLeft className="h-5 w-5 text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-brand-900 dark:text-brand-100">
-                  Complete your plan purchase, then return to finish setup.
-                </p>
-              </div>
-              <UIButton
-                variant="outline"
-                onClick={() => router.push(returnTo || "/onboarding")}
-                className="flex-shrink-0"
-              >
-                Return to setup
-              </UIButton>
-            </div>
-          </div>
-        )}
+    <div className="space-y-8">
+      {hero}
 
-        {/* Billing status banner */}
-        {summary && summary.billing_status !== "active" && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/50">
-            <div className="flex items-start gap-3">
-              <svg
-                className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                  {summary.billing_status === "past_due"
-                    ? "Payment failed"
-                    : summary.billing_status === "paused"
-                    ? "Usage cap reached"
-                    : "Billing issue"}
-                </p>
-                <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                  {summary.paused_reason || "Update payment method to resume."}
-                </p>
-              </div>
-              <div className="group relative">
-                <Button
-                  variant="primary"
-                  onClick={handlePortalRedirect}
-                  disabled={portalLoading || !hasPlan}
-                  className="flex-shrink-0"
-                  title={!hasPlan ? "Available after you choose a plan" : undefined}
-                >
-                  {portalLoading ? "Loading..." : "Update payment"}
-                </Button>
-                {!hasPlan && (
-                  <div className="absolute right-0 top-full z-10 mt-2 hidden w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg group-hover:block dark:border-white/20 dark:bg-navy-800">
-                    <p className="text-xs text-gray-700 dark:text-gray-300">
-                      Available after you choose a plan
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+      {/* ---------------------------------------------------------- banners */}
+      {checkoutSyncing && checkoutSyncMessage ? (
+        <Notice tone="info" icon={Loader2}>
+          {checkoutSyncMessage}
+        </Notice>
+      ) : null}
+      {checkoutSyncMessage && !checkoutSyncing ? (
+        <Notice tone="ok" icon={CheckCircle2}>
+          {checkoutSyncMessage}
+        </Notice>
+      ) : null}
+      {checkoutSyncError ? (
+        <Notice tone="critical" icon={AlertTriangle}>
+          {checkoutSyncError}
+        </Notice>
+      ) : null}
 
-        {/* Portal CTA */}
-        <div className="flex items-center justify-end">
-          <div className="group relative">
-            <Button
+      {isOnboardingFlow ? (
+        <Notice
+          tone="info"
+          icon={Sparkles}
+          title="Finish choosing a plan, then head back to setup."
+          action={
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={() => router.push(returnTo || "/onboarding")}
+            >
+              <ArrowLeft />
+              Return to setup
+            </SettingsButton>
+          }
+        />
+      ) : null}
+
+      {summary && summary.billing_status !== "active" ? (
+        <Notice
+          tone="critical"
+          icon={AlertTriangle}
+          title={
+            summary.billing_status === "past_due"
+              ? "Payment failed"
+              : summary.billing_status === "paused"
+                ? "Usage cap reached"
+                : "Billing issue"
+          }
+          action={
+            <SettingsButton
+              type="button"
               variant="primary"
               onClick={handlePortalRedirect}
               disabled={portalLoading || !hasPlan}
               title={!hasPlan ? "Available after you choose a plan" : undefined}
             >
-              {portalLoading ? "Loading..." : "Manage payment & invoices"}
-            </Button>
-            {!hasPlan && (
-              <div className="absolute right-0 top-full z-10 mt-2 hidden w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg group-hover:block dark:border-white/20 dark:bg-navy-800">
-                <p className="text-xs text-gray-700 dark:text-gray-300">
-                  Available after you choose a plan
-                </p>
+              {portalLoading ? <Loader2 className="animate-spin" /> : <CreditCard />}
+              Update payment
+            </SettingsButton>
+          }
+        >
+          {summary.paused_reason || "Update your payment method to resume service."}
+        </Notice>
+      ) : null}
+
+      {portalError ? (
+        <Notice tone="critical" icon={AlertTriangle}>
+          {portalError}
+        </Notice>
+      ) : null}
+
+      {/* ------------------------------------------------------------ usage */}
+      <SettingsSection
+        id="usage"
+        icon={Activity}
+        title="Usage this period"
+        hint={
+          summary?.month
+            ? `Calls, billable minutes and peak concurrency for ${formatMonth(summary.month)}.`
+            : "Calls, billable minutes and peak concurrency for the current billing month."
+        }
+      >
+        <Panel>
+          {preview ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatTile icon={PhoneCall} label="Calls" value={totalCalls.toLocaleString()} />
+                <StatTile icon={Clock} label="Minutes" value={usedMinutes.toLocaleString()} />
+                <StatTile
+                  icon={Users}
+                  label="Peak concurrent"
+                  value={
+                    preview.peak_concurrent_calls !== null &&
+                    preview.peak_concurrent_calls !== undefined
+                      ? preview.peak_concurrent_calls.toString()
+                      : "—"
+                  }
+                />
+                <StatTile icon={Timer} label="Avg call" value={avgDuration} />
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Portal error alert */}
-        {portalError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/50">
-            <p className="text-sm text-red-700 dark:text-red-400">
-              {portalError}
-            </p>
-          </div>
-        )}
-
-        {/* Usage KPI cards - matching dashboard style.
-            Sprint 9 · T5: labelled and anchored as `#usage` — Settings used to advertise a
-            separate "Usage" page that rendered em-dashes and a "Coming soon" note while these
-            real numbers already lived here. Billing is now the single usage surface. */}
-        {summary?.preview && (
-          <div id="usage" className="scroll-mt-6 space-y-4">
-            <SectionTitle
-              title="Usage this period"
-              subtitle="Calls, billable minutes and peak concurrency for the current billing month."
-            />
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-4 3xl:grid-cols-4">
-            <Widget
-              icon={<Phone className="h-7 w-7" />}
-              title="Calls"
-              subtitle={(summary.preview.total_calls || 0).toLocaleString()}
-            />
-            <Widget
-              icon={<Clock className="h-7 w-7" />}
-              title="Minutes"
-              subtitle={(summary.preview.billable_minutes || 0).toLocaleString()}
-            />
-            <Widget
-              icon={<Users className="h-7 w-7" />}
-              title="Peak concurrency"
-              subtitle={
-                summary.preview.peak_concurrent_calls !== null && summary.preview.peak_concurrent_calls !== undefined
-                  ? summary.preview.peak_concurrent_calls.toString()
-                  : "—"
+              {/*
+                The number the page never drew. `billable_minutes` is the sum of each call rounded
+                up to the minute (usageMath.ts), and everything past `included_minutes` is charged
+                at the overage rate — so this bar is the difference between a predictable invoice
+                and a surprising one.
+              */}
+              {includedMinutes > 0 ? (
+                <div className="mt-6 space-y-2">
+                  <Meter
+                    value={usedMinutes}
+                    max={includedMinutes}
+                    label="Included minutes used"
+                    valueLabel={`${usedMinutes.toLocaleString()} of ${includedMinutes.toLocaleString()} min`}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {usedMinutes > includedMinutes
+                      ? `${(usedMinutes - includedMinutes).toLocaleString()} minutes over your plan — billed at ${
+                          currentPlan ? formatUsd(currentPlan.overage_rate_usd_per_min) : "the overage rate"
+                        }/min.`
+                      : `${(includedMinutes - usedMinutes).toLocaleString()} minutes left before overage starts.`}
+                  </p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState
+              icon={Activity}
+              title="No usage recorded this month"
+              description={
+                hasPlan
+                  ? "Once your AI answers its first call this month, minutes and calls appear here."
+                  : "Usage is tracked as soon as a plan is active and your AI starts answering."
               }
             />
-            {(() => {
-              const totalCalls = summary.preview.total_calls || 0;
-              const totalMinutes = summary.preview.billable_minutes || 0;
-              let avgDuration = "—";
-              if (totalCalls > 0 && totalMinutes > 0) {
-                const avgMinutes = totalMinutes / totalCalls;
-                const minutes = Math.floor(avgMinutes);
-                const seconds = Math.round((avgMinutes - minutes) * 60);
-                if (minutes > 0) {
-                  avgDuration = seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes} min`;
-                } else {
-                  avgDuration = `${seconds}s`;
+          )}
+        </Panel>
+      </SettingsSection>
+
+      {/* ------------------------------------------------------------- plan */}
+      <div ref={upgradePlanRef}>
+        <SettingsSection
+          icon={Layers}
+          title="Plan"
+          hint="Change your plan at any time — it takes effect immediately."
+          action={
+            hasPlan && currentPlan ? (
+              <StatusPill tone="brand" icon={CheckCircle2}>
+                {currentPlan.display_name} · {formatUsd(currentPlan.monthly_fee_usd)}/mo
+              </StatusPill>
+            ) : (
+              <StatusPill tone="warn" icon={AlertTriangle}>
+                Preview mode — no active plan
+              </StatusPill>
+            )
+          }
+        >
+          <div
+            className={`grid grid-cols-1 gap-4 rounded-[20px] transition-all duration-300 md:grid-cols-3 ${
+              highlightPlans ? "ring-4 ring-brand-500/30" : ""
+            }`}
+          >
+            {plans.map((plan) => {
+              const isCurrent = hasPlan && plan.plan_code === currentPlanCode;
+              const targetPlanOrder = PLAN_ORDER[plan.plan_code] || 0;
+
+              let buttonLabel = "Current plan";
+              let buttonVariant: "primary" | "secondary" = "secondary";
+              let ButtonIcon: typeof ArrowUpCircle | null = null;
+
+              if (!isCurrent) {
+                if (!hasPlan) {
+                  buttonLabel = "Select plan";
+                  buttonVariant = "primary";
+                  ButtonIcon = Sparkles;
+                } else if (targetPlanOrder > currentPlanOrder) {
+                  buttonLabel = "Upgrade";
+                  buttonVariant = "primary";
+                  ButtonIcon = ArrowUpCircle;
+                } else if (targetPlanOrder < currentPlanOrder) {
+                  buttonLabel = "Downgrade";
+                  buttonVariant = "secondary";
+                  ButtonIcon = ChevronDown;
                 }
               }
+
               return (
-                <Widget
-                  icon={<Timer className="h-7 w-7" />}
-                  title="Avg call duration"
-                  subtitle={avgDuration}
-                />
+                <div
+                  key={plan.plan_code}
+                  className={`relative flex flex-col rounded-[20px] border p-5 transition ${
+                    isCurrent
+                      ? "border-brand-500 bg-brand-500/5 shadow-sm dark:border-brand-400 dark:bg-brand-400/10"
+                      : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-white/10 dark:bg-navy-800 dark:hover:border-white/20"
+                  }`}
+                >
+                  {isCurrent ? (
+                    <span className="absolute -top-2.5 left-5">
+                      <StatusPill tone="brand" icon={CheckCircle2}>
+                        Current
+                      </StatusPill>
+                    </span>
+                  ) : null}
+
+                  <p className="text-sm font-semibold text-navy-700 dark:text-white">
+                    {plan.display_name}
+                  </p>
+                  <p className="mt-2 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold tabular-nums text-navy-700 dark:text-white">
+                      {formatUsd(plan.monthly_fee_usd)}
+                    </span>
+                    <span className="text-xs text-gray-500">/month</span>
+                  </p>
+
+                  <ul className="mt-4 flex-1 space-y-1.5">
+                    <PlanFeature>
+                      {plan.included_minutes.toLocaleString()} minutes included
+                    </PlanFeature>
+                    <PlanFeature>{plan.concurrency_limit} concurrent calls</PlanFeature>
+                    <PlanFeature>
+                      {plan.included_phone_numbers} phone number
+                      {plan.included_phone_numbers === 1 ? "" : "s"}
+                    </PlanFeature>
+                    <PlanFeature>
+                      {formatUsd(plan.overage_rate_usd_per_min)}/min after that
+                    </PlanFeature>
+                  </ul>
+
+                  <SettingsButton
+                    type="button"
+                    variant={isCurrent ? "secondary" : buttonVariant}
+                    disabled={isCurrent || confirmLoading}
+                    onClick={() => handlePlanChange(plan.plan_code)}
+                    className="mt-5 w-full"
+                  >
+                    {ButtonIcon ? <ButtonIcon /> : null}
+                    {buttonLabel}
+                  </SettingsButton>
+                </div>
               );
-            })()}
+            })}
           </div>
-          </div>
-        )}
+        </SettingsSection>
+      </div>
 
-        {/* Row 1: Overage (left, ~65%) | Upgrade plan (right, ~35%) */}
-        <div className="grid grid-cols-12 gap-6 items-start">
-          <div className="col-span-12 lg:col-span-8 min-w-0 max-w-full overflow-hidden">
-            {/* Overage card */}
-            {summary?.overage && (
-              <Card>
-                <SectionTitle title="Overage" subtitle={hasPlan ? "Current month usage overage." : undefined} />
-                {hasPlan ? (
-                  <div className="mt-6 space-y-6">
-                      {/* Stats grid */}
-                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                        <UsageStat
-                          label="Current overage"
-                          value={formatUsd(summary.overage.current_overage_usd)}
-                        />
-                        <UsageStat
-                          label="Next auto-collect at"
-                          value={formatUsd(summary.overage.next_collect_at_usd)}
-                        />
-                        <UsageStat
-                          label="Remaining to cap"
-                          value={formatUsd(summary.overage.remaining_to_cap_usd)}
-                        />
-                        <UsageStat
-                          label="Hard cap"
-                          value={formatUsd(summary.overage.hard_cap_usd)}
-                        />
-                      </div>
-
-                      {/* Progress bar */}
-                      {(() => {
-                        const progressPercent = summary.overage.hard_cap_usd > 0
-                          ? Math.min(
-                              Math.round(
-                                (summary.overage.current_overage_usd / summary.overage.hard_cap_usd) * 100
-                              ),
-                              100
-                            )
-                          : 0;
-                        const hasProgress = progressPercent > 0;
-                        
-                        return (
-                          <div className="space-y-2.5">
-                            <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                              <span>Progress to cap</span>
-                              <span>{summary.overage.hard_cap_usd > 0 ? `${progressPercent}%` : "—"}</span>
-                            </div>
-                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
-                              <div
-                                className={`h-full transition-all ${
-                                  hasProgress
-                                    ? "bg-amber-500 dark:bg-amber-500"
-                                    : "bg-brand-500 dark:bg-brand-500"
-                                }`}
-                                style={{
-                                  width: `${progressPercent}%`,
-                                }}
-                              />
-                            </div>
-                            {summary.overage.status === "ok" && (
-                              <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
-                                Auto-collect triggers every $100 of overage.
-                              </p>
-                            )}
-                            {(summary.overage.status === "paused_hard_cap" ||
-                              summary.overage.status === "paused_past_due" ||
-                              summary.overage.status === "collecting") && (
-                              <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 dark:border-white/10 dark:bg-white/5">
-                                <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                                  {summary.overage.status === "paused_hard_cap"
-                                    ? "Service paused due to hard cap. Payment required to resume."
-                                    : summary.overage.status === "paused_past_due"
-                                    ? "Service paused due to payment failure. Payment required to resume."
-                                    : "Overage threshold reached. Collection in progress."}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                ) : (
-                  <div className="mt-6 space-y-6">
-                    {/* Stats grid - same structure, placeholder values */}
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                      <UsageStat
-                        label="Current overage"
-                        value="—"
-                      />
-                      <UsageStat
-                        label="Next auto-collect at"
-                        value="—"
-                      />
-                      <UsageStat
-                        label="Remaining to cap"
-                        value="—"
-                      />
-                      <UsageStat
-                        label="Hard cap"
-                        value="—"
-                      />
-                    </div>
-
-                    {/* Progress bar - disabled/muted style */}
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                        <span>Progress to cap</span>
-                        <span>—</span>
-                      </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
-                        <div
-                          className="h-full bg-zinc-300 dark:bg-white/20"
-                          style={{
-                            width: "0%",
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Helper text */}
-                    <div className="space-y-1">
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Available after you choose a plan.
-                      </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-500">
-                        Overage charges apply only when you exceed your plan limits.
-                      </p>
-                    </div>
-                  </div>
-                )}
-            </Card>
-            )}
-          </div>
-
-          <div className="col-span-12 lg:col-span-4 min-w-0 max-w-full overflow-hidden">
-            {/* Upgrade plan card */}
-            <div ref={upgradePlanRef}>
-              <Card className={cn(
-                "transition-all duration-300",
-                highlightPlans && "ring-2 ring-brand-500/40 bg-brand-50/40 dark:bg-brand-500/10"
-              )}>
-                <SectionTitle title="Upgrade plan" subtitle="Change your plan at any time." />
-
-              <div className="mt-6 space-y-3">
-                {plans.map((plan) => {
-                  const isCurrent = hasPlan && plan.plan_code === currentPlanCode;
-                  const targetPlanOrder = PLAN_ORDER[plan.plan_code] || 0;
-                  
-                  // Determine button label and variant based on plan state
-                  let buttonLabel = "Current plan";
-                  let buttonVariant: "primary" | "secondary" = "secondary";
-                  
-                  if (!isCurrent) {
-                    if (!hasPlan) {
-                      // Preview mode: all plans show "Select plan" with secondary style
-                      buttonLabel = "Select plan";
-                      buttonVariant = "secondary";
-                    } else if (targetPlanOrder > currentPlanOrder) {
-                      // Paid user upgrading
-                      buttonLabel = "Upgrade";
-                      buttonVariant = "primary";
-                    } else if (targetPlanOrder < currentPlanOrder) {
-                      // Paid user downgrading
-                      buttonLabel = "Downgrade";
-                      buttonVariant = "secondary";
-                    }
-                  }
-                  
-                  // Build subtitle: "X concurrent · Y min" (using plan data from DB)
-                  const subtitle = `${plan.concurrency_limit} concurrent · ${plan.included_minutes.toLocaleString()} min`;
-                  
-                  return (
-                    <div
-                      key={plan.plan_code}
-                      className={cn(
-                        "rounded-xl border p-4",
-                        isCurrent
-                          ? "border-brand-500 bg-brand-50/50 dark:border-brand-500 dark:bg-brand-500/10"
-                          : "border-zinc-200 bg-zinc-50/50 dark:border-white/10 dark:bg-white/5"
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                            {plan.display_name}
-                          </h4>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
-                            {subtitle}
-                          </p>
-                          <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                            {formatUsd(plan.monthly_fee_usd)}/month
-                          </p>
-                        </div>
-                        <Button
-                          variant={isCurrent ? "secondary" : buttonVariant}
-                          disabled={isCurrent || changingPlan}
-                          onClick={() => handlePlanChange(plan.plan_code)}
-                          className="ml-4 flex-shrink-0"
-                        >
-                          {buttonLabel}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              </Card>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Add-ons (left) | Estimated monthly total (middle) | Current plan (right) */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Add-ons card - compact */}
-          {summary?.addons && (
-            <Card className="p-4">
-              <SectionTitle 
-                title="Add-ons" 
-                subtitle={hasPlan ? "Extra capacity beyond your plan." : "Requires an active plan"}
-              />
-              <div className="mt-3 space-y-2.5">
+      {/* ---------------------------------------------------------- add-ons */}
+      {summary?.addons || summary?.pricing_preview ? (
+        <SettingsSection
+          icon={Plus}
+          title="Add-ons & total"
+          hint="Extra capacity beyond your plan, and what this month is tracking towards."
+        >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {summary?.addons ? (
+              <div className="space-y-4 lg:col-span-2">
                 {summary.addons.available
                   .filter((addon) => addon.key === "extra_concurrency" || addon.key === "extra_phone")
                   .map((addon) => {
-                    const currentQty = summary.addons?.active[addon.key as "extra_concurrency" | "extra_phone"] || 0;
+                    const currentQty =
+                      summary.addons?.active[addon.key as "extra_concurrency" | "extra_phone"] || 0;
                     const monthlyPrice = currentQty * addon.price_usd_month;
                     const isBillingPaused = summary.billing_status !== "active";
                     const isUpdating = updatingAddon === addon.key;
+                    const Icon = ADDON_ICONS[addon.key] ?? Plus;
 
                     return (
-                      <div
-                        key={addon.key}
-                        className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                              {addon.label}
-                            </p>
-                            {monthlyPrice > 0 && (
-                              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                                +{formatUsd(monthlyPrice)}/mo
-                              </p>
-                            )}
-                            {isBillingPaused && (
-                              <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                                Billing pause active — increase disabled until payment is resolved.
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              variant="secondary"
-                              onClick={() => {
-                                if (currentQty > 0) {
-                                  handleAddonUpdate(addon.key, Math.max(0, currentQty - addon.step));
-                                }
-                              }}
-                              disabled={currentQty === 0 || isUpdating}
-                              className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
-                            >
-                              −
-                            </Button>
-                            <span className="min-w-[3rem] text-center text-sm font-semibold text-zinc-900 dark:text-white">
-                              {currentQty}
-                            </span>
-                            <Button
-                              variant="secondary"
-                              onClick={() => {
-                                if (!isBillingPaused && hasPlan) {
-                                  handleAddonUpdate(addon.key, currentQty + addon.step);
-                                }
-                              }}
-                              disabled={isBillingPaused || isUpdating || !hasPlan}
-                              className="h-8 w-8 rounded-lg p-0 text-lg font-semibold"
-                            >
-                              +
-                            </Button>
-                          </div>
+                      <Panel key={addon.key}>
+                        <PanelHeader
+                          icon={Icon}
+                          title={addon.label}
+                          description={
+                            addon.key === "extra_phone"
+                              ? "An additional inbound number on this workspace."
+                              : "Handle more simultaneous calls without a busy signal."
+                          }
+                          action={
+                            <div className="flex items-center gap-2">
+                              <SettingsButton
+                                type="button"
+                                variant="secondary"
+                                aria-label={`Remove one ${addon.label}`}
+                                onClick={() => {
+                                  if (currentQty > 0) {
+                                    handleAddonUpdate(
+                                      addon.key,
+                                      Math.max(0, currentQty - addon.step)
+                                    );
+                                  }
+                                }}
+                                disabled={currentQty === 0 || isUpdating}
+                                className="h-9 w-9 !px-0"
+                              >
+                                <Minus />
+                              </SettingsButton>
+                              <span className="min-w-[2.5rem] text-center text-lg font-bold tabular-nums text-navy-700 dark:text-white">
+                                {currentQty}
+                              </span>
+                              <SettingsButton
+                                type="button"
+                                variant="secondary"
+                                aria-label={`Add one ${addon.label}`}
+                                onClick={() => {
+                                  if (!isBillingPaused && hasPlan) {
+                                    handleAddonUpdate(addon.key, currentQty + addon.step);
+                                  }
+                                }}
+                                disabled={isBillingPaused || isUpdating || !hasPlan}
+                                className="h-9 w-9 !px-0"
+                              >
+                                <Plus />
+                              </SettingsButton>
+                            </div>
+                          }
+                        />
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <StatusPill tone={monthlyPrice > 0 ? "brand" : "neutral"} icon={Wallet}>
+                            {monthlyPrice > 0 ? `+${formatUsd(monthlyPrice)}/mo` : "Not in use"}
+                          </StatusPill>
+                          <StatusPill tone="neutral" icon={Hash}>
+                            {formatUsd(addon.price_usd_month)} per {addon.unit}
+                          </StatusPill>
+                          {!hasPlan ? (
+                            <StatusPill tone="warn" icon={AlertTriangle}>
+                              Requires an active plan
+                            </StatusPill>
+                          ) : null}
+                          {isBillingPaused ? (
+                            <StatusPill tone="warn" icon={AlertTriangle}>
+                              Increases disabled until payment is resolved
+                            </StatusPill>
+                          ) : null}
                         </div>
-                      </div>
+                      </Panel>
                     );
                   })}
               </div>
-            </Card>
-          )}
+            ) : null}
 
-          {/* Estimated Monthly Total (Preview) card - compact */}
-          {summary?.pricing_preview && (
-            <Card className="p-4">
-              <div className="flex items-start justify-between">
-                <SectionTitle
-                  title="Estimated monthly total"
-                  subtitle={hasPlan ? "Preview — final invoice is calculated at month close." : "No active plan"}
+            {summary?.pricing_preview ? (
+              <Panel className="h-fit">
+                <PanelHeader
+                  icon={TrendingUp}
+                  tone="brand"
+                  title="Estimated total"
+                  description={
+                    hasPlan
+                      ? "A preview. The final invoice is calculated at month close."
+                      : "No active plan."
+                  }
+                  action={
+                    summary.pricing_preview.invoice_state === "stale" && hasPlan ? (
+                      <StatusPill tone="warn">Updating</StatusPill>
+                    ) : undefined
+                  }
                 />
-                {summary.pricing_preview.invoice_state === "stale" && hasPlan && (
-                  <Badge variant="warning">Updating</Badge>
-                )}
-              </div>
-              <div className="mt-3 space-y-2.5">
-                  {/* Big total */}
-                  <div>
-                    <div className="text-3xl font-bold text-zinc-900 dark:text-white">
-                      {hasPlan ? formatUsd(summary.pricing_preview.estimated_monthly_total_usd) : formatUsd(0)}
+
+                <p className="mt-4 text-3xl font-bold tabular-nums text-navy-700 dark:text-white">
+                  {hasPlan
+                    ? formatUsd(summary.pricing_preview.estimated_monthly_total_usd)
+                    : formatUsd(0)}
+                </p>
+
+                {hasPlan ? (
+                  <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-white/10">
+                    <div className="flex items-center justify-between">
+                      <dt className="flex items-center gap-1.5 text-gray-500">
+                        <Layers className="h-3.5 w-3.5" />
+                        Plan
+                      </dt>
+                      <dd className="font-semibold tabular-nums text-navy-700 dark:text-white">
+                        {formatUsd(summary.pricing_preview.plan_base_usd)}
+                      </dd>
                     </div>
-                    {!hasPlan && (
-                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        No active plan
-                      </p>
-                    )}
+                    {summary.pricing_preview.addons_monthly_usd > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <dt className="flex items-center gap-1.5 text-gray-500">
+                          <Plus className="h-3.5 w-3.5" />
+                          Add-ons
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-navy-700 dark:text-white">
+                          +{formatUsd(summary.pricing_preview.addons_monthly_usd)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {summary.pricing_preview.usage_overage_so_far_usd > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <dt className="flex items-center gap-1.5 text-gray-500">
+                          <Gauge className="h-3.5 w-3.5" />
+                          Usage so far
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-navy-700 dark:text-white">
+                          +{formatUsd(summary.pricing_preview.usage_overage_so_far_usd)}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : null}
+
+                {invoiceRun?.stripe_invoice_id ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4 dark:border-white/10">
+                    <StatusPill tone={invoiceTone(invoiceRun.status)} icon={ReceiptText}>
+                      {formatInvoiceStatus(invoiceRun.status)}
+                    </StatusPill>
+                    <span className="truncate font-mono text-xs text-gray-500">
+                      {invoiceRun.stripe_invoice_id}
+                    </span>
                   </div>
-                  
-                  {/* Breakdown */}
-                  {hasPlan && (
-                    <div className="space-y-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-600 dark:text-zinc-400">Plan</span>
-                        <span className="font-medium text-zinc-900 dark:text-white">
-                          {formatUsd(summary.pricing_preview.plan_base_usd)}
-                        </span>
-                      </div>
-                    {summary.pricing_preview.addons_monthly_usd > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-600 dark:text-zinc-400">Add-ons</span>
-                        <span className="font-medium text-zinc-900 dark:text-white">
-                          +{formatUsd(summary.pricing_preview.addons_monthly_usd)}/mo
-                        </span>
-                      </div>
-                    )}
-                      {summary.pricing_preview.usage_overage_so_far_usd > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-zinc-600 dark:text-zinc-400">Usage so far</span>
-                          <span className="font-medium text-zinc-900 dark:text-white">
-                            +{formatUsd(summary.pricing_preview.usage_overage_so_far_usd)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                ) : null}
+              </Panel>
+            ) : null}
+          </div>
+        </SettingsSection>
+      ) : null}
 
-                  {/* Invoice status line if finalized/pending */}
-                  {invoiceRun?.stripe_invoice_id && (
-                    <div className="mt-4 flex items-center gap-2 border-t border-zinc-200 pt-4 dark:border-white/10">
-                      <Badge variant={invoiceRun.status === "paid" ? "success" : "warning"}>
-                        {formatInvoiceStatus(invoiceRun.status)}
-                      </Badge>
-                      <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                        {invoiceRun.stripe_invoice_id}
-                      </span>
-                    </div>
-                  )}
-              </div>
-            </Card>
-          )}
-
-          {/* Current plan card - de-emphasized */}
-          <Card className="border-zinc-200/80 dark:border-white/5">
-            <SectionTitle title="Current plan" subtitle="Your subscription and plan settings." />
-
-              {hasPlan && currentPlan ? (
-                <div className="mt-3 rounded-xl border border-zinc-200/60 bg-zinc-50/30 p-3.5 dark:border-white/5 dark:bg-white/3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                          {currentPlan.display_name}
-                        </h3>
-                        <Badge variant="success">Active</Badge>
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-xl font-semibold text-zinc-900 dark:text-white">
-                          {formatUsd(currentPlan.monthly_fee_usd)}
-                        </span>
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400">/month</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Plan features - compact */}
-                  <div className="mt-3 space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
-                      <svg className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {currentPlan.concurrency_limit} concurrent · {currentPlan.included_minutes.toLocaleString()} min · {formatUsd(currentPlan.overage_rate_usd_per_min)}/min overage
-                    </div>
-                    {currentPlan.included_phone_numbers > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
-                        <svg className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        {currentPlan.included_phone_numbers} phone number{currentPlan.included_phone_numbers !== 1 ? "s" : ""} included
-                      </div>
-                    )}
-                  </div>
+      {/* ---------------------------------------------------------- overage */}
+      {summary?.overage ? (
+        <SettingsSection
+          icon={Gauge}
+          title="Overage"
+          hint="What happens once you pass your included minutes."
+        >
+          <Panel>
+            {hasPlan ? (
+              <>
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  <StatTile
+                    icon={Gauge}
+                    label="Current overage"
+                    value={formatUsd(summary.overage.current_overage_usd)}
+                    tone={summary.overage.current_overage_usd > 0 ? "warn" : "brand"}
+                  />
+                  <StatTile
+                    icon={Wallet}
+                    label="Next auto-collect"
+                    value={formatUsd(summary.overage.next_collect_at_usd)}
+                  />
+                  <StatTile
+                    icon={TrendingUp}
+                    label="Remaining to cap"
+                    value={formatUsd(summary.overage.remaining_to_cap_usd)}
+                  />
+                  <StatTile
+                    icon={AlertTriangle}
+                    label="Hard cap"
+                    value={formatUsd(summary.overage.hard_cap_usd)}
+                    tone="critical"
+                  />
                 </div>
-              ) : (
-                <div className="mt-6 space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
-                        No active plan
-                      </h3>
-                      <Badge variant="neutral">No plan</Badge>
-                    </div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      You're in preview mode. Choose a plan to activate billing.
+
+                <div className="mt-6 space-y-3">
+                  <Meter
+                    value={summary.overage.current_overage_usd}
+                    max={summary.overage.hard_cap_usd}
+                    label="Progress to hard cap"
+                  />
+                  {summary.overage.status === "ok" ? (
+                    <p className="text-xs text-gray-500">
+                      Auto-collect triggers every {formatUsd(summary.overage.threshold_step_usd)} of
+                      overage. Reaching the hard cap pauses the workspace.
                     </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      // Scroll to plan selection card and highlight it
-                      if (upgradePlanRef.current) {
-                        upgradePlanRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-                        // Trigger highlight animation
-                        setHighlightPlans(true);
-                        setTimeout(() => {
-                          setHighlightPlans(false);
-                        }, 1200);
-                      }
-                    }}
-                  >
-                    Choose a plan
-                  </Button>
-                </div>
-              )}
-            </Card>
-        </div>
-
-        {/* Row 3: Past invoices (full width) */}
-        {summary?.history && summary.history.length > 0 && (() => {
-          const hasAnyInvoiceId = summary.history.some((inv) => inv.stripe_invoice_id);
-          const isSingleRow = summary.history.length === 1;
-          
-          return (
-            <Card>
-              <SectionTitle title="Past invoices" subtitle="Invoice history and receipts." />
-
-              <div className={`mt-6 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 ${isSingleRow ? '' : ''}`}>
-                {/* Table header */}
-                <div className={`grid grid-cols-12 gap-4 bg-zinc-50 px-4 text-xs font-semibold text-zinc-600 dark:bg-white/5 dark:text-zinc-400 ${isSingleRow ? 'py-2.5' : 'py-3'}`}>
-                  <div className="col-span-5">Month</div>
-                  <div className={hasAnyInvoiceId ? "col-span-3" : "col-span-5"}>Status</div>
-                  <div className={hasAnyInvoiceId ? "col-span-2" : "col-span-2"}>Amount</div>
-                  {hasAnyInvoiceId && (
-                    <div className="col-span-2 text-right">Invoice ID</div>
-                  )}
-                </div>
-
-                {/* Table rows */}
-                <div className="divide-y divide-zinc-200 bg-white dark:divide-white/10 dark:bg-zinc-950">
-                  {summary.history.map((invoice, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-12 items-center gap-4 px-4 py-4 transition-colors hover:bg-zinc-50/50 dark:hover:bg-white/5"
+                  ) : null}
+                  {summary.overage.status === "paused_hard_cap" ||
+                  summary.overage.status === "paused_past_due" ||
+                  summary.overage.status === "collecting" ? (
+                    <Notice
+                      tone={summary.overage.status === "collecting" ? "info" : "critical"}
+                      icon={AlertTriangle}
                     >
-                      <div className="col-span-5">
-                        <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                          {formatMonth(invoice.month)}
-                        </p>
-                      </div>
-                      <div className={hasAnyInvoiceId ? "col-span-3" : "col-span-5"}>
-                        <Badge
-                          variant={
-                            invoice.status === "draft"
-                              ? "warning"
-                              : invoice.status === "error" || invoice.status === "stale"
-                              ? "neutral"
-                              : invoice.status === "paid"
-                              ? "success"
-                              : "neutral"
-                          }
-                        >
-                          {formatInvoiceStatus(invoice.status)}
-                        </Badge>
-                      </div>
-                      <div className="col-span-2 text-sm font-semibold text-zinc-900 dark:text-white">
-                        {formatUsd(invoice.estimated_total_due_usd)}
-                      </div>
-                      {hasAnyInvoiceId && (
-                        <div className="col-span-2 text-right">
-                          {invoice.stripe_invoice_id ? (
-                            <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                              {invoice.stripe_invoice_id}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-zinc-400">—</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      {summary.overage.status === "paused_hard_cap"
+                        ? "Service paused: the hard cap was reached. Payment is required to resume."
+                        : summary.overage.status === "paused_past_due"
+                          ? "Service paused: a payment failed. Payment is required to resume."
+                          : "Overage threshold reached — collection is in progress."}
+                    </Notice>
+                  ) : null}
                 </div>
-              </div>
-            </Card>
-          );
-        })()}
-        </div>
+              </>
+            ) : (
+              <EmptyState
+                icon={Gauge}
+                title="Overage applies once you're on a plan"
+                description="Charges only ever start after you've used the minutes your plan includes."
+              />
+            )}
+          </Panel>
+        </SettingsSection>
+      ) : null}
 
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmDialogOpen} onOpenChange={(open) => {
-        if (!confirmLoading) {
-          setConfirmDialogOpen(open);
-          if (!open) {
-            setConfirmError(null);
-            setConfirmAction(null);
-            setConfirmData(null);
+      {/* --------------------------------------------------------- invoices */}
+      {summary?.history && summary.history.length > 0 ? (
+        <SettingsSection
+          icon={ReceiptText}
+          title="Invoices"
+          hint="Every closed month, with its receipt."
+          action={
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={handlePortalRedirect}
+              disabled={portalLoading || !hasPlan}
+            >
+              <ReceiptText />
+              Receipts
+            </SettingsButton>
           }
-        }
-      }}>
-        <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
+        >
+          <Panel padded={false}>
+            <ul className="divide-y divide-gray-100 dark:divide-white/10">
+              {summary.history.map((invoice, idx) => (
+                <li
+                  key={idx}
+                  className="flex flex-wrap items-center gap-3 px-6 py-4 transition hover:bg-gray-50/60 dark:hover:bg-white/5"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300"
+                  >
+                    <ReceiptText className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-navy-700 dark:text-white">
+                      {formatMonth(invoice.month)}
+                    </p>
+                    {invoice.stripe_invoice_id ? (
+                      <p className="truncate font-mono text-xs text-gray-500">
+                        {invoice.stripe_invoice_id}
+                      </p>
+                    ) : null}
+                  </div>
+                  <StatusPill tone={invoiceTone(invoice.status)}>
+                    {formatInvoiceStatus(invoice.status)}
+                  </StatusPill>
+                  <span className="w-20 text-right text-sm font-semibold tabular-nums text-navy-700 dark:text-white">
+                    {formatUsd(invoice.estimated_total_due_usd)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </SettingsSection>
+      ) : null}
+
+      {/* ------------------------------------------------------ confirm flow */}
+      <Dialog
+        open={confirmDialogOpen}
+        onOpenChange={(open) => {
+          if (!confirmLoading) {
+            setConfirmDialogOpen(open);
+            if (!open) {
+              setConfirmError(null);
+              setConfirmAction(null);
+              setConfirmData(null);
+            }
+          }
+        }}
+      >
+        <DialogContent className="!left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 sm:max-w-[460px]">
           <DialogHeader>
-            <DialogTitle>{confirmAction === "plan" ? "Confirm plan change" : "Confirm changes"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {confirmAction === "plan" ? (
+                <Layers className="h-5 w-5 text-brand-500" />
+              ) : (
+                <Plus className="h-5 w-5 text-brand-500" />
+              )}
+              {confirmAction === "plan" ? "Confirm plan change" : "Confirm add-on change"}
+            </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-muted-foreground text-sm">
-                {confirmAction === "plan" && confirmData?.planCode && (
+              <div className="text-sm text-muted-foreground">
+                {confirmAction === "plan" && confirmData?.planCode ? (
                   <div className="mt-4 space-y-3">
-                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                      Plan:{" "}
-                      <span className="font-semibold">
+                    <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-sm dark:border-white/10 dark:bg-white/5">
+                      <span className="font-semibold text-navy-700 dark:text-white">
                         {hasPlan && currentPlanCode
-                          ? (summary?.plans.find((p) => p.plan_code === currentPlanCode)?.display_name || currentPlanCode)
+                          ? summary?.plans.find((p) => p.plan_code === currentPlanCode)
+                              ?.display_name || currentPlanCode
                           : "No plan"}
-                      </span>{" "}
-                      →{" "}
-                      <span className="font-semibold">
-                        {summary?.plans.find((p) => p.plan_code === confirmData.planCode)?.display_name || confirmData.planCode}
+                      </span>
+                      <ArrowUpCircle className="h-4 w-4 rotate-90 text-gray-400" />
+                      <span className="font-semibold text-brand-600 dark:text-brand-300">
+                        {summary?.plans.find((p) => p.plan_code === confirmData.planCode)
+                          ?.display_name || confirmData.planCode}
                       </span>
                     </div>
                     {(() => {
-                      const newPlan = summary?.plans.find((p) => p.plan_code === confirmData.planCode);
+                      const newPlan = summary?.plans.find(
+                        (p) => p.plan_code === confirmData.planCode
+                      );
                       const newPlanPrice = newPlan?.monthly_fee_usd || 0;
-                      
                       return (
                         <>
-                          <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                            New plan price: {formatUsd(newPlanPrice)}/month
-                          </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                          <p className="text-lg font-semibold text-navy-700 dark:text-white">
+                            {formatUsd(newPlanPrice)}/month
+                          </p>
+                          <p className="text-xs text-gray-500">
                             Usage and add-ons are billed separately.
-                          </div>
+                          </p>
                         </>
                       );
                     })()}
                   </div>
-                )}
-                {confirmAction === "addon" && confirmData && (
+                ) : null}
+
+                {confirmAction === "addon" && confirmData ? (
                   <div className="mt-4 space-y-3">
-                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                      <span className="font-semibold">{confirmData.addonLabel}</span>: {confirmData.currentQty} → {confirmData.newQty}
+                    <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-sm dark:border-white/10 dark:bg-white/5">
+                      <span className="font-semibold text-navy-700 dark:text-white">
+                        {confirmData.addonLabel}
+                      </span>
+                      <span className="ml-auto tabular-nums text-gray-500">
+                        {confirmData.currentQty} → <span className="font-semibold text-brand-600 dark:text-brand-300">{confirmData.newQty}</span>
+                      </span>
                     </div>
                     {(() => {
-                      const addon = summary?.addons?.available.find((a) => a.key === confirmData.addonKey);
+                      const addon = summary?.addons?.available.find(
+                        (a) => a.key === confirmData.addonKey
+                      );
                       const qtyDelta = (confirmData.newQty || 0) - (confirmData.currentQty || 0);
                       const priceImpact = (addon?.price_usd_month || 0) * qtyDelta;
-                      const benefitLine = confirmData.addonKey === "extra_phone"
-                        ? "Add an additional inbound number to your workspace."
-                        : confirmData.addonKey === "extra_concurrency"
-                        ? "Handle more simultaneous calls without busy signals."
-                        : "";
-                      
+                      const benefitLine =
+                        confirmData.addonKey === "extra_phone"
+                          ? "Adds an additional inbound number to your workspace."
+                          : confirmData.addonKey === "extra_concurrency"
+                            ? "Handle more simultaneous calls without busy signals."
+                            : "";
+
                       return (
                         <>
-                          <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                            {priceImpact > 0 ? `+${formatUsd(priceImpact)}/mo` : formatUsd(Math.abs(priceImpact))}
-                          </div>
-                          {benefitLine && (
-                            <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                              {benefitLine}
-                            </div>
-                          )}
+                          <p className="text-lg font-semibold text-navy-700 dark:text-white">
+                            {priceImpact > 0
+                              ? `+${formatUsd(priceImpact)}/mo`
+                              : `−${formatUsd(Math.abs(priceImpact))}/mo`}
+                          </p>
+                          {benefitLine ? (
+                            <p className="text-xs text-gray-500">{benefitLine}</p>
+                          ) : null}
                         </>
                       );
                     })()}
                   </div>
-                )}
+                ) : null}
               </div>
             </DialogDescription>
           </DialogHeader>
-          {confirmError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/30 dark:bg-red-950/50">
-              <p className="text-sm text-red-700 dark:text-red-400">{confirmError}</p>
-            </div>
-          )}
+
+          {confirmError ? (
+            <Notice tone="critical" icon={AlertTriangle}>
+              {confirmError}
+            </Notice>
+          ) : null}
+
           <DialogFooter>
-            <UIButton
-              variant="secondary"
+            <SettingsButton
+              type="button"
+              variant="ghost"
               onClick={() => {
                 if (!confirmLoading) {
                   setConfirmDialogOpen(false);
@@ -1418,24 +1338,60 @@ export default function WorkspaceBillingPage() {
               disabled={confirmLoading}
             >
               Cancel
-            </UIButton>
-            <UIButton
-              variant="default"
+            </SettingsButton>
+            <SettingsButton
+              type="button"
+              variant="primary"
               onClick={() => {
                 if (confirmAction === "plan" && confirmData?.planCode) {
                   executePlanChange(confirmData.planCode);
-                } else if (confirmAction === "addon" && confirmData?.addonKey && confirmData?.newQty !== undefined) {
-                  executeAddonUpdate(confirmData.addonKey, confirmData.newQty);
+                } else if (
+                  confirmAction === "addon" &&
+                  confirmData?.addonKey &&
+                  confirmData?.newQty !== undefined
+                ) {
+                  setUpdatingAddon(confirmData.addonKey);
+                  executeAddonUpdate(confirmData.addonKey, confirmData.newQty).finally(() =>
+                    setUpdatingAddon(null)
+                  );
                 }
               }}
               disabled={confirmLoading}
-              className="bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {confirmLoading ? "Confirming..." : "Confirm"}
-            </UIButton>
+              {confirmLoading ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+              {confirmLoading ? "Confirming…" : "Confirm"}
+            </SettingsButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SettingsShell>
+
+      {/* Preview-mode nudge — kept as the page's own last word rather than a card that repeats
+          the plan grid above it. */}
+      {!hasPlan ? (
+        <Notice
+          tone="info"
+          icon={Building2}
+          title="You're in preview mode"
+          action={
+            <SettingsButton
+              type="button"
+              variant="primary"
+              onClick={() => {
+                if (upgradePlanRef.current) {
+                  upgradePlanRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                  setHighlightPlans(true);
+                  setTimeout(() => setHighlightPlans(false), 1200);
+                }
+              }}
+            >
+              <Sparkles />
+              Choose a plan
+            </SettingsButton>
+          }
+        >
+          Choosing a plan activates billing, phone numbers and live calls for this workspace.
+        </Notice>
+      ) : null}
+    </div>
   );
 }

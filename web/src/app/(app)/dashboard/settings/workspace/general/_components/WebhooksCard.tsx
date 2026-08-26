@@ -1,13 +1,45 @@
 "use client";
 
 import { useState } from "react";
-import { CopyIcon, CheckIcon, AlertTriangleIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  CheckIcon,
+  CopyIcon,
+  Link2,
+  PhoneIncoming,
+  PhoneOff,
+  Radio,
+  Webhook,
+} from "lucide-react";
+import {
+  Notice,
+  Panel,
+  PanelHeader,
+  SettingsButton,
+  StatusPill,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 
 type WebhooksCardProps = {
   webhookUrl: string | null;
   events: string[];
 };
 
+/** A glyph per event, so the subscription list reads as three states rather than three strings. */
+const EVENT_ICONS: Record<string, typeof Radio> = {
+  "call-started": PhoneIncoming,
+  "call-ended": PhoneOff,
+  "end-of-call-report": Radio,
+};
+
+/**
+ * The call-events endpoint.
+ *
+ * **Copy note:** this is the URL your telephony provider posts call lifecycle events to — it is
+ * Denku's own receiving endpoint, and the description here says exactly that. The previous wording
+ * ("use this endpoint to receive events in your backend or automation system") described a
+ * capability that does not exist: pointing your own systems at it would send you nothing, because
+ * the events are inbound to Denku, not outbound from it. Outbound webhooks are not built.
+ */
 export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
   const [copied, setCopied] = useState(false);
 
@@ -25,83 +57,65 @@ export function WebhooksCard({ webhookUrl, events }: WebhooksCardProps) {
   const hasUrl = webhookUrl !== null;
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
-      <div>
-        <p className="text-base font-semibold text-navy-700 dark:text-white">Webhooks</p>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Inbound events for call reporting and lifecycle tracking.
-        </p>
-      </div>
+    <Panel>
+      <PanelHeader
+        icon={Webhook}
+        tone="info"
+        title="Call events endpoint"
+        description="Where your telephony provider delivers call lifecycle events for this workspace."
+      />
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-navy-700 dark:text-white">Webhook URL</p>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy-700 dark:text-white">
+            <Link2 aria-hidden="true" className="h-3.5 w-3.5 text-gray-400" />
+            Endpoint URL
+          </p>
           {hasUrl ? (
             <>
               <div className="flex gap-2">
                 <input
                   readOnly
                   value={webhookUrl}
-                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm font-mono shadow-sm"
+                  aria-label="Call events endpoint URL"
+                  className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-2.5 font-mono text-xs text-navy-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
                 />
-                <button
+                <SettingsButton
                   type="button"
+                  variant={copied ? "primary" : "secondary"}
                   onClick={handleCopy}
-                  className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                   title="Copy to clipboard"
                 >
-                  {copied ? (
-                    <>
-                      <CheckIcon className="h-4 w-4 text-green-600" />
-                      <span className="text-green-600">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="h-4 w-4" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+                  {copied ? "Copied" : "Copy"}
+                </SettingsButton>
               </div>
               <p className="text-xs text-gray-500">
-                Use this endpoint to receive real-time call lifecycle events from Denku in your
-                backend or automation system.
+                Provisioned automatically. You only need this when a support engineer asks for it.
               </p>
             </>
           ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangleIcon className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">
-                    Application URL is not configured
-                  </p>
-                  <p className="mt-1 text-xs text-amber-800">
-                    Set <span className="font-mono">NEXT_PUBLIC_APP_URL</span> to enable webhooks.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <Notice tone="warn" icon={AlertTriangleIcon} title="Application URL is not configured">
+              Set <span className="font-mono">NEXT_PUBLIC_APP_URL</span> to enable call event
+              delivery.
+            </Notice>
           )}
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-navy-700 dark:text-white">Subscribed events</p>
-          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
-            <div className="flex flex-wrap gap-2">
-              {events.map((e) => (
-                <span
-                  key={e}
-                  className="inline-flex items-center rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-200"
-                >
-                  {e}
-                </span>
-              ))}
-            </div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy-700 dark:text-white">
+            <Radio aria-hidden="true" className="h-3.5 w-3.5 text-gray-400" />
+            Subscribed events
+          </p>
+          <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200/80 bg-gray-50/60 p-4 dark:border-white/10 dark:bg-white/5">
+            {events.map((e) => (
+              <StatusPill key={e} tone="neutral" icon={EVENT_ICONS[e] ?? Radio}>
+                <span className="font-mono text-[11px]">{e}</span>
+              </StatusPill>
+            ))}
           </div>
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }
-

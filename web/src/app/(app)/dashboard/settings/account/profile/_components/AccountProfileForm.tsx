@@ -2,6 +2,23 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  Save,
+  Undo2,
+  UserRound,
+} from "lucide-react";
+import {
+  IconField,
+  INPUT_WITH_ICON_CLASS,
+  Notice,
+  SettingsButton,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 
 interface AccountProfileFormProps {
   fullName: string;
@@ -10,6 +27,14 @@ interface AccountProfileFormProps {
   onSubmit: (formData: FormData) => Promise<{ ok: boolean; error?: string }>;
 }
 
+/**
+ * Your name, email and phone.
+ *
+ * Three identical boxes became three fields that look like what they hold, and the email — which
+ * cannot be edited here — is now *visibly* locked rather than merely greyed out with a sentence
+ * underneath explaining why nothing happens when you click it. Save follows the same rule as every
+ * other form on the surface: brand-coloured, and only offered once something has actually changed.
+ */
 export function AccountProfileForm({
   fullName: initialFullName,
   phone: initialPhone,
@@ -23,6 +48,8 @@ export function AccountProfileForm({
   const [fullName, setFullName] = useState(initialFullName);
   const [phone, setPhone] = useState(initialPhone);
 
+  const isDirty = fullName !== initialFullName || phone !== initialPhone;
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -31,10 +58,10 @@ export function AccountProfileForm({
     const formData = new FormData();
     formData.set("full_name", fullName ?? "");
     formData.set("phone", phone ?? "");
-    
+
     startTransition(async () => {
       const result = await onSubmit(formData);
-      
+
       if (result.ok) {
         setSuccess(true);
         router.refresh();
@@ -47,104 +74,113 @@ export function AccountProfileForm({
   };
 
   return (
-    <>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <EditableField
-            label="Full name"
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <IconField
+          id="full_name"
+          icon={UserRound}
+          label="Full name"
+          helper="Shown to your teammates on this workspace."
+        >
+          <input
+            type="text"
+            id="full_name"
             name="full_name"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             disabled={isPending}
             maxLength={120}
+            placeholder="Jamie Rivera"
+            className={INPUT_WITH_ICON_CLASS}
           />
-          <ReadOnlyField label="Email" value={email} />
-          <EditableField
-            label="Phone"
+        </IconField>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="account-email"
+            className="flex items-center gap-1.5 text-sm font-semibold text-navy-700 dark:text-white"
+          >
+            Email
+            <Lock aria-hidden="true" className="h-3 w-3 text-gray-400" />
+          </label>
+          <div className="relative">
+            <Mail
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              id="account-email"
+              type="email"
+              readOnly
+              disabled
+              value={email}
+              className={`${INPUT_WITH_ICON_CLASS} cursor-not-allowed`}
+            />
+          </div>
+          <p className="text-xs text-gray-500">Managed by your authentication provider.</p>
+        </div>
+
+        <IconField id="phone" icon={Phone} label="Phone" helper="Optional — used for account contact only.">
+          <input
+            type="text"
+            id="phone"
             name="phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={isPending}
             maxLength={32}
+            placeholder="+1 555 010 0199"
+            className={INPUT_WITH_ICON_CLASS}
           />
-        </div>
+        </IconField>
+      </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
-        )}
+      {error ? (
+        <Notice tone="critical" icon={AlertCircle}>
+          {error}
+        </Notice>
+      ) : null}
 
-        {success && (
-          <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
-            <p className="text-sm text-green-800">Profile updated successfully.</p>
-          </div>
-        )}
+      {success ? (
+        <Notice tone="ok" icon={CheckCircle2}>
+          Profile updated.
+        </Notice>
+      ) : null}
 
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {success ? "Changes saved." : "Changes will be saved to your account."}
-          </p>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-white/10">
+        <p className="flex items-center gap-1.5 text-xs text-gray-500">
+          {isDirty ? (
+            <>
+              <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+              You have unsaved changes.
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+              All changes saved.
+            </>
+          )}
+        </p>
+        <div className="flex gap-2">
+          <SettingsButton
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setFullName(initialFullName);
+              setPhone(initialPhone);
+              setError(null);
+            }}
+            disabled={!isDirty || isPending}
           >
-            {isPending ? "Saving..." : "Save changes"}
-          </button>
+            <Undo2 />
+            Discard
+          </SettingsButton>
+          <SettingsButton type="submit" variant="primary" disabled={!isDirty || isPending}>
+            {isPending ? <Loader2 className="animate-spin" /> : <Save />}
+            {isPending ? "Saving…" : "Save changes"}
+          </SettingsButton>
         </div>
-      </form>
-    </>
+      </div>
+    </form>
   );
 }
-
-function EditableField({
-  label,
-  name,
-  value,
-  onChange,
-  disabled,
-  maxLength,
-}: {
-  label: string;
-  name: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  disabled?: boolean;
-  maxLength?: number;
-}) {
-  return (
-    <div className="space-y-2">
-      <label htmlFor={name} className="text-sm font-semibold text-foreground">
-        {label}
-      </label>
-      <input
-        type="text"
-        id={name}
-        name={name}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        maxLength={maxLength}
-        className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
-      />
-    </div>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-foreground">{label}</label>
-      <input
-        type="email"
-        readOnly
-        value={value}
-        disabled
-        className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-base shadow-sm opacity-60 cursor-not-allowed"
-      />
-      <p className="text-xs text-muted-foreground">Email is managed by your authentication provider.</p>
-    </div>
-  );
-}
-

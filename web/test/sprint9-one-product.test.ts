@@ -106,7 +106,9 @@ describe("T2 · no decorative global search", () => {
 
   it("page-level search is untouched", () => {
     for (const p of [
-      "app/(app)/dashboard/inbox/page.tsx",
+      // Inbox v2 moved the Inbox's search into the persistent list panel of its split view;
+      // it is the same shared field, one file along.
+      "app/(app)/dashboard/inbox/_components/ConversationList.tsx",
       "app/(app)/dashboard/crm/contacts/page.tsx",
       "app/(app)/dashboard/crm/requests/page.tsx",
     ]) {
@@ -224,12 +226,34 @@ describe("T5 · Usage and Integrations are honest", () => {
   });
 
   it("nothing still links to the removed Integrations destination", () => {
-    for (const p of [
-      "app/(app)/dashboard/settings/workspace/general/_components/RuntimeCard.tsx",
-      "app/(app)/dashboard/settings/workspace/general/_components/WebhooksCard.tsx",
-    ]) {
-      expect(read(p)).not.toMatch(/settings\/integrations/);
-    }
+    /**
+     * Walks the whole Settings tree rather than naming two files.
+     *
+     * It used to assert against a hardcoded pair, one of which (`RuntimeCard.tsx`) was deleted in
+     * the Settings visual pass — so the test failed on a missing file instead of on the thing it
+     * was written to catch. Scanning the directory means a new page that links to the dead
+     * destination is caught too, and no file removal can ever break it again.
+     */
+    const settings = path.join(APP_DIR, "dashboard", "settings");
+    const offenders: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name)) continue;
+        // The redirect page necessarily names its own route.
+        if (full.endsWith(path.join("settings", "integrations", "page.tsx"))) continue;
+        const code = fs.readFileSync(full, "utf8");
+        if (/settings\/integrations/.test(code)) offenders.push(path.relative(APP_DIR, full));
+      }
+    };
+
+    walk(settings);
+    expect(offenders).toEqual([]);
   });
 });
 
@@ -272,7 +296,7 @@ describe("T7 · one search-input recipe", () => {
 
   it("no platform surface hand-rolls its own search input any more", () => {
     for (const p of [
-      "app/(app)/dashboard/inbox/page.tsx",
+      "app/(app)/dashboard/inbox/_components/ConversationList.tsx",
       "app/(app)/dashboard/crm/contacts/page.tsx",
       "app/(app)/dashboard/crm/requests/page.tsx",
     ]) {

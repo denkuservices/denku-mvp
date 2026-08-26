@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { SettingsShell } from "@/app/(app)/dashboard/settings/_components/SettingsShell";
+import { AlertTriangle, ArrowLeft, Building2, History } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/app/(app)/dashboard/_platform/ui";
+import {
+  Notice,
+  Panel,
+  SettingsHero,
+  SettingsLinkButton,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 import { AuditLogList } from "./_components/AuditLogList";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 
 type AuditLogRow = {
   id: string;
@@ -39,6 +43,29 @@ type AuditLogWithChanges = AuditLogWithActor & {
   changes: Array<{ field: string; before_value: string | null; after_value: string | null }>;
 };
 
+/**
+ * The page header, shared by every state.
+ *
+ * The old page rendered a gradient shell with a four-level breadcrumb *and* a "Back" button
+ * directly underneath it — two ways back, under a nav rail that was already showing where you
+ * were. One header, one way back, and it names the place it returns to.
+ */
+function AuditHeader() {
+  return (
+    <SettingsHero
+      icon={History}
+      title="Audit log"
+      subtitle="Every settings change, plan change and member action — with what it was before."
+      action={
+        <SettingsLinkButton href="/dashboard/settings/workspace" variant="secondary">
+          <ArrowLeft />
+          Back to Workspace
+        </SettingsLinkButton>
+      }
+    />
+  );
+}
+
 export default async function WorkspaceAuditPage() {
   const supabase = await createSupabaseServerClient();
 
@@ -60,41 +87,27 @@ export default async function WorkspaceAuditPage() {
 
   if (profErr || !profile) {
     return (
-      <SettingsShell
-        title="Audit log"
-        subtitle="Track key actions across the workspace."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Audit" },
-        ]}
-      >
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm font-semibold text-red-900">Error</p>
-          <p className="mt-1 text-sm text-red-700">Failed to load profile.</p>
-        </div>
-      </SettingsShell>
+      <div className="space-y-8">
+        <AuditHeader />
+        <Notice tone="critical" icon={AlertTriangle} title="We couldn't load your profile">
+          Reload the page — if this keeps happening, contact support.
+        </Notice>
+      </div>
     );
   }
 
   if (!profile.org_id) {
     return (
-      <SettingsShell
-        title="Audit log"
-        subtitle="Track key actions across the workspace."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Audit" },
-        ]}
-      >
-        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
-          <p className="text-sm font-semibold text-navy-700 dark:text-white">No organization</p>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">You are not part of an organization.</p>
-        </div>
-      </SettingsShell>
+      <div className="space-y-8">
+        <AuditHeader />
+        <Panel padded={false}>
+          <EmptyState
+            icon={Building2}
+            title="No workspace"
+            description="This account isn't part of a workspace yet, so there is nothing to audit."
+          />
+        </Panel>
+      </div>
     );
   }
 
@@ -110,36 +123,32 @@ export default async function WorkspaceAuditPage() {
     .returns<AuditLogRow[]>();
 
   if (auditErr) {
+    // Log detail server-side; show the customer something safe (house rule).
+    console.error("[SETTINGS][AUDIT][LOAD_FAILED]", auditErr.message);
     return (
-      <SettingsShell
-        title="Audit log"
-        subtitle="Track key actions across the workspace."
-        crumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Workspace" },
-          { label: "Audit" },
-        ]}
-      >
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm font-semibold text-red-900">Error</p>
-          <p className="mt-1 text-sm text-red-700">Failed to load audit logs: {auditErr.message}</p>
-        </div>
-      </SettingsShell>
+      <div className="space-y-8">
+        <AuditHeader />
+        <Notice tone="critical" icon={AlertTriangle} title="We couldn't load the audit log">
+          Reload the page — if this keeps happening, contact support.
+        </Notice>
+      </div>
     );
   }
 
   const logs = auditLogs || [];
 
   // 4) Get unique actor_user_ids and fetch profiles (filter out nulls)
-  const actorIds = Array.from(new Set(logs.map((log) => log.actor_user_id).filter((id): id is string => id !== null)));
-  const { data: profiles } = actorIds.length > 0
-    ? await supabase
-        .from("profiles")
-        .select("id, email, full_name")
-        .in("id", actorIds)
-        .returns<ProfileRow[]>()
-    : { data: [] };
+  const actorIds = Array.from(
+    new Set(logs.map((log) => log.actor_user_id).filter((id): id is string => id !== null))
+  );
+  const { data: profiles } =
+    actorIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", actorIds)
+          .returns<ProfileRow[]>()
+      : { data: [] };
 
   const profileMap = new Map<string, ProfileRow>();
   if (profiles) {
@@ -184,23 +193,9 @@ export default async function WorkspaceAuditPage() {
   });
 
   return (
-    <SettingsShell
-      title="Audit log"
-      subtitle="Track key actions across the workspace."
-      crumbs={[
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Settings", href: "/dashboard/settings" },
-        { label: "Workspace" },
-        { label: "Audit" },
-      ]}
-    >
-      <Link href="/dashboard/settings/workspace">
-        <Button variant="ghost" size="sm" className="mb-4">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      </Link>
+    <div className="space-y-8">
+      <AuditHeader />
       <AuditLogList logs={auditLogsWithChanges} />
-    </SettingsShell>
+    </div>
   );
 }

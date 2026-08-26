@@ -2,9 +2,44 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Loader2, Mail, Send, ShieldCheck, UserPlus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast/ToastProvider";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
+import {
+  FieldLabel,
+  INPUT_WITH_ICON_CLASS,
+  SettingsButton,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
+
+/**
+ * Invite a member.
+ *
+ * Was an inline disclosure: a button that replaced itself with a grey box pushed onto the bottom
+ * of the roster, so inviting someone made the list jump and the form appeared furthest from the
+ * control that opened it. It is a dialog now — the same one plan changes and workspace pauses use,
+ * so "a decision that needs confirming" has one shape across Settings — and the roles are
+ * described rather than merely named. "Admin" and "Owner" are not self-explanatory to the person
+ * choosing between them.
+ */
+const ROLES = [
+  { value: "admin", label: "Admin", hint: "Can manage settings, members and billing." },
+  { value: "owner", label: "Owner", hint: "Full control, including workspace-level actions." },
+] as const;
 
 export function InviteMemberForm() {
   const router = useRouter();
@@ -13,6 +48,12 @@ export function InviteMemberForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "owner">("admin");
   const [isPending, startTransition] = useTransition();
+
+  const close = () => {
+    if (isPending) return;
+    setIsOpen(false);
+    setEmail("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,76 +90,86 @@ export function InviteMemberForm() {
     });
   };
 
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5"
-      >
-        Invite member
-      </button>
-    );
-  }
-
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-navy-700 dark:text-white">Invite Member</h3>
-        <button
-          type="button"
-          onClick={() => {
-            setIsOpen(false);
-            setEmail("");
-          }}
-          className="text-xs text-gray-600 dark:text-gray-400 hover:text-navy-700 dark:hover:text-white"
-        >
-          Cancel
-        </button>
-      </div>
+    <>
+      <SettingsButton type="button" variant="primary" onClick={() => setIsOpen(true)}>
+        <UserPlus />
+        Invite member
+      </SettingsButton>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label htmlFor="invite-email" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
-            Email
-          </label>
-          <input
-            id="invite-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isPending}
-            className="w-full rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-navy-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-50"
-            placeholder="user@example.com"
-            required
-          />
-        </div>
+      <Dialog open={isOpen} onOpenChange={(open) => (open ? setIsOpen(true) : close())}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-brand-500" />
+              Invite a member
+            </DialogTitle>
+            <DialogDescription>
+              They get an email with a link to join this workspace.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div>
-          <label htmlFor="invite-role" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
-            Role
-          </label>
-          <select
-            id="invite-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "admin" | "owner")}
-            disabled={isPending}
-            className="w-full rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-navy-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-50"
-          >
-            <option value="admin">Admin</option>
-            <option value="owner">Owner</option>
-          </select>
-        </div>
+          <form id="invite-member" onSubmit={handleSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <FieldLabel htmlFor="invite-email" icon={Mail} required>
+                Email
+              </FieldLabel>
+              <div className="relative">
+                <Mail
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isPending}
+                  className={INPUT_WITH_ICON_CLASS}
+                  placeholder="teammate@yourbusiness.com"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
 
-        <Button
-          type="submit"
-          disabled={isPending || !email.trim()}
-          className="w-full"
-        >
-          {isPending ? "Sending..." : "Send Invite"}
-        </Button>
-      </form>
-    </div>
+            <div className="space-y-2">
+              <FieldLabel icon={ShieldCheck}>Role</FieldLabel>
+              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "owner")}>
+                <SelectTrigger
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm shadow-sm dark:border-white/10 dark:bg-navy-900"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r.value} value={r.value} className="py-2">
+                      <span className="font-medium">{r.label}</span>
+                      <span className="ml-2 text-xs text-gray-500">{r.hint}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </form>
+
+          <DialogFooter>
+            <SettingsButton type="button" variant="ghost" onClick={close} disabled={isPending}>
+              Cancel
+            </SettingsButton>
+            <SettingsButton
+              type="submit"
+              form="invite-member"
+              variant="primary"
+              disabled={isPending || !email.trim()}
+            >
+              {isPending ? <Loader2 className="animate-spin" /> : <Send />}
+              {isPending ? "Sending…" : "Send invite"}
+            </SettingsButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
-

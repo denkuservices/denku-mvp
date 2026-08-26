@@ -3,8 +3,26 @@
 import type React from "react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateWorkspaceGeneral, type UpdateWorkspaceGeneralResult } from "@/app/(app)/dashboard/settings/_actions/workspace";
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Eye,
+  Loader2,
+  Mail,
+  Save,
+  Undo2,
+} from "lucide-react";
+import {
+  updateWorkspaceGeneral,
+} from "@/app/(app)/dashboard/settings/_actions/workspace";
 import { getTimeZoneOptions } from "@/app/(app)/dashboard/settings/_lib/options";
+import {
+  INPUT_WITH_ICON_CLASS,
+  IconField,
+  Notice,
+  SettingsButton,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 import { LanguageSelect } from "./LanguageSelect";
 import { TimezoneCombobox } from "./TimezoneCombobox";
 
@@ -27,7 +45,6 @@ type WorkspaceGeneralFormProps = {
   role: "owner" | "admin" | "viewer";
   orgId: string;
   orgName: string;
-  onTimezoneUpdate?: (timezone: string | null) => void;
 };
 
 type FormState = {
@@ -37,20 +54,31 @@ type FormState = {
   billing_email: string;
 };
 
+/**
+ * Workspace identity.
+ *
+ * **What the visual pass changed.** Every field was a bare label over a bare box, so four controls
+ * that mean four different things (a name, a language, a place, an address) looked identical —
+ * each now carries the glyph of what it is. And the action row had no hierarchy at all: Cancel and
+ * Save rendered as the same white outline, which is the one place in a settings form where the
+ * affirmative action has to be obvious. Save is `brand-500`; Cancel is the quiet one; the whole
+ * row only appears once the form is dirty, so a page you are only reading has no buttons shouting
+ * at you.
+ *
+ * The `onTimezoneUpdate` callback is gone with the Runtime card it fed — the two facts that card
+ * showed are header pills now, and the page refreshes through `router.refresh()` like everything
+ * else.
+ */
 export function WorkspaceGeneralForm({
   initialSettings,
   role,
-  orgId,
   orgName,
-  onTimezoneUpdate,
 }: WorkspaceGeneralFormProps) {
   const isReadOnly = role === "viewer";
   const router = useRouter();
 
-  // Get timezone options for datalist
   const timezoneOptions = getTimeZoneOptions();
 
-  // Initialize form state from settings
   const getInitialState = (): FormState => ({
     workspace_name: orgName || "",
     default_timezone: initialSettings?.default_timezone || "",
@@ -63,7 +91,6 @@ export function WorkspaceGeneralForm({
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Check if form is dirty
   const isDirty =
     formState.workspace_name !== initialState.workspace_name ||
     formState.default_timezone !== initialState.default_timezone ||
@@ -97,15 +124,12 @@ export function WorkspaceGeneralForm({
         const result = await updateWorkspaceGeneral(payload);
 
         if (!result.ok) {
-          // Handle error case
           setStatus({ type: "error", message: result.error });
           return;
         }
 
-        // Handle success case
         const updated = result.data;
 
-        // Update initial state to reflect saved changes
         const newInitialState: FormState = {
           workspace_name: updated.workspace_name || "",
           default_timezone: updated.default_timezone || "",
@@ -115,16 +139,11 @@ export function WorkspaceGeneralForm({
 
         setInitialState(newInitialState);
         setFormState(newInitialState);
-
-        setStatus({ type: "success", message: "Settings saved successfully." });
-
-        // Update Runtime card immediately via callback
-        onTimezoneUpdate?.(updated.default_timezone);
+        setStatus({ type: "success", message: "Workspace settings saved." });
 
         // Refresh server components to keep data in sync
         router.refresh();
 
-        // Reset status after 3 seconds
         setTimeout(() => setStatus(null), 3000);
       } catch (error) {
         // Catch unexpected errors (e.g., unauthorized redirect)
@@ -139,31 +158,37 @@ export function WorkspaceGeneralForm({
     });
   };
 
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Status message */}
-      {status && (
-        <div
-          className={`rounded-xl border p-4 ${
-            status.type === "success"
-              ? "border-green-200 bg-green-50 text-green-900"
-              : "border-red-200 bg-red-50 text-red-900"
-          }`}
+      {status ? (
+        <Notice
+          tone={status.type === "success" ? "ok" : "critical"}
+          icon={status.type === "success" ? CheckCircle2 : AlertCircle}
         >
-          <p className="text-sm font-medium">{status.message}</p>
-        </div>
-      )}
+          {status.message}
+        </Notice>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Field
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <IconField
+          id="workspace-name"
+          icon={Building2}
           label="Workspace name"
-          value={formState.workspace_name}
-          onChange={(v) => handleChange("workspace_name", v)}
           helper="How your AI introduces your business on a call."
-          readOnly={isReadOnly}
           required
-        />
+        >
+          <input
+            id="workspace-name"
+            type="text"
+            value={formState.workspace_name}
+            onChange={(e) => handleChange("workspace_name", e.target.value)}
+            readOnly={isReadOnly}
+            disabled={isReadOnly}
+            required={!isReadOnly}
+            placeholder="Acme Dental"
+            className={INPUT_WITH_ICON_CLASS}
+          />
+        </IconField>
 
         <LanguageSelect
           label="Default language"
@@ -182,83 +207,61 @@ export function WorkspaceGeneralForm({
           timezoneOptions={timezoneOptions}
         />
 
-        <Field
+        <IconField
+          id="billing-email"
+          icon={Mail}
           label="Billing email"
-          value={formState.billing_email}
-          onChange={(v) => handleChange("billing_email", v)}
-          readOnly={isReadOnly}
-          type="email"
-        />
+          helper="Where invoices and payment notices are sent."
+        >
+          <input
+            id="billing-email"
+            type="email"
+            value={formState.billing_email}
+            onChange={(e) => handleChange("billing_email", e.target.value)}
+            readOnly={isReadOnly}
+            disabled={isReadOnly}
+            placeholder="billing@yourbusiness.com"
+            className={INPUT_WITH_ICON_CLASS}
+          />
+        </IconField>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        {isReadOnly ? (
-          <p className="text-xs text-gray-500">
-            You have read-only access. Only owners and admins can modify workspace settings.
+      {isReadOnly ? (
+        <Notice tone="info" icon={Eye} title="Read-only access">
+          Only owners and admins can change workspace settings.
+        </Notice>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-white/10">
+          <p className="flex items-center gap-1.5 text-xs text-gray-500">
+            {isDirty ? (
+              <>
+                <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                You have unsaved changes.
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                All changes saved.
+              </>
+            )}
           </p>
-        ) : (
-          <>
-            <p className="text-xs text-gray-500">{isDirty ? "You have unsaved changes." : "All changes saved."}</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={!isDirty || isPending}
-                className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={!isDirty || isPending}
-                className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isPending ? "Saving..." : "Save changes"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+          <div className="flex gap-2">
+            <SettingsButton
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={!isDirty || isPending}
+            >
+              <Undo2 />
+              Discard
+            </SettingsButton>
+            <SettingsButton type="submit" variant="primary" disabled={!isDirty || isPending}>
+              {isPending ? <Loader2 className="animate-spin" /> : <Save />}
+              {isPending ? "Saving…" : "Save changes"}
+            </SettingsButton>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
-
-function Field({
-  label,
-  value,
-  onChange,
-  helper,
-  readOnly,
-  type = "text",
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  helper?: string;
-  readOnly: boolean;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold text-navy-700 dark:text-white">
-        {label}
-        {required && <span className="ml-1 text-red-600">*</span>}
-      </p>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        disabled={readOnly}
-        required={required && !readOnly}
-        className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm disabled:cursor-not-allowed disabled:bg-gray-50 dark:disabled:bg-white/5"
-      />
-      {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
-    </div>
-  );
-}
-
-

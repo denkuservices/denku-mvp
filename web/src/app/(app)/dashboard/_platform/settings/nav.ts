@@ -25,11 +25,22 @@
  * reachable from two places, and the landing target is a real section rather than a pointer.
  */
 
+/**
+ * The glyph that anchors a nav item.
+ *
+ * A key rather than the component itself: this module is imported by the nav contract test in a
+ * plain node environment, and a data file that has to pull in an icon library to be read is a
+ * data file with a dependency it doesn't need. `SettingsNav` maps keys to `lucide` icons.
+ */
+export type SettingsIcon = "workspace" | "billing" | "account" | "employees" | "channels";
+
 export interface SettingsNavItem {
   label: string;
   href: string;
   /** One-line purpose. Never decorative. */
   description: string;
+  /** Anchor glyph — every item has one; the rail is scanned by shape before it is read. */
+  icon: SettingsIcon;
   /** True when the destination is outside Settings (e.g. the Channels surface). */
   external?: boolean;
 }
@@ -43,16 +54,19 @@ export const SETTINGS_ITEMS: SettingsNavItem[] = [
     label: "Workspace",
     href: "/dashboard/settings/workspace",
     description: "Your business, who can access it, and how it runs.",
+    icon: "workspace",
   },
   {
     label: "Billing & usage",
     href: "/dashboard/settings/workspace/billing",
     description: "Plan, minutes used, invoices and payment method.",
+    icon: "billing",
   },
   {
     label: "Account",
     href: "/dashboard/settings/account",
     description: "Your details and how you sign in.",
+    icon: "account",
   },
 ];
 
@@ -65,12 +79,14 @@ export const SETTINGS_ELSEWHERE: SettingsNavItem[] = [
     label: "AI Employees",
     href: "/dashboard/team",
     description: "Behaviour, language and business knowledge — set on each employee.",
+    icon: "employees",
     external: true,
   },
   {
     label: "Channels",
     href: "/dashboard/channels",
     description: "Phone lines, Instagram, and the channels arriving next.",
+    icon: "channels",
     external: true,
   },
 ];

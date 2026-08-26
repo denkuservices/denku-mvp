@@ -2,6 +2,36 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Fingerprint,
+  KeyRound,
+  Loader2,
+  LogOut,
+  Mail,
+  MonitorSmartphone,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  FieldLabel,
+  INPUT_WITH_ICON_CLASS,
+  Notice,
+  Panel,
+  PanelHeader,
+  SettingsButton,
+  StatusPill,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 import { changePassword, signOutAllDevices } from "../../../_actions/security";
 
 interface AccountSecurityClientProps {
@@ -10,6 +40,16 @@ interface AccountSecurityClientProps {
   providerLabel: string;
 }
 
+/**
+ * Security — sign-in method, password, sessions.
+ *
+ * Three grey boxes with three bold words on top; the one that logs you out of every device
+ * everywhere looked exactly like the one that displays your email address, and it confirmed
+ * through `window.confirm` — a browser chrome dialog in the middle of a designed surface. Each
+ * concern now has its glyph and its tone, signing out everywhere is a `danger` control behind the
+ * same dialog the rest of Settings uses, and the password field has a reveal toggle, which is the
+ * single most useful affordance a password form can have and costs nothing.
+ */
 export function AccountSecurityClient({
   email,
   isPasswordManagedByProvider,
@@ -18,10 +58,12 @@ export function AccountSecurityClient({
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [reveal, setReveal] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [isPasswordPending, startPasswordTransition] = useTransition();
   const [isSignOutPending, startSignOutTransition] = useTransition();
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,116 +98,194 @@ export function AccountSecurityClient({
   };
 
   const handleSignOutAll = () => {
-    if (!confirm("This will sign you out on all devices. Continue?")) {
-      return;
-    }
-
     startSignOutTransition(async () => {
       const result = await signOutAllDevices();
       if (result.ok) {
         router.push("/login");
+      } else {
+        setSignOutOpen(false);
       }
     });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Email Section */}
-      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
-        <p className="text-base font-semibold text-foreground">Email</p>
-        <p className="mt-1 text-sm text-muted-foreground">{email}</p>
-        <p className="mt-2 text-xs text-muted-foreground">Managed by your authentication provider.</p>
-      </div>
+    <div className="space-y-4">
+      {/* How you sign in */}
+      <Panel>
+        <PanelHeader
+          icon={Fingerprint}
+          tone="info"
+          title="Sign-in method"
+          description={
+            isPasswordManagedByProvider
+              ? `${providerLabel} signs you in. Your password is managed there, not here.`
+              : "You sign in with an email address and a password set on Denku."
+          }
+          action={
+            <StatusPill tone="info" icon={Mail}>
+              {email}
+            </StatusPill>
+          }
+        />
+      </Panel>
 
-      {/* Password Section */}
-      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
-        <p className="text-base font-semibold text-foreground">Password</p>
-        
+      {/* Password */}
+      <Panel>
+        <PanelHeader
+          icon={KeyRound}
+          title="Password"
+          description={
+            isPasswordManagedByProvider
+              ? `Managed by ${providerLabel}.`
+              : "Use at least 8 characters. Changing it does not sign you out elsewhere."
+          }
+        />
+
         {isPasswordManagedByProvider ? (
-          <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Password is managed by your identity provider.
-            </p>
-          </>
+          <div className="mt-4">
+            <Notice tone="info" icon={ShieldCheck}>
+              There is no Denku password on this account — {providerLabel} handles sign-in, so
+              change it there.
+            </Notice>
+          </div>
         ) : (
-          <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Update your account password.
-            </p>
-
-            <form onSubmit={handlePasswordSubmit} className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="new-password" className="block text-sm font-medium text-foreground mb-1">
+          <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <FieldLabel htmlFor="new-password" icon={KeyRound} required>
                   New password
-                </label>
-                <input
-                  type="password"
-                  id="new-password"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
-                  disabled={isPasswordPending}
-                  minLength={8}
-                  className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
-                />
+                </FieldLabel>
+                <div className="relative">
+                  <KeyRound
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type={reveal ? "text" : "password"}
+                    id="new-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordError(null);
+                    }}
+                    disabled={isPasswordPending}
+                    minLength={8}
+                    className={`${INPUT_WITH_ICON_CLASS} !pr-11`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setReveal((v) => !v)}
+                    aria-label={reveal ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition hover:text-navy-700 dark:hover:text-white"
+                  >
+                    {reveal ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="confirm-password" className="block text-sm font-medium text-foreground mb-1">
+              <div className="space-y-2">
+                <FieldLabel htmlFor="confirm-password" icon={KeyRound} required>
                   Confirm new password
-                </label>
-                <input
-                  type="password"
-                  id="confirm-password"
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); }}
-                  disabled={isPasswordPending}
-                  minLength={8}
-                  className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
-                />
+                </FieldLabel>
+                <div className="relative">
+                  <KeyRound
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type={reveal ? "text" : "password"}
+                    id="confirm-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setPasswordError(null);
+                    }}
+                    disabled={isPasswordPending}
+                    minLength={8}
+                    className={INPUT_WITH_ICON_CLASS}
+                    required
+                  />
+                </div>
               </div>
+            </div>
 
-              {passwordError && (
-                <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
-                  <p className="text-sm text-red-800">{passwordError}</p>
-                </div>
-              )}
+            {passwordError ? (
+              <Notice tone="critical" icon={AlertCircle}>
+                {passwordError}
+              </Notice>
+            ) : null}
 
-              {passwordSuccess && (
-                <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
-                  <p className="text-sm text-green-800">Your password has been updated.</p>
-                </div>
-              )}
+            {passwordSuccess ? (
+              <Notice tone="ok" icon={CheckCircle2}>
+                Your password has been updated.
+              </Notice>
+            ) : null}
 
-              <button
-                type="submit"
-                disabled={isPasswordPending}
-                className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                {isPasswordPending ? "Updating..." : "Update password"}
-              </button>
-            </form>
-          </>
+            <div className="flex justify-end">
+              <SettingsButton type="submit" variant="primary" disabled={isPasswordPending}>
+                {isPasswordPending ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+                {isPasswordPending ? "Updating…" : "Update password"}
+              </SettingsButton>
+            </div>
+          </form>
         )}
-      </div>
+      </Panel>
 
-      {/* Sessions Section */}
-      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
-        <p className="text-base font-semibold text-foreground">Active sessions</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This will sign you out on all devices.
-        </p>
-        <button
-          type="button"
-          onClick={handleSignOutAll}
-          disabled={isSignOutPending}
-          className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        >
-          {isSignOutPending ? "Signing out..." : "Sign out all devices"}
-        </button>
-      </div>
+      {/* Sessions */}
+      <Panel tone="critical">
+        <PanelHeader
+          icon={MonitorSmartphone}
+          tone="critical"
+          title="Active sessions"
+          description="Sign out of Denku on every device, including this one. Use it if you've lost a device."
+          action={
+            <SettingsButton
+              type="button"
+              variant="danger"
+              onClick={() => setSignOutOpen(true)}
+              disabled={isSignOutPending}
+            >
+              <LogOut />
+              Sign out everywhere
+            </SettingsButton>
+          }
+        />
+      </Panel>
+
+      <Dialog open={signOutOpen} onOpenChange={(o) => !isSignOutPending && setSignOutOpen(o)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-red-500" />
+              Sign out everywhere?
+            </DialogTitle>
+            <DialogDescription>
+              Every signed-in device is signed out, this one included. You&apos;ll be returned to the
+              login page.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <SettingsButton
+              type="button"
+              variant="ghost"
+              onClick={() => setSignOutOpen(false)}
+              disabled={isSignOutPending}
+            >
+              Cancel
+            </SettingsButton>
+            <SettingsButton
+              type="button"
+              variant="danger"
+              onClick={handleSignOutAll}
+              disabled={isSignOutPending}
+            >
+              {isSignOutPending ? <Loader2 className="animate-spin" /> : <LogOut />}
+              {isSignOutPending ? "Signing out…" : "Sign out everywhere"}
+            </SettingsButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

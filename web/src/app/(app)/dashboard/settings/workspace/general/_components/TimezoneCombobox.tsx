@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { FieldLabel } from "@/app/(app)/dashboard/_platform/settings/ui";
 
 type TimezoneComboboxProps = {
   label: string;
@@ -23,6 +24,7 @@ type TimezoneComboboxProps = {
   timezoneOptions: string[];
 };
 
+/** Timezone picker — same glyph-in-control treatment and metrics as every other field. */
 export function TimezoneCombobox({
   label,
   value,
@@ -36,8 +38,9 @@ export function TimezoneCombobox({
   if (readOnly) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
-        <div className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-base">
+        <FieldLabel>{label}</FieldLabel>
+        <div className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm dark:border-white/10 dark:bg-white/5">
+          <Clock aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />
           <span className="text-navy-700 dark:text-white">{value || "—"}</span>
         </div>
         {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
@@ -47,22 +50,25 @@ export function TimezoneCombobox({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold text-navy-700 dark:text-white">{label}</p>
+      <FieldLabel>{label}</FieldLabel>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full h-12 justify-between rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-base font-normal shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-4 focus:ring-brand-500/15 data-[variant=outline]:bg-white dark:bg-navy-800"
+            className="h-11 w-full justify-between rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-normal shadow-sm transition hover:bg-gray-50 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-navy-900 dark:hover:bg-white/5"
           >
-            <span className="truncate text-left">{value || "Type or select a timezone"}</span>
-            <ChevronsUpDownIcon className="ml-2 h-5 w-5 shrink-0 opacity-50" />
+            <span className="flex min-w-0 items-center gap-2">
+              <Clock aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />
+              <span className="truncate text-left">{value || "Type or select a timezone"}</span>
+            </span>
+            <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search timezone..." className="h-12" />
+            <CommandInput placeholder="Search timezone..." className="h-11" />
             <CommandList className="max-h-[260px]">
               <CommandEmpty>No timezone found.</CommandEmpty>
               <CommandGroup>
@@ -76,13 +82,10 @@ export function TimezoneCombobox({
                         onChange(tz);
                         setOpen(false);
                       }}
-                      className="text-base py-2"
+                      className="py-2 text-sm"
                     >
                       <CheckIcon
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          isSelected ? "opacity-100" : "opacity-0"
-                        )}
+                        className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")}
                       />
                       {tz}
                     </CommandItem>

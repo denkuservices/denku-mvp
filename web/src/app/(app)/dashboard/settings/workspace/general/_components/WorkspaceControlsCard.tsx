@@ -3,6 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertCircle,
+  CreditCard,
+  Loader2,
+  Lock,
+  PauseCircle,
+  PhoneOff,
+  PlayCircle,
+  ShieldAlert,
+  Database,
+  RotateCcw,
+} from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -10,9 +22,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { toggleWorkspaceStatus } from "@/app/(app)/dashboard/settings/_actions/workspace";
 import { WorkspaceStatusBadge } from "@/components/workspace/WorkspaceStatusBadge";
+import {
+  INPUT_CLASS,
+  Notice,
+  Panel,
+  PanelHeader,
+  SettingsButton,
+} from "@/app/(app)/dashboard/_platform/settings/ui";
 
 type WorkspaceControlsCardProps = {
   role: "owner" | "admin" | "viewer";
@@ -20,6 +38,20 @@ type WorkspaceControlsCardProps = {
   pausedReason?: "manual" | "hard_cap" | "past_due" | null;
 };
 
+/**
+ * Pause / resume the workspace.
+ *
+ * **Why this is a danger zone now.** Pausing stops webhook processing and employee sync — in plain
+ * terms, your AI stops answering. That was rendered in the same white card, with the same outline
+ * button, as the workspace's timezone: a control that ends your service styled as a preference.
+ * It is red-tinted, sits under its own heading, and its button is the `danger` variant, which
+ * exists for exactly this and is never primary.
+ *
+ * The `window.__updateRuntimeWorkspaceStatus` hand-off is gone. It pushed the new status into the
+ * Runtime card directly — a global function assigned by one component and called by another —
+ * while `router.refresh()` on the next line already re-rendered the server component that owns the
+ * value. The Runtime card is gone too; status is a header pill, refreshed the ordinary way.
+ */
 export function WorkspaceControlsCard({
   role,
   workspaceStatus,
@@ -51,12 +83,6 @@ export function WorkspaceControlsCard({
           return;
         }
 
-        // Update Runtime card immediately via window function
-        if (typeof window !== "undefined" && (window as any).__updateRuntimeWorkspaceStatus) {
-          (window as any).__updateRuntimeWorkspaceStatus(result.data.workspace_status);
-        }
-
-        // Close dialog and reset
         setOpen(false);
         setConfirmText("");
         setError(null);
@@ -70,99 +96,127 @@ export function WorkspaceControlsCard({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-base font-semibold text-navy-700 dark:text-white">Workspace controls</p>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage workspace operational state.</p>
-        </div>
-        {/* Workspace status badge - shows current status */}
-        <WorkspaceStatusBadge
-          workspace_status={workspaceStatus}
-          paused_reason={pausedReason}
-        />
-      </div>
+    <Panel tone="critical">
+      <PanelHeader
+        icon={isPaused ? PauseCircle : ShieldAlert}
+        tone="critical"
+        title={isPaused ? "Workspace is paused" : "Pause workspace"}
+        description={
+          isPaused
+            ? "Your AI is not answering. Resuming restores webhook processing and employee sync."
+            : "Stops webhook processing and employee sync — in practice, your AI stops answering."
+        }
+        action={
+          <WorkspaceStatusBadge workspace_status={workspaceStatus} paused_reason={pausedReason} />
+        }
+      />
 
-      <div className="mt-5 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-navy-700 dark:text-white">
-              {isPaused ? "Resume workspace" : "Pause workspace"}
-            </p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              {isPaused
-                ? "Resume webhook processing and agent sync."
-                : "Pausing stops processing webhooks and disables agent sync. Calls may still reach your phone provider unless you disable the phone number routing."}
-            </p>
-            {isBillingPaused && (
-              <p className="mt-2 text-sm font-medium text-amber-700">
-                Payment required to resume service.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => canControl && setOpen(true)}
-              disabled={!canControl || (isPaused && !canResume)}
-              className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-2 text-sm font-semibold text-navy-700 dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-              title={isPaused && isBillingPaused ? "Payment required to resume service." : undefined}
-            >
-              {isPaused ? "Resume workspace" : "Pause workspace"}
-            </Button>
-            {isPaused && isBillingPaused && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
-                Payment required to resume service.
-              </p>
-            )}
-          </div>
+      <div className="mt-5 space-y-4">
+        {!isPaused ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            <li className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <PhoneOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              Calls may still reach your phone provider unless you also disable number routing.
+            </li>
+            <li className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <Database aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              Existing calls, tickets and contacts stay exactly as they are.
+            </li>
+          </ul>
+        ) : null}
+
+        {isBillingPaused ? (
+          <Notice tone="warn" icon={CreditCard} title="Payment required to resume service">
+            This workspace was paused by billing ({pausedReason === "hard_cap" ? "usage hard cap" : "payment past due"}),
+            so it cannot be resumed from here — settle the balance in Billing and service restarts.
+          </Notice>
+        ) : null}
+
+        {!canControl ? (
+          <Notice tone="info" icon={Lock} title="Read-only access">
+            Only owners and admins can pause or resume this workspace.
+          </Notice>
+        ) : null}
+
+        <div className="flex justify-end">
+          <SettingsButton
+            type="button"
+            variant={isPaused ? "primary" : "danger"}
+            onClick={() => canControl && setOpen(true)}
+            disabled={!canControl || (isPaused && !canResume)}
+            title={isBillingPaused ? "Payment required to resume service." : undefined}
+          >
+            {isPaused ? <PlayCircle /> : <PauseCircle />}
+            {isPaused ? "Resume workspace" : "Pause workspace"}
+          </SettingsButton>
         </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>{isPaused ? "Resume workspace?" : "Pause workspace?"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {isPaused ? (
+                <PlayCircle className="h-5 w-5 text-brand-500" />
+              ) : (
+                <ShieldAlert className="h-5 w-5 text-red-500" />
+              )}
+              {isPaused ? "Resume workspace?" : "Pause workspace?"}
+            </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-muted-foreground text-sm">
+              <div className="text-sm text-muted-foreground">
                 {isPaused ? (
-                  "Webhook processing and agent sync will resume."
+                  "Webhook processing and employee sync will resume immediately."
                 ) : (
-                  <ul className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
-                    <li>Webhook events will not be processed</li>
-                    <li>AI employee sync will be disabled</li>
-                    <li>Existing data remains intact</li>
-                    <li>You can resume anytime</li>
+                  <ul className="mt-3 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <PhoneOff className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      Webhook events stop being processed
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      AI employee sync is disabled
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Database className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      Existing data remains intact
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      You can resume at any time
+                    </li>
                   </ul>
                 )}
               </div>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+
+          <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-navy-700 dark:text-white">
-                Type <span className="font-mono font-semibold">{confirmWord}</span> to confirm:
+              <label htmlFor="confirm-word" className="text-sm font-medium text-navy-700 dark:text-white">
+                Type <span className="font-mono font-semibold">{confirmWord}</span> to confirm
               </label>
               <input
+                id="confirm-word"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 placeholder={confirmWord}
-                className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-4 py-3 text-sm shadow-sm focus:ring-4 focus:ring-brand-500/15"
+                className={`${INPUT_CLASS} font-mono`}
                 autoFocus
               />
             </div>
-            {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {error ? (
+              <Notice tone="critical" icon={AlertCircle}>
                 {error}
-              </div>
-            )}
+              </Notice>
+            ) : null}
           </div>
+
           <DialogFooter>
-            <Button
+            <SettingsButton
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => {
                 setOpen(false);
                 setConfirmText("");
@@ -171,25 +225,19 @@ export function WorkspaceControlsCard({
               disabled={isPending}
             >
               Cancel
-            </Button>
-            <Button
+            </SettingsButton>
+            <SettingsButton
               type="button"
+              variant={isPaused ? "primary" : "danger"}
               onClick={handleAction}
               disabled={!isConfirmed || isPending}
-              className="rounded-xl border border-gray-200 dark:border-white/10 bg-brand-500 px-4 py-2 text-sm font-semibold text-white text-slate-900 shadow-sm hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isPending
-                ? isPaused
-                  ? "Resuming..."
-                  : "Pausing..."
-                : isPaused
-                  ? "Resume"
-                  : "Pause"}
-            </Button>
+              {isPending ? <Loader2 className="animate-spin" /> : isPaused ? <PlayCircle /> : <PauseCircle />}
+              {isPending ? (isPaused ? "Resuming…" : "Pausing…") : isPaused ? "Resume" : "Pause"}
+            </SettingsButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </Panel>
   );
 }
-
