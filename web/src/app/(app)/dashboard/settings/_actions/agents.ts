@@ -203,7 +203,25 @@ export async function updateAgentConfiguration(
     .single();
 
   if (updateErr || !updatedAgent) {
-    return { ok: false, error: `Database update failed: ${updateErr?.message || "Unknown error"}` };
+    /**
+     * The raw Postgres phrase used to reach the customer.
+     *
+     * While `agents` was missing its RLS UPDATE policy, every save on this form matched zero rows
+     * and printed *"Database update failed: Cannot coerce the result to a single JSON object"* —
+     * a sentence that tells a business owner nothing, does not say whether their input was at
+     * fault, and hid a product-breaking bug for months. Detail belongs in the server log; the
+     * person gets something they can act on.
+     */
+    console.error("[AGENT][CONFIG][UPDATE][FAILED]", {
+      agentId: validated.agentId,
+      orgId,
+      code: updateErr?.code,
+      message: updateErr?.message,
+    });
+    return {
+      ok: false,
+      error: "We couldn't save these changes. Nothing was altered — please try again in a moment.",
+    };
   }
 
   // 11) Write audit log if changes detected
@@ -460,7 +478,25 @@ export async function updateAgentPromptOverride(
     .single();
 
   if (updateErr || !updatedAgent) {
-    return { ok: false, error: `Database update failed: ${updateErr?.message || "Unknown error"}` };
+    /**
+     * The raw Postgres phrase used to reach the customer.
+     *
+     * While `agents` was missing its RLS UPDATE policy, every save on this form matched zero rows
+     * and printed *"Database update failed: Cannot coerce the result to a single JSON object"* —
+     * a sentence that tells a business owner nothing, does not say whether their input was at
+     * fault, and hid a product-breaking bug for months. Detail belongs in the server log; the
+     * person gets something they can act on.
+     */
+    console.error("[AGENT][CONFIG][UPDATE][FAILED]", {
+      agentId: validated.agentId,
+      orgId,
+      code: updateErr?.code,
+      message: updateErr?.message,
+    });
+    return {
+      ok: false,
+      error: "We couldn't save these changes. Nothing was altered — please try again in a moment.",
+    };
   }
 
   // 11) Write audit log if changes detected
