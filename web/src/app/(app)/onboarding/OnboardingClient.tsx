@@ -601,16 +601,15 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             den<span className="text-[#3FA3A3]">ku</span>
           </div>
 
-          {/* Intro */}
+          {/* Intro.
+              A paragraph of product pitch used to sit under this heading. That is the marketing
+              site's job, and by this screen the customer has already bought — so it competed with
+              the step's own heading and left every screen carrying two headings and two
+              paragraphs before the first field. The welcome stays; the selling goes. */}
           <div className="mt-10">
-            <div className="brand-eyebrow !text-[#3FA3A3] before:!bg-[#3FA3A3]">Welcome aboard</div>
-            <h1 className="mt-4 font-display text-[28px] font-normal leading-[1.15] tracking-[-0.5px]">
+            <h1 className="font-display text-[28px] font-normal leading-[1.15] tracking-[-0.5px]">
               Let&apos;s build your <em className="italic text-[#3FA3A3]">AI team</em>.
             </h1>
-            <p className="mt-3 text-[13px] leading-relaxed text-[#F7F5F1]/55">
-              You&apos;re hiring your first AI employee. It answers every call, day or night, and
-              turns what it hears into work you can act on.
-            </p>
           </div>
 
           {/* The employee taking shape. Reads only what has already been decided, so it can
@@ -680,8 +679,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             <div className="font-display text-[22px] font-semibold tracking-tight text-[#0A1A2F]">
               den<span className="text-[#1B6E6E]">ku</span>
             </div>
+            {/* The stepper rail is desktop-only, so on a phone this line is the ONLY thing
+                naming the step. It reads the label from STEPS rather than repeating it, which is
+                what the per-step eyebrows used to do — four hardcoded copies free to drift. */}
             <span className="font-brand-mono text-xs text-[#6B7888]">
               Step {Math.min(currentStep + 1, STEPS.length)} of {STEPS.length}
+              {STEPS[currentStep]?.label ? ` · ${STEPS[currentStep].label}` : ""}
             </span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[#0A1A2F]/[0.08]">
@@ -704,7 +707,6 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 {state.orgId && <input type="hidden" name="orgId" value={state.orgId} />}
 
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 1 · Your business</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                     Who will your AI work for?
                   </h2>
@@ -793,7 +795,6 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <input type="hidden" name="goal" value={goal} />
 
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 2 · The role</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                     What are you hiring it for?
                   </h2>
@@ -861,7 +862,6 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             {currentStep === 2 && (
               <div className="space-y-7">
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 3 · Its number</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                     Give your AI a phone line
                   </h2>
@@ -975,7 +975,6 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             {currentStep === 3 && (
               <div className="space-y-7">
                 <div>
-                  <div className="brand-eyebrow mb-4">Step 4 · Plan</div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                     How much should it handle?
                   </h2>

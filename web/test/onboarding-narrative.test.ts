@@ -98,3 +98,38 @@ describe("onboarding narrative", () => {
     expect(CLIENT).toMatch(/not live per-step progress/);
   });
 });
+
+describe("a step is named in one place", () => {
+  /**
+   * Each step body used to open with a hardcoded eyebrow - "Step 1 · Your business" - repeating
+   * the number and label the stepper rail already showed, highlighted, two columns to the left.
+   * Four hand-written copies of data that lives in STEPS, free to drift from it the first time
+   * someone renames a step.
+   *
+   * The rail is desktop-only, so the label did carry real information on a phone. It moved to the
+   * mobile bar and is read from STEPS there, rather than being deleted outright.
+   */
+  it("no step body hardcodes its own number and label", () => {
+    const offenders = [...CLIENT.matchAll(/>\s*Step \d+\s*·[^<]*</g)].map((m) => m[0].trim());
+    expect(offenders).toEqual([]);
+  });
+
+  it("the mobile bar names the current step, reading it from STEPS", () => {
+    // On a phone the stepper rail is hidden, so this line is the only thing naming the step.
+    expect(CLIENT).toMatch(/STEPS\[currentStep\]\?\.label/);
+  });
+
+  it("the stepper rail still renders every step's label and description", () => {
+    expect(CLIENT).toMatch(/STEPS\.map/);
+    expect(CLIENT).toMatch(/\{step\.label\}/);
+    expect(CLIENT).toMatch(/\{step\.desc\}/);
+  });
+
+  it("onboarding does not re-sell the product it has already sold", () => {
+    // The rail carried the marketing pitch, so every screen had two headings and two paragraphs
+    // before the first field. By this point the customer has bought.
+    expect(CLIENT).not.toMatch(/answers every call, day or night/);
+    // The welcome itself stays — this is a trim, not a stripping.
+    expect(CLIENT).toMatch(/Let&apos;s build your/);
+  });
+});
