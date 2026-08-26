@@ -7,7 +7,7 @@ import {
   authCookieRemovalOptions,
 } from "@/lib/supabase/cookiePolicy";
 import { platformUxEnabled } from "@/lib/platform/flags";
-import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
+import { platformRedirectTarget, splitRedirectTarget } from "@/lib/platform/routeRedirects";
 
 function isAuthorizedBasic(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -129,7 +129,12 @@ export async function middleware(request: NextRequest) {
     const target = platformRedirectTarget(pathname);
     if (target && target !== pathname) {
       const url = request.nextUrl.clone();
-      url.pathname = target;
+      // A target may carry its own query (e.g. `/dashboard?tab=analytics`). Merge it OVER the
+      // incoming params rather than replacing them, so deep links keep their filters — a shared
+      // `/dashboard/analytics?range=30d` lands on the analytics tab still showing 30 days.
+      const { path, query } = splitRedirectTarget(target);
+      url.pathname = path;
+      for (const [k, v] of query) url.searchParams.set(k, v);
       return NextResponse.redirect(url);
     }
   }

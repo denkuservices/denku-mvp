@@ -42,7 +42,7 @@ export const horizonNavRoutes: NavRoute[] = [
  *   CRM      — the shared memory: contacts, their timeline, and their open requests
  *   AI Team  — the control plane: who works here, and how are they doing?
  *
- * plus Analytics (depth) and Settings (configuration).
+ * plus Settings (configuration). Analytics is a tab on Home rather than a sixth item.
  *
  * **Channels is deliberately NOT here.** Connecting a channel is configuration you do once,
  * not a place you visit; it lives at Settings → Channels (`/dashboard/channels`). Channel
@@ -62,6 +62,8 @@ export const platformNavRoutes: NavRoute[] = [
   // has to translate; the route stays /dashboard/crm so every shipped link still resolves.
   { name: 'Customers', layout: 'dashboard', path: 'crm', icon: <Contact className="h-6 w-6" /> },
   { name: 'AI Team', layout: 'dashboard', path: 'team', icon: <Users className="h-6 w-6" /> },
-  { name: 'Analytics', layout: 'dashboard', path: 'analytics', icon: <BarChart3 className="h-6 w-6" /> },
+  // Analytics is a TAB on Home, not a nav item: Home already leads with outcomes, so a sixth
+  // item repeating the same numbers one click away was the sidebar answering one question twice.
+  // Every capability Sprint 12 restored lives there, and /dashboard/analytics still redirects.
   { name: 'Settings', layout: 'dashboard', path: 'settings', icon: <Settings className="h-6 w-6" /> },
 ];

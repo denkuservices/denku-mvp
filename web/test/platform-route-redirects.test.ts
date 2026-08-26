@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { platformRedirectTarget } from "@/lib/platform/routeRedirects";
+import { platformRedirectTarget, splitRedirectTarget } from "@/lib/platform/routeRedirects";
 
 /**
  * Retargeted in the Phase 2 IA consolidation: Conversations → Inbox, Employees → AI Team,
@@ -46,7 +46,13 @@ describe("platformRedirectTarget (legacy → platform routes)", () => {
     expect(platformRedirectTarget("/dashboard/crm/contacts")).toBeNull();
     expect(platformRedirectTarget("/dashboard/crm/requests")).toBeNull();
     expect(platformRedirectTarget("/dashboard/team")).toBeNull();
-    expect(platformRedirectTarget("/dashboard/analytics")).toBeNull();
+  });
+
+  it("Analytics redirects into Home's tab, and that target is terminal", () => {
+    // Analytics stopped being a surface and became a view of Home. The loop check that used to
+    // live above now has to prove the destination is stable instead.
+    expect(platformRedirectTarget("/dashboard/analytics")).toBe("/dashboard?tab=analytics");
+    expect(platformRedirectTarget("/dashboard")).toBeNull();
   });
 });
 
@@ -93,6 +99,53 @@ describe("first-generation platform routes → Phase 2 IA", () => {
     ]) {
       const target = platformRedirectTarget(source)!;
       expect(platformRedirectTarget(target)).toBeNull();
+    }
+  });
+});
+
+describe("targets that carry a query survive the redirect", () => {
+  /**
+   * The middleware used to assign a whole target to `url.pathname`, which percent-encodes the
+   * `?`: `/dashboard/tickets` redirected to `/dashboard/crm/requests%3Ftype=ticket` and 404'd.
+   * The map's tests never caught it because they stop at this function and never touch the
+   * middleware that consumes it — so the split now lives here, where it can be tested.
+   */
+  it("splits a path from its query", () => {
+    expect(splitRedirectTarget("/dashboard/crm/requests?type=ticket")).toEqual({
+      path: "/dashboard/crm/requests",
+      query: [["type", "ticket"]],
+    });
+    expect(splitRedirectTarget("/dashboard?tab=analytics")).toEqual({
+      path: "/dashboard",
+      query: [["tab", "analytics"]],
+    });
+  });
+
+  it("leaves a plain path alone", () => {
+    expect(splitRedirectTarget("/dashboard/inbox")).toEqual({ path: "/dashboard/inbox", query: [] });
+  });
+
+  it("handles several params and decodes them", () => {
+    expect(splitRedirectTarget("/x?a=1&b=two%20words")).toEqual({
+      path: "/x",
+      query: [["a", "1"], ["b", "two words"]],
+    });
+  });
+
+  it("every target this map produces splits into a path that is itself terminal", () => {
+    // A redirect whose destination redirects again is a loop; a destination that keeps its query
+    // is the thing that broke. Both are checked against the real map rather than a fixture.
+    for (const source of [
+      "/dashboard/tickets",
+      "/dashboard/appointments",
+      "/dashboard/analytics",
+      "/dashboard/calls",
+    ]) {
+      const target = platformRedirectTarget(source);
+      expect(target, source).toBeTruthy();
+      const { path } = splitRedirectTarget(target!);
+      expect(path.includes("?"), `${source} → ${target}`).toBe(false);
+      expect(platformRedirectTarget(path), `${target} must be terminal`).toBeNull();
     }
   });
 });

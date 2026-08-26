@@ -102,8 +102,11 @@ describe("Channels is the way in", () => {
     }
   });
 
-  it("the primary nav is still the approved six", () => {
-    expect(platformNavRoutes).toHaveLength(6);
+  it("the primary nav does not grow", () => {
+    // Six when this was written; five since Analytics folded into a tab on Home. The number is
+    // not the point — the ceiling is. Every channel that arrives must land inside an existing
+    // surface, so this fails if the sidebar starts collecting items again.
+    expect(platformNavRoutes.length).toBeLessThanOrEqual(6);
   });
 });
 

@@ -40,13 +40,9 @@ export default async function AnalyticsPage({
   // Sprint 5.5: flagged variant — the cross-channel platform analytics when the AI
   // Employees experience is enabled; the legacy (voice) analytics otherwise. Zero
   // regression: the entire legacy body below is untouched and served when the flag is OFF.
-  if (platformUxEnabled()) {
-    // Sprint 12: the range lives in the URL so a view is shareable, like every other
-    // platform filter. Resolved server-side and defaulted rather than 404-ing on junk.
-    const sp = await searchParams;
-    const raw = Array.isArray(sp?.range) ? sp.range[0] : sp?.range;
-    return <PlatformAnalytics range={resolveRange(raw)} />;
-  }
+  // With the platform UX on, middleware has already redirected this to Home's Analytics tab
+  // (see `lib/platform/routeRedirects.ts`). Reaching here means the flag is OFF, so the legacy
+  // voice analytics below is served unchanged.
 
   // Next.js 16: searchParams is a Promise, must await before use
   const resolvedSearchParams = await searchParams;

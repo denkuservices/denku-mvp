@@ -10,6 +10,11 @@ import { CRM_SECTIONS, CRM_DEFAULT_HREF, activeCrmSection } from "@/app/(app)/da
 
 const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
 
+/** Read a source file under `src/app/(app)` — used to assert a page wires something up. */
+function readCode(rel: string): string {
+  return fs.readFileSync(path.join(APP_DIR, rel.replace(/^app\/\(app\)\//, "")), "utf8");
+}
+
 function routeExists(href: string): boolean {
   // Strip a #fragment before resolving: Sprint 9 · T5 points the Usage nav item at
   // `/dashboard/settings/workspace/billing#usage`, a section of a real page.
@@ -212,16 +217,26 @@ describe("functional parity — no legacy destination is lost when the flag flip
  * or advertise a CRM section that does not exist.
  */
 describe("information architecture", () => {
-  it("the primary nav is the approved six surfaces, in order", () => {
+  it("the primary nav is the approved surfaces, in order", () => {
     expect(platformNavRoutes.map((r) => r.name)).toEqual([
       "Home",
       "Inbox",
       // Sprint 9 · T8 / decision D6 — renamed from "CRM"; the route stays /dashboard/crm.
       "Customers",
       "AI Team",
-      "Analytics",
+      // Analytics used to sit here. It is a tab on Home now: Home already leads with outcomes,
+      // so a sixth item repeating the same numbers made the sidebar answer one question twice.
+      // The capability did not move out of reach — see the redirect assertion below.
       "Settings",
     ]);
+  });
+
+  it("Analytics is still reachable, as a view of Home", () => {
+    // Relocation, not removal. Sprint 12 restored ranges, comparison, hourly rhythm and CSV
+    // export after a "cleanup" quietly dropped them; folding this into a tab must not repeat that.
+    expect(platformRedirectTarget("/dashboard/analytics")).toBe("/dashboard?tab=analytics");
+    expect(readCode("app/(app)/dashboard/page.tsx")).toMatch(/PlatformAnalytics/);
+    expect(readCode("app/(app)/dashboard/page.tsx")).toMatch(/resolveHomeTab/);
   });
 
   it("no channel is a primary nav item — channels are configuration", () => {

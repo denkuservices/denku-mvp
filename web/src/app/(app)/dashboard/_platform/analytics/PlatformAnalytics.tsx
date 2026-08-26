@@ -28,7 +28,17 @@ import { Surface, SectionHeader, StatCard, Pill } from "../ui";
  * delta is **suppressed** rather than estimated when the scan is bounded — a truncated scan
  * loses the oldest rows first, which is exactly the baseline a delta would divide by.
  */
-export default async function PlatformAnalytics({ range = 7 }: { range?: AnalyticsRange }) {
+export default async function PlatformAnalytics({
+  range = 7,
+  bare = false,
+}: {
+  range?: AnalyticsRange;
+  /**
+   * Body only — the Home shell owns the heading and the Today/Analytics tabs. The export action
+   * still renders, because it is the one control on this view that is not a filter.
+   */
+  bare?: boolean;
+}) {
   const orgId = await resolveActiveOrgId();
 
   const [agg, artifacts, savings, ticketAnalytics, canExport] = orgId
@@ -65,21 +75,34 @@ export default async function PlatformAnalytics({ range = 7 }: { range?: Analyti
   const activeChannels = Object.keys(agg.byChannel).length;
 
   return (
-    <div className="p-4 md:p-6">
-      <PageHeader
-        title="Analytics"
-        subtitle="Cross-channel performance across your AI Employees."
-        action={
-          canExport ? (
+    <div className={bare ? "" : "p-4 md:p-6"}>
+      {bare ? (
+        canExport ? (
+          <div className="mb-4 flex justify-end">
             <a
               href={`/api/admin/analytics/export?range=${rangeToLegacy(range)}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
             >
               <Download className="h-4 w-4" /> Export CSV
             </a>
-          ) : undefined
-        }
-      />
+          </div>
+        ) : null
+      ) : (
+        <PageHeader
+          title="Analytics"
+          subtitle="Cross-channel performance across your AI Employees."
+          action={
+            canExport ? (
+              <a
+                href={`/api/admin/analytics/export?range=${rangeToLegacy(range)}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+              >
+                <Download className="h-4 w-4" /> Export CSV
+              </a>
+            ) : undefined
+          }
+        />
+      )}
 
       {/* Range — the whole page reads from this one control, and it lives in the URL so a view
           can be shared or bookmarked. */}

@@ -37,6 +37,15 @@ function matchListOrDetail(pathname: string, base: string): { segment: string | 
 export function platformRedirectTarget(pathname: string): string | null {
   // --- 1. Legacy voice-first routes ----------------------------------------
 
+  // Analytics is a TAB on Home, not a surface of its own: Home already leads with outcomes, so a
+  // separate page repeating the same numbers made the sidebar answer one question twice. Every
+  // capability Sprint 12 restored (ranges, comparison, hourly rhythm, CSV export) renders there.
+  // A target may carry a query; the middleware merges it over the incoming one, so a shared
+  // `/dashboard/analytics?range=30d` keeps its window.
+  if (pathname === "/dashboard/analytics" || pathname === "/dashboard/analytics/") {
+    return "/dashboard?tab=analytics";
+  }
+
   // The call LIST is replaced by the unified Inbox (voice is one channel among several).
   // Call DETAIL is untouched — it carries the recording and cost breakdown.
   if (pathname === "/dashboard/calls" || pathname === "/dashboard/calls/") {
@@ -84,4 +93,30 @@ export function platformRedirectTarget(pathname: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Split a redirect target into its path and its query pairs.
+ *
+ * Targets in this map may carry a query — `/dashboard/crm/requests?type=ticket` has since
+ * Sprint 13, and `/dashboard?tab=analytics` does now. The middleware used to assign the whole
+ * string to `url.pathname`, which percent-encodes the `?`: `/dashboard/tickets` redirected to
+ * `/dashboard/crm/requests%3Ftype=ticket` and 404'd. The map's own tests passed throughout,
+ * because they exercise this function and never the middleware that consumes it.
+ *
+ * Pure and edge-safe, so both the middleware and a test can use it.
+ */
+export function splitRedirectTarget(target: string): { path: string; query: Array<[string, string]> } {
+  const [path, rawQuery] = target.split("?");
+  const query: Array<[string, string]> = [];
+  if (rawQuery) {
+    for (const pair of rawQuery.split("&")) {
+      if (!pair) continue;
+      const eq = pair.indexOf("=");
+      const k = eq === -1 ? pair : pair.slice(0, eq);
+      const v = eq === -1 ? "" : pair.slice(eq + 1);
+      query.push([decodeURIComponent(k), decodeURIComponent(v)]);
+    }
+  }
+  return { path, query };
 }

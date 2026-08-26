@@ -34,7 +34,7 @@ const WINDOW_DAYS = 7;
  * Two honesty rules run through it: bounded windows are labelled ("recent N", "7d"), never a
  * fabricated total (R-018); and an unknown count renders as “—”, never as a confident zero.
  */
-export default async function PlatformDashboard() {
+export default async function PlatformDashboard({ bare = false }: { bare?: boolean } = {}) {
   const orgId = await resolveActiveOrgId();
 
   const [agg, artifacts, outcomes, employees, recent, connectedChannels, needsHuman, savings] = orgId
@@ -133,20 +133,27 @@ export default async function PlatformDashboard() {
   /** An unknown count is not zero — say so rather than asserting a number we don't have. */
   const show = (n: number | null) => (n === null ? "—" : String(n));
 
+  /**
+   * `bare` renders the body only: the page shell owns the heading and the Today/Analytics tabs,
+   * so repeating a title here would give Home two headings and a link to the tab you are already
+   * standing on. The flag-off legacy path never sets it and is unchanged.
+   */
   return (
-    <div className="p-4 md:p-6">
-      <PageHeader
-        title="Home"
-        subtitle="What your AI team accomplished, and anything that needs you."
-        action={
-          <Link
-            href="/dashboard/analytics"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
-          >
-            View analytics <ArrowRight className="h-4 w-4" />
-          </Link>
-        }
-      />
+    <div className={bare ? "" : "p-4 md:p-6"}>
+      {bare ? null : (
+        <PageHeader
+          title="Home"
+          subtitle="What your AI team accomplished, and anything that needs you."
+          action={
+            <Link
+              href="/dashboard?tab=analytics"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+            >
+              View analytics <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
+      )}
 
       {isNewWorkspace ? (
         <Surface padded={false} className="mb-6">
