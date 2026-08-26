@@ -6,7 +6,7 @@
 > the live product rather than in the source, which is how most of the findings turned up.
 >
 > **Done:** navigation 6 → 5 (Analytics folded into a tab on Home) · Settings 9 pages → 3 sections
-> · the density pass on Inbox, Customers, Home and the conversation rail · channel colour and the
+> · the density pass on Inbox, Customers, Home, the conversation rail and onboarding · channel colour and the
 > avatar layer · **R-136 closed** (the Horizon theme is in a cascade layer, so utilities apply
 > again).
 >
@@ -20,7 +20,8 @@
 > **Not done, deliberately:** Phase 4 (the 2.0 visual system — doc 17's tokens, Employee Card and
 > Thread motif) is brand work and should not be rushed into a launch week. The employee roster has
 > no avatar: an AI employee is not a person, and initials squeezed out of "Denku Inbound MVP"
-> would be decoration. Onboarding has not had the density pass.
+> would be decoration. Onboarding's finale is untouched on purpose — the countdown, progress bar
+> and state-dependent headings are the best-built screen in the flow.
 
 > Written 2026-08-25 after reviewing the live product against the reference set in
 > `docs/example_screenshots/` (Creato's Ikasagent inbox + their 5-step onboarding). This is the
