@@ -11,11 +11,23 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Returns null when unresolved (pages render an empty state rather than throwing).
  */
 export async function resolveActiveOrgId(): Promise<string | null> {
+  return (await resolveViewer()).orgId;
+}
+
+/**
+ * The org AND the person looking at it.
+ *
+ * Some platform state is per-viewer rather than per-org — the Inbox's unread watermarks are the
+ * first of them (`lib/platform/reads.ts`): whether the owner has read a conversation says
+ * nothing about their colleague. Those surfaces need both ids from the one auth round-trip, so
+ * the resolution lives here rather than being re-implemented beside each of them.
+ */
+export async function resolveViewer(): Promise<{ orgId: string | null; userId: string | null }> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return { orgId: null, userId: null };
 
   for (const col of ["id", "auth_user_id"] as const) {
     const { data, error } = await supabase
@@ -25,7 +37,7 @@ export async function resolveActiveOrgId(): Promise<string | null> {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ org_id: string | null }>();
-    if (!error && data?.org_id) return data.org_id;
+    if (!error && data?.org_id) return { orgId: data.org_id, userId: user.id };
   }
-  return null;
+  return { orgId: null, userId: user.id };
 }

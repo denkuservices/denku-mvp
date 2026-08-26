@@ -207,6 +207,18 @@ const CONTROL_BASE =
 export const CONTROL_CLASS = `${CONTROL_BASE} px-3`;
 
 /**
+ * The filled variant of the same recipe — same height and focus behaviour, no border.
+ *
+ * Used by the Inbox's search, where the field is the first thing inside a bounded pane: an
+ * outlined control there draws a box inside a box. Everything the outlined version guarantees
+ * (height, focus ring, dark mode) is preserved so the two cannot drift apart.
+ */
+const FILLED_BASE =
+  "h-10 rounded-full border border-transparent bg-[#F1F0ED] text-sm text-navy-700 outline-none transition " +
+  "placeholder:text-gray-500 focus:border-[#25D366]/40 focus:ring-2 focus:ring-[#25D366]/15 " +
+  "dark:bg-[#202C33] dark:text-white dark:placeholder:text-[#8696A0]";
+
+/**
  * Search input with its magnifier.
  *
  * The icon is absolutely positioned at `left-3` and is 16px wide, so the text must start at
@@ -219,15 +231,32 @@ export const CONTROL_CLASS = `${CONTROL_BASE} px-3`;
 export function SearchField({
   name = "q",
   defaultValue,
+  value,
+  onChange,
   placeholder,
   label,
+  tone = "outlined",
   className = "",
 }: {
   name?: string;
   defaultValue?: string;
+  /** Controlled value — for surfaces that filter as you type instead of on submit. */
+  value?: string;
+  onChange?: (value: string) => void;
   placeholder: string;
   /** Accessible name — the field has no visible <label>. */
   label: string;
+  /**
+   * `outlined` is the dashboard's form-control chrome, matched to the selects beside it.
+   * `filled` is the messaging chrome: a soft-filled pill with no border, for the Inbox, where
+   * the field stands alone at the top of a panel and an outline would draw a second box inside
+   * an already-bounded pane.
+   *
+   * A variant rather than a second component on purpose — the icon offset and the input's left
+   * padding must stay paired (see the note above), and that pairing is what this file exists to
+   * guarantee.
+   */
+  tone?: "outlined" | "filled";
   className?: string;
 }) {
   return (
@@ -248,9 +277,11 @@ export function SearchField({
         type="search"
         name={name}
         defaultValue={defaultValue}
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         placeholder={placeholder}
         aria-label={label}
-        className={`${CONTROL_BASE} w-full pl-10 pr-3`}
+        className={`${tone === "filled" ? FILLED_BASE : CONTROL_BASE} w-full pl-10 pr-3`}
       />
     </div>
   );

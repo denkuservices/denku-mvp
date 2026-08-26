@@ -15,6 +15,35 @@ export function formatWhen(value?: string | null): string {
   return d.toLocaleDateString();
 }
 
+/**
+ * The same instant, in the width of an inbox row.
+ *
+ * A conversation row gives the timestamp a fixed slot at its right edge, beside the name — so
+ * "2h ago" has to become "2h" or it pushes the name it is supposed to sit next to. Anything
+ * older than a week falls back to a date, because "63d" is not something anyone reads as a day.
+ */
+export function formatShortWhen(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 1) return "now";
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+/** Clock time for a message bubble — the only timestamp inside a thread. */
+export function formatClock(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 export function titleCase(s?: string | null): string {
   if (!s) return "—";
   return s.charAt(0).toUpperCase() + s.slice(1);

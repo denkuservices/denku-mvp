@@ -4,6 +4,14 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { setHandlingState, type HandlingMode, type ConversationSource } from "@/lib/platform/handling";
 import { isKnownChannel, type Channel } from "@/lib/platform/channels";
+import { setStar } from "@/lib/platform/stars";
+import { markRead } from "@/lib/platform/reads";
+import {
+  listInboxPage,
+  INBOX_PAGE_SIZE,
+  type InboxFilter,
+  type InboxPage,
+} from "@/lib/platform/readModel/inbox";
 
 /**
  * Inbox actions — human takeover and the customer's automation opt-out (Phase 3).
@@ -116,4 +124,97 @@ export async function setConversationOptOutAction(
     revalidatePath(`/dashboard/inbox/${conversationRef}`);
   }
   return res;
+}
+
+/**
+ * One page of Inbox rows for the split view's list panel.
+ *
+ * **Why the list fetches through an action rather than a page render:** the list is a persistent
+ * pane. It stays mounted while you move from one conversation to the next, which is the whole
+ * point of a split view — the scroll position, the search you typed and the filter you chose all
+ * survive selection. A server-rendered list would be rebuilt on every click and lose all three.
+ * The action keeps auth and org-scoping on the server exactly as a page render would, so nothing
+ * is traded away for that.
+ */
+export async function fetchInboxPageAction(query: {
+  channel?: string;
+  search?: string;
+  filter?: string;
+  offset?: number;
+  limit?: number;
+}): Promise<{ ok: boolean; page?: InboxPage; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const channel = query.channel && isKnownChannel(query.channel) ? query.channel : undefined;
+  const filter: InboxFilter =
+    query.filter === "starred" || query.filter === "human" ? query.filter : "all";
+
+  const page = await listInboxPage(auth.orgId, auth.userId, {
+    channel,
+    search: query.search ?? "",
+    filter,
+    offset: Math.max(0, Number(query.offset) || 0),
+    limit: Math.min(100, Math.max(1, Number(query.limit) || INBOX_PAGE_SIZE)),
+  });
+
+  return { ok: true, page };
+}
+
+/**
+ * Star or unstar a conversation. Any member may star: it is the org's flag, not a personal one
+ * (see `lib/platform/stars.ts`), so the gate matches the one on takeover rather than the
+ * owner/admin gate that guards channel connection.
+ */
+export async function setConversationStarAction(
+  conversationRef: string,
+  source: string,
+  channel: string,
+  starred: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const valid = validate(conversationRef, source, channel);
+  if (!valid.ok) return { ok: false, error: valid.error };
+
+  const res = await setStar({
+    orgId: auth.orgId,
+    conversationRef,
+    source: valid.source,
+    channel: valid.channel,
+    starred,
+    userId: auth.userId,
+  });
+
+  if (res.ok) {
+    revalidatePath("/dashboard/inbox");
+    revalidatePath(`/dashboard/inbox/${conversationRef}`);
+  }
+  return res;
+}
+
+/**
+ * Record that the caller has seen everything in this conversation up to now.
+ *
+ * Fired when a conversation is opened. Failing to remember a read must never break opening one,
+ * so this reports its failure and the UI ignores it — the badge simply comes back on reload.
+ */
+export async function markConversationReadAction(
+  conversationRef: string,
+  source: string,
+  channel: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const valid = validate(conversationRef, source, channel);
+  if (!valid.ok) return { ok: false, error: valid.error };
+
+  return markRead({
+    orgId: auth.orgId,
+    userId: auth.userId,
+    conversationRef,
+    source: valid.source,
+  });
 }

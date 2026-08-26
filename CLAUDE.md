@@ -244,6 +244,12 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
   onboarding/auth/dashboard without explicit user approval.
 - shadcn primitives (`components/ui/*`) exist with oklch tokens — a fourth system. Prefer reusing
   what the surface already uses over "unifying" ad hoc.
+- **Inbox (`/dashboard/inbox`) is a messaging surface with its own palette** (Inbox v2,
+  2026-08-26): WhatsApp's values — `#F3F2EE` thread ground, white incoming / `#E6F5EC` outgoing
+  bubbles, `#25D366` accents, WhatsApp-dark in dark mode. Side + colour are how a reader tells the
+  two voices apart, which `brand-500` cannot do. It is confined to
+  `dashboard/inbox/_components/theme.ts` — **do not import it elsewhere, and do not "unify" the
+  Inbox back into Horizon.** See [docs/INBOX_V2.md](docs/INBOX_V2.md).
 
 ## Key documents
 
@@ -269,6 +275,9 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `CURRENT_SPRINT.md` — **the active implementation sprint**: goal, prioritized tasks, validation
   checklist, definition of done. What to build right now. Update task status as you ship (the
   roadmap holds the full backlog; the sprint holds only what's in flight).
+- `docs/INBOX_V2.md` — the Inbox split view: why the list lives in the layout, the two new state
+  tables (`conversation_stars` / `conversation_reads`, inert until migrated), and why the composer
+  is deliberately disabled
 - `skills/platform-architecture.md` — the AI-Employees platform model (Employee/Channel/Conversation/Contact/Artifact), the shared ingest pipeline + channel adapters, dual-write flag, how to add a channel (Sprint 4.5)
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)

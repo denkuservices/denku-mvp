@@ -14,6 +14,15 @@ import type { ConversationTurn } from "@/lib/platform/readModel/types";
  */
 export interface TurnRendererProps {
   turn: ConversationTurn;
+  /**
+   * Whether this turn should print its clock time (Inbox v2).
+   *
+   * Optional and defaulting to true, so existing renderers are unaffected. The thread sets it to
+   * false for a turn whose neighbour carries the same minute — a voice transcript timestamps
+   * every turn with the call's start, and twenty bubbles all reading "01:34" looks like a bug
+   * rather than a fact.
+   */
+  showTimestamp?: boolean;
 }
 
 export type TurnRenderer = ComponentType<TurnRendererProps>;
