@@ -1,8 +1,8 @@
 import React from 'react';
+import { SiInstagram } from 'react-icons/si';
 import {
   LayoutDashboard,
   Phone,
-  Instagram,
   History,
   Ticket,
   Calendar,
@@ -24,7 +24,10 @@ import { NavRoute } from './types';
 export const horizonNavRoutes: NavRoute[] = [
   { name: 'Dashboard', layout: 'dashboard', path: '', icon: <LayoutDashboard className="h-6 w-6" /> },
   { name: 'Phone Lines', layout: 'dashboard', path: 'phone-lines', icon: <Phone className="h-6 w-6" /> },
-  { name: 'Instagram', layout: 'dashboard', path: 'instagram', icon: <Instagram className="h-6 w-6" /> },
+  // The real brand mark, like everywhere else a channel is drawn. Monochrome here on purpose:
+  // sidebar icons take the nav's own active/inactive colour, and one magenta item in a grey
+  // column would read as an error rather than as Instagram.
+  { name: 'Instagram', layout: 'dashboard', path: 'instagram', icon: <SiInstagram className="h-6 w-6" /> },
   { name: 'Calls', layout: 'dashboard', path: 'calls', icon: <History className="h-6 w-6" /> },
   { name: 'Tickets', layout: 'dashboard', path: 'tickets', icon: <Ticket className="h-6 w-6" /> },
   { name: 'Appointments', layout: 'dashboard', path: 'appointments', icon: <Calendar className="h-6 w-6" /> },

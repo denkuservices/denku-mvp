@@ -9,7 +9,7 @@ import {
   comingSoonChannels,
 } from "@/lib/platform/channels";
 import { evaluateConnectionHealth, daysUntil, EXPIRY_WARN_DAYS } from "@/lib/platform/connectionHealth";
-import { channelToneClass } from "@/app/(app)/dashboard/_platform/ChannelBadge";
+import { channelToneClass, channelIconClass } from "@/app/(app)/dashboard/_platform/ChannelBadge";
 
 const NOW = new Date("2026-07-24T12:00:00Z");
 const inDays = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOString();
@@ -160,6 +160,26 @@ describe("channel colour is identification, not decoration", () => {
       const neutral = /border-gray-200/.test(cls);
       expect(neutral, `${c} (adopted=${channelMeta(c).adopted})`).toBe(!channelMeta(c).adopted);
     }
+  });
+
+  /**
+   * Inbox v2 split colour into two jobs. The GLYPH is identity — Instagram is magenta because
+   * Instagram is magenta, which says nothing about whether this org has connected it. The CHROME
+   * (asserted above) still carries availability. Collapsing the two back together would either
+   * grey out logos nobody can then recognise, or paint an unbuilt channel as if it worked.
+   */
+  it("every channel's glyph carries a brand colour, built or not", () => {
+    for (const c of CHANNEL_ORDER) {
+      expect(channelIconClass(c), `${c} needs a glyph colour`).toMatch(/text-/);
+    }
+    // The unbuilt ones are coloured too, and not all the same colour.
+    expect(channelIconClass("messenger")).not.toBe(channelIconClass("instagram"));
+    expect(channelIconClass("whatsapp")).not.toBe(channelIconClass("telegram"));
+  });
+
+  it("no two channels share a glyph colour", () => {
+    const colours = CHANNEL_ORDER.map((c) => channelIconClass(c));
+    expect(new Set(colours).size).toBe(CHANNEL_ORDER.length);
   });
 
   it("tones are distinct per channel, so two channels never look alike", () => {

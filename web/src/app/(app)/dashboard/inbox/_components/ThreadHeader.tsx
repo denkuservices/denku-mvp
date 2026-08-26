@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Bot, Star, Tag, UserCheck, X } from "lucide-react";
 import { channelMeta, type Channel } from "@/lib/platform/channels";
 import Avatar from "../../_platform/Avatar";
-import { channelIcon } from "../../_platform/ChannelBadge";
+import { channelIcon, channelIconClass } from "../../_platform/ChannelBadge";
 import { setConversationStarAction } from "../_actions";
 import { inbox } from "./theme";
 
@@ -77,7 +77,7 @@ export default function ThreadHeader({
         <div className="min-w-0 flex-1">
           <p className={`truncate text-sm font-semibold ${inbox.strong}`}>{name}</p>
           <p className={`mt-0.5 flex items-center gap-1.5 truncate text-xs ${inbox.meta}`}>
-            <ChannelIcon className="h-3.5 w-3.5 shrink-0" />
+            <ChannelIcon className={`h-3.5 w-3.5 shrink-0 ${channelIconClass(channel)}`} />
             {/* The channel never truncates — it is two words at most, and "Voi…" beside a
                 truncated status line told the reader nothing about either. */}
             <span className="shrink-0">{meta.label}</span>
