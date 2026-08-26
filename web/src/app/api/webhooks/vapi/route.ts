@@ -12,6 +12,7 @@ import { checkCallGuardrails } from "@/lib/guardrails/call-guardrails";
 import { logEvent } from "@/lib/observability/logEvent";
 import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
+import { parseSpokenTime } from "@/lib/time/spokenTime";
 import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
@@ -1111,7 +1112,14 @@ async function ensureAppointmentForCall(
   callId: string,
   orgId: string,
   transcript: string | null,
-  fromPhone: string | null
+  fromPhone: string | null,
+  /**
+   * What the classifier heard the caller ask for ("tomorrow at 5 PM"), and the timezone that
+   * phrase belongs to. Without them this function could only record THAT a caller wanted an
+   * appointment, never WHEN — which is most of what the owner needs to act on it.
+   */
+  booking?: { name?: string | null; service?: string | null; preferredTime?: string | null } | null,
+  timezone?: string | null
 ): Promise<void> {
   try {
     // Idempotency: Check if appointment already exists
@@ -1152,6 +1160,35 @@ async function ensureAppointmentForCall(
       finalNotes = deterministicMarker;
     }
     
+    /**
+     * When the caller wanted to come in.
+     *
+     * The classifier already extracted the phrase ("tomorrow at 5 PM"); chrono turns it into an
+     * instant, resolved in the EMPLOYEE'S timezone rather than the server's — a call answered for
+     * a New York business must not book 5 PM UTC. An unparseable phrase leaves `start_at` null and
+     * survives in the notes: an appointment request with no agreed time is a real thing, and
+     * inventing one would be worse than admitting we do not have it.
+     */
+    let startAt: string | null = null;
+    const preferred = (booking?.preferredTime ?? "").trim();
+    if (preferred) {
+      // Resolved in the EMPLOYEE's timezone — see lib/time/spokenTime for why that needs a helper.
+      const parsed = parseSpokenTime(preferred, timezone);
+      if (parsed) startAt = parsed.toISOString();
+    }
+
+    if (preferred && !finalNotes.includes(preferred)) {
+      finalNotes = `[Requested] ${booking?.name ? booking.name + " — " : ""}${preferred}
+${finalNotes}`;
+    }
+
+    /**
+     * A `source` field used to be in this payload. There is no such column on `appointments`,
+     * so PostgREST rejected every insert with *"Could not find the 'source' column"* — and the
+     * error was only console.error'd. That is why the product had 92 tickets and, in its entire
+     * history, zero appointments: the ticket path matched its table and this one never could.
+     * The never-dead-end guarantee was load-bearing and silently broken.
+     */
     const { data: appointment, error: insertErr } = await supabaseAdmin
       .from("appointments")
       .insert({
@@ -1159,7 +1196,7 @@ async function ensureAppointmentForCall(
         lead_id: leadId,
         call_id: callId,
         status: "requested",
-        source: "voice",
+        start_at: startAt,
         notes: finalNotes,
       })
       .select("id")
@@ -2838,12 +2875,31 @@ export async function POST(req: NextRequest) {
             });
 
             if (finalIntent === "appointment") {
-              // Appointment intent → create appointment (NOT ticket)
+              // Appointment intent → create appointment (NOT ticket).
+              // The employee's timezone decides what "tomorrow at 5 PM" means; the server's
+              // (UTC on Vercel) would book a New York business five hours out.
+              let agentTimezone: string | null = null;
+              try {
+                if (callRow.agent_id) {
+                  const { data: agentRow } = await supabaseAdmin
+                    .from("agents")
+                    .select("timezone")
+                    .eq("id", callRow.agent_id)
+                    .eq("org_id", callRow.org_id)
+                    .maybeSingle<{ timezone: string | null }>();
+                  agentTimezone = agentRow?.timezone ?? null;
+                }
+              } catch {
+                /* non-fatal — chrono falls back to the server's zone */
+              }
+
               await ensureAppointmentForCall(
                 callRow.id,
                 callRow.org_id,
                 callRow.transcript || transcript,
-                callRow.from_phone
+                callRow.from_phone,
+                intentResult.bookingDetails,
+                agentTimezone
               );
             } else {
               // Support/other intent → create ticket

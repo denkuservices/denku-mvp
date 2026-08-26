@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import * as chrono from "chrono-node";
+import { parseSpokenTime } from "@/lib/time/spokenTime";
 
 
 /* ------------------ helpers ------------------ */
@@ -24,7 +24,8 @@ function requireToolSecret(req: NextRequest) {
 
 function parseStartAt(
   startAt?: string | null,
-  startAtText?: string | null
+  startAtText?: string | null,
+  timeZone?: string | null
 ): { iso: string; rawText?: string } {
   // ISO wins if valid
   if (startAt) {
@@ -35,7 +36,15 @@ function parseStartAt(
   }
 
   if (startAtText) {
-    const parsed = chrono.parseDate(startAtText, new Date());
+    /**
+     * The business's timezone, not the server's.
+     *
+     * This used to call chrono with no zone at all, so "tomorrow at 5 PM" resolved in whatever
+     * zone the runtime happened to be in — UTC on Vercel. A New York business got its bookings
+     * four hours early, silently. `parseSpokenTime` resolves the IANA zone properly (chrono
+     * ignores IANA names outright); see lib/time/spokenTime.
+     */
+    const parsed = parseSpokenTime(startAtText, timeZone ?? null);
 
     if (!parsed) throw new Error("Could not parse natural date");
     return { iso: parsed.toISOString(), rawText: startAtText };
@@ -46,21 +55,42 @@ function parseStartAt(
 
 /* ------------------ schema ------------------ */
 
+/**
+ * Vapi sends "" for every declared property the model did not fill.
+ *
+ * The first real appointment call in production failed validation on exactly this: the model sent
+ * `{lead_name, start_at_text}` and Vapi padded the rest with empty strings, so `lead_phone` tripped
+ * `.min(7)` and the whole call was rejected — after which the assistant told the caller a person
+ * would follow up. An empty string here means "not provided", and must be read that way.
+ */
+const optionalText = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.string().optional().nullable()
+);
+
 const BodySchema = z.object({
-  to_phone: z.string().min(3),
+  /**
+   * The business's own number. Optional since Inbox v2: a web call has no phone number at all, and
+   * the org is then resolved from the call record instead (see below). Requiring it made the tool
+   * unusable on exactly the channel we test with.
+   */
+  to_phone: optionalText,
 
-  start_at: z.string().optional().nullable(),
-  start_at_text: z.string().optional().nullable(),
+  start_at: optionalText,
+  start_at_text: optionalText,
 
-  lead_phone: z.string().min(7).optional().nullable(),
-  lead_name: z.string().optional().nullable(),
-  lead_email: z.string().email().optional().nullable(),
+  lead_phone: optionalText,
+  lead_name: optionalText,
+  lead_email: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().email().optional().nullable()
+  ),
 
-  purpose: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  purpose: optionalText,
+  notes: optionalText,
 
-  call_id: z.string().optional().nullable(),
-  vapi_call_id: z.string().optional().nullable(),
+  call_id: optionalText,
+  vapi_call_id: optionalText,
 }).passthrough();
 
 /* ------------------ handler ------------------ */
@@ -81,31 +111,70 @@ export async function POST(req: NextRequest) {
 
   const input = parsed.data;
 
+  const toPhone = normalizePhone(input.to_phone);
+
+  /* org — by the business's number when we have one, otherwise by the call itself */
+  let orgId: string | null = null;
+
+  if (toPhone) {
+    // TODO: Migrate phone_number mapping to dedicated table/orgs. For now, using organizations VIEW
+    const { data: org } = await supabaseAdmin
+      .from("organizations")
+      .select("id")
+      .eq("phone_number", toPhone)
+      .maybeSingle<{ id: string }>();
+    orgId = org?.id ?? null;
+  }
+
+  if (!orgId) {
+    /**
+     * Fall back to the call record. By the time a tool fires mid-call, the webhook has already
+     * created the `calls` row (it is written at call start), and that row knows its org. This is
+     * what makes the tool work on a web call, and it is a strictly additive path — the phone
+     * lookup above still wins whenever a number is present.
+     */
+    const byId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
+    if (byId || input.vapi_call_id) {
+      const q = supabaseAdmin.from("calls").select("org_id");
+      const { data: call } = byId
+        ? await q.eq("id", byId).maybeSingle<{ org_id: string | null }>()
+        : await q.eq("vapi_call_id", input.vapi_call_id!).maybeSingle<{ org_id: string | null }>();
+      orgId = call?.org_id ?? null;
+    }
+  }
+
+  if (!orgId) {
+    return NextResponse.json({ error: "org_not_found" }, { status: 404 });
+  }
+  const org = { id: orgId };
+
+  /**
+   * The timezone the caller's words belong to.
+   *
+   * Looked up here, after the org is known, because parsing "tomorrow at 5 PM" before we know
+   * WHOSE tomorrow it is can only be wrong. One row, org-scoped; a missing timezone simply falls
+   * back to the runtime's, which is the behaviour this route had for its whole life.
+   */
+  let businessTimeZone: string | null = null;
+  {
+    const { data: agentRow } = await supabaseAdmin
+      .from("agents")
+      .select("timezone")
+      .eq("org_id", org.id)
+      .not("timezone", "is", null)
+      .limit(1)
+      .maybeSingle<{ timezone: string | null }>();
+    businessTimeZone = agentRow?.timezone ?? null;
+  }
+
   let startAt;
   try {
-    startAt = parseStartAt(input.start_at, input.start_at_text);
+    startAt = parseStartAt(input.start_at, input.start_at_text, businessTimeZone);
   } catch {
     return NextResponse.json(
       { error: "invalid_datetime", message: "Could not understand the date/time" },
       { status: 400 }
     );
-  }
-
-  const toPhone = normalizePhone(input.to_phone);
-  if (!toPhone) {
-    return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
-  }
-
-  /* org */
-  // TODO: Migrate phone_number mapping to dedicated table/orgs. For now, using organizations VIEW
-  const { data: org } = await supabaseAdmin
-    .from("organizations")
-    .select("id")
-    .eq("phone_number", toPhone)
-    .single();
-
-  if (!org) {
-    return NextResponse.json({ error: "org_not_found" }, { status: 404 });
   }
 
   /* call lookup: resolve by call_id (UUID) or vapi_call_id */
