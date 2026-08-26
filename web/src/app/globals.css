@@ -1,5 +1,27 @@
+/*
+ * LAYER ORDER — the fix for R-136.
+ *
+ * `public/horizon/horizon.bundle.css` is a compiled Tailwind v3 bundle from the Horizon template.
+ * It used to be injected at runtime as an unlayered <link> by `HorizonStylesheet.tsx`, and
+ * unlayered declarations beat layered ones regardless of specificity — so its preflight
+ * (`button,input,optgroup,select,textarea { margin:0; padding:0 }`) and its global border colour
+ * silently killed our own utilities on every form control and every border in the dashboard.
+ * `pl-10` on an input computed to 0px while the same class on a div gave 40px; `border-teal-200`
+ * and a bare `border` resolved to the same grey.
+ *
+ * Declaring `horizon` as the lowest layer makes the bundle behave like the base styles it is,
+ * so our utilities win when they say something and Horizon's own components keep their look when
+ * we say nothing. This could not land before the palette was corrected: our tokens used to hold
+ * Tailwind's default blue, so layering would have repainted the dashboard the moment it shipped.
+ *
+ * Imported from `public/` rather than copied into `src/` so there is exactly one vendored file —
+ * the same one `horizon-palette.test.ts` reads as the palette's source of truth.
+ */
+@layer horizon, theme, base, components, utilities;
+
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "../../public/horizon/horizon.bundle.css" layer(horizon);
 
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
@@ -48,14 +70,38 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   
-  /* Horizon UI color tokens */
+  /*
+   * Horizon UI colour tokens — the AUTHENTIC values, extracted from
+   * `public/horizon/horizon.bundle.css`.
+   *
+   * ⚠️ This block is what Tailwind v4 actually uses. The same palette is also declared in
+   * `tailwind.config.ts` (loaded via `@config` for the v3-era utilities Horizon components
+   * reference), and when the two disagree **this one wins** — which is how a corrected config
+   * still produced Tailwind's default blue in the built CSS. The two must be kept identical;
+   * `horizon-palette.test.ts` fails if they drift.
+   *
+   * These previously held guesses: brand-500 was #3b82f6 (Tailwind blue) where Horizon's brand is
+   * #422AFB, and the navy scale was shifted a step — navy-700 held #0b1437, which is really
+   * navy-900. It stayed invisible because the vendored bundle is injected unlayered and wins for
+   * every class Horizon's own build compiled (R-136); only shades it never compiled fell through
+   * to these values.
+   */
   --color-background-100: #f4f7fe;
-  --color-background-900: #0b1437;
-  --color-navy-700: #0b1437;
-  --color-navy-800: #1a1f3a;
-  --color-navy-900: #1e293b;
-  --color-brand-500: #3b82f6;
-  --color-lightPrimary: #e0f2fe;
+  --color-background-900: #070f2e;
+  --color-navy-400: #3652ba;
+  --color-navy-500: #1b3bbb;
+  --color-navy-700: #1b254b;
+  --color-navy-800: #111c44;
+  --color-navy-900: #0b1437;
+  --color-brand-200: #a195fd;
+  --color-brand-300: #8171fc;
+  --color-brand-400: #7551ff;
+  --color-brand-500: #422afb;
+  --color-brand-600: #3311db;
+  --color-brand-700: #2111a5;
+  --color-brand-800: #190793;
+  --color-brand-900: #11047a;
+  --color-lightPrimary: #f4f7fe;
   
   /* Horizon UI shadow tokens */
   --shadow-3xl: 0px 18px 40px rgba(112, 144, 176, 0.12);

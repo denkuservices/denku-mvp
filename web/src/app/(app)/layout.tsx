@@ -1,6 +1,5 @@
 import { DM_Sans } from "next/font/google";
 import AppShellWrapper from "@/components/horizon-shell/AppShellWrapper";
-import HorizonStylesheet from "@/components/horizon-shell/HorizonStylesheet";
 import { getOnboardingComplete } from "@/lib/auth/checkOnboarding";
 import { platformUxEnabled } from "@/lib/platform/flags";
 
@@ -33,7 +32,6 @@ export default async function AppLayout({
 
   return (
     <>
-      <HorizonStylesheet />
       <div className={`${dmSans.className} w-full`}>
         <AppShellWrapper onboardingComplete={onboardingComplete} platformUx={platformUx}>
           {children}
