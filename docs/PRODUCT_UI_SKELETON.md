@@ -1,5 +1,27 @@
 # Product UI Skeleton — the dashboard, decided
 
+> ## STATUS — 2026-08-26: Phases 1–3 shipped, plus the colour and avatar layers.
+>
+> Everything below is the decision record; this is what became of it. All of it was verified in
+> the live product rather than in the source, which is how most of the findings turned up.
+>
+> **Done:** navigation 6 → 5 (Analytics folded into a tab on Home) · Settings 9 pages → 3 sections
+> · the density pass on Inbox, Customers, Home and the conversation rail · channel colour and the
+> avatar layer · **R-136 closed** (the Horizon theme is in a cascade layer, so utilities apply
+> again).
+>
+> **Found by looking, not reading** — each has its own commit: Home's headline counted all time
+> under a "last 7 days" label · every Inbox row opened with the same 60 characters of assistant
+> greeting · a phone line read "Connected" that no employee answered · the conversation rail
+> showed customers our Vapi cost · verification emails linked to the Vercel build host · R-135 had
+> a second language picker · `/dashboard/tickets` had been redirecting to a 404 since Sprint 13,
+> because the middleware percent-encoded the "?" in its own redirect target.
+>
+> **Not done, deliberately:** Phase 4 (the 2.0 visual system — doc 17's tokens, Employee Card and
+> Thread motif) is brand work and should not be rushed into a launch week. The employee roster has
+> no avatar: an AI employee is not a person, and initials squeezed out of "Denku Inbound MVP"
+> would be decoration. Onboarding has not had the density pass.
+
 > Written 2026-08-25 after reviewing the live product against the reference set in
 > `docs/example_screenshots/` (Creato's Ikasagent inbox + their 5-step onboarding). This is the
 > **structural decision record**: what the navigation is, what lives under each item, where a
@@ -68,7 +90,8 @@ AI Team             /dashboard/team
                        └ Channels tab = where a customer connects/activates. See §3.
 
 Settings            /dashboard/settings
-  └ 4 tabs           — Workspace · Billing · Channels · Account   (was 9 pages, §4)
+  └ 3 sections       — Workspace · Billing & usage · Account   (was 9 pages, §4)
+                       Channels + AI Employees render under "Configured elsewhere"
 ```
 
 ## 3. The four questions this answers
@@ -98,11 +121,17 @@ no new page, because the architecture was built for it: `conversations` is chann
 must add a chip and a renderer — never a nav item.** That rule is what keeps the product from
 becoming the folder tree it was before Sprint 11.
 
-## 4. Settings — rebuild, 9 pages → 4 tabs
+## 4. Settings — rebuilt, 9 pages → 3 sections (shipped)
 
 Current: `account/profile`, `account/security`, `integrations`, `workspace/general`,
 `workspace/members`, `workspace/billing`, `workspace/usage`, `workspace/audit`, `agents*`
 (redirects). An index page that lists nine destinations is a filing cabinet, not a control centre.
+
+> **Shipped as three, not four.** Channels is a pointer out of Settings rather than a section
+> inside it — giving it a settings page of its own would have undone Sprint 11's decision to keep
+> channels in one place. The rail renders it under "Configured elsewhere" alongside AI Employees.
+> The audit log kept its own route: it is a paginated record, and embedding it would leave
+> Workspace with no bottom.
 
 | Tab | Absorbs | Notes |
 |---|---|---|
