@@ -1891,7 +1891,7 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   prevents from recurring.
 
 ### R-136 — The unlayered Horizon bundle silently kills padding utilities on every form control
-**Priority:** High · **Status:** Open (workaround shipped) · **Effort:** M · **Related audit:** [docs/PRODUCT_UI_SKELETON.md](PRODUCT_UI_SKELETON.md)
+**Priority:** High · **Status:** ✅ **Completed 2026-08-26** · **Effort:** M · **Related audit:** [docs/PRODUCT_UI_SKELETON.md](PRODUCT_UI_SKELETON.md)
 > Found 2026-08-25 by inspecting the **live production dashboard** in a browser — the first time
 > anyone had looked. It explains a class of "the class is right but nothing happens" defects, and it
 > is why the search icon/placeholder collision survived a Sprint 9 "fix": the class was always
@@ -1928,6 +1928,18 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   code asks for — including the amber "needs attention" and red "critical" borders. Background and
   text colours are unaffected, so states remain distinguishable; the border is simply inert. Found
   while adding channel tones, whose `bg-*` and `text-*` land correctly and whose `border-*` does not.
-- **Workaround shipped 2026-08-25:** `SearchField` sets its padding with an inline style, which sits
+- **✅ FIXED 2026-08-26.** The bundle is imported from `globals.css` into a `horizon` cascade layer
+  declared below Tailwind's (`@layer horizon, theme, base, components, utilities`), so it behaves
+  like the base styles it is: our utilities win when they say something, Horizon keeps its look
+  when they don't. The runtime `<link>` injector (`HorizonStylesheet.tsx`) is deleted, which also
+  removes a fetch and a flash of unstyled content per dashboard load. **Verified in production:**
+  `pl-10` on an input 0px → **40px**; `border-teal-200` and `border-pink-200` render teal and pink
+  instead of one grey; `bg-brand-500` and `text-navy-700` unchanged.
+- **The blocker was a second source of truth, not the layering.** `tailwind.config.ts` was corrected
+  first, but the built CSS still shipped Tailwind's blue — `globals.css` carries an `@theme` block
+  declaring the same tokens, and in v4 **that** is what compiles. Both now hold the values extracted
+  from the bundle, and **`horizon-palette.test.ts`** parses all three files and fails if any two
+  disagree (mutation-tested: reintroducing `#3b82f6` fails three assertions).
+- **Superseded workaround (2026-08-25):** `SearchField` sets its padding with an inline style, which sits
   above every author rule and cannot be reset away. Any new control needing asymmetric padding must
   do the same until this is closed — or use `px-*`, which works.
