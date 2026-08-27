@@ -183,6 +183,11 @@ An **immutable, versioned revision** of an employee's desired configuration (`em
 **Rule:** when you change how an employee behaves, make sure a revision is minted (pass a `reason`).
 Never mutate a stored revision.
 
+**Recall is not Memory either** — see [docs/CONTACT_RECALL_SPEC.md](../docs/CONTACT_RECALL_SPEC.md)
+(R-139, spec only). Recall *reads* what the business already holds about a contact so a returning
+customer is not asked to re-explain themselves; it stores nothing. The moment it writes a derived
+fact it has become Memory and the contract below applies in full.
+
 **Memory is NOT part of the manifest** — see `docs/MEMORY_CONTRACT.md` (R-110). Memory is
 accumulated, per-subject, decaying and **erasable**; knowledge is curated and versioned. Never write
 memory into a prompt/knowledge blob.

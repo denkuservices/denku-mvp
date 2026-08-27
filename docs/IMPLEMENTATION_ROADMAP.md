@@ -141,8 +141,8 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-139
-> *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch — both filed 2026-08-27.)*
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-140
+> *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch, R-139 contact recall — filed 2026-08-27.)*
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
 > reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
 > 2026-08-25.)*
@@ -1929,6 +1929,29 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   unilaterally: it is a deploy-config change and region selection is limited on the Hobby plan.
 - **Do this before** measuring cold starts, RSC payloads, or anything else on the P1 list — it
   likely moves every number.
+
+### R-139 — Contact recall: the AI knows a returning customer, safely
+**Priority:** Medium · **Status:** 📋 **Spec written 2026-08-27, not implemented** · **Effort:** M · **Spec:** [docs/CONTACT_RECALL_SPEC.md](CONTACT_RECALL_SPEC.md)
+> Asked by the owner as "if a customer already in our CRM calls from their known number, will the
+> agent know the past, or start from zero?" The answer today is: chat remembers within its thread,
+> voice remembers nothing — a difference nobody decided.
+- **Business impact:** a returning customer currently re-explains themselves to a business that
+  already has their record. It is the most common reason an AI feels like a phone tree.
+- **Technical impact:** a read-only, channel-agnostic `resolveRecall`, plus an `identify_caller`
+  tool for voice and a prompt block for chat. **No new store**, so
+  [MEMORY_CONTRACT.md](MEMORY_CONTRACT.md) (R-110) does NOT apply — recall reads what the business
+  already holds; the moment it writes a derived fact it has become Memory and R-110 applies in full.
+- **The design decision worth preserving:** verification must not disclose what it protects.
+  "Am I speaking with Jack?" tells whoever answered that the number belongs to Jack. The open form
+  ("Who am I speaking with?") costs the same turn and leaks nothing. And a phone number is not a
+  person — it is shared, answered by colleagues, and reassigned by carriers.
+- **It also fixes P3.** A caller who says "Jack" on a number whose lead is named "Ali" currently
+  gets linked to Ali and the name is written nowhere (observed 2026-08-27). Under this spec a
+  mismatch creates a new contact carrying the stated name.
+- **Voice implementation is a TOOL, not a prompt injection** — deliberately. Prompt injection would
+  need Vapi's `assistant-request` (changing phone routing, landmine #6) and would hand the model
+  personal data before the caller has said a word, leaving "don't use this yet" as an instruction
+  rather than a control.
 
 ### R-136 — The unlayered Horizon bundle silently kills padding utilities on every form control
 **Priority:** High · **Status:** ✅ **Completed 2026-08-26** · **Effort:** M · **Related audit:** [docs/PRODUCT_UI_SKELETON.md](PRODUCT_UI_SKELETON.md)
