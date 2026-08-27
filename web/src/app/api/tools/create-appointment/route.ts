@@ -3,6 +3,31 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { parseSpokenTime } from "@/lib/time/spokenTime";
 
+/**
+ * `create_appointment` — the tool the assistant calls while the caller is still on the line.
+ *
+ * **The tool DEFINITION lives in the Vapi account, not in this repo** (`DENKU_TOOL_IDS` in
+ * `lib/vapi/assistantConfig.ts`), so the contract it must have is written here, where the code
+ * that depends on it lives. Three real bookings were lost to that definition drifting from this
+ * handler, each in a different way.
+ *
+ * Headers — filled by Vapi, never by the model:
+ *   x-denku-secret           the shared secret
+ *   x-vapi-call-id           {{call.id}}          → identifies the org and links the appointment
+ *   x-vapi-customer-number   {{customer.number}}  → the caller's own number, empty on a web call
+ *
+ * Body — only what the model can know from the conversation:
+ *   start_at_text  (required)  when they want it, in their words
+ *   lead_name, purpose, notes  what they said
+ *   lead_phone                 ONLY if they volunteer a different callback number
+ *
+ * The rule behind all of it: **never make the model collect something the platform already
+ * knows.** It asked one caller for a phone number and got, correctly, "you can take the number
+ * I'm calling you with". `call_id`, `vapi_call_id` and `to_phone` were removed from the body for
+ * the same reason — the first two the model cannot know, and the third it filled with the
+ * caller's number because the field name meant nothing to it.
+ */
+
 
 /* ------------------ helpers ------------------ */
 
@@ -121,6 +146,18 @@ export async function POST(req: NextRequest) {
    * it. Body parameters still win when present; this is the fallback that always exists.
    */
   const headerCallId = req.headers.get("x-vapi-call-id")?.trim() || null;
+
+  /**
+   * The caller's own number, from Vapi rather than from the conversation.
+   *
+   * Watching a real booking: the assistant asked "could you provide your phone number?" and the
+   * caller answered "you can take the number I'm already calling you with" — which is exactly
+   * right, and exactly what the tool should never have had to ask. Vapi knows the caller ID, so
+   * the tool definition sends `{{customer.number}}` and it arrives here. Empty on a web call,
+   * where there is no number to know and asking would be the only way — which is why the booking
+   * must still work without one.
+   */
+  const headerCustomerNumber = normalizePhone(req.headers.get("x-vapi-customer-number"));
 
   const toPhone = normalizePhone(input.to_phone);
 
@@ -248,6 +285,7 @@ export async function POST(req: NextRequest) {
      */
     const leadPhone =
       callFromPhone ||
+      headerCustomerNumber ||
       normalizePhone(input.lead_phone) ||
       (orgResolvedByPhone ? null : normalizePhone(input.to_phone));
 

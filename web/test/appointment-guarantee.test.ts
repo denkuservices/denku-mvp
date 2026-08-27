@@ -129,6 +129,25 @@ describe("create_appointment tool — a partial call is not a failed call", () =
     expect(tool).toMatch(/input\.vapi_call_id \|\| headerCallId/);
   });
 
+  /**
+   * The platform knows the caller's number; the model does not need to ask for it. Watching a
+   * real booking: "could you provide your phone number?" — "you can take the number I'm already
+   * calling you with". Vapi sends `{{customer.number}}` on the tool call instead.
+   */
+  it("takes the caller's number from Vapi, and prefers the call record over it", () => {
+    expect(tool).toMatch(/x-vapi-customer-number/);
+    const chain = tool.slice(tool.indexOf("const leadPhone ="), tool.indexOf("const leadPhone =") + 320);
+    expect(chain.indexOf("callFromPhone")).toBeLessThan(chain.indexOf("headerCustomerNumber"));
+    expect(chain.indexOf("headerCustomerNumber")).toBeLessThan(chain.indexOf("input.lead_phone"));
+  });
+
+  it("writes down the tool contract that lives in the Vapi account", () => {
+    // The definition is not in this repo; the handler that depends on it says what it must be.
+    expect(tool).toMatch(/x-vapi-call-id\s+\{\{call\.id\}\}/);
+    expect(tool).toMatch(/x-vapi-customer-number\s+\{\{customer\.number\}\}/);
+    expect(tool).toMatch(/never make the model collect something the platform already/i);
+  });
+
   it("still prefers the phone lookup when a number is present", () => {
     // The business number identifies the org when it is there; the call record is the fallback.
     const byPhone = tool.indexOf('.from("organizations")');
