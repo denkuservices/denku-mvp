@@ -122,9 +122,22 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
   {
     const senders = [env.RESEND_FROM, env.RESEND_FROM_AUTH, env.RESEND_FROM_NOTIFY, env.RESEND_FROM_WELCOME].filter(present) as string[];
     const sandbox = senders.some((s) => /resend\.dev/i.test(s));
-    const status: CheckStatus = sandbox ? "fail" : "pass";
+    /**
+     * The shape Resend requires: `email@example.com` or `Name <email@example.com>`.
+     *
+     * This check used to report only the domain, so it passed a value that could never send.
+     * On 2026-08-27 `RESEND_FROM` was saved in Vercel with its quote characters included and
+     * every notification came back 422 — with readiness saying the sender was fine. A preflight
+     * that green-lights an address the provider rejects is worse than no preflight.
+     */
+    const malformed = senders.filter((s) => !/^(?:[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+|[^<>]+<[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+>)$/.test(s.trim()));
+    const status: CheckStatus = sandbox || malformed.length ? "fail" : "pass";
     checks.push(check("sender_domain", "Verified sender domain", "Email", false, status,
-      sandbox ? "A RESEND_FROM_* uses the resend.dev sandbox — mail will not deliver to customers (R-080)" : senders.length ? senders.join(", ") : "Defaults to verified denku.io"));
+      sandbox
+        ? "A RESEND_FROM_* uses the resend.dev sandbox — mail will not deliver to customers (R-080)"
+        : malformed.length
+          ? `Rejected by the provider — needs \`email@example.com\` or \`Name <email@example.com>\`: ${malformed.join(", ")}`
+          : senders.length ? senders.join(", ") : "Defaults to verified denku.io"));
   }
 
   // --- Billing ---

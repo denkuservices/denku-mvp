@@ -126,7 +126,23 @@ describe("create_appointment tool — a partial call is not a failed call", () =
   });
 
   it("still prefers the phone lookup when a number is present", () => {
-    const orgBlock = tool.slice(tool.indexOf("/* org"), tool.indexOf("/* org") + 1200);
-    expect(orgBlock.indexOf("organizations")).toBeLessThan(orgBlock.indexOf('from("calls")'));
+    // The business number identifies the org when it is there; the call record is the fallback.
+    const byPhone = tool.indexOf('.from("organizations")');
+    const byCall = tool.indexOf('from("calls").select("org_id")');
+    expect(byPhone).toBeGreaterThan(-1);
+    expect(byCall).toBeGreaterThan(-1);
+    expect(byPhone).toBeLessThan(byCall);
+  });
+
+  /**
+   * The third face of the same assumption, found on the third test call: told it needed a phone
+   * number, the assistant asked the caller for one — and the route still refused, because it
+   * insisted on resolving a LEAD before it would write a booking. A web call has no caller ID, and
+   * neither will Web Chat, Telegram or Email.
+   */
+  it("writes the booking even when nobody's phone number can be found", () => {
+    expect(tool).not.toMatch(/return NextResponse\.json\(\{ error: "invalid_phone" \}/);
+    expect(tool).toMatch(/A booking without a contact is still a booking/);
+    expect(tool).toMatch(/leadId = null;/);
   });
 });

@@ -85,6 +85,20 @@ describe("readiness — pure evaluation", () => {
     expect(openai.get("llm_api_key")!.detail).toMatch(/openai/);
   });
 
+  /**
+   * The production failure this guards: `RESEND_FROM` saved with its quote characters, Resend
+   * answering 422 on every send, and readiness reporting the sender as fine.
+   */
+  it("a sender the provider would reject FAILS, however verified its domain is", () => {
+    const c = byId({ ...READY_ENV, RESEND_FROM: '"Denku AI <hello@denku.io>"' });
+    expect(c.get("sender_domain")!.status).toBe("fail");
+    expect(c.get("sender_domain")!.detail).toMatch(/Rejected by the provider/);
+
+    // The correct spellings both pass.
+    expect(byId({ ...READY_ENV, RESEND_FROM: "Denku <hello@denku.io>" }).get("sender_domain")!.status).toBe("pass");
+    expect(byId({ ...READY_ENV, RESEND_FROM: "hello@denku.io" }).get("sender_domain")!.status).toBe("pass");
+  });
+
   it("resend.dev sandbox sender FAILS the sender check (R-080), non-blocking", () => {
     const c = byId({ ...READY_ENV, RESEND_FROM: "onboarding@resend.dev" });
     expect(c.get("sender_domain")!.status).toBe("fail");

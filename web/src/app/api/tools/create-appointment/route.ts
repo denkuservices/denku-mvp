@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
 
   /* org — by the business's number when we have one, otherwise by the call itself */
   let orgId: string | null = null;
+  /** Whether `to_phone` turned out to be a business number we know. Decides who owns that number. */
+  let orgResolvedByPhone = false;
 
   if (toPhone) {
     // TODO: Migrate phone_number mapping to dedicated table/orgs. For now, using organizations VIEW
@@ -135,6 +137,7 @@ export async function POST(req: NextRequest) {
       .eq("phone_number", toPhone)
       .maybeSingle<{ id: string }>();
     orgId = org?.id ?? null;
+    orgResolvedByPhone = orgId !== null;
   }
 
   if (!orgId) {
@@ -195,7 +198,9 @@ export async function POST(req: NextRequest) {
   let resolvedCallId: string | null = null;
   
   const validatedCallId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
-  const validatedVapiCallId = input.vapi_call_id ? input.vapi_call_id : null;
+  // The header is the only call identifier that always exists — without it here, an appointment
+  // the tool creates is never linked to the conversation it came from.
+  const validatedVapiCallId = input.vapi_call_id || headerCallId;
 
   if (validatedCallId) {
     const { data: call } = await supabaseAdmin
@@ -232,11 +237,32 @@ export async function POST(req: NextRequest) {
   if (callLeadId) {
     leadId = callLeadId;
   } else {
-    // 2) Determine leadPhone: prefer callFromPhone, fallback to input.lead_phone
-    const leadPhone = callFromPhone || normalizePhone(input.lead_phone);
+    /**
+     * 2) Whose number is this?
+     *
+     * `callFromPhone` first (the caller ID the webhook recorded), then whatever the model passed.
+     * `to_phone` is included as a last resort because of a failure mode we watched happen: told it
+     * needed a phone number, the assistant asked the caller for one and put it in `to_phone` — the
+     * field that means *the business's* number. It had already failed to resolve an org, so it is
+     * not a business number; treating it as the caller's is the reading that matches reality.
+     */
+    const leadPhone =
+      callFromPhone ||
+      normalizePhone(input.lead_phone) ||
+      (orgResolvedByPhone ? null : normalizePhone(input.to_phone));
+
+    /**
+     * A booking without a contact is still a booking.
+     *
+     * This used to answer 400 `invalid_phone` when no number could be found — so on a web call,
+     * where there is no caller ID and never will be, the assistant was told its booking failed and
+     * fell back to "someone will follow up". Every channel we are about to add (Web Chat, Telegram,
+     * Email) has the same shape. The appointment is what the caller asked for; the contact record
+     * is bookkeeping we attach when we can, and `appointments.lead_id` has always been nullable.
+     */
     if (!leadPhone) {
-      return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
-    }
+      leadId = null;
+    } else {
 
     // 3) Find or create lead by (org_id, phone)
     const { data: leadExisting } = await supabaseAdmin
@@ -268,6 +294,7 @@ export async function POST(req: NextRequest) {
       }
 
       leadId = leadNew.id;
+    }
     }
   }
 

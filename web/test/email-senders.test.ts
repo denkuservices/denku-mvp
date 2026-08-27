@@ -42,3 +42,41 @@ describe("resolveSender", () => {
     );
   });
 });
+
+/**
+ * The failure that made this necessary, 2026-08-27: `RESEND_FROM` was saved in Vercel with the
+ * quote characters included — the shell form pasted into a web form. Resend answered every send
+ * with a 422 `validation_error` about the `from` field, and because artifact notifications are
+ * best-effort and release their claim on failure, nothing anywhere showed a problem: the flag was
+ * on, the recipient was set, the appointment existed, and the owner simply never got an email.
+ */
+describe("resolveSender — a pasted value is still a value", () => {
+  it("strips a wrapping pair of quotes, which is never part of an address", () => {
+    expect(resolveSender("notify", { RESEND_FROM: '"Denku AI <hello@denku.io>"' })).toBe(
+      "Denku AI <hello@denku.io>"
+    );
+    expect(resolveSender("auth", { RESEND_FROM_AUTH: "'Denku <no-reply@denku.io>'" })).toBe(
+      "Denku <no-reply@denku.io>"
+    );
+  });
+
+  it("leaves a correctly-formatted sender exactly as it is", () => {
+    expect(resolveSender("notify", { RESEND_FROM: "Denku <notifications@denku.io>" })).toBe(
+      "Denku <notifications@denku.io>"
+    );
+    expect(resolveSender("notify", { RESEND_FROM: "notifications@denku.io" })).toBe(
+      "notifications@denku.io"
+    );
+  });
+
+  it("does not strip a lone quote, which would corrupt rather than repair", () => {
+    expect(resolveSender("notify", { RESEND_FROM: '"Denku <notifications@denku.io>' })).toBe(
+      '"Denku <notifications@denku.io>'
+    );
+  });
+
+  it("falls through to the default when the value was only quotes or spaces", () => {
+    expect(resolveSender("welcome", { RESEND_FROM: '""' })).toBe(DEFAULT_SENDERS.welcome);
+    expect(resolveSender("welcome", { RESEND_FROM: '"   "' })).toBe(DEFAULT_SENDERS.welcome);
+  });
+});

@@ -30,15 +30,37 @@ const ENV_KEYS: Record<SenderKind, string> = {
 type Env = Record<string, string | undefined>;
 
 /**
+ * Clean up a sender pasted into a dashboard.
+ *
+ * A `from` of `"Denku AI <hello@denku.io>"` — **with the quote characters in the value** — is what
+ * you get when someone copies the shell form of the variable into Vercel's UI, and Resend answers
+ * it with a 422 `validation_error`. That happened in production on 2026-08-27: the artifact
+ * notification path was correct end to end, the flag was on, the recipient was configured, and
+ * every email silently failed on the shape of one string. Nothing in the UI could show it, because
+ * the send is best-effort by design and releases its claim on failure.
+ *
+ * A wrapping pair of quotes is never part of a real address, so stripping it can only help.
+ */
+function sanitizeSender(raw: string | undefined): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "";
+  const unquoted =
+    (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
+      ? value.slice(1, -1).trim()
+      : value;
+  return unquoted;
+}
+
+/**
  * Resolve the `from:` address for an email stream.
  * Per-stream override → global `RESEND_FROM` → verified default. Blank/whitespace
  * env values are ignored (fall through to the next source).
  */
 export function resolveSender(kind: SenderKind, env: Env = process.env): string {
-  const perStream = env[ENV_KEYS[kind]]?.trim();
+  const perStream = sanitizeSender(env[ENV_KEYS[kind]]);
   if (perStream) return perStream;
 
-  const global = env.RESEND_FROM?.trim();
+  const global = sanitizeSender(env.RESEND_FROM);
   if (global) return global;
 
   return DEFAULT_SENDERS[kind];
