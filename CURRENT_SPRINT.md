@@ -111,7 +111,7 @@ extracts it ("Daniel", "Max", "Tom"). It is stored in the appointment notes and 
 Open question, deliberately not decided alone: on a channel with no phone number, what does a
 contact record key on? Answering it is the first real step of the Contacts model.
 
-### P4 — Telegram · **CODE-COMPLETE 2026-08-27, awaiting a live bot**
+### P4 — Telegram · **LIVE AND ANSWERING 2026-08-27 · not yet production-ready**
 
 Built, typechecked, built by Next, and covered by 24 new tests (666 total, all passing). Full
 detail in **`skills/telegram-integration.md`**; the short version:
@@ -135,14 +135,46 @@ detail in **`skills/telegram-integration.md`**; the short version:
 - **Spend guard:** 30 replies per conversation per hour, counted in the database, because
   `lib/rateLimit.ts` is a no-op on Vercel. R-030 is still open for a real limiter.
 
+**Proven on production 2026-08-27** with a real bot, verified in the database afterwards:
+
+| Step | Evidence |
+|---|---|
+| Bot connected | `telegram_connections` row, webhook registered, token encrypted |
+| Message received | `conversations` + `messages` rows — **the first real traffic the shared model has ever seen** |
+| Contact has a real name | `contacts.display_name` populated from message one — this channel answers P3 for itself |
+| AI answered | `meta.generated: true` |
+| Business context reached the customer | the AI quoted the real hours — **the same facts the phone AI quotes** |
+| Human took over from the Inbox | `meta.generated: false` + `sent_by`; handling flipped to `human` |
+| **AI held its tongue** | the customer wrote again and the AI did NOT answer |
+| Handed back | handling returned to `ai`, assignment cleared, AI answered the next message |
+
+Two things were found by running it, not by reading it:
+
+1. **`/start` produced silence.** It is not typed — it is the button that opens the bot — and the
+   model returned nothing useful for the literal string. A new customer saw an empty chat until
+   they typed again. Now answered deterministically from the employee's greeting, with no model
+   call (commit `3ff49ab`).
+2. **Replies take 6–9 seconds.** Not measured further, but the webhook makes ~10 sequential
+   Supabase round trips before the model is even called — which is R-138's coast-to-coast latency
+   again, plus Hobby cold starts. Same root cause as the Inbox; fixing the region fixes both.
+
+**Still NOT proven, and this is what `productionReady: false` is waiting on:** no chat conversation
+has yet produced an **artifact**. Run the booking script above — it must create the appointment,
+correct it rather than duplicate it on "make it 4pm", create a ticket for the refund question
+without asking for a name it already has, and email the owner. Only then flip the flag.
+
 **What is left, and it is all operator work:**
 
-1. Set `SECRET_ENCRYPTION_KEY` (or confirm `INSTAGRAM_TOKEN_ENCRYPTION_KEY` is set) and
-   `TELEGRAM_WEBHOOK_BASE_URL=https://www.denku.io` in Vercel production.
-2. Apply `supabase/migrations/20260827200000_telegram_channel.sql`.
-3. Create a test bot in @BotFather, paste the token, and have the conversation below.
-4. Only then flip `telegram.productionReady` to `true` — the honesty gate is about what has been
-   observed, not what has been written.
+1. ~~Encryption key + `TELEGRAM_WEBHOOK_BASE_URL`~~ **done** (the key is
+   `INSTAGRAM_TOKEN_ENCRYPTION_KEY`; readiness now names whichever one is in force and catches a
+   key deployed under a name nothing reads — that mistake was made and cost a deploy).
+2. ~~Apply `supabase/migrations/20260827200000_telegram_channel.sql`~~ **done.**
+3. ~~Connect a bot and hold a conversation~~ **done** — see the table above.
+4. **Assign an AI Employee to the connection.** It was left unassigned, so the reply fell back to
+   the org's oldest agent: correct behaviour, but `conversations.agent_id` is null and the record
+   does not say who answered. Channels → Telegram → "Which AI Employee answers here".
+5. **Run the booking script** (below) — the artifact half is untested.
+6. Only then flip `telegram.productionReady` to `true`.
 
 **The Telegram test script** (mirrors the phone script — each line checks a rule):
 
