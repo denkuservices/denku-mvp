@@ -60,6 +60,16 @@ export const CONNECTION_SOURCES: Partial<Record<Channel, ConnectionSource>> = {
     errorColumn: "last_error",
     metaColumns: ["ig_user_id"],
   },
+  telegram: {
+    table: "telegram_connections",
+    // A bot is known by its @handle, the same way a phone line is known by its number.
+    identifierColumn: "bot_username",
+    statusColumn: "status",
+    // Bot tokens do not expire — there is nothing to warn about, so no expiry column.
+    errorColumn: "last_error",
+    ownerColumn: "assigned_agent_id",
+    metaColumns: ["bot_id", "bot_name", "last_inbound_at"],
+  },
 };
 
 /** Build the view for a channel that has no connection rows for this org. Pure. */

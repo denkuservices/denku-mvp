@@ -1,0 +1,139 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Channel } from "@/lib/platform/channels";
+import { appendMessage } from "@/lib/platform/conversations";
+import { canReplyOn, getTransport } from "@/lib/platform/transports/registry";
+import { contactDisplayName, loadHistory, resolveReplyEmployee } from "@/lib/platform/reply/employee";
+import { generateReply } from "@/lib/platform/reply/engine";
+import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
+import type { ReplyResult } from "@/lib/platform/reply/types";
+
+/**
+ * One inbound message in, one answer out — for any chat channel.
+ *
+ * This is the function a channel webhook calls after `ingestInboundMessage` has recorded what
+ * the customer said. It owns the ORDER of things, and the order is the whole design:
+ *
+ *   1. **Send before storing.** If we stored the reply first and the send then failed, the
+ *      owner's Inbox would show a message their customer never received — the one kind of lie
+ *      a shared inbox must not tell. Storing after means the rarer, milder failure: the customer
+ *      has the reply and our record is incomplete, which is logged and visible.
+ *   2. **The outbound message carries the provider's own id**, so a redelivered update cannot
+ *      produce a second copy of the same reply in the thread.
+ *   3. **Artifacts notify after the customer is answered.** The owner's email is important; it
+ *      is not more important than the person waiting for a sentence.
+ *
+ * Never throws. A chat webhook that throws makes the provider retry the same update forever.
+ */
+
+export interface RespondInput {
+  orgId: string;
+  channel: Channel;
+  conversationId: string;
+  contactId: string | null;
+  /** Channel-native destination (a Telegram chat id). */
+  threadId: string;
+  /** Which of the org's connections to answer through. */
+  connectionId: string | null;
+  /** The AI Employee assigned to this connection, when there is one. */
+  agentId: string | null;
+  /** What the customer just said. */
+  incoming: string;
+  db?: SupabaseClient;
+}
+
+export async function respondToInbound(input: RespondInput): Promise<ReplyResult> {
+  const db = input.db ?? supabaseAdmin;
+  const silent: ReplyResult = { ok: false, text: null, artifacts: [] };
+
+  try {
+    if (!canReplyOn(input.channel)) return { ...silent, reason: "channel_cannot_reply" };
+    const transport = getTransport(input.channel);
+    if (!transport) return { ...silent, reason: "no_transport" };
+
+    const employee = await resolveReplyEmployee(input.orgId, input.agentId, db);
+    if (!employee) return { ...silent, reason: "no_employee" };
+
+    const target = {
+      orgId: input.orgId,
+      conversationId: input.conversationId,
+      threadId: input.threadId,
+      connectionId: input.connectionId,
+    };
+
+    // Fire and forget: the customer should see "typing…" while the model works, and a failed
+    // courtesy must never delay the actual answer.
+    void transport.indicateTyping?.(target);
+
+    const [history, contactName] = await Promise.all([
+      loadHistory(input.orgId, input.conversationId, 20, db),
+      contactDisplayName(input.orgId, input.contactId, db),
+    ]);
+
+    const result = await generateReply(
+      {
+        orgId: input.orgId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+        channel: input.channel,
+        employee,
+        history,
+        incoming: input.incoming,
+        contactName,
+      },
+      db
+    );
+
+    if (!result.text) {
+      console.warn("[REPLY][SILENT]", {
+        org_id: input.orgId,
+        channel: input.channel,
+        conversation_id: input.conversationId,
+        reason: result.reason,
+      });
+      return result;
+    }
+
+    const sent = await transport.sendText(target, result.text);
+    if (!sent.ok) {
+      console.error("[REPLY][SEND][FAILED]", {
+        org_id: input.orgId,
+        channel: input.channel,
+        conversation_id: input.conversationId,
+        error: sent.error,
+      });
+      return { ...result, ok: false, reason: "send_failed" };
+    }
+
+    await appendMessage(
+      {
+        orgId: input.orgId,
+        conversationId: input.conversationId,
+        role: "assistant",
+        direction: "outbound",
+        content: result.text,
+        externalMessageId: sent.externalMessageId ?? null,
+        meta: { generated: true, artifacts: result.artifacts },
+      },
+      db
+    );
+
+    if (result.artifacts.length > 0) {
+      await notifyNewArtifactsForConversation(input.conversationId, input.orgId);
+    }
+
+    console.info("[REPLY][SENT]", {
+      org_id: input.orgId,
+      channel: input.channel,
+      conversation_id: input.conversationId,
+      artifacts: result.artifacts.map((a) => a.type),
+    });
+
+    return { ...result, ok: true };
+  } catch (err) {
+    console.error("[REPLY][ERROR]", err instanceof Error ? err.message : String(err));
+    return { ...silent, reason: "unhandled" };
+  }
+}

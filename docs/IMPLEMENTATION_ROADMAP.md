@@ -141,7 +141,8 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-137
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-139
+> *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch — both filed 2026-08-27.)*
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
 > reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
 > 2026-08-25.)*
@@ -1889,6 +1890,45 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   existing rows), then assert with a table-driven test over every language the Setup editor offers —
   the defect class is "the editor's option list and the resolver disagree," which only a parity test
   prevents from recurring.
+
+### R-137 — Telegram channel + the channel-agnostic reply engine
+**Priority:** High · **Status:** 🟡 **Code-complete 2026-08-27, awaiting live verification** · **Effort:** L · **Related:** [skills/telegram-integration.md](../skills/telegram-integration.md), `CURRENT_SPRINT.md` P4
+> The first channel Denku **answers on itself**. Voice replies through Vapi inside the call;
+> Instagram cannot reply at all. Building Telegram therefore meant building the thing the sprint
+> plan correctly said "does not exist in any form": a channel-agnostic reply engine.
+- **Business impact:** a business can put its own Telegram bot in front of its AI Employee and have
+  it answer, book appointments, and escalate to a human — on a channel with no per-minute cost and
+  no carrier paperwork. It is also the first real traffic `conversations`/`messages` will ever see.
+- **Technical impact:** `telegram_connections` (per-tenant BotFather token, AES-encrypted,
+  service-role only) · `lib/telegram/*` · `adapters/telegram.ts` · **`lib/platform/reply/*`** (employee
+  + history resolution, pure chat prompt reusing the voice business-context block, `create_appointment`
+  /`create_ticket` executed against `conversation_id`, a shallow model→tools→sentence loop) ·
+  **`lib/platform/transports/*`** (the outbound mirror of the adapter registry; `canReplyOn` requires
+  BOTH declared capability and a transport, which is how Instagram stays honestly receive-only) ·
+  webhook authenticated by Telegram's echoed `secret_token` (there is no body signature) · a
+  database-backed spend guard because `lib/rateLimit.ts` is a no-op on Vercel.
+- **Deliberately not gated by `PLATFORM_MODEL_ENABLED`:** that flag protects voice's dual-write;
+  Telegram has no legacy store to stay byte-for-byte with.
+- **Remaining:** apply the migration, set the encryption key + `TELEGRAM_WEBHOOK_BASE_URL`, run the
+  test script in `CURRENT_SPRINT.md`, then flip `productionReady`. 24 new tests; 666 passing.
+- **Known gaps (filed, not hidden):** no idle-conversation artifact guarantee (a chat never "ends" —
+  today the guarantee is the model calling `create_ticket`, which the prompt makes explicit); photo
+  captions are read but attachments dropped; no group-chat product story.
+
+### R-138 — Supabase and the Vercel functions are on opposite coasts
+**Priority:** High · **Status:** 🔴 **Open — one-line fix, owner's call** · **Effort:** S · **Related:** `CURRENT_SPRINT.md` P1
+> Found 2026-08-27 while working the Inbox-latency list. It invalidates an assumption that ran
+> through the whole D0 performance effort.
+- **Business impact:** the owner reports 6–7 seconds switching conversations. A large part of the
+  measured 501ms "data layer" is not query time at all — it is distance.
+- **Technical impact:** Supabase prod (`kebqwsdguxxjsijahrox`) is in **`us-west-2` (Oregon)**;
+  `vercel.json` declares no `regions`, so functions run in Vercel's default **`iad1` (Washington
+  DC)**. Every round trip is coast-to-coast (~60–70ms before Postgres does any work), and the perf
+  work assumed in-region. Sequential query stages multiply it.
+- **Fix:** `"regions": ["pdx1"]` in `vercel.json` (closest Vercel region to us-west-2). Not committed
+  unilaterally: it is a deploy-config change and region selection is limited on the Hobby plan.
+- **Do this before** measuring cold starts, RSC payloads, or anything else on the P1 list — it
+  likely moves every number.
 
 ### R-136 — The unlayered Horizon bundle silently kills padding utilities on every form control
 **Priority:** High · **Status:** ✅ **Completed 2026-08-26** · **Effort:** M · **Related audit:** [docs/PRODUCT_UI_SKELETON.md](PRODUCT_UI_SKELETON.md)

@@ -231,6 +231,19 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     button in `InstagramConnectionCard`, remove after verification) and **R-079** (OAuth stores
     requested not granted scopes).
 
+12. **Telegram is per-tenant and its webhook has NO body signature.** Each customer connects
+    their OWN BotFather bot (`telegram_connections`, token AES-encrypted, service-role only).
+    Telegram signs nothing — it only echoes the `secret_token` we registered via `setWebhook`, in
+    the `X-Telegram-Bot-Api-Secret-Token` header. **That echo IS the authentication**, so it must
+    be random per connection, compared in constant time, and must NEVER be put in a URL. The
+    connection id in the path is addressing, not a credential (a Telegram update says nothing
+    about which bot received it). It enforces from the first request — no observe-only mode. After
+    auth passes the route ALWAYS answers 200, because Telegram retries non-2xx and a retry means
+    the customer is answered twice. **Not gated by `PLATFORM_MODEL_ENABLED`** — that flag protects
+    voice's legacy dual-write; Telegram has no legacy store. Telegram is the first channel Denku
+    *replies* on: the reply engine (`lib/platform/reply/*`) is channel-agnostic and its prompt
+    forbids claiming a booking without the matching tool call. See `skills/telegram-integration.md`.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -281,6 +294,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/platform-architecture.md` — the AI-Employees platform model (Employee/Channel/Conversation/Contact/Artifact), the shared ingest pipeline + channel adapters, dual-write flag, how to add a channel (Sprint 4.5)
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
+- `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
 - `skills/auth-and-tenancy.md` — auth flows, middleware, org model, the two admin worlds

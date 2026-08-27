@@ -44,7 +44,17 @@ Back-links: `calls.conversation_id`, `instagram_webhook_events.conversation_id/m
 - `adapters/types.ts` — `NormalizedInbound` + `ChannelAdapter` (pure `normalizeInbound`).
 - `adapters/voice.ts` — Voice adapter (`parseTranscriptTurns` → per-turn messages).
 - `adapters/instagram.ts` — IG adapter (entry → messages; echoes → assistant/outbound).
+- `adapters/telegram.ts` — Telegram adapter (one `Update` → one message; thread = chat id,
+  contact = user id, message id scoped `chatId:messageId`).
 - `adapters/registry.ts` — `getChannelAdapter(channel)`.
+- **`transports/registry.ts` + `transports/telegram.ts`** — the OUTBOUND mirror of the adapter
+  registry. An adapter says how messages come in; a transport says how they go out. Two registries,
+  not one interface, is what lets Instagram be adopted-for-receiving with no voice at all.
+  `canReplyOn(channel)` = declared `capabilities.outbound` AND a transport that exists.
+- **`reply/*` — the channel-agnostic reply engine** (built 2026-08-27 with Telegram). Employee +
+  history resolution, a pure chat system prompt, `create_appointment`/`create_ticket` tools, a
+  shallow model→tools→sentence loop, and `respondToInbound` which sends BEFORE it stores. See
+  `skills/telegram-integration.md`.
 - `wiring/recordVoiceCall.ts` — voice end-of-call recorder (record-only; links call +
   artifact to the conversation).
 - `read.ts` — org-scoped read helpers (list/get conversations, messages, employee channels).
@@ -217,8 +227,12 @@ Employee capabilities, analytics breakdowns, coming-soon states — **derives fr
 **Optional:** a channel-specific turn renderer (`renderers/registry.ts`); without one the default
 bubble renders fine. `CHANNEL_ORDER` controls display order.
 
-**Do NOT** build WhatsApp/Telegram/Email integrations until the model is proven live with
-voice + Instagram.
+**Telegram was built this way on 2026-08-27** and is the worked example of the contract — a
+registry entry, a connection table + `CONNECTION_SOURCES` line, an adapter, a transport, and one
+`MANAGE_HREF` line. It is `adopted: true`, `productionReady: false` until observed live.
+
+**Do NOT** build WhatsApp/Messenger/Email integrations before there is a reason to: each is a
+provider relationship and an App Review, not a coding exercise.
 
 ## Channel capability, health, and employee capability
 

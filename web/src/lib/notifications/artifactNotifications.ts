@@ -70,8 +70,14 @@ interface Recipient {
   callerPhone: string | null;
 }
 
-/** Resolve the notification recipient + context for an org. Returns null to skip. */
-async function resolveRecipient(orgId: string, callId: string): Promise<Recipient | null> {
+/**
+ * Resolve the notification recipient + context for an org. Returns null to skip.
+ *
+ * `callId` is optional because the chat channels have no call. Everything that identifies WHO
+ * to email is org-level; only the caller phone came from the call, and on a chat channel there
+ * is no phone number to show — the email says who it is from by name instead.
+ */
+async function resolveRecipient(orgId: string, callId: string | null): Promise<Recipient | null> {
   // Settings: billing email + opt-out flag.
   const { data: settings } = await supabaseAdmin
     .from("organization_settings")
@@ -102,17 +108,19 @@ async function resolveRecipient(orgId: string, callId: string): Promise<Recipien
     .eq("id", orgId)
     .maybeSingle<{ name: string | null }>();
 
-  const { data: call } = await supabaseAdmin
-    .from("calls")
-    .select("from_phone")
-    .eq("id", callId)
-    .eq("org_id", orgId)
-    .maybeSingle<{ from_phone: string | null }>();
+  const call = callId
+    ? await supabaseAdmin
+        .from("calls")
+        .select("from_phone")
+        .eq("id", callId)
+        .eq("org_id", orgId)
+        .maybeSingle<{ from_phone: string | null }>()
+    : { data: null };
 
   return {
     email,
     orgName: org?.name ?? null,
-    callerPhone: call?.from_phone ?? null,
+    callerPhone: call.data?.from_phone ?? null,
   };
 }
 
@@ -245,5 +253,98 @@ export async function notifyNewArtifactsForCall(callId: string, orgId: string): 
       error: err instanceof Error ? err.message : String(err),
     });
     // Never throw — call finalization must continue.
+  }
+}
+
+/**
+ * The same sweep, for a conversation instead of a call.
+ *
+ * The chat channels create their artifacts against `conversation_id` and never have a
+ * `call_id`, so the call-keyed sweep above would never see them and the owner would find a
+ * booking on their calendar without ever being told. Same claim-then-send lock, same
+ * once-per-artifact guarantee — only the key differs.
+ *
+ * The "caller" line becomes the contact's name, because a chat has no phone number to mask.
+ * Never throws: the customer has already been answered by the time this runs.
+ */
+export async function notifyNewArtifactsForConversation(conversationId: string, orgId: string): Promise<void> {
+  try {
+    if (!artifactNotificationsEnabled()) return;
+    if (!conversationId || !orgId) return;
+
+    const recipient = await resolveRecipient(orgId, null);
+    if (!recipient) return;
+
+    const { data: conversation } = await supabaseAdmin
+      .from("conversations")
+      .select("contact_id, channel")
+      .eq("id", conversationId)
+      .eq("org_id", orgId)
+      .maybeSingle<{ contact_id: string | null; channel: string | null }>();
+
+    let contactName: string | null = null;
+    if (conversation?.contact_id) {
+      const { data: contact } = await supabaseAdmin
+        .from("contacts")
+        .select("display_name")
+        .eq("id", conversation.contact_id)
+        .eq("org_id", orgId)
+        .maybeSingle<{ display_name: string | null }>();
+      contactName = contact?.display_name ?? null;
+    }
+
+    const deepBase = getBaseUrl();
+
+    const { data: tickets } = await supabaseAdmin
+      .from("tickets")
+      .select("id, subject, requester_name, description")
+      .eq("conversation_id", conversationId)
+      .eq("org_id", orgId)
+      .is("notified_at", null);
+
+    for (const t of tickets ?? []) {
+      await claimAndSend({
+        table: "tickets",
+        id: t.id,
+        orgId,
+        recipient: recipient.email,
+        kind: "ticket",
+        title: t.subject || "New request",
+        caller: t.requester_name || contactName,
+        snippet: cleanSnippet(t.description),
+        orgName: recipient.orgName,
+        deepLink: `${deepBase}/dashboard/tickets/${t.id}`,
+      });
+    }
+
+    const { data: appointments } = await supabaseAdmin
+      .from("appointments")
+      .select("id, notes")
+      .eq("conversation_id", conversationId)
+      .eq("org_id", orgId)
+      .is("notified_at", null);
+
+    for (const a of appointments ?? []) {
+      await claimAndSend({
+        table: "appointments",
+        id: a.id,
+        orgId,
+        recipient: recipient.email,
+        kind: "appointment",
+        title: "Appointment request",
+        caller: contactName,
+        snippet: cleanSnippet(a.notes),
+        orgName: recipient.orgName,
+        deepLink: platformUxEnabled()
+          ? `${deepBase}${appointmentHref(a.id)}`
+          : `${deepBase}/dashboard/appointments`,
+      });
+    }
+  } catch (err) {
+    console.error("[ARTIFACT_NOTIFY] Exception in notifyNewArtifactsForConversation (non-fatal):", {
+      conversationId,
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }

@@ -8,15 +8,25 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * log of a row still does not expose usable tokens without the key.
  *
  * Packed format: "v1:<iv_b64>:<tag_b64>:<ciphertext_b64>".
- * Key: `INSTAGRAM_TOKEN_ENCRYPTION_KEY` — 32 bytes, provided as base64 or hex.
- * (Generate: `openssl rand -base64 32`.) Missing/invalid key throws — callers
- * that persist tokens must treat that as "not configured", never store plaintext.
+ * Key: 32 bytes, base64 or hex. (Generate: `openssl rand -base64 32`.)
+ * Missing/invalid key throws — callers that persist tokens must treat that as
+ * "not configured", never store plaintext.
+ *
+ * The key is read from `SECRET_ENCRYPTION_KEY`, falling back to the original
+ * `INSTAGRAM_TOKEN_ENCRYPTION_KEY`. The fallback is not legacy clutter: it is what
+ * lets a second channel (Telegram bot tokens) encrypt with the key already deployed,
+ * with no re-encryption and no second env var to lose. Set only ONE of them — two
+ * different values would make previously stored ciphertext undecryptable.
  */
-const KEY_ENV = "INSTAGRAM_TOKEN_ENCRYPTION_KEY";
+const KEY_ENVS = ["SECRET_ENCRYPTION_KEY", "INSTAGRAM_TOKEN_ENCRYPTION_KEY"] as const;
 
 function getKey(): Buffer {
-  const raw = (process.env[KEY_ENV] ?? "").trim();
-  if (!raw) throw new Error(`[secretBox] ${KEY_ENV} is not set`);
+  let raw = "";
+  for (const name of KEY_ENVS) {
+    raw = (process.env[name] ?? "").trim();
+    if (raw) break;
+  }
+  if (!raw) throw new Error(`[secretBox] none of ${KEY_ENVS.join(" / ")} is set`);
   // Accept base64 or hex; must decode to exactly 32 bytes.
   let key: Buffer;
   if (/^[0-9a-fA-F]{64}$/.test(raw)) {
@@ -25,7 +35,7 @@ function getKey(): Buffer {
     key = Buffer.from(raw, "base64");
   }
   if (key.length !== 32) {
-    throw new Error(`[secretBox] ${KEY_ENV} must decode to 32 bytes (got ${key.length})`);
+    throw new Error(`[secretBox] encryption key must decode to 32 bytes (got ${key.length})`);
   }
   return key;
 }

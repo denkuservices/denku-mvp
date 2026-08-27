@@ -77,9 +77,16 @@ Measured against production data, never guessed:
 Target: **1–2 seconds, WhatsApp-like.** What has been measured is only the Supabase round trips
 (501ms). Do not repeat that measurement; measure the parts that have not been:
 
-1. **Where is the Supabase project, and where do the Vercel functions run?** If Postgres is not
-   in `iad1`, every one of those queries is a transatlantic hop and the in-region assumption used
-   throughout this work is wrong. Check first — it is the cheapest and most likely explanation.
+1. ~~**Where is the Supabase project, and where do the Vercel functions run?**~~ **ANSWERED
+   2026-08-27, and the assumption was wrong.** Supabase prod (`kebqwsdguxxjsijahrox`) is in
+   **`us-west-2` (Oregon)**. `vercel.json` sets no `regions`, so the functions run in Vercel's
+   default **`iad1` (Washington DC)**. Every single Supabase round trip is a coast-to-coast hop —
+   roughly 60–70ms of pure latency each, before Postgres does any work. The measured 501ms of
+   "data layer" is therefore mostly distance, and the in-region assumption behind all of the perf
+   work was false. **The fix is one line** (`"regions": ["pdx1"]` in `vercel.json`, Portland being
+   the closest Vercel region to us-west-2), but it is a deploy-config change with a plan caveat —
+   region selection is limited on Hobby — so it is the owner's call, not a silent commit. Do this
+   before measuring anything else on this list; it likely moves every number.
 2. **Cold starts.** Every dashboard route is `force-dynamic` with no caching, on Hobby. Measure a
    warm click versus a first click.
 3. **The browser's own timeline**, not the server's: open DevTools → Network on
@@ -104,14 +111,55 @@ extracts it ("Daniel", "Max", "Tom"). It is stored in the appointment notes and 
 Open question, deliberately not decided alone: on a channel with no phone number, what does a
 contact record key on? Answering it is the first real step of the Contacts model.
 
-### P4 — Then Telegram
+### P4 — Telegram · **CODE-COMPLETE 2026-08-27, awaiting a live bot**
 
-Unchanged from the plan agreed on 2026-08-27: the shared model must be turned on and proven
-(`PLATFORM_MODEL_ENABLED` is still OFF — `conversations`/`messages`/`contacts` have **0 rows**
-against 190 calls), then the channel-agnostic **reply engine** (which does not exist in any
-form), then Telegram as the first channel to ride on it. Web Chat needs R-030 rate limiting
-first; SMS is last because A2P 10DLC registration takes weeks — start that paperwork early if
-SMS matters.
+Built, typechecked, built by Next, and covered by 24 new tests (666 total, all passing). Full
+detail in **`skills/telegram-integration.md`**; the short version:
+
+- **Each customer connects their own BotFather bot.** Token verified with `getMe`, stored
+  AES-encrypted, webhook registered with a per-connection secret. Connect UI at Settings →
+  Channels → Telegram (never the sidebar — that is what keeps the nav flat).
+- **The channel-agnostic reply engine now exists** (`lib/platform/reply/*` +
+  `lib/platform/transports/*`) — the piece the plan said did not exist in any form. Telegram is
+  ~500 lines of channel specifics on top of it; WhatsApp/Web Chat/Email should each be an adapter
+  + a transport + a connection table and nothing else.
+- **The AI books and hands over.** `create_appointment` / `create_ticket` write against
+  `conversation_id`, with the two rules the voice side learned the hard way: a booking without a
+  contact is still a booking, and one conversation books one appointment. The prompt forbids
+  claiming a booking without the matching tool call.
+- **The ordering question that was left open is answered:** the model flag did NOT need to come
+  first. `PLATFORM_MODEL_ENABLED` protects *voice's* dual-write; Telegram has no legacy store, so
+  `conversations`/`messages` is simply where it lives. It will be the first real traffic those
+  tables ever see — which also gives the shared model a live proof that does not require touching
+  the voice path.
+- **Spend guard:** 30 replies per conversation per hour, counted in the database, because
+  `lib/rateLimit.ts` is a no-op on Vercel. R-030 is still open for a real limiter.
+
+**What is left, and it is all operator work:**
+
+1. Set `SECRET_ENCRYPTION_KEY` (or confirm `INSTAGRAM_TOKEN_ENCRYPTION_KEY` is set) and
+   `TELEGRAM_WEBHOOK_BASE_URL=https://www.denku.io` in Vercel production.
+2. Apply `supabase/migrations/20260827200000_telegram_channel.sql`.
+3. Create a test bot in @BotFather, paste the token, and have the conversation below.
+4. Only then flip `telegram.productionReady` to `true` — the honesty gate is about what has been
+   observed, not what has been written.
+
+**The Telegram test script** (mirrors the phone script — each line checks a rule):
+
+> **You:** Hi — what time do you open on Saturday?
+> *(must answer from business context, or say it does not know and create a ticket — never invent hours)*
+> **You:** Can I book for tomorrow at 3pm?
+> *(must confirm the booking on the line, and an `appointments` row must exist with `conversation_id` set)*
+> **You:** Actually make it 4pm.
+> *(must UPDATE the same appointment — two rows on the owner's calendar for one conversation is a bug)*
+> **You:** Can someone call me about a refund?
+> *(must create a ticket; must NOT ask for a name it already has from Telegram)*
+
+Afterwards verify: `conversations`/`messages` rows exist, the contact has a real **name** (this
+channel solves P3 for itself), the owner got an email, and the thread is readable in the Inbox.
+
+Web Chat still needs R-030 first; SMS is last because A2P 10DLC registration takes weeks — start
+that paperwork early if SMS matters.
 
 ---
 
@@ -152,6 +200,11 @@ Afterwards, say so and the next session can verify the whole chain from the data
 - Migrations: repo and prod synchronized; the newest are `20260826120000_conversation_stars_and_reads`,
   `20260827090000_agents_rls_update_policy`, `20260827100000_appointments_start_at_nullable`.
 - Still OFF: `PLATFORM_MODEL_ENABLED`. Rate limiting (R-030) still needs an Upstash/KV instance.
+- **Telegram needs three things before it can be tested:** the `20260827200000_telegram_channel`
+  migration applied, an encryption key (`SECRET_ENCRYPTION_KEY` or the existing Instagram one),
+  and `TELEGRAM_WEBHOOK_BASE_URL=https://www.denku.io`.
+- **Supabase prod is in `us-west-2`; Vercel functions default to `iad1`.** See P1 — this is
+  probably most of the Inbox latency, and it is a one-line `vercel.json` change to test.
 - The Vapi **tool definitions live in the Vapi account, not this repo.** The contract they must
   satisfy is documented at the top of `app/api/tools/create-appointment/route.ts`; three bookings
   were lost to those two drifting apart.

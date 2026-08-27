@@ -145,14 +145,18 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
   telegram: {
     id: "telegram",
     label: "Telegram",
-    description: "Answer Telegram messages via a bot.",
+    description: "Answer Telegram messages on your own bot.",
     icon: "telegram",
     tone: "telegram",
     kind: "chat",
     connection: "credentials",
+    // The first channel that both receives AND replies through the shared reply engine.
+    // Attachments are received (a caption becomes the message) but never sent.
     capabilities: chat({ outbound: true }),
+    // Stays false until a real customer bot has held a real conversation end to end — the
+    // honesty gate is about what has been observed, not about what has been written.
     productionReady: false,
-    adopted: false,
+    adopted: true,
   },
   email: {
     id: "email",
