@@ -39,12 +39,12 @@ describe("call recording playback", () => {
   });
 
   /**
-   * Verified on production, by watching it fail (2026-08-28).
+   * Same-origin, because the CSP says so (2026-08-28).
    *
-   * The first version answered 302 and let the browser follow. `fetch()` returned the file in
-   * 2.7s; the `<audio>` element on the same page hung at readyState 0 with nothing buffered and
-   * no error raised. A media element opens with a range request and follows its own rules about
-   * cross-origin redirects — and it fails silently rather than loudly. So the bytes are proxied.
+   * `media-src` allows `'self' blob: https://*.daily.co` and nothing else. A redirect to
+   * Cloudflare works only because that CSP is still report-only — it would break the day anyone
+   * enforces it, silently, which is how this bug behaved the first time. Serving from our own
+   * origin cannot be broken that way.
    */
   it("streams the audio instead of redirecting the player to another origin", () => {
     expect(route).toMatch(/new NextResponse\(audio\.body/);
