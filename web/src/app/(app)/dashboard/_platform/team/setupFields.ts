@@ -194,6 +194,8 @@ export function toBusinessContext(raw: unknown): BusinessContext {
 /** Editor state, before it is turned into an action payload. */
 export interface SetupFormState {
   language: string;
+  /** Languages it should ALSO understand. Labels, same vocabulary as `language`. */
+  additionalLanguages: string[];
   timezone: string;
   /** Preset **id** (the previous form held the label and mapped on save). */
   behaviorPresetId: string | null;
@@ -210,6 +212,7 @@ export interface SetupFormState {
 export interface UpdateAgentConfigPayload {
   agentId: string;
   language: string | null;
+  additional_languages: string[] | null;
   timezone: string | null;
   behavior_preset: string | null;
   agent_type: string | null;
@@ -221,6 +224,7 @@ export interface UpdateAgentConfigPayload {
 /** Every field this editor can write. The parity test compares this to the action's schema. */
 export const EDITABLE_CONFIG_FIELDS = [
   "language",
+  "additional_languages",
   "timezone",
   "behavior_preset",
   "agent_type",
@@ -238,6 +242,9 @@ export function toUpdateAgentConfigPayload(agentId: string, state: SetupFormStat
   return {
     agentId,
     language: state.language === DEFAULT_LANGUAGE ? null : state.language,
+    // The primary can never also be an "additional" one — the form hides it, and this makes
+    // that true of anything that reaches the action, whatever the form did.
+    additional_languages: state.additionalLanguages.filter((l) => l !== state.language),
     timezone: state.timezone === DEFAULT_TIMEZONE ? null : state.timezone,
     behavior_preset: state.behaviorPresetId || null,
     agent_type: state.agentType || null,
@@ -256,6 +263,7 @@ export function defaultFirstMessage(employeeName: string): string {
 export function toSetupFormState(row: {
   name: string;
   language: string | null;
+  additionalLanguages?: string[] | null;
   timezone: string | null;
   behaviorPreset: string | null;
   agentType: string | null;
@@ -263,8 +271,10 @@ export function toSetupFormState(row: {
   emphasisPoints: unknown;
   businessContext: unknown;
 }): SetupFormState {
+  const language = row.language || DEFAULT_LANGUAGE;
   return {
-    language: row.language || DEFAULT_LANGUAGE,
+    language,
+    additionalLanguages: (row.additionalLanguages ?? []).filter((l) => l && l !== language),
     timezone: row.timezone || DEFAULT_TIMEZONE,
     behaviorPresetId: row.behaviorPreset || null,
     agentType: row.agentType || "",

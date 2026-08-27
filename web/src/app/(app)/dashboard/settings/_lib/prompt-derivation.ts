@@ -1,3 +1,5 @@
+import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
+
 /**
  * Derive effective system prompt from agent configuration
  */
@@ -24,6 +26,8 @@ type DerivePromptInput = {
   behaviorPreset: string | null;
   emphasisPoints: string[] | null;
   language: string | null;
+  /** Languages the employee should ALSO understand, beyond `language`. (2026-08-28) */
+  additionalLanguages?: readonly string[] | null;
   timezone: string | null;
   firstMessage: string | null;
   businessContext?: BusinessContext | null;
@@ -71,7 +75,16 @@ const BEHAVIOR_PROMPTS: Record<string, string> = {
 };
 
 export function deriveEffectivePrompt(input: DerivePromptInput): string {
-  const { orgName, agentName, behaviorPreset, emphasisPoints, language, timezone, businessContext } = input;
+  const {
+    orgName,
+    agentName,
+    behaviorPreset,
+    emphasisPoints,
+    language,
+    additionalLanguages,
+    timezone,
+    businessContext,
+  } = input;
 
   // Base prompt
   let prompt = `You are ${agentName}, a voice assistant for ${orgName}.\n\n`;
@@ -98,9 +111,46 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
     prompt += "\n";
   }
 
-  // Add language context
-  if (language) {
-    prompt += `Primary language: ${language}. Respond naturally in this language.\n\n`;
+  /*
+   * Language (2026-08-28).
+   *
+   * Vapi's own guidance is explicit that this cannot be left implicit: an assistant does not work
+   * out that it is allowed to speak more than one language unless the prompt names them. The
+   * transcriber can be listening for Spanish and the model will still answer in English.
+   *
+   * The first language is where the call starts — someone has to say hello in one language — and
+   * the rest are followed if the caller uses them.
+   */
+  /*
+   * Say the language's NAME, not whichever spelling happens to be stored.
+   *
+   * Onboarding writes the ISO code ("en") and the Setup editor writes the label ("English") — the
+   * same R-135 split that once produced an English-speaking "Spanish" employee. Left alone, a
+   * prompt would read "You speak en and Spanish", which is both ugly and a worse instruction.
+   */
+  const languageName = (raw: string) => {
+    const code = toLanguageCode(raw);
+    return code ? LANGUAGES[code].label : raw.trim();
+  };
+
+  const primaryName = language ? languageName(language) : null;
+  const extraLanguages = Array.from(
+    new Set(
+      (additionalLanguages ?? [])
+        .filter((l) => l && l.trim())
+        .map(languageName)
+        .filter((l) => l !== primaryName)
+    )
+  );
+
+  if (primaryName && extraLanguages.length > 0) {
+    prompt +=
+      `You speak ${[primaryName, ...extraLanguages].join(" and ")}. ` +
+      `Start the call in ${primaryName}. If the caller speaks one of the others, switch to it ` +
+      "and stay in it for the rest of the call. Never tell a caller you cannot speak their " +
+      "language when it is one of these.\n\n";
+  } else if (primaryName) {
+    prompt += `Primary language: ${primaryName}. Respond naturally in this language.\n\n`;
   }
 
   // Add timezone context

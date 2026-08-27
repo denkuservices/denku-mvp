@@ -79,6 +79,7 @@ describe("field parity · the editor writes exactly what the action accepts", ()
   it("the payload builder emits exactly those keys, plus agentId", () => {
     const state: SetupFormState = {
       language: "Spanish",
+      additionalLanguages: ["English"],
       timezone: "Europe/Istanbul",
       behaviorPresetId: "support",
       agentType: "support",
@@ -138,6 +139,7 @@ describe("field parity · the editor writes exactly what the action accepts", ()
 describe("transformation parity · the collapse rules are unchanged", () => {
   const base: SetupFormState = {
     language: DEFAULT_LANGUAGE,
+    additionalLanguages: [],
     timezone: DEFAULT_TIMEZONE,
     behaviorPresetId: null,
     agentType: "",
@@ -206,6 +208,7 @@ describe("transformation parity · the collapse rules are unchanged", () => {
     expect(toUpdateAgentConfigPayload("a", state)).toEqual({
       agentId: "a",
       language: "Spanish",
+      additional_languages: [],
       timezone: "Europe/Istanbul",
       behavior_preset: "sales",
       agent_type: "sales",

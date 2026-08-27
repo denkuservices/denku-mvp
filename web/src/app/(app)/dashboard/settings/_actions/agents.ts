@@ -27,6 +27,7 @@ const BusinessContextSchema = z
 const UpdateAgentConfigSchema = z.object({
   agentId: z.string().uuid(),
   language: z.string().nullable(),
+  additional_languages: z.array(z.string()).nullable(),
   timezone: z.string().nullable(),
   behavior_preset: z.string().nullable(),
   agent_type: z.string().nullable(),
@@ -134,6 +135,7 @@ export async function updateAgentConfiguration(
     behaviorPreset: validated.behavior_preset || existingAgent.behavior_preset || null,
     emphasisPoints: validated.emphasis_points || (Array.isArray(existingAgent.emphasis_points) ? existingAgent.emphasis_points : typeof existingAgent.emphasis_points === "string" ? JSON.parse(existingAgent.emphasis_points) : null) || null,
     language: validated.language || existingAgent.language || null,
+    additionalLanguages: validated.additional_languages ?? [],
     timezone: validated.timezone || existingAgent.timezone || null,
     firstMessage: validated.first_message || existingAgent.first_message || null,
     businessContext:
@@ -145,6 +147,7 @@ export async function updateAgentConfiguration(
   // 8) Prepare update payload
   const updatePayload: Record<string, unknown> = {
     language: validated.language,
+    additional_languages: validated.additional_languages ?? [],
     timezone: validated.timezone,
     behavior_preset: validated.behavior_preset,
     agent_type: validated.agent_type,
@@ -194,13 +197,33 @@ export async function updateAgentConfiguration(
   }
 
   // 10) Update agent in database
-  const { data: updatedAgent, error: updateErr } = await supabase
+  let { data: updatedAgent, error: updateErr } = await supabase
     .from("agents")
     .update(updatePayload)
     .eq("id", validated.agentId)
     .eq("org_id", orgId)
     .select("*")
     .single();
+
+  /**
+   * Save the rest even if `additional_languages` has not been migrated yet (2026-08-28).
+   *
+   * The column arrives by an operator running a migration, not by deploying this code. Between
+   * the two, an owner editing their greeting would otherwise be told their save failed — because
+   * of a field they never touched, on a feature they may not use. The retry drops only the new
+   * column; everything else on the form still lands.
+   */
+  if (updateErr) {
+    const { additional_languages: _dropped, ...withoutLanguages } = updatePayload;
+    console.warn("[AgentConfig] retrying save without additional_languages:", updateErr.message);
+    ({ data: updatedAgent, error: updateErr } = await supabase
+      .from("agents")
+      .update(withoutLanguages)
+      .eq("id", validated.agentId)
+      .eq("org_id", orgId)
+      .select("*")
+      .single());
+  }
 
   if (updateErr || !updatedAgent) {
     /**
@@ -247,6 +270,7 @@ export async function updateAgentConfiguration(
         systemPrompt: systemPromptToUse,
         firstMessage: validated.first_message || updatedAgent.first_message || null,
         language: validated.language || updatedAgent.language || null,
+        additionalLanguages: validated.additional_languages ?? [],
       });
 
       // Update sync status on success
@@ -320,6 +344,7 @@ export async function updateAgentConfiguration(
  * `language` now drives the Vapi voice + transcriber via the shared helper (R-051).
  */
 async function syncAgentToVapi(input: {
+  additionalLanguages?: readonly string[] | null;
   assistantId: string;
   systemPrompt: string;
   firstMessage: string | null;
@@ -330,6 +355,7 @@ async function syncAgentToVapi(input: {
     systemPrompt: input.systemPrompt || null,
     firstMessage: input.firstMessage,
     language: input.language,
+    additionalLanguages: input.additionalLanguages ?? null,
   });
   if (!result.ok) {
     throw new Error(result.error || "Failed to sync assistant configuration to Vapi");

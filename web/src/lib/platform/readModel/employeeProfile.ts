@@ -125,6 +125,8 @@ export interface EmployeeConfig {
   id: string;
   name: string;
   language: string | null;
+  /** Languages it should ALSO understand. Empty while the migration is still pending. */
+  additionalLanguages: string[];
   timezone: string | null;
   behaviorPreset: string | null;
   agentType: string | null;
@@ -141,6 +143,33 @@ const CONFIG_COLUMNS =
   "id, name, language, timezone, behavior_preset, agent_type, first_message, emphasis_points, " +
   "business_context, system_prompt_override, effective_system_prompt, vapi_sync_status, vapi_synced_at";
 
+/**
+ * `additional_languages` is read separately from everything else (2026-08-28).
+ *
+ * Its migration is applied by an operator, not by deploying. Naming it in `CONFIG_COLUMNS` would
+ * mean that between the deploy and the migration, PostgREST fails the whole select and the Setup
+ * page shows an employee that does not exist. Asking for it on its own costs one round trip while
+ * that gap is open and none after: the column is requested first, and only a failure falls back.
+ */
+const CONFIG_COLUMNS_WITH_LANGUAGES = `${CONFIG_COLUMNS}, additional_languages`;
+
+type ConfigRow = {
+  id: string;
+  name: string | null;
+  language: string | null;
+  additional_languages?: unknown;
+  timezone: string | null;
+  behavior_preset: string | null;
+  agent_type: string | null;
+  first_message: string | null;
+  emphasis_points: unknown;
+  business_context: unknown;
+  system_prompt_override: string | null;
+  effective_system_prompt: string | null;
+  vapi_sync_status: string | null;
+  vapi_synced_at: string | null;
+};
+
 export async function getEmployeeConfig(
   orgId: string,
   employeeId: string,
@@ -148,33 +177,32 @@ export async function getEmployeeConfig(
 ): Promise<EmployeeConfig | null> {
   if (!orgId || !employeeId) return null;
   try {
-    const { data, error } = await db
+    let { data, error } = await db
       .from("agents")
-      .select(CONFIG_COLUMNS)
+      .select(CONFIG_COLUMNS_WITH_LANGUAGES)
       .eq("org_id", orgId)
       .eq("id", employeeId)
-      .maybeSingle<{
-        id: string;
-        name: string | null;
-        language: string | null;
-        timezone: string | null;
-        behavior_preset: string | null;
-        agent_type: string | null;
-        first_message: string | null;
-        emphasis_points: unknown;
-        business_context: unknown;
-        system_prompt_override: string | null;
-        effective_system_prompt: string | null;
-        vapi_sync_status: string | null;
-        vapi_synced_at: string | null;
-      }>();
+      .maybeSingle<ConfigRow>();
 
+    if (error) {
+      // Pre-migration: retry without the column rather than lose the whole page.
+      console.warn("[PLATFORM][READMODEL][EMPLOYEE_CONFIG][NO_ADDITIONAL_LANGUAGES]", error.message);
+      ({ data, error } = await db
+        .from("agents")
+        .select(CONFIG_COLUMNS)
+        .eq("org_id", orgId)
+        .eq("id", employeeId)
+        .maybeSingle<ConfigRow>());
+    }
     if (error || !data) return null;
 
     return {
       id: String(data.id),
       name: data.name ?? "AI Employee",
       language: data.language,
+      additionalLanguages: Array.isArray(data.additional_languages)
+        ? data.additional_languages.filter((l): l is string => typeof l === "string")
+        : [],
       timezone: data.timezone,
       behaviorPreset: data.behavior_preset,
       agentType: data.agent_type,

@@ -13,6 +13,7 @@ import {
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import {
+  ADDITIONAL_LANGUAGE_OPTIONS,
   AGENT_TYPES,
   PRESETS,
   SETUP_LANGUAGES,
@@ -55,6 +56,7 @@ export default function SetupForm({
       toSetupFormState({
         name: employee.name,
         language: employee.language,
+        additionalLanguages: employee.additionalLanguages,
         timezone: employee.timezone,
         behaviorPreset: employee.behaviorPreset,
         agentType: employee.agentType,
@@ -79,6 +81,8 @@ export default function SetupForm({
 
   const isDirty =
     form.language !== initial.language ||
+    JSON.stringify([...form.additionalLanguages].sort()) !==
+      JSON.stringify([...initial.additionalLanguages].sort()) ||
     form.timezone !== initial.timezone ||
     form.behaviorPresetId !== initial.behaviorPresetId ||
     form.agentType !== initial.agentType ||
@@ -170,6 +174,55 @@ export default function SetupForm({
             </select>
           </Field>
 
+          {/*
+            Everything the employee should ALSO understand.
+
+            Ticking one is the whole multilingual decision — there is no second, more technical
+            switch, because the two answers could then disagree. The primary is filtered out: it
+            is already spoken, and "also English" under a dropdown reading English is nonsense.
+          */}
+          <Field
+            label="Also understands"
+            hint="Callers who speak these get answered in their own language."
+          >
+            <div className="flex flex-wrap gap-2">
+              {ADDITIONAL_LANGUAGE_OPTIONS.filter((opt) => opt.label !== form.language).map(
+                (opt) => {
+                  const on = form.additionalLanguages.includes(opt.label);
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      disabled={paused}
+                      aria-pressed={on}
+                      onClick={() =>
+                        set(
+                          "additionalLanguages",
+                          on
+                            ? form.additionalLanguages.filter((l) => l !== opt.label)
+                            : [...form.additionalLanguages, opt.label]
+                        )
+                      }
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        on
+                          ? "bg-brand-500 text-white"
+                          : "border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+            {form.additionalLanguages.length > 0 ? (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                It starts every call in {form.language} and switches if the caller speaks{" "}
+                {form.additionalLanguages.join(" or ")}.
+              </p>
+            ) : null}
+          </Field>
+
           <Field label="Timezone" hint="Used when it talks about your hours.">
             <input
               type="text"
@@ -223,6 +276,18 @@ export default function SetupForm({
               rows={3}
               className={`${CONTROL_CLASS} h-auto w-full py-2`}
             />
+            {/*
+              The opening line is a sentence, not a setting — the AI says it exactly as typed and
+              nothing translates it. Change the language above and this text stays as it was, so
+              the employee would greet in the old language and switch on the caller's first reply.
+              Cheap to say out loud, confusing to discover on a live call.
+            */}
+            {form.language !== initial.language && form.firstMessage === initial.firstMessage ? (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                This is still written in {initial.language}. It is said exactly as typed — rewrite
+                it in {form.language} if that is what callers should hear first.
+              </p>
+            ) : null}
           </Field>
         </div>
 
