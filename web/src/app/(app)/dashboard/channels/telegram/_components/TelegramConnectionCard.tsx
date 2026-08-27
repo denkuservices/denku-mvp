@@ -125,9 +125,17 @@ export function TelegramConnectionCard({
                 onChange={(e) => onAssign(e.target.value)}
                 className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
               >
-                <option value="">
-                  {employees.length === 1 ? `${employees[0].name} (default)` : "Choose an employee"}
-                </option>
+                {/* Never repeat an employee's name as if "unassigned" were a second person with
+                    the same name — with one employee in the workspace that read as two identical
+                    choices. The placeholder exists only while nothing is assigned, and it says
+                    what actually happens in that state. */}
+                {connection.assignedAgentId ? null : (
+                  <option value="">
+                    {employees.length === 1
+                      ? `Not assigned — ${employees[0].name} answers by default`
+                      : "Not assigned — choose an employee"}
+                  </option>
+                )}
                 {employees.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name}
@@ -190,6 +198,7 @@ export function TelegramConnectionCard({
               </p>
             </div>
 
+            {/* With one employee there is nothing to ask: connecting assigns it. */}
             {employees.length > 1 ? (
               <div>
                 <label htmlFor="agent_id" className="block text-xs font-medium text-gray-600 dark:text-gray-300">

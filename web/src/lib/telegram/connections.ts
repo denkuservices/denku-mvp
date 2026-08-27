@@ -175,6 +175,27 @@ export async function connectBot(input: {
 
   const botId = String(me.result.id);
 
+  /**
+   * One employee in the workspace means there is no choice to make — so we make it.
+   *
+   * The fallback in `resolveReplyEmployee` (no assignment ⇒ the org's oldest agent) exists so a
+   * connection is never mute for an internal reason. But leaving the column null also leaves
+   * `conversations.agent_id` null, so the record never says who answered — and it forced the
+   * connect form to offer "unassigned" and the one employee as two separate options with the
+   * same name, which is not a choice, it is a trap. Assigning the only employee removes both
+   * problems. With two or more, the choice is real and the customer makes it.
+   */
+  let assignedAgentId = input.assignedAgentId ?? null;
+  if (!assignedAgentId) {
+    const { data: agents } = await supabaseAdmin
+      .from("agents")
+      .select("id")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: true })
+      .limit(2);
+    if (agents?.length === 1) assignedAgentId = agents[0].id as string;
+  }
+
   // A bot serves one workspace. Without this check the unique index would reject the insert
   // with a database error the customer cannot interpret.
   const { data: existingElsewhere } = await supabaseAdmin
@@ -200,7 +221,7 @@ export async function connectBot(input: {
     status: "connected" as const,
     last_error: null,
     connected_by: input.connectedBy ?? null,
-    ...(input.assignedAgentId ? { assigned_agent_id: input.assignedAgentId } : {}),
+    ...(assignedAgentId ? { assigned_agent_id: assignedAgentId } : {}),
   };
 
   const saved = existingElsewhere
