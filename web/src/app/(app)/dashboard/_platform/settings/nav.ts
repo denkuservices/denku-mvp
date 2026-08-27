@@ -85,7 +85,9 @@ export const SETTINGS_ELSEWHERE: SettingsNavItem[] = [
   {
     label: "Channels",
     href: "/dashboard/channels",
-    description: "Phone lines, Instagram, and the channels arriving next.",
+    // Deliberately not a list of channel names: this copy went stale the day Telegram landed,
+    // and it will again. The Channels page itself is registry-driven and always current.
+    description: "Where customers reach your AI Employees — and how to connect one.",
     icon: "channels",
     external: true,
   },

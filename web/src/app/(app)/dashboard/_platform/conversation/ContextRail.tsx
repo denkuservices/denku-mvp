@@ -149,9 +149,11 @@ export default function ContextRail({
           Hearing the call was the one thing the thread could not do on its own. */}
       {detail.channel === "voice" && voice ? (
         <Card title="Recording">
-          {voice.recordingUrl ? (
+          {voice.playbackUrl ? (
             <audio controls preload="none" className="w-full">
-              <source src={voice.recordingUrl} />
+              {/* Same-origin route, not the Vapi URL: recording storage is access-controlled and
+                  the private key that unlocks it must stay on the server. */}
+              <source src={voice.playbackUrl} />
               Your browser can&apos;t play this recording.
             </audio>
           ) : (

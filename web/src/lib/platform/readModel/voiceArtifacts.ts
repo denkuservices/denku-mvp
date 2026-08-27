@@ -18,7 +18,14 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  */
 
 export interface VoiceArtifacts {
+  /**
+   * The raw Vapi storage URL. Evidence that a recording EXISTS — not something a browser can
+   * fetch: Vapi's recording storage is access-controlled, so this URL 403s anonymously.
+   * Play through `playbackUrl` instead.
+   */
   recordingUrl: string | null;
+  /** Same-origin, org-scoped route that redirects to a freshly signed URL. Null if no recording. */
+  playbackUrl: string | null;
   costUsd: number | null;
   durationSeconds: number | null;
 }
@@ -130,6 +137,7 @@ export async function getVoiceArtifacts(
 
     return {
       recordingUrl,
+      playbackUrl: recordingUrl ? `/api/calls/${callId}/recording` : null,
       costUsd: data.cost_usd == null ? null : Number(data.cost_usd),
       durationSeconds: data.duration_seconds ?? null,
     };
