@@ -19,13 +19,18 @@ import { parseSpokenTime } from "@/lib/time/spokenTime";
  * Body — only what the model can know from the conversation:
  *   start_at_text  (required)  when they want it, in their words
  *   lead_name, purpose, notes  what they said
- *   lead_phone                 ONLY if they volunteer a different callback number
+ *   lead_phone                 ONLY when the previous response asked for it
  *
  * The rule behind all of it: **never make the model collect something the platform already
  * knows.** It asked one caller for a phone number and got, correctly, "you can take the number
  * I'm calling you with". `call_id`, `vapi_call_id` and `to_phone` were removed from the body for
  * the same reason — the first two the model cannot know, and the third it filled with the
  * caller's number because the field name meant nothing to it.
+ *
+ * The one case where asking IS right — a web chat, where there is no caller ID and the phone
+ * field would otherwise stay empty — is decided by this route, not by the model: the response
+ * carries `needs: "lead_phone"` and a sentence telling the assistant to ask and call again. The
+ * second call updates the same appointment, so asking never costs a duplicate booking.
  */
 
 
@@ -269,10 +274,13 @@ export async function POST(req: NextRequest) {
 
   /* lead resolution: prefer callLeadId, else upsert/find by phone */
   let leadId: string | null = null;
+  /** Whether we ended up with a number for this caller at all — decides if the assistant asks. */
+  let leadPhoneUsed = false;
 
   // 1) Prefer callLeadId if present
   if (callLeadId) {
     leadId = callLeadId;
+    leadPhoneUsed = true;
   } else {
     /**
      * 2) Whose number is this?
@@ -301,6 +309,7 @@ export async function POST(req: NextRequest) {
     if (!leadPhone) {
       leadId = null;
     } else {
+      leadPhoneUsed = true;
 
     // 3) Find or create lead by (org_id, phone)
     const { data: leadExisting } = await supabaseAdmin
@@ -338,25 +347,50 @@ export async function POST(req: NextRequest) {
 
 
   /* appointment */
-  const { data: appt, error } = await supabaseAdmin
-    .from("appointments")
-    .insert({
-      org_id: org.id,
-      lead_id: leadId,
-      call_id: resolvedCallId,
-      start_at: startAt.iso,
-      status: "scheduled",
-      notes:
-        [
-          input.purpose,
-          startAt.rawText ? `Requested: "${startAt.rawText}"` : null,
-          input.notes,
-        ]
-          .filter(Boolean)
-          .join(" | ") || null,
-    })
-    .select()
-    .single();
+  const payload = {
+    org_id: org.id,
+    lead_id: leadId,
+    call_id: resolvedCallId,
+    start_at: startAt.iso,
+    status: "scheduled",
+    notes:
+      [input.purpose, startAt.rawText ? `Requested: "${startAt.rawText}"` : null, input.notes]
+        .filter(Boolean)
+        .join(" | ") || null,
+  };
+
+  /**
+   * One call books one appointment — calling twice corrects it, it does not duplicate it.
+   *
+   * The assistant is now told to come back with a callback number when we could not find one
+   * (see the response below), and a caller who changes their mind mid-sentence produces a second
+   * call too. Either way the customer asked for ONE appointment; two rows on the owner's calendar
+   * for one conversation would be our bookkeeping leaking into their day.
+   */
+  const existing = resolvedCallId
+    ? (
+        await supabaseAdmin
+          .from("appointments")
+          .select("id")
+          .eq("org_id", org.id)
+          .eq("call_id", resolvedCallId)
+          .maybeSingle<{ id: string }>()
+      ).data
+    : null;
+
+  const { data: appt, error } = existing
+    ? await supabaseAdmin
+        .from("appointments")
+        .update({
+          ...payload,
+          // Never blank a contact we already resolved just because this call did not carry one.
+          lead_id: leadId ?? undefined,
+        })
+        .eq("id", existing.id)
+        .eq("org_id", org.id)
+        .select()
+        .single()
+    : await supabaseAdmin.from("appointments").insert(payload).select().single();
 
   if (error || !appt) {
     return NextResponse.json({ error: "appointment_failed" }, { status: 500 });
@@ -376,5 +410,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, appointment: appt });
+  /**
+   * The platform decides whether to ask; the assistant only relays.
+   *
+   * The model cannot know whether we hold the caller's number — on a phone call we do, on a web
+   * chat we never will. Asking it to guess produced the exchange that started this: "could you
+   * provide your phone number?" / "you can take the number I'm calling you with." So the answer
+   * carries the instruction: booked either way, and ask for a callback number only when there is
+   * genuinely none on file. Coming back with one updates this same appointment rather than
+   * booking a second.
+   */
+  const needsCallbackNumber = !leadPhoneUsed;
+
+  return NextResponse.json({
+    ok: true,
+    appointment: appt,
+    ...(needsCallbackNumber
+      ? {
+          needs: "lead_phone",
+          message:
+            "Booked. We have no phone number for this caller — ask them for one, then call " +
+            "create_appointment again with the same details plus lead_phone. It will update this " +
+            "appointment, not create another.",
+        }
+      : {
+          message: "Booked. We already have the caller's number — do not ask for one.",
+        }),
+  });
 }

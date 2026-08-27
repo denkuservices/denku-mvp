@@ -148,6 +148,26 @@ describe("create_appointment tool — a partial call is not a failed call", () =
     expect(tool).toMatch(/never make the model collect something the platform already/i);
   });
 
+  /**
+   * The rule the owner asked for: ask only when we genuinely have nothing. The model cannot know
+   * which case it is in — on a phone call the platform holds the number, on a web chat it never
+   * will — so the ROUTE decides and says so in its answer, and the assistant only relays.
+   */
+  it("tells the assistant whether to ask, instead of leaving it to guess", () => {
+    expect(tool).toMatch(/needs: "lead_phone"/);
+    expect(tool).toMatch(/ask them for one, then call/i);
+    expect(tool).toMatch(/do not ask for one\.?"/i);
+    expect(tool).toMatch(/const needsCallbackNumber = !leadPhoneUsed/);
+  });
+
+  it("asking again corrects the booking instead of duplicating it", () => {
+    // The assistant is told to call a second time with the number; two rows on the owner's
+    // calendar for one conversation would be our bookkeeping leaking into their day.
+    expect(tool).toMatch(/\.eq\("call_id", resolvedCallId\)/);
+    expect(tool).toMatch(/existing\s*\?/);
+    expect(tool).toMatch(/lead_id: leadId \?\? undefined/);
+  });
+
   it("still prefers the phone lookup when a number is present", () => {
     // The business number identifies the org when it is there; the call record is the fallback.
     const byPhone = tool.indexOf('.from("organizations")');
