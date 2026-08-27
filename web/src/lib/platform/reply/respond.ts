@@ -67,7 +67,14 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
      * Handing back is deliberate, from the takeover control — never automatic on a timer, because
      * "the human went quiet" and "the human is done" look identical from here.
      */
-    const handling = await getHandlingState(input.orgId, input.conversationId, db);
+    const [handling, employee] = await Promise.all([
+      getHandlingState(input.orgId, input.conversationId, db),
+      // Resolved alongside the handling check rather than after it: they ask different tables and
+      // neither answer depends on the other, so waiting for the first before starting the second
+      // was a round trip spent on nothing.
+      resolveReplyEmployee(input.orgId, input.agentId, db),
+    ]);
+
     if (handling.handling === "human") {
       console.info("[REPLY][HELD][HUMAN]", { org_id: input.orgId, conversation_id: input.conversationId });
       return { ...silent, reason: "human_handling" };
@@ -77,7 +84,6 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
       return { ...silent, reason: "automation_opted_out" };
     }
 
-    const employee = await resolveReplyEmployee(input.orgId, input.agentId, db);
     if (!employee) return { ...silent, reason: "no_employee" };
 
     const target = {

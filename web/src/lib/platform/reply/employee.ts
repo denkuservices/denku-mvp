@@ -35,16 +35,20 @@ export async function resolveReplyEmployee(
       ? query.eq("id", preferredAgentId)
       : query.order("created_at", { ascending: true }).limit(1);
 
-    const { data, error } = await query.maybeSingle<{
-      id: string;
-      org_id: string;
-      name: string | null;
-      language: string | null;
-      timezone: string | null;
-      first_message: string | null;
-      system_prompt_override: string | null;
-      business_context: Record<string, unknown> | null;
-    }>();
+    // The org's name does not depend on which agent answers, so both are asked at once.
+    const [{ data, error }, { data: org }] = await Promise.all([
+      query.maybeSingle<{
+        id: string;
+        org_id: string;
+        name: string | null;
+        language: string | null;
+        timezone: string | null;
+        first_message: string | null;
+        system_prompt_override: string | null;
+        business_context: Record<string, unknown> | null;
+      }>(),
+      db.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
+    ]);
 
     if (error || !data) {
       // An assignment pointing at a deleted agent should not silence the channel.
@@ -52,12 +56,6 @@ export async function resolveReplyEmployee(
       console.warn("[REPLY][EMPLOYEE][NOT_FOUND]", { orgId });
       return null;
     }
-
-    const { data: org } = await db
-      .from("orgs")
-      .select("name")
-      .eq("id", orgId)
-      .maybeSingle<{ name: string | null }>();
 
     return {
       id: data.id,

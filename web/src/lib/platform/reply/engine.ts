@@ -86,6 +86,18 @@ export function tidyReply(text: string): string {
 export async function generateReply(req: ReplyRequest, db: SupabaseClient = supabaseAdmin): Promise<ReplyResult> {
   const artifacts: ReplyArtifact[] = [];
 
+  /**
+   * Stage timings, logged on every reply.
+   *
+   * The 14–16s tool path was found by reading message timestamps out of the database after the
+   * fact, which said *that* it was slow and nothing about *where*. Two model calls, several
+   * database writes and a Telegram round trip all sit inside that number. One log line ends the
+   * guessing for every future reply, at the cost of four `Date.now()` calls.
+   */
+  const t0 = Date.now();
+  const mark: Record<string, number> = {};
+  const since = (from: number) => Date.now() - from;
+
   const provider = resolveLlmProvider();
   if (!provider) {
     // No key, no reply. Silence is the honest outcome: a canned "we'll get back to you" from a
@@ -127,6 +139,7 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
   };
 
   try {
+    const tLlm1 = Date.now();
     const first = await client.chat.completions.create({
       model: provider.model,
       temperature: 0.3,
@@ -134,18 +147,24 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
       messages,
       tools: CHAT_TOOL_DEFINITIONS,
     });
+    mark.llm1 = since(tLlm1);
 
     const choice = first.choices?.[0]?.message;
     const toolCalls = choice?.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
       const text = tidyReply(choice?.content ?? "");
+      console.info("[REPLY][TIMING]", { conversation_id: req.conversationId, tools: 0, ...mark, total: since(t0) });
       if (!text) return { ok: false, text: null, artifacts, reason: "empty_completion" };
       return { ok: true, text, artifacts };
     }
 
+    const tTools = Date.now();
+
     // Execute what it asked for, then let it write the sentence the customer reads.
-    messages.push(choice as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+    const toolMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      choice as OpenAI.Chat.Completions.ChatCompletionMessageParam,
+    ];
 
     for (const call of toolCalls) {
       if (call.type !== "function") continue;
@@ -166,16 +185,46 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
       const outcome = await executeTool(call.function.name, args, toolCtx);
       if (outcome.artifact) artifacts.push(outcome.artifact);
 
-      messages.push({ role: "tool", tool_call_id: call.id, content: outcome.message });
+      toolMessages.push({ role: "tool", tool_call_id: call.id, content: outcome.message });
     }
+    mark.tools = since(tTools);
 
+    /**
+     * The second pass gets a SHORT context, not the whole thread again.
+     *
+     * Measured on production: a plain reply lands in ~3.5s, a reply that calls a tool in 14–16s.
+     * The difference is a second model call that was being handed the entire 20-turn history for
+     * a job that needs almost none of it — its only task is to say what just happened, in the
+     * customer's own language.
+     *
+     * So it gets the system prompt (the persona and the honesty rules), the last few turns (which
+     * is what tells the model which language the customer is writing in — a Turkish conversation
+     * must not get an English confirmation), and the tool result. `max_tokens` drops to match a
+     * job that is one or two sentences.
+     */
+    const RECENT_TURNS_FOR_CONFIRMATION = 4;
+    const secondPass: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      messages[0],
+      ...messages.slice(1).slice(-RECENT_TURNS_FOR_CONFIRMATION),
+      ...toolMessages,
+    ];
+
+    const tLlm2 = Date.now();
     const second = await client.chat.completions.create({
       model: provider.model,
       temperature: 0.3,
-      max_tokens: 400,
-      messages,
+      max_tokens: 160,
+      messages: secondPass,
       // No tools on the second pass: its job is to speak, and offering the tools again is what
       // turns "book it" into a loop that books it four times.
+    });
+
+    mark.llm2 = since(tLlm2);
+    console.info("[REPLY][TIMING]", {
+      conversation_id: req.conversationId,
+      tools: toolCalls.length,
+      ...mark,
+      total: since(t0),
     });
 
     const text = tidyReply(second.choices?.[0]?.message?.content ?? "");
