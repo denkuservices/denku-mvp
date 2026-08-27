@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { parseSpokenTime } from "@/lib/time/spokenTime";
+import { fillMissingLeadName } from "@/lib/leads/fillMissingName";
 
 /**
  * `create_appointment` — the tool the assistant calls while the caller is still on the line.
@@ -321,6 +322,9 @@ export async function POST(req: NextRequest) {
 
     if (leadExisting?.id) {
       leadId = leadExisting.id;
+      // The lead already exists because the webhook created it from caller ID at call start,
+      // before the caller said their name. Fill it in now — only if it is still empty.
+      await fillMissingLeadName(org.id, leadId, input.lead_name ?? null);
     } else {
       const { data: leadNew, error: leadErr } = await supabaseAdmin
         .from("leads")

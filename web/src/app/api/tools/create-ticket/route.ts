@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { fillMissingLeadName } from "@/lib/leads/fillMissingName";
 
 function checkAuth(request: NextRequest): boolean {
   const expected = process.env.DENKU_TOOL_SECRET;
@@ -38,7 +39,10 @@ async function resolveLeadId(
       .eq("phone", normalizedPhone)
       .maybeSingle<{ id: string }>();
 
-    if (existing?.id) return existing.id;
+    if (existing?.id) {
+      await fillMissingLeadName(orgId, existing.id, name);
+      return existing.id;
+    }
 
     // Create lead with phone
     const { data: created, error } = await supabaseAdmin
@@ -66,7 +70,10 @@ async function resolveLeadId(
       .eq("email", email.trim())
       .maybeSingle<{ id: string }>();
 
-    if (existing?.id) return existing.id;
+    if (existing?.id) {
+      await fillMissingLeadName(orgId, existing.id, name);
+      return existing.id;
+    }
 
     // Create lead with email
     const { data: created, error } = await supabaseAdmin

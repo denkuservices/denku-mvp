@@ -13,6 +13,7 @@ import { formatWhen } from "../../../_platform/format";
 import { Pill } from "../../../_platform/ui";
 import Timeline from "../../../_platform/crm/Timeline";
 import LifecycleControl from "../../../_platform/crm/LifecycleControl";
+import NameControl from "../../../_platform/crm/NameControl";
 import NoteComposer from "../../../_platform/crm/NoteComposer";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,14 @@ export default async function ContactDetailPage({
 
         {/* What we hold about them. */}
         <aside className="space-y-4">
+          {/* Naming the person comes before classifying them: an owner who opens this page
+              because the Inbox said "Unknown contact" should find the fix at the top. */}
+          <NameControl
+            contactRef={contact.id}
+            name={contact.displayName ?? null}
+            handle={contact.primaryHandle ?? null}
+          />
+
           <LifecycleControl contactRef={contact.id} status={contact.status} />
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-navy-800">
