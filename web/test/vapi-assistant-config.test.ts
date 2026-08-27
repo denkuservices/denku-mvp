@@ -114,8 +114,8 @@ describe("buildAssistantConfigPatch — voice/transcriber/caps (R-051 + R-052)",
 
   it("sends a real voice + transcriber (no longer `none`, R-051) — English default", () => {
     const patch = buildAssistantConfigPatch({ model: {} }, {}, PROD);
-    expect(patch.voice).toEqual({ provider: "openai", voiceId: "alloy" });
-    expect(patch.transcriber).toEqual({ provider: "deepgram", model: "nova-2", language: "en" });
+    expect(patch.voice).toEqual({ provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" });
+    expect(patch.transcriber).toEqual({ provider: "deepgram", model: "nova-3", language: "en" });
   });
 
   it("uses Spanish voice + transcriber when the agent language is Spanish", () => {
@@ -126,7 +126,9 @@ describe("buildAssistantConfigPatch — voice/transcriber/caps (R-051 + R-052)",
 
   it("an explicit voiceId overrides the language default", () => {
     const patch = buildAssistantConfigPatch({ model: {} }, { language: "en", voiceId: "shimmer" }, PROD);
-    expect(patch.voice).toEqual({ provider: "openai", voiceId: "shimmer" });
+    // The override replaces the id but keeps the provider's shape — a bare id sent to the
+    // wrong provider is a 400 from Vapi, which would leave the assistant unconfigured.
+    expect(patch.voice).toEqual({ provider: "vapi", voiceId: "shimmer", version: 2, language: "auto" });
   });
 });
 
@@ -140,12 +142,15 @@ describe("language / voice / transcriber resolvers (R-051)", () => {
   });
 
   it("resolveVoice returns a language default or the explicit override", () => {
-    expect(resolveVoice("en")).toEqual({ provider: "openai", voiceId: "alloy" });
+    expect(resolveVoice("en")).toEqual({ provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" });
     expect(resolveVoice("es")).toEqual({ provider: "openai", voiceId: "nova" });
-    expect(resolveVoice("en", "echo")).toEqual({ provider: "openai", voiceId: "echo" });
+    expect(resolveVoice("en", "echo")).toEqual({ provider: "vapi", voiceId: "echo", version: 2, language: "auto" });
   });
 
-  it("resolveTranscriber is Deepgram nova-2 for the language", () => {
+  it("resolveTranscriber is Deepgram, nova-3 for English and nova-2 for Spanish", () => {
+    // English moved to nova-3 for proper nouns ("Gaye" transcribed as "Joya" on a real call).
+    // Spanish stays on nova-2 deliberately — see TRANSCRIBER_MODEL_BY_LANGUAGE.
+    expect(resolveTranscriber("en")).toEqual({ provider: "deepgram", model: "nova-3", language: "en" });
     expect(resolveTranscriber("es")).toEqual({ provider: "deepgram", model: "nova-2", language: "es" });
   });
 });

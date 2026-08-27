@@ -66,3 +66,35 @@ describe("deriveEffectivePrompt with business context", () => {
     expect(withCtx.length).toBeGreaterThan(without.length);
   });
 });
+
+/**
+ * Brevity (2026-08-27). A real caller asked what the plans were and got all three, with prices
+ * and minute allowances, in one turn — twice. Nothing in the prompt asked for short answers, so
+ * the model optimised for completeness. These assertions pin the rule that fixes it.
+ */
+describe("deriveEffectivePrompt keeps the AI phone-length", () => {
+  const prompt = deriveEffectivePrompt({
+    orgName: "Acme Dental",
+    agentName: "Front Desk",
+    agentType: null,
+    behaviorPreset: "professional",
+    emphasisPoints: null,
+    language: null,
+    timezone: null,
+    firstMessage: null,
+  });
+
+  it("caps the length of a spoken answer", () => {
+    expect(prompt).toMatch(/one or two sentences/i);
+  });
+
+  it("forbids reciting prices and options nobody asked for", () => {
+    expect(prompt).toMatch(/never recite a list of options, prices, or features unprompted/i);
+    expect(prompt).toMatch(/ask whether they want the detail/i);
+  });
+
+  it("still carries the never-dead-end fallback line", () => {
+    // The brevity rule must not have displaced the product's core promise.
+    expect(prompt).toMatch(/I'll notify our team and make sure someone follows up shortly/);
+  });
+});

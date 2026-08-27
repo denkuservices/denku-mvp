@@ -38,8 +38,22 @@ export const CALL_SILENCE_TIMEOUT_SECONDS = 30;
 // here we send a real, language-appropriate default that agent settings can override.
 export type SupportedLanguage = "en" | "es";
 
-const DEFAULT_VOICE_BY_LANGUAGE: Record<SupportedLanguage, { provider: string; voiceId: string }> = {
-  en: { provider: "openai", voiceId: "alloy" },
+/**
+ * 2026-08-27: English moved off OpenAI TTS onto Vapi's own V2 voices.
+ *
+ * `alloy` was chosen when the only requirement was "not `none`". Listening to a real call, it is
+ * the wrong default twice over: OpenAI's TTS adds noticeable latency to every turn, and it reads
+ * flat — a shop owner hears a robot reading, not an employee talking. Vapi's V2 voices are
+ * generated inside the same pipeline (no extra provider hop), sound materially more human, and
+ * cost less. `language: "auto"` lets the voice follow the caller rather than a stored setting.
+ *
+ * Spanish deliberately stays on OpenAI: the V2 voice ids are English-first, and swapping a
+ * language nobody has reported on trades a known-working voice for an unverified one.
+ */
+type VoiceConfig = { provider: string; voiceId: string; version?: number; language?: string };
+
+const DEFAULT_VOICE_BY_LANGUAGE: Record<SupportedLanguage, VoiceConfig> = {
+  en: { provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" },
   es: { provider: "openai", voiceId: "nova" },
 };
 
@@ -84,15 +98,31 @@ export function resolveLanguage(language?: string | null): SupportedLanguage {
 }
 
 /** Vapi `voice` object from language + optional explicit voiceId. Pure. */
-export function resolveVoice(language?: string | null, voiceId?: string | null): { provider: string; voiceId: string } {
+export function resolveVoice(language?: string | null, voiceId?: string | null): VoiceConfig {
   const base = DEFAULT_VOICE_BY_LANGUAGE[resolveLanguage(language)];
   const id = (voiceId ?? "").trim();
-  return id ? { provider: base.provider, voiceId: id } : base;
+  return id ? { ...base, voiceId: id } : base;
 }
+
+/**
+ * Deepgram model per language.
+ *
+ * 2026-08-27: English moved nova-2 → **nova-3**. A real caller said "Gaye" and the transcript
+ * recorded "Joya" — proper nouns are the hardest thing an STT model does, and the name is what
+ * the AI says back to the caller and what lands on the lead. nova-3 is measurably better on them.
+ *
+ * Spanish stays on nova-2 on purpose: nova-3's gains are English-first, and a silent Spanish
+ * transcription regression would be invisible until a customer complained.
+ */
+const TRANSCRIBER_MODEL_BY_LANGUAGE: Record<SupportedLanguage, string> = {
+  en: "nova-3",
+  es: "nova-2",
+};
 
 /** Vapi `transcriber` object (Deepgram) for the language. Pure. */
 export function resolveTranscriber(language?: string | null): { provider: string; model: string; language: SupportedLanguage } {
-  return { provider: "deepgram", model: "nova-2", language: resolveLanguage(language) };
+  const lang = resolveLanguage(language);
+  return { provider: "deepgram", model: TRANSCRIBER_MODEL_BY_LANGUAGE[lang], language: lang };
 }
 
 /**

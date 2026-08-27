@@ -112,6 +112,26 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
   prompt +=
     "Be helpful, accurate, and maintain the appropriate tone for your role. If you don't know something, say so honestly.\n\n";
 
+  /*
+   * Brevity (2026-08-27) — added after listening to a real call.
+   *
+   * Asked "what are your plans?", the AI recited three plans with prices and minute
+   * allowances in one unbroken turn, then did it again on the next call. On a phone line that is
+   * unusable: the caller cannot skim, cannot go back, and has stopped listening by the second
+   * price. Nothing in the prompt asked for brevity, so the model defaulted to completeness — the
+   * right instinct in a chat window and the wrong one out loud.
+   *
+   * This is a prompt problem, not a latency setting. Speech pace lives in the voice config.
+   */
+  prompt +=
+    "SPEAK LIKE A PERSON ON A PHONE, NOT A BROCHURE:\n" +
+    "- Keep answers to one or two sentences. The caller cannot skim; they can only wait.\n" +
+    "- Never recite a list of options, prices, or features unprompted. If the caller asks " +
+    "about something with several parts, give the shortest useful answer first, then ask " +
+    'whether they want the detail (e.g. "Want me to run through the options?").\n' +
+    "- Answer the question that was asked. Do not add information they did not ask for.\n" +
+    "- Do not repeat back what you just did more than once.\n\n";
+
   // Mandatory fallback rule: Never leave caller without a clear next step
   prompt +=
     "CRITICAL: If you are uncertain, if the intent is unclear, or if any tool call fails, you must say exactly: \"I'll notify our team and make sure someone follows up shortly.\" Do not apologize or provide extra explanation.";
