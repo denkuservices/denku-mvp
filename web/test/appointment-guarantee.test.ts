@@ -113,6 +113,18 @@ describe("create_appointment tool — a partial call is not a failed call", () =
     expect(tool).toMatch(/from\("calls"\)\.select\("org_id"\)/);
   });
 
+  /**
+   * The second failure the first web booking exposed, after validation stopped rejecting it: the
+   * model has no reason to know a call id and never sends one, so "resolve the org from the call"
+   * had nothing to resolve from and answered org_not_found. Vapi fills this header itself.
+   */
+  it("takes the call id from Vapi's own header, not from the model's goodwill", () => {
+    expect(tool).toMatch(/x-vapi-call-id/);
+    expect(tool).toMatch(/headerCallId/);
+    // Body parameters still win when the caller supplies them.
+    expect(tool).toMatch(/input\.vapi_call_id \|\| headerCallId/);
+  });
+
   it("still prefers the phone lookup when a number is present", () => {
     const orgBlock = tool.slice(tool.indexOf("/* org"), tool.indexOf("/* org") + 1200);
     expect(orgBlock.indexOf("organizations")).toBeLessThan(orgBlock.indexOf('from("calls")'));

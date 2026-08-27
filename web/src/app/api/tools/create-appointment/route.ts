@@ -111,6 +111,17 @@ export async function POST(req: NextRequest) {
 
   const input = parsed.data;
 
+  /**
+   * The call this tool was fired from, as told by Vapi rather than by the model.
+   *
+   * The model has no reason to know a call id and never sends one, so the first web-call booking
+   * in production came back `org_not_found` even after the schema stopped rejecting it. The
+   * assistant's tool definition now carries `x-vapi-call-id: {{call.id}}`, which Vapi fills in
+   * itself — infrastructure telling us which call this is, instead of hoping the model volunteers
+   * it. Body parameters still win when present; this is the fallback that always exists.
+   */
+  const headerCallId = req.headers.get("x-vapi-call-id")?.trim() || null;
+
   const toPhone = normalizePhone(input.to_phone);
 
   /* org — by the business's number when we have one, otherwise by the call itself */
@@ -134,11 +145,12 @@ export async function POST(req: NextRequest) {
      * lookup above still wins whenever a number is present.
      */
     const byId = input.call_id && /^[0-9a-fA-F-]{36}$/.test(input.call_id) ? input.call_id : null;
-    if (byId || input.vapi_call_id) {
+    const vapiCallId = input.vapi_call_id || headerCallId;
+    if (byId || vapiCallId) {
       const q = supabaseAdmin.from("calls").select("org_id");
       const { data: call } = byId
         ? await q.eq("id", byId).maybeSingle<{ org_id: string | null }>()
-        : await q.eq("vapi_call_id", input.vapi_call_id!).maybeSingle<{ org_id: string | null }>();
+        : await q.eq("vapi_call_id", vapiCallId!).maybeSingle<{ org_id: string | null }>();
       orgId = call?.org_id ?? null;
     }
   }
