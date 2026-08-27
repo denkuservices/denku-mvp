@@ -2,28 +2,25 @@
  * Language and timezone options for workspace settings
  */
 
+import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
+
 export type LanguageOption = {
   value: string;
   label: string;
 };
 
 /**
- * The workspace default language — the languages the voice stack can actually speak.
+ * The workspace default language — derived from the language registry (2026-08-28).
  *
- * Turkish was removed here for the same reason it was removed from the employee Setup editor
- * (R-135): voice and transcriber defaults exist only for English and Spanish, so `resolveLanguage`
- * sends anything else to English. A workspace set to Turkish silently became the default for every
- * new employee, each of which then answered callers in English while three separate screens said
- * Turkish.
- *
- * This list and `SETUP_LANGUAGES` are two pickers over one capability; `vapi-assistant-config.test.ts`
- * asserts both resolve to distinct supported languages, so adding one here without teaching the
- * resolver fails in CI rather than on a customer's call.
+ * This list used to be maintained by hand alongside `SETUP_LANGUAGES` and the voice/transcriber
+ * tables: three descriptions of one capability, which is how Turkish once sat in two pickers with
+ * no voice behind it (R-135). Both pickers now read the registry, so a language that cannot be
+ * heard and spoken cannot appear here at all.
  */
-export const LANGUAGE_OPTIONS: LanguageOption[] = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-];
+export const LANGUAGE_OPTIONS: LanguageOption[] = LANGUAGE_CODES.map((code) => ({
+  value: code,
+  label: LANGUAGES[code].label,
+}));
 
 /**
  * Get IANA timezone options.

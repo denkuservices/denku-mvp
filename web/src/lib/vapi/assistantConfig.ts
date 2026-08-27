@@ -1,4 +1,13 @@
 import "server-only";
+
+import {
+  LANGUAGES,
+  MULTILINGUAL_TRANSCRIBER_MODEL,
+  MULTILINGUAL_VOICE,
+  resolveLanguageSet,
+  toLanguageCode,
+  type LanguageCode,
+} from "@/lib/language/registry";
 import { vapiFetch } from "./server";
 
 /**
@@ -32,97 +41,83 @@ export const DENKU_TOOL_IDS = [
 export const CALL_MAX_DURATION_SECONDS = 900;
 export const CALL_SILENCE_TIMEOUT_SECONDS = 30;
 
-// R-051 — voice + transcriber are now actually sent to Vapi (were `none`). Launch
-// languages: English + Spanish. Voices use OpenAI TTS (language-agnostic) via Vapi;
-// language drives the Deepgram transcriber. Per-agent voice PICKING is R-038 (later);
-// here we send a real, language-appropriate default that agent settings can override.
-export type SupportedLanguage = "en" | "es";
+// R-051 — voice + transcriber are now actually sent to Vapi (were `none`).
+//
+// 2026-08-28: the per-language voice/transcriber tables that lived here moved to
+// `lib/language/registry.ts`, which is now the single description of what Denku can hear and
+// speak. The pickers derive from it too, so a language cannot appear in a dropdown without an ear
+// and a mouth behind it (R-135). These functions stay as the Vapi-shaped view of that registry.
+export type SupportedLanguage = LanguageCode;
 
-/**
- * 2026-08-27: English moved off OpenAI TTS onto Vapi's own V2 voices.
- *
- * `alloy` was chosen when the only requirement was "not `none`". Listening to a real call, it is
- * the wrong default twice over: OpenAI's TTS adds noticeable latency to every turn, and it reads
- * flat — a shop owner hears a robot reading, not an employee talking. Vapi's V2 voices are
- * generated inside the same pipeline (no extra provider hop), sound materially more human, and
- * cost less. `language: "auto"` lets the voice follow the caller rather than a stored setting.
- *
- * Spanish deliberately stays on OpenAI: the V2 voice ids are English-first, and swapping a
- * language nobody has reported on trades a known-working voice for an unverified one.
- */
 type VoiceConfig = { provider: string; voiceId: string; version?: number; language?: string };
-
-const DEFAULT_VOICE_BY_LANGUAGE: Record<SupportedLanguage, VoiceConfig> = {
-  en: { provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" },
-  es: { provider: "openai", voiceId: "nova" },
-};
-
-/**
- * Every spelling of a language this system can actually speak, mapped to its code.
- *
- * R-135: the Setup editor persists the language **NAME** ("Spanish"), while onboarding persists
- * the ISO **code** ("es"). The original implementation tested `startsWith("es")`, which matches
- * the code but NOT the name — so a customer who selected Spanish got an English voice and an
- * English transcriber, silently, with the UI still showing "Spanish". Both spellings resolve here.
- *
- * Keys must be lowercase. Locale forms ("es-ES", "es_MX") are handled by the base-tag fallback.
- */
-const LANGUAGE_ALIASES: Readonly<Record<string, SupportedLanguage>> = {
-  en: "en",
-  eng: "en",
-  english: "en",
-  es: "es",
-  spa: "es",
-  spanish: "es",
-  español: "es",
-  espanol: "es",
-  castellano: "es",
-};
 
 /**
  * Normalize any stored language string to a supported code. Pure.
  *
- * Unknown values fall back to `en` deliberately: voice and transcriber are only defined for the
- * two supported languages, so an unrecognised value must resolve to something speakable rather
- * than break the call. Anything the picker offers MUST appear above — `assistant-config.test.ts`
- * asserts that, because a picker option with no alias is exactly the R-135 defect returning.
+ * Unknown values fall back to `en` deliberately: an unrecognised value must resolve to something
+ * speakable rather than break the call. The Setup editor persists the language NAME ("Spanish")
+ * while onboarding persists the ISO CODE ("es") — both resolve, which is the R-135 fix.
  */
 export function resolveLanguage(language?: string | null): SupportedLanguage {
-  const raw = (language ?? "").trim().toLowerCase();
-  if (!raw) return "en";
-  const exact = LANGUAGE_ALIASES[raw];
-  if (exact) return exact;
-  // "es-ES" / "es_MX" / "en-GB" → base subtag
-  const base = raw.split(/[-_]/)[0];
-  return LANGUAGE_ALIASES[base] ?? "en";
+  return toLanguageCode(language) ?? "en";
 }
 
 /** Vapi `voice` object from language + optional explicit voiceId. Pure. */
 export function resolveVoice(language?: string | null, voiceId?: string | null): VoiceConfig {
-  const base = DEFAULT_VOICE_BY_LANGUAGE[resolveLanguage(language)];
+  const base = LANGUAGES[resolveLanguage(language)].voice;
   const id = (voiceId ?? "").trim();
   return id ? { ...base, voiceId: id } : base;
 }
 
-/**
- * Deepgram model per language.
- *
- * 2026-08-27: English moved nova-2 → **nova-3**. A real caller said "Gaye" and the transcript
- * recorded "Joya" — proper nouns are the hardest thing an STT model does, and the name is what
- * the AI says back to the caller and what lands on the lead. nova-3 is measurably better on them.
- *
- * Spanish stays on nova-2 on purpose: nova-3's gains are English-first, and a silent Spanish
- * transcription regression would be invisible until a customer complained.
- */
-const TRANSCRIBER_MODEL_BY_LANGUAGE: Record<SupportedLanguage, string> = {
-  en: "nova-3",
-  es: "nova-2",
-};
-
 /** Vapi `transcriber` object (Deepgram) for the language. Pure. */
 export function resolveTranscriber(language?: string | null): { provider: string; model: string; language: SupportedLanguage } {
   const lang = resolveLanguage(language);
-  return { provider: "deepgram", model: TRANSCRIBER_MODEL_BY_LANGUAGE[lang], language: lang };
+  return { provider: "deepgram", model: LANGUAGES[lang].transcriberModel, language: lang };
+}
+
+/**
+ * The ear, told what to expect (2026-08-28).
+ *
+ * Deepgram is the only part of the chain that needs to be told a language at all. The brain
+ * already knows every language, and the mouth follows whatever the brain answered in. So the
+ * whole of multilingual support is this one decision:
+ *
+ *   - **One language** → pin the ear to it. This is the most accurate the transcriber gets, and
+ *     it is what every employee does today.
+ *   - **More than one** → switch to code-switching, where the ear decides per utterance.
+ *
+ * There is no separate "multilingual" toggle, deliberately. An owner who adds Spanish has already
+ * said everything we needed to know; asking them a second, more technical question would only
+ * create a state where the two answers disagree.
+ */
+export function resolveTranscriberForLanguages(
+  codes: readonly LanguageCode[]
+): { provider: string; model: string; language: string } {
+  const [primary, ...rest] = codes.length ? codes : (["en"] as LanguageCode[]);
+  if (rest.length === 0) {
+    return { provider: "deepgram", model: LANGUAGES[primary].transcriberModel, language: primary };
+  }
+  return { provider: "deepgram", model: MULTILINGUAL_TRANSCRIBER_MODEL, language: "multi" };
+}
+
+/**
+ * The mouth, for however many languages the ear is listening for.
+ *
+ * A single language keeps its own voice. More than one needs a voice that can follow the caller —
+ * the primary's voice if it can, otherwise the designated multilingual one. A voice pinned to
+ * Spanish reading an English answer is worse than the problem it was meant to solve.
+ */
+export function resolveVoiceForLanguages(
+  codes: readonly LanguageCode[],
+  voiceId?: string | null
+): VoiceConfig {
+  const [primary, ...rest] = codes.length ? codes : (["en"] as LanguageCode[]);
+  const base =
+    rest.length === 0 || LANGUAGES[primary].voiceFollowsCaller
+      ? LANGUAGES[primary].voice
+      : MULTILINGUAL_VOICE;
+  const id = (voiceId ?? "").trim();
+  return id ? { ...base, voiceId: id } : base;
 }
 
 /**
@@ -146,6 +141,13 @@ export type AssistantConfigInput = {
   language?: string | null;
   /** Explicit voiceId override (R-038 territory); otherwise a language default is used. */
   voiceId?: string | null;
+  /**
+   * Languages this employee should ALSO understand, beyond `language` (2026-08-28).
+   *
+   * Empty or absent is the whole of today's product: one language, ear pinned to it. Adding one
+   * is what switches the transcriber to code-switching — there is no second toggle.
+   */
+  additionalLanguages?: readonly string[] | null;
 };
 
 /** Shape we read back from `GET /assistant/{id}` (only the parts we merge). */
@@ -159,7 +161,10 @@ type CurrentAssistant = {
  */
 export function buildAssistantConfigPatch(
   current: CurrentAssistant,
-  input: Pick<AssistantConfigInput, "systemPrompt" | "firstMessage" | "language" | "voiceId">,
+  input: Pick<
+    AssistantConfigInput,
+    "systemPrompt" | "firstMessage" | "language" | "voiceId" | "additionalLanguages"
+  >,
   env: NodeJS.ProcessEnv = process.env
 ): Record<string, unknown> {
   const existingModel = (current?.model ?? { provider: "openai", model: "gpt-4o" }) as Record<string, unknown>;
@@ -175,8 +180,11 @@ export function buildAssistantConfigPatch(
   if (input.firstMessage) patch.firstMessage = input.firstMessage;
 
   // R-051: real voice + transcriber (language) — no longer `none`.
-  patch.voice = resolveVoice(input.language, input.voiceId);
-  patch.transcriber = resolveTranscriber(input.language);
+  // 2026-08-28: driven by the employee's whole language set, which for every existing employee is
+  // exactly one language and therefore resolves to exactly what it did before.
+  const languages = resolveLanguageSet(input.language, input.additionalLanguages);
+  patch.voice = resolveVoiceForLanguages(languages, input.voiceId);
+  patch.transcriber = resolveTranscriberForLanguages(languages);
 
   // R-052: universal call caps on every path.
   patch.maxDurationSeconds = CALL_MAX_DURATION_SECONDS;
@@ -208,6 +216,7 @@ export async function ensureAssistantConfig(
       firstMessage: input.firstMessage,
       language: input.language,
       voiceId: input.voiceId,
+      additionalLanguages: input.additionalLanguages,
     });
     await vapiFetch(`/assistant/${input.assistantId}`, {
       method: "PATCH",

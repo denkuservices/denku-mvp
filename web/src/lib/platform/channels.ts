@@ -153,9 +153,21 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     // The first channel that both receives AND replies through the shared reply engine.
     // Attachments are received (a caption becomes the message) but never sent.
     capabilities: chat({ outbound: true }),
-    // Stays false until a real customer bot has held a real conversation end to end — the
-    // honesty gate is about what has been observed, not about what has been written.
-    productionReady: false,
+    /**
+     * Flipped 2026-08-27 on evidence, not on the code being finished.
+     *
+     * A real bot held a real conversation on production and the whole chain was verified in the
+     * database afterwards: the message arrived, the AI answered from the business's own hours in
+     * the customer's own language, a booking was created and then CORRECTED rather than
+     * duplicated, a refund request became a ticket without asking for a name Telegram already
+     * gave, and the owner was emailed about both. A person took it over from the Inbox, the AI
+     * went quiet, and it resumed when handed back.
+     *
+     * Known and accepted: a reply that calls a tool currently takes 14-16s (a plain reply is
+     * ~3.5s). That is a quality problem, not a correctness one, and it is tracked — see
+     * skills/telegram-integration.md.
+     */
+    productionReady: true,
     adopted: true,
   },
   email: {

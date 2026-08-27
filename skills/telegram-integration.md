@@ -137,12 +137,41 @@ message one, while voice contacts still say "Unknown contact" (sprint P3).
 
 No global Telegram credential exists and none should be added.
 
-## Before flipping `productionReady: true`
+## Reply latency — measured, and one half of it is unnecessary
 
-The honesty gate turns on **observation, not code**. It stays `false` until a real bot has held a
-real conversation end to end: message received → reply sent → an appointment or ticket created →
-the owner emailed → all of it visible in the Inbox. Same standard D0 applied to voice, which is
-how eight real bugs were found by running the thing rather than reading it.
+Measured on production 2026-08-27, from the customer's send to our reply landing, after the
+Vercel function region was moved to `pdx1` (beside the Oregon database — before that a plain
+reply took 6–9s):
+
+| Reply | Time |
+|---|---|
+| Plain answer (1 model call) | **~3.5s** |
+| Booked / updated an appointment (2 model calls) | **14–16s** |
+
+The tool path costs four times a plain reply because the model is asked **twice**: once to decide
+and call the tool, then again purely to write the sentence the customer reads. That second call is
+avoidable — after `create_appointment` runs we already know the time and whether it was created or
+corrected, which is the whole content of the confirmation. `/start` already proves the pattern
+(`greeting.ts`): the reply that is always the same sentence should not cost a model call.
+
+Not yet done. It is a quality problem rather than a correctness one, which is why it did not block
+`productionReady`.
+
+## `productionReady` — flipped 2026-08-27, on evidence
+
+The gate was written before the channel worked, and it turned on observation rather than on the
+code being finished. All of it was verified in the database after a real conversation on
+production:
+
+- message received → `conversations` + `messages`, the first real traffic the shared model has seen
+- AI answered **from the business's own hours, in the customer's own language**
+- a booking created, then **corrected rather than duplicated** when the customer changed the time
+- a refund request became a ticket **without asking for a name Telegram had already given**
+- the owner emailed about both artifacts
+- a person took the conversation over from the Inbox, the AI went quiet, and it resumed on handback
+
+Instagram remains `productionReady: false` — it is adopted but cannot reply. **Adopted and
+production-ready are different claims**; never collapse them.
 
 ## Replying by hand, and what it costs the AI
 

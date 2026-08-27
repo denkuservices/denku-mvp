@@ -1,3 +1,5 @@
+import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
+
 /**
  * The employee configuration field contract (Sprint 10 / R-094).
  *
@@ -69,7 +71,19 @@ export const BUSINESS_CONTEXT_FIELDS: Array<{
  * To add a language: add its voice + transcriber entry to `DEFAULT_VOICE_BY_LANGUAGE`, add every
  * spelling to `LANGUAGE_ALIASES`, then add it here. The parity test fails if you skip a step.
  */
-export const SETUP_LANGUAGES = ["English", "Spanish"] as const;
+export const SETUP_LANGUAGES: readonly string[] = LANGUAGE_CODES.map((c) => LANGUAGES[c].label);
+
+/**
+ * The languages an employee can be told to ALSO understand (2026-08-28).
+ *
+ * Same list, same registry — the form filters out whichever one is already primary. Ticking one
+ * is the entire multilingual decision: the transcriber switches itself to code-switching, because
+ * asking the owner a second, more technical question could only produce two answers that disagree.
+ */
+export const ADDITIONAL_LANGUAGE_OPTIONS = LANGUAGE_CODES.map((code) => ({
+  code,
+  label: LANGUAGES[code].label,
+}));
 
 /** The value that means "unset" for each of these two fields — sent to the action as null. */
 export const DEFAULT_LANGUAGE = "English";

@@ -22,10 +22,10 @@ describe("channel registry — identity + capability model (R-100/R-102)", () =>
     expect(CHANNEL_ORDER).toHaveLength(Object.keys(CHANNELS).length);
   });
 
-  it("only voice is production-ready; voice+instagram+telegram are adopted (no over-claim)", () => {
-    // Telegram is adopted (adapter + transport exist) but NOT production-ready: the honesty
-    // gate turns on an observed end-to-end conversation, not on the code being written.
-    expect(productionChannels()).toEqual(["voice"]);
+  it("voice+telegram are production-ready; voice+instagram+telegram are adopted (no over-claim)", () => {
+    // Both earned it the same way: a real conversation on production, verified in the database
+    // afterwards. Instagram is adopted but cannot reply, so it stays out of the sellable list.
+    expect(productionChannels()).toEqual(["voice", "telegram"]);
     expect(adoptedChannels()).toEqual(["voice", "instagram", "telegram"]);
     expect(comingSoonChannels()).toEqual(["messenger", "whatsapp", "email", "sms", "web"]);
   });

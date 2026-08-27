@@ -121,8 +121,14 @@ describe("telegram registration — receive and reply are declared separately", 
     expect(canReplyOn("voice")).toBe(false); // Vapi speaks inside the call; we never send.
   });
 
-  it("stays out of customer-facing 'available' copy until proven live", () => {
-    expect(channelMeta("telegram").productionReady).toBe(false);
+  it("became sellable only after a live conversation was verified end to end", () => {
+    // The gate was written before the channel worked and turned on evidence: message received,
+    // AI answered from the business's own facts, a booking created then CORRECTED rather than
+    // duplicated, a ticket raised without asking for a known name, the owner emailed, and a
+    // human takeover that actually silenced the AI. Instagram still cannot reply, so it stays
+    // out of the sellable list — adopted is not the same claim as production-ready.
+    expect(channelMeta("telegram").productionReady).toBe(true);
+    expect(channelMeta("instagram").productionReady).toBe(false);
   });
 });
 

@@ -18,8 +18,8 @@ describe("platform channel registry", () => {
     expect(isKnownChannel(42)).toBe(false);
   });
 
-  it("voice is the only production-ready channel today (no over-claim)", () => {
-    expect(productionChannels()).toEqual(["voice"]);
+  it("only channels proven live are production-ready (no over-claim)", () => {
+    expect(productionChannels()).toEqual(["voice", "telegram"]);
     expect(CHANNELS.voice.productionReady).toBe(true);
     expect(CHANNELS.instagram.productionReady).toBe(false);
     expect(CHANNELS.whatsapp.productionReady).toBe(false);
