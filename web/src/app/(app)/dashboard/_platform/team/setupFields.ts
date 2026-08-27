@@ -1,4 +1,4 @@
-import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
+import { LANGUAGES, LANGUAGE_CODES, toLanguageCode, type LanguageCode } from "@/lib/language/registry";
 
 /**
  * The employee configuration field contract (Sprint 10 / R-094).
@@ -194,7 +194,14 @@ export function toBusinessContext(raw: unknown): BusinessContext {
 /** Editor state, before it is turned into an action payload. */
 export interface SetupFormState {
   language: string;
-  /** Languages it should ALSO understand. Labels, same vocabulary as `language`. */
+  /**
+   * Languages it should ALSO understand, as CODES.
+   *
+   * Codes, not labels, because `language` may be either: onboarding writes "en" and the Setup
+   * editor writes "English" (R-135). Comparing a label against a code is how the primary language
+   * first showed up in its own "also understands" list. A new column has no legacy to honour, so
+   * it stores the one canonical form and everything compares through `toLanguageCode`.
+   */
   additionalLanguages: string[];
   timezone: string;
   /** Preset **id** (the previous form held the label and mapped on save). */
@@ -244,7 +251,12 @@ export function toUpdateAgentConfigPayload(agentId: string, state: SetupFormStat
     language: state.language === DEFAULT_LANGUAGE ? null : state.language,
     // The primary can never also be an "additional" one — the form hides it, and this makes
     // that true of anything that reaches the action, whatever the form did.
-    additional_languages: state.additionalLanguages.filter((l) => l !== state.language),
+    additional_languages: (() => {
+      const primary = toLanguageCode(state.language);
+      return state.additionalLanguages
+        .map((l) => toLanguageCode(l))
+        .filter((c): c is LanguageCode => c !== null && c !== primary);
+    })(),
     timezone: state.timezone === DEFAULT_TIMEZONE ? null : state.timezone,
     behavior_preset: state.behaviorPresetId || null,
     agent_type: state.agentType || null,
@@ -272,9 +284,12 @@ export function toSetupFormState(row: {
   businessContext: unknown;
 }): SetupFormState {
   const language = row.language || DEFAULT_LANGUAGE;
+  const primary = toLanguageCode(language);
   return {
     language,
-    additionalLanguages: (row.additionalLanguages ?? []).filter((l) => l && l !== language),
+    additionalLanguages: (row.additionalLanguages ?? [])
+      .map((l) => toLanguageCode(l))
+      .filter((c): c is LanguageCode => c !== null && c !== primary),
     timezone: row.timezone || DEFAULT_TIMEZONE,
     behaviorPresetId: row.behaviorPreset || null,
     agentType: row.agentType || "",

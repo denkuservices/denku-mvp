@@ -34,8 +34,29 @@ describe("call recording playback", () => {
     expect(route).toMatch(/Authorization: `Bearer \$\{key\}`/);
   });
 
-  it("does not cache a URL that expires", () => {
-    expect(route).toMatch(/no-store/);
+  it("does not put one customer's voice in a shared cache", () => {
+    expect(route).toMatch(/private, no-store/);
+  });
+
+  /**
+   * Verified on production, by watching it fail (2026-08-28).
+   *
+   * The first version answered 302 and let the browser follow. `fetch()` returned the file in
+   * 2.7s; the `<audio>` element on the same page hung at readyState 0 with nothing buffered and
+   * no error raised. A media element opens with a range request and follows its own rules about
+   * cross-origin redirects — and it fails silently rather than loudly. So the bytes are proxied.
+   */
+  it("streams the audio instead of redirecting the player to another origin", () => {
+    expect(route).toMatch(/new NextResponse\(audio\.body/);
+    expect(route).not.toMatch(/NextResponse\.redirect/);
+  });
+
+  it("passes the range through so the player can seek", () => {
+    expect(route).toMatch(/req\.headers\.get\("range"\)/);
+    expect(route).toMatch(/Range: range/);
+    expect(route).toMatch(/Accept-Ranges/);
+    // The upstream status is echoed, so a 206 stays a 206.
+    expect(route).toMatch(/status: audio\.status/);
   });
 
   it("only offers a player when a recording actually exists", () => {

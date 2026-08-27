@@ -13,7 +13,12 @@ import {
   resolveVoiceForLanguages,
 } from "@/lib/vapi/assistantConfig";
 import { deriveEffectivePrompt } from "@/app/(app)/dashboard/settings/_lib/prompt-derivation";
-import { SETUP_LANGUAGES } from "@/app/(app)/dashboard/_platform/team/setupFields";
+import {
+  EMPTY_BUSINESS_CONTEXT,
+  SETUP_LANGUAGES,
+  toSetupFormState,
+  toUpdateAgentConfigPayload,
+} from "@/app/(app)/dashboard/_platform/team/setupFields";
 import { LANGUAGE_OPTIONS } from "@/app/(app)/dashboard/settings/_lib/options";
 
 const PROD = { NODE_ENV: "production", VAPI_WEBHOOK_BASE_URL: "https://www.denku.io" } as NodeJS.ProcessEnv;
@@ -171,5 +176,61 @@ describe("it survives the migration not being applied yet", () => {
   it("still saves the rest of the form if the column is missing", () => {
     const actions = read("src/app/(app)/dashboard/settings/_actions/agents.ts");
     expect(actions).toMatch(/retrying save without additional_languages/);
+  });
+});
+
+/**
+ * Found on production, in the rendered page (2026-08-28).
+ *
+ * The Setup editor offered "English" under "Also understands" on an employee whose language WAS
+ * English. The primary is stored as the code "en" by onboarding and as the label "English" by
+ * this editor — R-135's split again — so a filter comparing raw strings never matched. Everything
+ * on this seam now compares through `toLanguageCode`, and the new column stores codes only.
+ */
+describe("the primary language is never offered as an extra", () => {
+  it("filters it out whichever way it was stored", () => {
+    for (const stored of ["en", "English", "eng", "en-GB"]) {
+      const state = toSetupFormState({
+        name: "Front Desk",
+        language: stored,
+        additionalLanguages: ["English", "en", "Spanish"],
+        timezone: null,
+        behaviorPreset: null,
+        agentType: null,
+        firstMessage: "Hi",
+        emphasisPoints: null,
+        businessContext: null,
+      });
+      expect(state.additionalLanguages, `stored as "${stored}"`).toEqual(["es"]);
+    }
+  });
+
+  it("cannot be saved as an extra either, whatever the form sent", () => {
+    const payload = toUpdateAgentConfigPayload("a", {
+      language: "en",
+      additionalLanguages: ["English", "Spanish", "Turkish"],
+      timezone: "UTC",
+      behaviorPresetId: null,
+      agentType: "",
+      firstMessage: "Hi",
+      emphasisPoints: [],
+      businessContext: EMPTY_BUSINESS_CONTEXT,
+    });
+    // "English" is the primary under another name; "Turkish" has no voice behind it.
+    expect(payload.additional_languages).toEqual(["es"]);
+  });
+
+  it("stores codes, so nothing downstream has to guess which spelling it got", () => {
+    const payload = toUpdateAgentConfigPayload("a", {
+      language: "Spanish",
+      additionalLanguages: ["English"],
+      timezone: "UTC",
+      behaviorPresetId: null,
+      agentType: "",
+      firstMessage: "Hola",
+      emphasisPoints: [],
+      businessContext: EMPTY_BUSINESS_CONTEXT,
+    });
+    expect(payload.additional_languages).toEqual(["en"]);
   });
 });

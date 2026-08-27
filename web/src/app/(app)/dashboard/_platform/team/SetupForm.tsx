@@ -10,6 +10,7 @@ import {
   type UpdateAgentConfigResult,
   type UpdateAgentPromptOverrideResult,
 } from "@/app/(app)/dashboard/settings/_actions/agents";
+import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import {
@@ -78,6 +79,10 @@ export default function SetupForm({
   }, [initial, employee.systemPromptOverride]);
 
   const paused = workspaceStatus === "paused";
+
+  /** Say "English", never the stored "en" — the picker shows names, so the hint must too. */
+  const primaryLanguageLabel =
+    LANGUAGES[toLanguageCode(form.language) ?? "en"]?.label ?? form.language;
 
   const isDirty =
     form.language !== initial.language ||
@@ -186,9 +191,11 @@ export default function SetupForm({
             hint="Callers who speak these get answered in their own language."
           >
             <div className="flex flex-wrap gap-2">
-              {ADDITIONAL_LANGUAGE_OPTIONS.filter((opt) => opt.label !== form.language).map(
+              {ADDITIONAL_LANGUAGE_OPTIONS.filter(
+                (opt) => opt.code !== toLanguageCode(form.language)
+              ).map(
                 (opt) => {
-                  const on = form.additionalLanguages.includes(opt.label);
+                  const on = form.additionalLanguages.includes(opt.code);
                   return (
                     <button
                       key={opt.code}
@@ -199,8 +206,8 @@ export default function SetupForm({
                         set(
                           "additionalLanguages",
                           on
-                            ? form.additionalLanguages.filter((l) => l !== opt.label)
-                            : [...form.additionalLanguages, opt.label]
+                            ? form.additionalLanguages.filter((l) => l !== opt.code)
+                            : [...form.additionalLanguages, opt.code]
                         )
                       }
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -217,8 +224,11 @@ export default function SetupForm({
             </div>
             {form.additionalLanguages.length > 0 ? (
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                It starts every call in {form.language} and switches if the caller speaks{" "}
-                {form.additionalLanguages.join(" or ")}.
+                It starts every call in {primaryLanguageLabel} and switches if the caller speaks{" "}
+                {form.additionalLanguages
+                  .map((c) => LANGUAGES[c as keyof typeof LANGUAGES]?.label ?? c)
+                  .join(" or ")}
+                .
               </p>
             ) : null}
           </Field>
