@@ -11,6 +11,7 @@ import { isPlausibleBotToken, describeToken } from "@/lib/telegram/api";
 import { telegramWebhookUrl } from "@/lib/telegram/webhookUrl";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
 import { tidyReply, localNow } from "@/lib/platform/reply/engine";
+import { evaluateReadiness } from "@/lib/launch/checks";
 import type { ReplyEmployee } from "@/lib/platform/reply/types";
 
 const ctx = { orgId: "org-1", agentId: "agent-1" };
@@ -224,5 +225,56 @@ describe("reply shaping", () => {
     expect(localNow(null)).toBeNull();
     expect(localNow("Not/AZone")).toBeNull();
     expect(localNow("America/New_York", new Date("2026-08-28T17:30:00Z"))).toContain("1:30");
+  });
+});
+
+describe("readiness — the encryption-key trap this project actually fell into", () => {
+  const base = {
+    TELEGRAM_WEBHOOK_BASE_URL: "https://www.denku.io",
+    GEMINI_API_KEY: "k",
+  } as Record<string, string | undefined>;
+
+  const find = (env: Record<string, string | undefined>, id: string) =>
+    evaluateReadiness(env).find((c) => c.id === id)!;
+
+  const key32 = Buffer.alloc(32, 3).toString("base64");
+
+  it("names the key that is actually in force", () => {
+    const c = find({ ...base, SECRET_ENCRYPTION_KEY: key32 }, "telegram_encryption_key");
+    expect(c.status).toBe("pass");
+    expect(c.detail).toContain("SECRET_ENCRYPTION_KEY");
+  });
+
+  it("catches a key deployed under a name nothing reads, and says what to rename it to", () => {
+    const c = find({ ...base, TELEGRAM_TOKEN_ENCRYPTION_KEY: key32 }, "telegram_encryption_key");
+    expect(c.status).toBe("fail");
+    expect(c.detail).toContain("nothing reads");
+    expect(c.detail).toContain("SECRET_ENCRYPTION_KEY");
+  });
+
+  it("warns when a real key works but a stray one is also set", () => {
+    const c = find(
+      { ...base, INSTAGRAM_TOKEN_ENCRYPTION_KEY: key32, TELEGRAM_TOKEN_ENCRYPTION_KEY: key32 },
+      "telegram_encryption_key"
+    );
+    expect(c.status).toBe("warn");
+    expect(c.detail).toContain("IGNORED");
+  });
+
+  it("rejects a key that is not 32 bytes", () => {
+    const c = find({ ...base, SECRET_ENCRYPTION_KEY: "too-short" }, "telegram_encryption_key");
+    expect(c.status).toBe("fail");
+    expect(c.detail).toContain("32 bytes");
+  });
+
+  it("refuses a dev webhook address and reports the real one", () => {
+    expect(find({ TELEGRAM_WEBHOOK_BASE_URL: "http://localhost:3000" }, "telegram_webhook_base").status).toBe("fail");
+    expect(find(base, "telegram_webhook_base").detail).toContain("https://www.denku.io/api/webhooks/telegram/");
+  });
+
+  it("warns when a bot would receive messages with no model to answer them", () => {
+    const c = find({ TELEGRAM_WEBHOOK_BASE_URL: "https://www.denku.io" }, "telegram_reply_model");
+    expect(c.status).toBe("warn");
+    expect(c.detail).toContain("stay silent");
   });
 });

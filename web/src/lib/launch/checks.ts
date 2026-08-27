@@ -175,6 +175,67 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
       on ? "On — AI Employees IA served" : "Off — legacy dashboard served (fine for voice launch)"));
   }
 
+  // --- Platform · Telegram (R-137) ---
+  {
+    /**
+     * The names `lib/crypto/secretBox.ts` actually reads, in priority order. Anything else is a
+     * key nobody will ever look for — which is exactly how this check earned its place: a key was
+     * deployed as `TELEGRAM_TOKEN_ENCRYPTION_KEY`, the connect form answered "not configured", and
+     * nothing anywhere said why.
+     */
+    const READ_NAMES = ["SECRET_ENCRYPTION_KEY", "INSTAGRAM_TOKEN_ENCRYPTION_KEY"] as const;
+    const IGNORED_NAMES = ["TELEGRAM_TOKEN_ENCRYPTION_KEY", "TOKEN_ENCRYPTION_KEY", "ENCRYPTION_KEY"] as const;
+
+    const active = READ_NAMES.find((n) => present(env[n]));
+    const strays = IGNORED_NAMES.filter((n) => present(env[n]));
+
+    const keyBytes = (() => {
+      if (!active) return 0;
+      const raw = env[active]!.trim();
+      try {
+        return /^[0-9a-fA-F]{64}$/.test(raw)
+          ? Buffer.from(raw, "hex").length
+          : Buffer.from(raw, "base64").length;
+      } catch {
+        return 0;
+      }
+    })();
+
+    const status: CheckStatus = !active ? "fail" : keyBytes !== 32 ? "fail" : strays.length ? "warn" : "pass";
+    const detail = !active
+      ? strays.length
+        ? `Set as ${strays.join(", ")}, which nothing reads. Rename it to SECRET_ENCRYPTION_KEY (or reuse INSTAGRAM_TOKEN_ENCRYPTION_KEY).`
+        : "No encryption key — bot tokens cannot be stored, and connecting will be refused rather than saved in plaintext"
+      : keyBytes !== 32
+        ? `${active} does not decode to 32 bytes (got ${keyBytes}) — generate with: openssl rand -base64 32`
+        : strays.length
+          ? `In force: ${active}. Also set but IGNORED: ${strays.join(", ")} — delete it to avoid confusion.`
+          : `In force: ${active}`;
+
+    checks.push(check("telegram_encryption_key", "Credential encryption key", "Platform", false, status, detail));
+  }
+  {
+    // The webhook we hand to Telegram is frozen into the bot's config; a redirecting or local
+    // address is a bot that silently never reaches us (D0 bug #7, R-077).
+    const base = (env.TELEGRAM_WEBHOOK_BASE_URL || env.VAPI_WEBHOOK_BASE_URL || env.NEXT_PUBLIC_SITE_URL || "").trim();
+    const status: CheckStatus = !base ? "fail" : isLocalish(base) ? "fail" : "pass";
+    checks.push(check("telegram_webhook_base", "Telegram webhook address", "Platform", false, status,
+      !base
+        ? "No public address — setWebhook would be refused"
+        : isLocalish(base)
+          ? `${base} is a dev address and would be frozen into a customer's bot`
+          : `${base.replace(/\/+$/, "")}/api/webhooks/telegram/<connection>`));
+  }
+  {
+    // A Telegram bot with no model behind it receives and says nothing — which looks, to the
+    // owner, exactly like a broken bot.
+    const provider = resolveLlmProvider(env);
+    checks.push(check("telegram_reply_model", "Reply engine model", "Platform", false, provider ? "pass" : "warn",
+      provider
+        ? `${provider.id} · ${provider.model} — chat channels can answer`
+        : "No LLM key — a connected bot would receive messages and stay silent"));
+  }
+
   return checks;
 }
 

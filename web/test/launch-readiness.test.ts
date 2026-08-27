@@ -3,6 +3,9 @@ import { evaluateReadiness, summarizeReadiness } from "@/lib/launch/checks";
 
 /** A fully launch-ready environment (all required checks pass). */
 const READY_ENV: Record<string, string> = {
+  // A fully-configured Denku now carries a credential encryption key: Instagram tokens and
+  // Telegram bot tokens are both refused rather than stored in plaintext without one.
+  SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
   NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "svc",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
