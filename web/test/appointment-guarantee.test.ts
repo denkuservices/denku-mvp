@@ -1,7 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// The read model's module graph reaches the fail-fast service-role client.
+vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn() } }));
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseSpokenTime, zoneOffsetMinutes } from "@/lib/time/spokenTime";
+import { formatAppointmentTitle } from "@/lib/platform/readModel/conversations";
 
 /**
  * THE NEVER-DEAD-END GUARANTEE, FOR APPOINTMENTS.
@@ -144,5 +148,35 @@ describe("create_appointment tool — a partial call is not a failed call", () =
     expect(tool).not.toMatch(/return NextResponse\.json\(\{ error: "invalid_phone" \}/);
     expect(tool).toMatch(/A booking without a contact is still a booking/);
     expect(tool).toMatch(/leadId = null;/);
+  });
+});
+
+/**
+ * What the owner actually sees.
+ *
+ * The first appointment ever to reach this UI (2026-08-27) rendered as
+ * "2026-08-28T17:00:00+00:…" — the machine's spelling, in UTC, truncated by the column it sat in,
+ * on the one surface a shop owner opens to see what their AI booked.
+ */
+describe("an appointment reads like a time, in the business's hours", () => {
+  it("shows the business's local time, not UTC", () => {
+    expect(formatAppointmentTitle("2026-08-28T17:00:00+00:00", "America/New_York")).toBe(
+      "Fri, Aug 28, 1:00 PM"
+    );
+  });
+
+  it("moves with the timezone it is given", () => {
+    const utc = formatAppointmentTitle("2026-08-28T17:00:00+00:00", "UTC");
+    const ny = formatAppointmentTitle("2026-08-28T17:00:00+00:00", "America/New_York");
+    expect(utc).not.toBe(ny);
+  });
+
+  it("says so in words when no time was agreed", () => {
+    expect(formatAppointmentTitle(null, "America/New_York")).toBe("Time to confirm");
+    expect(formatAppointmentTitle("not-a-date", "America/New_York")).toBe("Time to confirm");
+  });
+
+  it("never crashes on a timezone the runtime does not know", () => {
+    expect(formatAppointmentTitle("2026-08-28T17:00:00+00:00", "Mars/Olympus")).toMatch(/2026/);
   });
 });

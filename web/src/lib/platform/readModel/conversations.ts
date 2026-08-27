@@ -159,15 +159,47 @@ export function sortByActivityDesc(a: ConversationView, b: ConversationView): nu
 async function employeeNames(
   orgId: string,
   db: SupabaseClient
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+): Promise<{ names: Map<string, string>; timeZone: string | null }> {
+  const names = new Map<string, string>();
+  let timeZone: string | null = null;
   try {
-    const { data } = await db.from("agents").select("id, name").eq("org_id", orgId);
-    for (const a of (data ?? []) as Array<{ id: string; name: string }>) map.set(a.id, a.name);
+    // The timezone rides along on a query we already make: an appointment has to be shown in the
+    // business's hours, and fetching it separately would be a round trip for one string.
+    const { data } = await db.from("agents").select("id, name, timezone").eq("org_id", orgId);
+    for (const a of (data ?? []) as Array<{ id: string; name: string; timezone: string | null }>) {
+      names.set(a.id, a.name);
+      if (!timeZone && a.timezone) timeZone = a.timezone;
+    }
   } catch {
     /* non-fatal — names are optional */
   }
-  return map;
+  return { names, timeZone };
+}
+
+/**
+ * An appointment's time, as the business would read it.
+ *
+ * The artifact list used to show `start_at` verbatim — "2026-08-28T17:00:00+00:00", truncated by
+ * the column it sits in. That is the machine's spelling of the fact, in UTC, on the one surface
+ * where a shop owner looks to see what the AI booked for them. A request with no agreed time says
+ * so in words rather than showing nothing.
+ */
+export function formatAppointmentTitle(startAt: string | null, timeZone: string | null): string {
+  if (!startAt) return "Time to confirm";
+  const d = new Date(startAt);
+  if (Number.isNaN(d.getTime())) return "Time to confirm";
+  try {
+    return d.toLocaleString("en-US", {
+      timeZone: timeZone || "UTC",
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return d.toISOString();
+  }
 }
 
 // --- list -------------------------------------------------------------------
@@ -270,7 +302,7 @@ export async function listConversationViews(
 ): Promise<ConversationView[]> {
   if (!orgId) return [];
   const limit = opts.limit ?? 50;
-  const names = await employeeNames(orgId, db);
+  const { names } = await employeeNames(orgId, db);
   const out: ConversationView[] = [];
 
   try {
@@ -395,12 +427,21 @@ async function artifactsForCall(
       refs.push({ id: t.id, type: "ticket", status: t.status, title: t.subject });
     }
     for (const a of (apptRes.data ?? []) as Array<{ id: string; status: string | null; start_at: string | null }>) {
+      // Raw here; the caller formats it once the business's timezone is known, so the artifact
+      // query stays in the same parallel batch as the lookup that carries the timezone.
       refs.push({ id: a.id, type: "appointment", status: a.status, title: a.start_at });
     }
   } catch {
     /* non-fatal */
   }
   return refs;
+}
+
+/** Replace each appointment's raw `start_at` with something a shop owner can read. */
+function withReadableTimes(refs: ArtifactRef[], timeZone: string | null): ArtifactRef[] {
+  return refs.map((r) =>
+    r.type === "appointment" ? { ...r, title: formatAppointmentTitle(r.title, timeZone) } : r
+  );
 }
 
 export async function getConversationView(
@@ -421,7 +462,7 @@ export async function getConversationView(
    * decides which store answered.
    */
   try {
-    const [names, callRes, convRes, artifactsByCall, artifactsByConversation] = await Promise.all([
+    const [employees, callRes, convRes, artifactsByCall, artifactsByConversation] = await Promise.all([
       employeeNames(orgId, db),
       db
         .from("calls")
@@ -443,7 +484,7 @@ export async function getConversationView(
 
     const call = callRes.data;
     if (call) {
-      const base = callRowToConversationView(call, names.get(call.agent_id ?? "") ?? null);
+      const base = callRowToConversationView(call, employees.names.get(call.agent_id ?? "") ?? null);
       const turns: ConversationTurn[] = parseTranscriptTurns(call.transcript).map((t, i) => ({
         id: `${call.id}:${i}`,
         channel: "voice",
@@ -452,12 +493,12 @@ export async function getConversationView(
         content: t.content,
         at: call.started_at,
       }));
-      return { ...base, turns, artifacts: artifactsByCall };
+      return { ...base, turns, artifacts: withReadableTimes(artifactsByCall, employees.timeZone) };
     }
 
     const conv = convRes.data;
     if (conv) {
-      const base = conversationRowToConversationView(conv, names.get(conv.agent_id ?? "") ?? null);
+      const base = conversationRowToConversationView(conv, employees.names.get(conv.agent_id ?? "") ?? null);
       // Messages are the one read that genuinely depends on knowing which store answered.
       const { data: msgs } = await db
         .from("messages")
@@ -479,7 +520,7 @@ export async function getConversationView(
         content: m.content,
         at: m.created_at,
       }));
-      return { ...base, turns, artifacts: artifactsByConversation };
+      return { ...base, turns, artifacts: withReadableTimes(artifactsByConversation, employees.timeZone) };
     }
   } catch (err) {
     console.error("[PLATFORM][READMODEL][CONVERSATION_DETAIL]", err instanceof Error ? err.message : String(err));

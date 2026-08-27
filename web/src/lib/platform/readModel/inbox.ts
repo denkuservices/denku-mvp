@@ -185,9 +185,18 @@ export async function listInboxPage(
   const search = (query.search ?? "").trim();
   const filter: InboxFilter = query.filter ?? "all";
 
-  // Both facet sets are needed on EVERY request, not just when their filter is on: the chips
-  // show counts, and each row needs its own star/owner state regardless of how it was found.
-  const [starred, human, canStar] = await Promise.all([
+  /**
+   * Both facet sets are needed on EVERY request, not just when their filter is on: the chips show
+   * counts, and each row needs its own star/owner state regardless of how it was found.
+   *
+   * **They do not have to be waited for first, though.** Measured on production data: the Inbox's
+   * first load was three sequential stages of ~240ms each, and the bytes were irrelevant — the
+   * whole cost was round trips. On the default view the conversation scan does not consult these
+   * sets at all (they only decorate the rows afterwards), so it runs alongside them instead of
+   * behind them, and three stages become two. The `starred` and `human` filters still wait,
+   * because there the refs ARE the query: those conversations are fetched by id.
+   */
+  const facets = Promise.all([
     listStarredRefs(orgId, db),
     listHumanHandledRefs(orgId, db),
     starsAvailable(orgId, db),
@@ -196,40 +205,56 @@ export async function listInboxPage(
   let items: ConversationView[];
   let total: number;
   let bounded: boolean;
+  let starred: Awaited<ReturnType<typeof listStarredRefs>>;
+  let human: Awaited<ReturnType<typeof listHumanHandledRefs>>;
+  let canStar: boolean;
 
-  if (filter === "starred") {
-    /**
-     * Starred conversations are fetched BY ID, never scanned.
-     *
-     * A star is most useful on something old — the conversation flagged last month is precisely
-     * the one a recent-window scan would miss, and a "Starred" filter that hides starred things
-     * is worse than no filter. Same reasoning as `handling: "human"` in `listConversationPage`.
-     */
-    const refs = Array.from(starred.refs);
-    if (refs.length === 0) {
-      return { ...EMPTY_PAGE, needsPersonCount: human.refs.size, canStar };
-    }
-    const fetched = await listConversationViews(orgId, { channel, ids: refs, limit: refs.length }, db);
-    const filtered = filterConversationViews(fetched, { search });
-    items = filtered.slice(offset, offset + limit);
-    total = filtered.length;
-    bounded = false;
-  } else {
-    const page = await listConversationPage(
-      orgId,
-      {
-        channel,
-        search,
-        handling: filter === "human" ? "human" : undefined,
-        humanHandledRefs: human.refs,
-        limit,
-        offset,
-      },
-      db
-    );
+  if (filter === "all") {
+    const [facetResult, page] = await Promise.all([
+      facets,
+      listConversationPage(orgId, { channel, search, limit, offset }, db),
+    ]);
+    [starred, human, canStar] = facetResult;
     items = page.items;
     total = page.total;
     bounded = page.bounded;
+  } else {
+    [starred, human, canStar] = await facets;
+
+    if (filter === "starred") {
+      /**
+       * Starred conversations are fetched BY ID, never scanned.
+       *
+       * A star is most useful on something old — the conversation flagged last month is precisely
+       * the one a recent-window scan would miss, and a "Starred" filter that hides starred things
+       * is worse than no filter. Same reasoning as `handling: "human"` in `listConversationPage`.
+       */
+      const refs = Array.from(starred.refs);
+      if (refs.length === 0) {
+        return { ...EMPTY_PAGE, needsPersonCount: human.refs.size, canStar };
+      }
+      const fetched = await listConversationViews(orgId, { channel, ids: refs, limit: refs.length }, db);
+      const filtered = filterConversationViews(fetched, { search });
+      items = filtered.slice(offset, offset + limit);
+      total = filtered.length;
+      bounded = false;
+    } else {
+      const page = await listConversationPage(
+        orgId,
+        {
+          channel,
+          search,
+          handling: "human",
+          humanHandledRefs: human.refs,
+          limit,
+          offset,
+        },
+        db
+      );
+      items = page.items;
+      total = page.total;
+      bounded = page.bounded;
+    }
   }
 
   const refs = items.map((c) => c.id);
