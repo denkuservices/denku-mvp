@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -21,8 +22,16 @@ export async function resolveActiveOrgId(): Promise<string | null> {
  * first of them (`lib/platform/reads.ts`): whether the owner has read a conversation says
  * nothing about their colleague. Those surfaces need both ids from the one auth round-trip, so
  * the resolution lives here rather than being re-implemented beside each of them.
+ *
+ * **Wrapped in React `cache`**, so a layout and the page inside it share ONE auth round-trip
+ * instead of two. `auth.getUser()` is an HTTP call to Supabase Auth rather than a token decode —
+ * it validates the session against the server — which makes it one of the slowest single things
+ * a dashboard request does, and it was being paid twice on every full page load.
  */
-export async function resolveViewer(): Promise<{ orgId: string | null; userId: string | null }> {
+export const resolveViewer = cache(async function resolveViewer(): Promise<{
+  orgId: string | null;
+  userId: string | null;
+}> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -40,4 +49,4 @@ export async function resolveViewer(): Promise<{ orgId: string | null; userId: s
     if (!error && data?.org_id) return { orgId: data.org_id, userId: user.id };
   }
   return { orgId: null, userId: user.id };
-}
+});

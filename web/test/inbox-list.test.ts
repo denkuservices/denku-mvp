@@ -230,3 +230,56 @@ describe("Inbox v2 — the split view", () => {
     expect(page).toMatch(/ContextRail/);
   });
 });
+
+/**
+ * WHY OPENING A CONVERSATION HAS TO BE ONE STAGE.
+ *
+ * Every read the conversation page needs is keyed by the id already in the URL, so none of them
+ * depends on another — but they used to run as a ladder: auth, then employee names, then the call,
+ * then its tickets, then its appointments, then the recording. Opening a conversation cost the SUM
+ * of those latencies instead of the longest, which is what made moving between conversations feel
+ * slow. Measured against production data on 2026-08-27: 1794ms → 501ms, 3.6x.
+ *
+ * These are structural assertions because the regression is structural: re-introducing a single
+ * `await` in the wrong place silently gives the latency back, and no unit test of behaviour would
+ * notice.
+ */
+describe("the conversation opens in one round-trip stage", () => {
+  const page = read("app/(app)/dashboard/inbox/[conversationId]/page.tsx");
+  const readModel = read("lib/platform/readModel/conversations.ts");
+
+  it("asks for the conversation, its handling, its star and its recording together", () => {
+    expect(page).toMatch(/await Promise\.all\(\[/);
+    expect(page).toMatch(/getConversationView\(orgId, conversationId\)/);
+    expect(page).toMatch(/getHandlingStateWithAvailability/);
+    expect(page).toMatch(/getStarWithAvailability/);
+    expect(page).toMatch(/getVoiceArtifacts/);
+  });
+
+  it("no longer pays a second query just to ask whether a table exists", () => {
+    // handlingAvailable() and starsAvailable() were HEAD counts answering what the read's own
+    // error already answers.
+    expect(page).not.toMatch(/handlingAvailable\(/);
+    expect(page).not.toMatch(/starsAvailable\(/);
+  });
+
+  it("fetches the call, the chat row and both artifact kinds in parallel", () => {
+    const fn = readModel.slice(readModel.indexOf("export async function getConversationView"));
+    expect(fn).toMatch(/await Promise\.all\(\[/);
+    // The old ladder awaited employeeNames before anything else could start.
+    expect(fn).not.toMatch(/const names = await employeeNames/);
+  });
+
+  it("asks Postgres for the recording path instead of dragging the whole payload over", () => {
+    const voice = read("lib/platform/readModel/voiceArtifacts.ts");
+    expect(voice).toMatch(/raw_payload->message->artifact->>recordingUrl/);
+    // 77KB per conversation opened, for one string.
+    expect(voice).not.toMatch(/\.select\("cost_usd, duration_seconds, raw_payload"\)/);
+  });
+
+  it("shares one auth round-trip between the layout and the page", () => {
+    const org = read("lib/platform/serverOrg.ts");
+    expect(org).toMatch(/import \{ cache \} from "react"/);
+    expect(org).toMatch(/export const resolveViewer = cache\(/);
+  });
+});

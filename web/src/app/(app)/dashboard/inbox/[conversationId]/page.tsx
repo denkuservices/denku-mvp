@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveViewer } from "@/lib/platform/serverOrg";
 import { getConversationView } from "@/lib/platform/readModel/conversations";
-import { getHandlingState, handlingAvailable, defaultHandling } from "@/lib/platform/handling";
-import { isStarred, starsAvailable } from "@/lib/platform/stars";
+import { getHandlingStateWithAvailability, defaultHandling } from "@/lib/platform/handling";
+import { getStarWithAvailability } from "@/lib/platform/stars";
 import { getVoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import ConversationThread from "../../_platform/conversation/ConversationThread";
 import ContextRail from "../../_platform/conversation/ContextRail";
@@ -39,24 +39,36 @@ export default async function ConversationDetailPage({
 
   const { conversationId } = await params;
   const { orgId } = await resolveViewer();
-  const detail = orgId ? await getConversationView(orgId, conversationId) : null;
+  if (!orgId) notFound();
+
+  /**
+   * One stage, not a ladder.
+   *
+   * These four reads have no dependency on each other — they are all keyed by the conversation id,
+   * which the URL already gave us — but they used to run one after another, so opening a
+   * conversation cost the SUM of their latencies rather than the longest of them. That is what
+   * made moving between conversations feel slow.
+   *
+   * The voice lookup is included unconditionally rather than gated on `detail.channel`, because
+   * checking the channel first would mean waiting for the conversation to come back — reinstating
+   * the ladder to save one small query. It answers null for anything that is not a voice call.
+   *
+   * Handling and stars are additive and inert until their migrations are applied; a failed read
+   * degrades those controls only, never the conversation.
+   */
+  const [detail, handlingState, starState, voice] = await Promise.all([
+    getConversationView(orgId, conversationId),
+    getHandlingStateWithAvailability(orgId, conversationId),
+    getStarWithAvailability(orgId, conversationId),
+    getVoiceArtifacts(orgId, conversationId),
+  ]);
 
   if (!detail) notFound();
 
-  // Handling and stars are additive and inert until their migrations are applied — the
-  // conversation must render either way, so a failed read degrades the controls only.
-  const [handling, controlsAvailable, starred, canStar] = orgId
-    ? await Promise.all([
-        getHandlingState(orgId, detail.id),
-        handlingAvailable(orgId),
-        isStarred(orgId, detail.id),
-        starsAvailable(orgId),
-      ])
-    : [defaultHandling(detail.id), false, false, false];
-
-  // Sprint 13: the recording and cost that used to live on the legacy call page. Voice only, and
-  // fetched separately so a chat conversation never pays for the lookup.
-  const voice = orgId && detail.channel === "voice" ? await getVoiceArtifacts(orgId, detail.id) : null;
+  const handling = handlingState?.state ?? defaultHandling(conversationId);
+  const controlsAvailable = handlingState?.available ?? false;
+  const starred = starState?.starred ?? false;
+  const canStar = starState?.available ?? false;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -74,7 +86,7 @@ export default async function ConversationDetailPage({
             detail={detail}
             handling={handling}
             handlingAvailable={controlsAvailable}
-            voice={voice}
+            voice={detail.channel === "voice" ? voice : null}
           />
         }
       />

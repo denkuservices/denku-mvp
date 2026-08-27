@@ -379,26 +379,22 @@ export async function listConversationPage(
 async function artifactsForCall(
   orgId: string,
   key: { call_id?: string; conversation_id?: string },
-  db: SupabaseClient
+  db: SupabaseClient = supabaseAdmin
 ): Promise<ArtifactRef[]> {
   const refs: ArtifactRef[] = [];
   const col = key.call_id ? "call_id" : "conversation_id";
   const val = key.call_id ?? key.conversation_id!;
   try {
-    const { data: tickets } = await db
-      .from("tickets")
-      .select("id, subject, status")
-      .eq("org_id", orgId)
-      .eq(col, val);
-    for (const t of (tickets ?? []) as Array<{ id: string; subject: string | null; status: string | null }>) {
+    // Both artifact kinds at once: they are independent lookups and waiting for one before
+    // asking for the other doubled the wall time of opening a conversation for no reason.
+    const [ticketRes, apptRes] = await Promise.all([
+      db.from("tickets").select("id, subject, status").eq("org_id", orgId).eq(col, val),
+      db.from("appointments").select("id, status, start_at").eq("org_id", orgId).eq(col, val),
+    ]);
+    for (const t of (ticketRes.data ?? []) as Array<{ id: string; subject: string | null; status: string | null }>) {
       refs.push({ id: t.id, type: "ticket", status: t.status, title: t.subject });
     }
-    const { data: appts } = await db
-      .from("appointments")
-      .select("id, status, start_at")
-      .eq("org_id", orgId)
-      .eq(col, val);
-    for (const a of (appts ?? []) as Array<{ id: string; status: string | null; start_at: string | null }>) {
+    for (const a of (apptRes.data ?? []) as Array<{ id: string; status: string | null; start_at: string | null }>) {
       refs.push({ id: a.id, type: "appointment", status: a.status, title: a.start_at });
     }
   } catch {
@@ -413,19 +409,39 @@ export async function getConversationView(
   db: SupabaseClient = supabaseAdmin
 ): Promise<ConversationDetailView | null> {
   if (!orgId || !id) return null;
-  const names = await employeeNames(orgId, db);
 
+  /**
+   * Everything this view needs, asked for at once.
+   *
+   * This used to be a ladder: fetch the employee names, then the call, then its tickets, then its
+   * appointments — five round trips end to end, each waiting on the one before, for data that has
+   * no dependency on any other. Opening a conversation cost the sum of those latencies, which is
+   * what made moving between conversations feel slow. The id is known up front and identifies the
+   * artifacts directly, so the whole set can be asked for in a single stage; the assembly below
+   * decides which store answered.
+   */
   try {
-    // 1) Voice (calls).
-    const { data: call } = await db
-      .from("calls")
-      .select(
-        "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, transcript, duration_seconds, direction, started_at, ended_at, created_at"
-      )
-      .eq("org_id", orgId)
-      .eq("id", id)
-      .maybeSingle<CallRow>();
+    const [names, callRes, convRes, artifactsByCall, artifactsByConversation] = await Promise.all([
+      employeeNames(orgId, db),
+      db
+        .from("calls")
+        .select(
+          "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, transcript, duration_seconds, direction, started_at, ended_at, created_at"
+        )
+        .eq("org_id", orgId)
+        .eq("id", id)
+        .maybeSingle<CallRow>(),
+      db
+        .from("conversations")
+        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at")
+        .eq("org_id", orgId)
+        .eq("id", id)
+        .maybeSingle<ConversationRow>(),
+      artifactsForCall(orgId, { call_id: id }, db),
+      artifactsForCall(orgId, { conversation_id: id }, db),
+    ]);
 
+    const call = callRes.data;
     if (call) {
       const base = callRowToConversationView(call, names.get(call.agent_id ?? "") ?? null);
       const turns: ConversationTurn[] = parseTranscriptTurns(call.transcript).map((t, i) => ({
@@ -436,20 +452,13 @@ export async function getConversationView(
         content: t.content,
         at: call.started_at,
       }));
-      const artifacts = await artifactsForCall(orgId, { call_id: call.id }, db);
-      return { ...base, turns, artifacts };
+      return { ...base, turns, artifacts: artifactsByCall };
     }
 
-    // 2) Chat (conversations).
-    const { data: conv } = await db
-      .from("conversations")
-      .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at")
-      .eq("org_id", orgId)
-      .eq("id", id)
-      .maybeSingle<ConversationRow>();
-
+    const conv = convRes.data;
     if (conv) {
       const base = conversationRowToConversationView(conv, names.get(conv.agent_id ?? "") ?? null);
+      // Messages are the one read that genuinely depends on knowing which store answered.
       const { data: msgs } = await db
         .from("messages")
         .select("id, role, content, direction, created_at")
@@ -470,8 +479,7 @@ export async function getConversationView(
         content: m.content,
         at: m.created_at,
       }));
-      const artifacts = await artifactsForCall(orgId, { conversation_id: conv.id }, db);
-      return { ...base, turns, artifacts };
+      return { ...base, turns, artifacts: artifactsByConversation };
     }
   } catch (err) {
     console.error("[PLATFORM][READMODEL][CONVERSATION_DETAIL]", err instanceof Error ? err.message : String(err));

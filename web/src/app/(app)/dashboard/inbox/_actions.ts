@@ -85,7 +85,13 @@ export async function setConversationHandlingAction(
   });
 
   if (res.ok) {
-    revalidatePath("/dashboard/inbox");
+    /**
+     * Only the conversation, not the whole Inbox.
+     *
+     * Revalidating "/dashboard/inbox" re-runs the layout — which fetches a page of rows — and the
+     * list is a client component holding its own state, so that output is discarded. It was work
+     * on every star and every takeover that changed nothing a viewer could see.
+     */
     revalidatePath(`/dashboard/inbox/${conversationRef}`);
   }
   return res;
@@ -120,7 +126,13 @@ export async function setConversationOptOutAction(
   });
 
   if (res.ok) {
-    revalidatePath("/dashboard/inbox");
+    /**
+     * Only the conversation, not the whole Inbox.
+     *
+     * Revalidating "/dashboard/inbox" re-runs the layout — which fetches a page of rows — and the
+     * list is a client component holding its own state, so that output is discarded. It was work
+     * on every star and every takeover that changed nothing a viewer could see.
+     */
     revalidatePath(`/dashboard/inbox/${conversationRef}`);
   }
   return res;
@@ -188,7 +200,13 @@ export async function setConversationStarAction(
   });
 
   if (res.ok) {
-    revalidatePath("/dashboard/inbox");
+    /**
+     * Only the conversation, not the whole Inbox.
+     *
+     * Revalidating "/dashboard/inbox" re-runs the layout — which fetches a page of rows — and the
+     * list is a client component holding its own state, so that output is discarded. It was work
+     * on every star and every takeover that changed nothing a viewer could see.
+     */
     revalidatePath(`/dashboard/inbox/${conversationRef}`);
   }
   return res;

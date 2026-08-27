@@ -96,6 +96,38 @@ export async function getHandlingState(
   return states.get(conversationRef) ?? defaultHandling(conversationRef);
 }
 
+/**
+ * One conversation's state AND whether the table answered — in a single round trip.
+ *
+ * `getHandlingState` + `handlingAvailable` asked the same table twice: once for the row, once for
+ * a HEAD count to tell "no row" apart from "no table". The error on the first read already
+ * distinguishes them, so the second query was a latency tax paid on every conversation opened.
+ */
+export async function getHandlingStateWithAvailability(
+  orgId: string,
+  conversationRef: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<{ state: HandlingState; available: boolean }> {
+  const fallback = { state: defaultHandling(conversationRef), available: false };
+  if (!orgId || !conversationRef) return fallback;
+
+  const { data, error } = await db
+    .from("conversation_handling")
+    .select(SELECT)
+    .eq("org_id", orgId)
+    .eq("conversation_ref", conversationRef)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[PLATFORM][HANDLING][GET][UNAVAILABLE]", { orgId, error: error.message });
+    return fallback;
+  }
+  return {
+    state: data ? toState(data as Record<string, unknown>) : defaultHandling(conversationRef),
+    available: true,
+  };
+}
+
 export interface HumanHandledRefs {
   refs: Set<string>;
   /** True when the cap was hit, so `refs.size` is a floor — surface it as "N+", never as N. */

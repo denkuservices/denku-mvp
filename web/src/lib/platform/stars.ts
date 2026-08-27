@@ -134,6 +134,31 @@ export async function setStar(
   return { ok: true };
 }
 
+/**
+ * Is this conversation starred, and can it be starred at all — in one round trip.
+ *
+ * Pairs with `getHandlingStateWithAvailability`: `isStarred` + `starsAvailable` were two queries
+ * against the same table asking one question between them, on the hot path of opening a
+ * conversation.
+ */
+export async function getStarWithAvailability(
+  orgId: string,
+  conversationRef: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<{ starred: boolean; available: boolean }> {
+  if (!orgId || !conversationRef) return { starred: false, available: false };
+
+  const { data, error } = await db
+    .from("conversation_stars")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("conversation_ref", conversationRef)
+    .maybeSingle();
+
+  if (error) return { starred: false, available: false };
+  return { starred: Boolean(data), available: true };
+}
+
 /** Whether one conversation is starred. Fails soft to `false`. */
 export async function isStarred(
   orgId: string,
