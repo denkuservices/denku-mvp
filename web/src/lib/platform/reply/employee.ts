@@ -11,7 +11,8 @@ import type { ReplyEmployee, ReplyTurn } from "@/lib/platform/reply/types";
  * must fall silent, not 500 into the provider's retry loop.
  */
 
-const AGENT_COLUMNS = "id, org_id, name, language, timezone, system_prompt_override, business_context";
+const AGENT_COLUMNS =
+  "id, org_id, name, language, timezone, first_message, system_prompt_override, business_context";
 
 /**
  * Resolve the AI Employee for a conversation.
@@ -40,6 +41,7 @@ export async function resolveReplyEmployee(
       name: string | null;
       language: string | null;
       timezone: string | null;
+      first_message: string | null;
       system_prompt_override: string | null;
       business_context: Record<string, unknown> | null;
     }>();
@@ -65,6 +67,7 @@ export async function resolveReplyEmployee(
       language: data.language,
       timezone: data.timezone,
       systemPromptOverride: data.system_prompt_override,
+      firstMessage: data.first_message,
       businessContext: data.business_context,
     };
   } catch (err) {

@@ -11,6 +11,7 @@ import { isPlausibleBotToken, describeToken } from "@/lib/telegram/api";
 import { telegramWebhookUrl } from "@/lib/telegram/webhookUrl";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
 import { tidyReply, localNow } from "@/lib/platform/reply/engine";
+import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
 import { evaluateReadiness } from "@/lib/launch/checks";
 import type { ReplyEmployee } from "@/lib/platform/reply/types";
 
@@ -173,6 +174,7 @@ describe("chat system prompt", () => {
     language: "en",
     timezone: "America/New_York",
     systemPromptOverride: null,
+    firstMessage: null,
     businessContext: { businessName: "Bright Dental", openingHours: "Mon–Fri 9–6", services: "Cleanings, whitening" },
   };
 
@@ -276,5 +278,53 @@ describe("readiness — the encryption-key trap this project actually fell into"
     const c = find({ TELEGRAM_WEBHOOK_BASE_URL: "https://www.denku.io" }, "telegram_reply_model");
     expect(c.status).toBe("warn");
     expect(c.detail).toContain("stay silent");
+  });
+});
+
+describe("the opening command — what a new customer sees first", () => {
+  const employee: ReplyEmployee = {
+    id: "a1",
+    name: "Denku",
+    orgId: "org-1",
+    orgName: "Bright Dental",
+    language: "en",
+    timezone: null,
+    systemPromptOverride: null,
+    firstMessage: null,
+    businessContext: null,
+  };
+
+  it("recognizes /start in the forms Telegram sends it", () => {
+    expect(isOpeningCommand("/start")).toBe(true);
+    expect(isOpeningCommand("  /start  ")).toBe(true);
+    expect(isOpeningCommand("/start ref_123")).toBe(true);
+    expect(isOpeningCommand("/start@bright_dental_bot")).toBe(true);
+    expect(isOpeningCommand("/starting a business")).toBe(false);
+    expect(isOpeningCommand("hello")).toBe(false);
+    expect(isOpeningCommand("can I /start over?")).toBe(false);
+  });
+
+  it("greets with the business's own name when nothing is configured", () => {
+    expect(greetingFor(employee, null)).toBe("Hi — this is Denku at Bright Dental. How can I help?");
+    expect(greetingFor(employee, "Max")).toContain("Hi Max");
+  });
+
+  it("uses the employee's configured opening line", () => {
+    const g = greetingFor({ ...employee, firstMessage: "Hey! What can we get you today?" }, null);
+    expect(g).toBe("Hey! What can we get you today?");
+  });
+
+  it("refuses a phone greeting in a chat thread", () => {
+    // Owners write first_message for the phone. "Thanks for calling" in Telegram tells the
+    // customer they are on a call they are not on.
+    for (const voiceLine of [
+      "Thanks for calling Bright Dental!",
+      "You've reached us by phone, please hold",
+      "Thank you for your call",
+    ]) {
+      const g = greetingFor({ ...employee, firstMessage: voiceLine }, null);
+      expect(g).not.toBe(voiceLine);
+      expect(g).toContain("Bright Dental");
+    }
   });
 });

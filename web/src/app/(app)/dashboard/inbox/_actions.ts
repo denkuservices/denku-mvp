@@ -6,6 +6,7 @@ import { setHandlingState, type HandlingMode, type ConversationSource } from "@/
 import { isKnownChannel, type Channel } from "@/lib/platform/channels";
 import { setStar } from "@/lib/platform/stars";
 import { markRead } from "@/lib/platform/reads";
+import { sendHumanReply } from "@/lib/platform/reply/humanReply";
 import {
   listInboxPage,
   INBOX_PAGE_SIZE,
@@ -235,4 +236,43 @@ export async function markConversationReadAction(
     conversationRef,
     source: valid.source,
   });
+}
+
+/**
+ * Answer a customer yourself, from the Inbox.
+ *
+ * Deliberately available to **any org member**, like takeover: the people answering customers are
+ * usually not the admins who connected the channel.
+ *
+ * Only chat conversations sourced from `conversations` can be replied to — a voice conversation is
+ * a phone call that already ended, and its `conversationRef` is a `calls` row with no thread to
+ * send into. `sendHumanReply` enforces the rest (the channel must actually have a transport) and
+ * flips the conversation to human handling so the AI stops answering over the person.
+ */
+export async function sendInboxReplyAction(
+  conversationRef: string,
+  source: string,
+  channel: string,
+  text: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const valid = validate(conversationRef, source, channel);
+  if (!valid.ok) return { ok: false, error: valid.error };
+  if (valid.source !== "conversations") {
+    return { ok: false, error: "This was a phone call — there is nothing to reply to." };
+  }
+
+  const res = await sendHumanReply({
+    orgId: auth.orgId,
+    conversationId: conversationRef,
+    channel: valid.channel,
+    text,
+    userId: auth.userId,
+  });
+
+  // The thread gained a message and the handling state changed; the list did not.
+  if (res.ok) revalidatePath(`/dashboard/inbox/${conversationRef}`);
+  return res;
 }

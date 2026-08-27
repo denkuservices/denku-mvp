@@ -5,6 +5,8 @@ import { getConversationView } from "@/lib/platform/readModel/conversations";
 import { getHandlingStateWithAvailability, defaultHandling } from "@/lib/platform/handling";
 import { getStarWithAvailability } from "@/lib/platform/stars";
 import { getVoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
+import { canReplyOn } from "@/lib/platform/transports/registry";
+import { resolveOutboundTarget } from "@/lib/platform/reply/humanReply";
 import ConversationThread from "../../_platform/conversation/ConversationThread";
 import ContextRail from "../../_platform/conversation/ContextRail";
 import ThreadHeader from "../_components/ThreadHeader";
@@ -56,11 +58,15 @@ export default async function ConversationDetailPage({
    * Handling and stars are additive and inert until their migrations are applied; a failed read
    * degrades those controls only, never the conversation.
    */
-  const [detail, handlingState, starState, voice] = await Promise.all([
+  const [detail, handlingState, starState, voice, outboundTarget] = await Promise.all([
     getConversationView(orgId, conversationId),
     getHandlingStateWithAvailability(orgId, conversationId),
     getStarWithAvailability(orgId, conversationId),
     getVoiceArtifacts(orgId, conversationId),
+    // Whether a reply can physically leave — joins this stage rather than running after the
+    // conversation comes back, for the same reason the voice lookup does. It answers null for a
+    // voice call, whose ref is a `calls` row with no thread to send into.
+    resolveOutboundTarget(orgId, conversationId),
   ]);
 
   if (!detail) notFound();
@@ -69,6 +75,15 @@ export default async function ConversationDetailPage({
   const controlsAvailable = handlingState?.available ?? false;
   const starred = starState?.starred ?? false;
   const canStar = starState?.available ?? false;
+
+  /**
+   * The composer is live only when a reply would actually arrive: the channel must have a
+   * transport (registry-derived, so a new channel enables it with no edit here) AND this
+   * conversation must have a reply address recorded by its webhook. Both halves are required —
+   * a channel that can send in principle is no use if this particular thread has nowhere to go.
+   */
+  const canSend =
+    detail.source === "conversations" && canReplyOn(detail.channel) && Boolean(outboundTarget);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -95,7 +110,13 @@ export default async function ConversationDetailPage({
         <ConversationThread turns={detail.turns} />
       </div>
 
-      <Composer channel={detail.channel} />
+      <Composer
+        channel={detail.channel}
+        conversationRef={detail.id}
+        source={detail.source}
+        canSend={canSend}
+        handledByHuman={handling.handling === "human"}
+      />
 
       {/* Opening a conversation is what marks it read. */}
       <MarkRead conversationRef={detail.id} source={detail.source} channel={detail.channel} />

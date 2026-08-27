@@ -199,8 +199,29 @@ describe("Inbox v2 — the split view", () => {
     const composer = read("app/(app)/dashboard/inbox/_components/Composer.tsx");
     expect(composer).toMatch(/disabled/);
     expect(composer).toMatch(/meta\.label/);
-    // No submit path exists at all — the control is inert, not merely styled as inert.
-    expect(composer).not.toMatch(/onSubmit|onClick=\{/);
+
+    /**
+     * The composer used to have no submit path at all, and this test asserted that. Telegram
+     * gave it one, so the assertion moved to the invariant that actually matters and did not
+     * change: **the send path is gated on a server-resolved `canSend`**, never on the component
+     * deciding for itself from the channel name. The page computes it from a real transport plus
+     * a real reply address, so an outbound-capable channel with nowhere to send stays inert.
+     */
+    expect(composer).toMatch(/canSend/);
+    expect(composer).toMatch(/disabled=\{!canSend/);
+    // Every interactive control is behind it — no path sends without the server's answer.
+    for (const guarded of [/if \(!body \|\| pending\) return;/, /!canSend \|\| pending/]) {
+      expect(composer).toMatch(guarded);
+    }
+  });
+
+  it("tells the sender that replying takes the conversation over, before they send", () => {
+    // A human and their AI answering the same customer seconds apart is the failure that makes a
+    // shared inbox worse than none. The takeover is real (see reply/humanReply.ts); the composer
+    // must say so up front rather than surprising the sender afterwards.
+    const composer = read("app/(app)/dashboard/inbox/_components/Composer.tsx");
+    expect(composer).toMatch(/takes this conversation over/i);
+    expect(composer).toMatch(/handledByHuman/);
   });
 
   it("builds its channel chips from the registry, so a new channel needs no edit here", () => {

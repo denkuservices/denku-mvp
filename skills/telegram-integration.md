@@ -144,6 +144,37 @@ real conversation end to end: message received → reply sent → an appointment
 the owner emailed → all of it visible in the Inbox. Same standard D0 applied to voice, which is
 how eight real bugs were found by running the thing rather than reading it.
 
+## Replying by hand, and what it costs the AI
+
+The Inbox composer is live wherever a reply can actually be delivered — `canReplyOn(channel)` AND
+a reply address recorded on the conversation. Both halves, because a channel that can send in
+principle is no use if this particular thread has nowhere to go. The page resolves it server-side
+and hands the component a boolean; the composer never decides from the channel name.
+
+**A human message takes the conversation over.** `sendHumanReply` flips
+`conversation_handling.handling` to `"human"`, and `respondToInbound` refuses to generate while it
+stays there — otherwise the owner and their AI answer the same customer seconds apart, possibly
+contradicting each other, which is the failure that makes a shared inbox worse than no shared
+inbox. Handing back is deliberate, from the takeover control in the context rail: "the human went
+quiet" and "the human is done" are indistinguishable from the server. The customer's own
+`automation_opted_out` is honoured in the same read.
+
+Human and AI messages are both `role: assistant, direction: outbound`; `meta.generated`
+distinguishes them (`false` + `sent_by` for a person), so a teammate reading back can tell their
+colleague's words from the AI's.
+
+## `/start` is answered without a model
+
+On Telegram `/start` is not typed, it is the button that opens the bot. In the first live test it
+produced **silence** — the model was asked what to say to the literal string "/start" and returned
+nothing useful, so a new customer saw an empty chat until they typed again. It is now answered
+deterministically from `greeting.ts`, which also saves a billed call per new customer.
+
+The greeting prefers the employee's configured `first_message`, **unless that line describes a
+phone call** ("Thanks for calling…"), because owners write that field for the phone and printing
+it into Telegram tells the customer they are on a call they are not on. In that case the
+business's own name carries the greeting instead.
+
 ## Known gaps (deliberate, filed)
 
 - **No idle-conversation guarantee.** Voice creates an artifact when a call *ends*; a chat never
@@ -152,4 +183,3 @@ how eight real bugs were found by running the thing rather than reading it.
 - **Receive-only for attachments.** A photo's caption becomes the message; the photo is dropped.
 - **No group-chat product story.** Groups normalize correctly but nobody has decided what an AI
   Employee should do in one.
-- **`/start` has no special handling** — it arrives as the text "/start" and the model answers it.

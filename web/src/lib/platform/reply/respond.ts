@@ -7,7 +7,9 @@ import { appendMessage } from "@/lib/platform/conversations";
 import { canReplyOn, getTransport } from "@/lib/platform/transports/registry";
 import { contactDisplayName, loadHistory, resolveReplyEmployee } from "@/lib/platform/reply/employee";
 import { generateReply } from "@/lib/platform/reply/engine";
+import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
+import { getHandlingState } from "@/lib/platform/handling";
 import type { ReplyResult } from "@/lib/platform/reply/types";
 
 /**
@@ -53,6 +55,28 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
     const transport = getTransport(input.channel);
     if (!transport) return { ...silent, reason: "no_transport" };
 
+    /**
+     * A person has this conversation — the AI does not speak over them.
+     *
+     * Without this check, an owner who takes over from the Inbox would be answering a customer at
+     * the same time as their own AI, seconds apart, possibly contradicting each other. That is the
+     * failure that makes a shared inbox worse than no shared inbox, and it costs one read to
+     * avoid. The customer's own opt-out from automated handling is honoured here too, for the same
+     * one read.
+     *
+     * Handing back is deliberate, from the takeover control — never automatic on a timer, because
+     * "the human went quiet" and "the human is done" look identical from here.
+     */
+    const handling = await getHandlingState(input.orgId, input.conversationId, db);
+    if (handling.handling === "human") {
+      console.info("[REPLY][HELD][HUMAN]", { org_id: input.orgId, conversation_id: input.conversationId });
+      return { ...silent, reason: "human_handling" };
+    }
+    if (handling.automationOptedOut) {
+      console.info("[REPLY][HELD][OPTED_OUT]", { org_id: input.orgId, conversation_id: input.conversationId });
+      return { ...silent, reason: "automation_opted_out" };
+    }
+
     const employee = await resolveReplyEmployee(input.orgId, input.agentId, db);
     if (!employee) return { ...silent, reason: "no_employee" };
 
@@ -72,19 +96,23 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
       contactDisplayName(input.orgId, input.contactId, db),
     ]);
 
-    const result = await generateReply(
-      {
-        orgId: input.orgId,
-        conversationId: input.conversationId,
-        contactId: input.contactId,
-        channel: input.channel,
-        employee,
-        history,
-        incoming: input.incoming,
-        contactName,
-      },
-      db
-    );
+    // "I just opened this bot" is answered with the greeting, not with a model. See greeting.ts —
+    // in the first live test /start produced silence, which is what a new customer saw first.
+    const result: ReplyResult = isOpeningCommand(input.incoming)
+      ? { ok: true, text: greetingFor(employee, contactName), artifacts: [] }
+      : await generateReply(
+          {
+            orgId: input.orgId,
+            conversationId: input.conversationId,
+            contactId: input.contactId,
+            channel: input.channel,
+            employee,
+            history,
+            incoming: input.incoming,
+            contactName,
+          },
+          db
+        );
 
     if (!result.text) {
       console.warn("[REPLY][SILENT]", {

@@ -18,6 +18,8 @@ export interface ReplyEmployee {
   timezone: string | null;
   /** The derived voice-side prompt, when the customer wrote one. */
   systemPromptOverride: string | null;
+  /** The employee's configured opening line — what the voice AI says when it picks up. */
+  firstMessage: string | null;
   businessContext: Record<string, unknown> | null;
 }
 
