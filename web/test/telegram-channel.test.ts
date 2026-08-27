@@ -12,6 +12,7 @@ import { telegramWebhookUrl } from "@/lib/telegram/webhookUrl";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
 import { tidyReply, localNow } from "@/lib/platform/reply/engine";
 import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
+import { shouldRescue, fallbackText } from "@/lib/platform/reply/fallback";
 import { evaluateReadiness } from "@/lib/launch/checks";
 import type { ReplyEmployee } from "@/lib/platform/reply/types";
 
@@ -332,5 +333,35 @@ describe("the opening command — what a new customer sees first", () => {
       expect(g).not.toBe(voiceLine);
       expect(g).toContain("Bright Dental");
     }
+  });
+});
+
+describe("when the model fails — silence vs a real handover", () => {
+  it("rescues the failures where we are alive and dropped the message", () => {
+    // This is the case that happened: the call timed out, the AI said nothing, and the customer
+    // asked again two minutes later.
+    expect(shouldRescue("llm_error")).toBe(true);
+    expect(shouldRescue("empty_completion")).toBe(true);
+  });
+
+  it("stays silent where silence is the honest answer", () => {
+    // Nobody is home, or someone else is answering — a fabricated "we'll get back to you" would
+    // be worse than an obviously unanswered message.
+    for (const reason of ["no_llm_provider", "rate_limited", "human_handling", "automation_opted_out"]) {
+      expect(shouldRescue(reason)).toBe(false);
+    }
+    expect(shouldRescue(undefined)).toBe(false);
+  });
+
+  it("apologises in the business's own language, never in the model's absence guessing one", () => {
+    const base: ReplyEmployee = {
+      id: "a1", name: "Denku", orgId: "o", orgName: "Bright Dental",
+      language: null, timezone: null, systemPromptOverride: null, firstMessage: null, businessContext: null,
+    };
+    expect(fallbackText(base)).toMatch(/couldn't process/i);
+    expect(fallbackText({ ...base, language: "es" })).toMatch(/Lo siento/);
+    expect(fallbackText({ ...base, language: "en-GB" })).toMatch(/couldn't process/i);
+    // An unsupported language falls back to English rather than to nothing.
+    expect(fallbackText({ ...base, language: "tr" })).toMatch(/couldn't process/i);
   });
 });

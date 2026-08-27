@@ -47,7 +47,11 @@ export type ReplyArtifact = { type: "ticket" | "appointment"; id: string };
 
 export interface ReplyResult {
   ok: boolean;
-  /** What to send back. Null means: say nothing (rate-limited, or no model configured). */
+  /**
+   * What to send back. Null means: say nothing — the model is not configured, a person is
+   * handling this, the customer opted out, or the spend guard tripped. A null from a *transient*
+   * failure is rescued upstream into a real handover rather than sent as silence (fallback.ts).
+   */
   text: string | null;
   artifacts: ReplyArtifact[];
   /** Why there is no text, for logs — never shown to a customer. */

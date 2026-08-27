@@ -8,6 +8,7 @@ import { canReplyOn, getTransport } from "@/lib/platform/transports/registry";
 import { contactDisplayName, loadHistory, resolveReplyEmployee } from "@/lib/platform/reply/employee";
 import { generateReply } from "@/lib/platform/reply/engine";
 import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
+import { rescueFailedReply, shouldRescue } from "@/lib/platform/reply/fallback";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
 import { getHandlingState } from "@/lib/platform/handling";
 import type { ReplyResult } from "@/lib/platform/reply/types";
@@ -119,6 +120,30 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
           },
           db
         );
+
+    /**
+     * A model that failed is not a reason to leave a customer unanswered.
+     *
+     * Silence is right when nobody is home — no model configured, the conversation is being
+     * handled by a person, the customer opted out, the spend guard tripped. It is wrong when we
+     * are alive and simply dropped their message: that happened on a real conversation, and the
+     * customer had to ask again two minutes later. Those failures are rescued into a real
+     * handover — the ticket is created BEFORE the sentence promising one is sent.
+     */
+    if (!result.text && shouldRescue(result.reason)) {
+      const rescued = await rescueFailedReply({
+        orgId: input.orgId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+        employee,
+        incoming: input.incoming,
+        db,
+      });
+      if (rescued.text) {
+        result.text = rescued.text;
+        result.artifacts = rescued.artifacts;
+      }
+    }
 
     if (!result.text) {
       console.warn("[REPLY][SILENT]", {

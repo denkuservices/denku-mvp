@@ -24,7 +24,18 @@ import type { ReplyArtifact, ReplyRequest, ReplyResult } from "@/lib/platform/re
  * rather than sending an apology written by an error handler.
  */
 
-const LLM_TIMEOUT_MS = 12000;
+/**
+ * One attempt's budget, and one retry.
+ *
+ * Measured on production, a model call answers in 0.7–1.7s — so a call still running at eight
+ * seconds is not slow, it is stuck, and waiting longer only makes the customer wait longer. The
+ * retry exists because a real timeout happened on a real conversation and the customer got
+ * silence: transient failures are common enough that not retrying once is a choice to fail.
+ *
+ * Worst case is two windows, which is still less than the single 12s budget this replaced plus
+ * the re-ask it forced out of the customer.
+ */
+const LLM_TIMEOUT_MS = 8000;
 const MAX_REPLY_CHARS = 1200;
 
 /**
@@ -114,9 +125,37 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
   const client = new OpenAI({
     apiKey: provider.apiKey,
     baseURL: provider.baseURL,
+    // The SDK's own retry is disabled so the retry policy is ours: it applies only to failures
+    // worth retrying, and only once, rather than silently multiplying every call's latency.
     maxRetries: 0,
     timeout: LLM_TIMEOUT_MS,
   });
+
+  /**
+   * Retry once, and only what is worth retrying.
+   *
+   * A timeout or a network blip is transient — the same request usually succeeds immediately
+   * after. A 4xx is us: a bad key, a malformed request, a model that no longer exists. Retrying
+   * that just doubles the wait before the same failure.
+   */
+  async function withOneRetry<T>(
+    label: string,
+    run: () => Promise<T>
+  ): Promise<T> {
+    try {
+      return await run();
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const transient = status === undefined || status === 408 || status === 429 || status >= 500;
+      if (!transient) throw err;
+      console.warn("[REPLY][LLM][RETRY]", {
+        org_id: req.orgId,
+        stage: label,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      return await run();
+    }
+  }
 
   const system = buildChatSystemPrompt({
     employee: req.employee,
@@ -140,13 +179,15 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
 
   try {
     const tLlm1 = Date.now();
-    const first = await client.chat.completions.create({
-      model: provider.model,
-      temperature: 0.3,
-      max_tokens: 400,
-      messages,
-      tools: CHAT_TOOL_DEFINITIONS,
-    });
+    const first = await withOneRetry("first", () =>
+      client.chat.completions.create({
+        model: provider.model,
+        temperature: 0.3,
+        max_tokens: 400,
+        messages,
+        tools: CHAT_TOOL_DEFINITIONS,
+      })
+    );
     mark.llm1 = since(tLlm1);
 
     const choice = first.choices?.[0]?.message;
@@ -210,14 +251,16 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
     ];
 
     const tLlm2 = Date.now();
-    const second = await client.chat.completions.create({
-      model: provider.model,
-      temperature: 0.3,
-      max_tokens: 160,
-      messages: secondPass,
-      // No tools on the second pass: its job is to speak, and offering the tools again is what
-      // turns "book it" into a loop that books it four times.
-    });
+    const second = await withOneRetry("second", () =>
+      client.chat.completions.create({
+        model: provider.model,
+        temperature: 0.3,
+        max_tokens: 160,
+        messages: secondPass,
+        // No tools on the second pass: its job is to speak, and offering the tools again is what
+        // turns "book it" into a loop that books it four times.
+      })
+    );
 
     mark.llm2 = since(tLlm2);
     console.info("[REPLY][TIMING]", {

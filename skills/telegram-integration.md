@@ -113,11 +113,33 @@ limiter is the database: **30 outbound messages per conversation per hour**, cou
 `messages`. Enough that no real customer notices; low enough that a script pointed at a customer's
 bot cannot run up a model bill overnight. R-030 (a real distributed limiter) is still open.
 
-### When the AI stays silent
+### When the AI stays silent, and when silence would be a bug
 
-No model configured, rate limit hit, empty completion, or an LLM error ⇒ **nothing is sent**. A
-canned "we'll get back to you" from a channel the owner believes is answered by AI is worse than
-an obviously unanswered message. Every silence logs `[REPLY][SILENT]` with a reason.
+The original rule was "any failure ⇒ send nothing", on the grounds that a canned "we'll get back
+to you" is worse than an obviously unanswered message. A live conversation proved that rule is
+right for one half of the cases and wrong for the other: a model call timed out, the AI said
+**nothing**, and the customer asked again two minutes later.
+
+| Reason | Outcome |
+|---|---|
+| `no_llm_provider`, `rate_limited`, `human_handling`, `automation_opted_out` | **Silence.** Nobody is home, or someone else is answering. Pretending otherwise is the lie. |
+| `llm_error`, `empty_completion` | **Rescued** (`fallback.ts`). We are alive and dropped their message. |
+
+A rescue is not an apology with nothing behind it: it **creates the ticket first**, so a person
+really does follow up and the owner really is emailed, and only then says so. If the database
+fails too, it goes back to silence — a promise nothing can keep is the thing the prompt forbids
+the model to make, and the failure path is held to the same standard.
+
+The apology is written in the business's configured language rather than translated by the model,
+because the model is what just failed. A customer writing in a third language gets a sentence they
+may have to translate — poor, and still far better than no reply. If that becomes common the fix
+is a per-employee fallback line in settings, never a model call on the failure path.
+
+Every reply also carries **one retry** on a transient failure (timeout, 429, 5xx) and none on a
+4xx, which is us rather than the network. The per-attempt budget is 8s, chosen against the
+measured 0.7–1.7s: a call still running at eight seconds is stuck, not slow.
+
+Every silence logs `[REPLY][SILENT]` with its reason; every rescue logs `[REPLY][RESCUE][TICKET]`.
 
 ## Contacts — the one channel where P3 solves itself
 
@@ -143,19 +165,27 @@ Measured on production 2026-08-27, from the customer's send to our reply landing
 Vercel function region was moved to `pdx1` (beside the Oregon database — before that a plain
 reply took 6–9s):
 
-| Reply | Time |
-|---|---|
-| Plain answer (1 model call) | **~3.5s** |
-| Booked / updated an appointment (2 model calls) | **14–16s** |
+| Reply | Before | After |
+|---|---|---|
+| Plain answer (1 model call) | ~3.5s | **~4s** |
+| Booked / updated an appointment (2 model calls) | 14–16s | **~3.9s** |
 
-The tool path costs four times a plain reply because the model is asked **twice**: once to decide
-and call the tool, then again purely to write the sentence the customer reads. That second call is
-avoidable — after `create_appointment` runs we already know the time and whether it was created or
-corrected, which is the whole content of the confirmation. `/start` already proves the pattern
-(`greeting.ts`): the reply that is always the same sentence should not cost a model call.
+Stage timings now come from a `[REPLY][TIMING]` log line rather than an inference. Measured after
+the fix: `llm1` 0.7–1.7s, tool execution 0.1–0.2s, `llm2` 0.7–1.1s, total inside the engine
+**1.6–2.6s**; the rest of the end-to-end is the webhook, the Telegram round trip and the write.
 
-Not yet done. It is a quality problem rather than a correctness one, which is why it did not block
-`productionReady`.
+The second model call — whose only job is to say what just happened — was being handed the entire
+20-turn history and a 400-token budget for one sentence. It now gets the system prompt, the last
+four turns and the tool result, at 160 tokens.
+
+**The four recent turns are not decoration:** they are what tells the model which language the
+customer is writing in. The live test answered a Turkish customer in Turkish, and replacing the
+call with a deterministic confirmation string would have traded that away for the same seconds.
+That is why the call was made lean rather than deleted — `/start` (`greeting.ts`) is deterministic
+precisely because its sentence never varies.
+
+Two pre-model stages that never depended on each other also now run together: the handling check
+beside the employee lookup, and the agent row beside the org name.
 
 ## `productionReady` — flipped 2026-08-27, on evidence
 
