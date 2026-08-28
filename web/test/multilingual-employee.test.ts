@@ -234,3 +234,38 @@ describe("the primary language is never offered as an extra", () => {
     expect(payload.additional_languages).toEqual(["en"]);
   });
 });
+
+/**
+ * The control has to look like a control (2026-08-28).
+ *
+ * It shipped as toggle pills. With two supported languages that rendered as a single grey word
+ * under a heading, and nothing about it said it could be clicked — the owner who asked for the
+ * feature could not work out how to turn it on. Pills are for showing state; a checkbox is the
+ * one control everybody already reads as "tick this to include it".
+ */
+describe("adding a language is obviously a thing you can do", () => {
+  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+  const form = read("src/app/(app)/dashboard/_platform/team/SetupForm.tsx");
+
+  it("is a checkbox, not a pill that looks like a badge", () => {
+    expect(form).toMatch(/type="checkbox"/);
+    expect(form).not.toMatch(/aria-pressed/);
+  });
+
+  it("makes the whole row clickable, not just the box", () => {
+    expect(form).toMatch(/<label[\s\S]{0,1200}type="checkbox"/);
+    expect(form).toMatch(/cursor-pointer/);
+  });
+
+  it("says what ticking one does, naming the primary language", () => {
+    expect(form).toMatch(/Tick any language it should answer in besides \$\{primaryLanguageLabel\}/);
+  });
+
+  it("describes the off state too, so an empty section reads as a choice", () => {
+    expect(form).toMatch(/Right now it only speaks \$\{primaryLanguageLabel\}/);
+  });
+
+  it("still cannot offer the primary language as an extra", () => {
+    expect(form).toMatch(/opt\.code !== toLanguageCode\(form\.language\)/);
+  });
+});

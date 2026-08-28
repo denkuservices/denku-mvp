@@ -188,21 +188,39 @@ export default function SetupForm({
           */}
           <Field
             label="Also understands"
-            hint="Callers who speak these get answered in their own language."
+            hint={`Tick any language it should answer in besides ${primaryLanguageLabel}.`}
           >
-            <div className="flex flex-wrap gap-2">
+            {/*
+              Checkboxes, not toggle pills.
+
+              The pills that were here read as status badges rather than controls — with two
+              supported languages the whole section rendered as a lone grey word, and nothing said
+              it could be clicked. A checkbox is the one control every person already knows means
+              "tick this to include it", and the whole row is the hit area.
+            */}
+            <div className="space-y-2">
               {ADDITIONAL_LANGUAGE_OPTIONS.filter(
                 (opt) => opt.code !== toLanguageCode(form.language)
-              ).map(
-                (opt) => {
-                  const on = form.additionalLanguages.includes(opt.code);
-                  return (
-                    <button
-                      key={opt.code}
-                      type="button"
+              ).map((opt) => {
+                const on = form.additionalLanguages.includes(opt.code);
+                return (
+                  <label
+                    key={opt.code}
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition ${
+                      paused
+                        ? "cursor-not-allowed opacity-50"
+                        : "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                    } ${
+                      on
+                        ? "border-brand-500 bg-brand-50/60 dark:border-brand-400 dark:bg-brand-500/10"
+                        : "border-gray-200 dark:border-white/10"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
                       disabled={paused}
-                      aria-pressed={on}
-                      onClick={() =>
+                      onChange={() =>
                         set(
                           "additionalLanguages",
                           on
@@ -210,27 +228,24 @@ export default function SetupForm({
                             : [...form.additionalLanguages, opt.code]
                         )
                       }
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                        on
-                          ? "bg-brand-500 text-white"
-                          : "border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                }
-              )}
+                      className="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-500 focus:ring-brand-500 disabled:cursor-not-allowed dark:border-white/20 dark:bg-navy-900"
+                    />
+                    <span className="text-sm text-navy-700 dark:text-white">{opt.label}</span>
+                  </label>
+                );
+              })}
             </div>
-            {form.additionalLanguages.length > 0 ? (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                It starts every call in {primaryLanguageLabel} and switches if the caller speaks{" "}
-                {form.additionalLanguages
-                  .map((c) => LANGUAGES[c as keyof typeof LANGUAGES]?.label ?? c)
-                  .join(" or ")}
-                .
-              </p>
-            ) : null}
+            {/*
+              Say the resulting behaviour in both states. "Nothing ticked" is a real answer an
+              owner chose, and leaving it blank made the control look unfinished rather than off.
+            */}
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {form.additionalLanguages.length > 0
+                ? `It starts every call in ${primaryLanguageLabel} and switches if the caller speaks ${form.additionalLanguages
+                    .map((c) => LANGUAGES[c as keyof typeof LANGUAGES]?.label ?? c)
+                    .join(" or ")}.`
+                : `Right now it only speaks ${primaryLanguageLabel}.`}
+            </p>
           </Field>
 
           <Field label="Timezone" hint="Used when it talks about your hours.">
