@@ -256,6 +256,54 @@ channel solves P3 for itself), the owner got an email, and the thread is readabl
 Web Chat still needs R-030 first; SMS is last because A2P 10DLC registration takes weeks — start
 that paperwork early if SMS matters.
 
+### P5 — Contact recall · **code written 2026-08-28, blocked on two operator steps**
+
+The AI knowing a returning customer. Spec: **[docs/CONTACT_RECALL_SPEC.md](docs/CONTACT_RECALL_SPEC.md)**
+(R-139). Chat already works — `resolveRecall` runs beside the history load and the facts reach the
+prompt, so a returning Telegram customer is greeted by name with their own next appointment, with
+no verification turn (that channel's identity is strong). **Voice is written but not reachable**,
+because its half is a Vapi tool and a Vapi tool's definition lives in the Vapi account, not here.
+
+The rule the whole feature turns on: **the verification question must not contain the answer.**
+"Am I speaking with Jack?" tells whoever picked up that the number belongs to Jack, before they
+answer and regardless of what they answer. The tool description must instruct the open form.
+
+**P5.1 — Create the `identify_caller` tool in the Vapi account.** *(operator, ~10 min)*
+
+- Name it `identify_caller`; server URL is the same `/api/tools` base the other two use.
+- One body parameter: `name` (string, required) — what the caller said when asked who they are.
+- Headers, exactly as the other two tools send them: `x-denku-secret`, `x-vapi-call-id`
+  (`{{call.id}}`), `x-vapi-customer-number` (`{{customer.number}}`).
+- **The description is the security control, not decoration.** It must tell the assistant to ask
+  *"Who am I speaking with?"* and never to say a name first, and to call this tool once, early,
+  with whatever the caller answered.
+- The handler's full contract is written at the top of
+  `web/src/app/api/tools/identify-caller/route.ts` — three bookings were lost to a Vapi definition
+  and its handler drifting apart, so change them together.
+
+**P5.2 — Register the tool id and reconcile.** *(after P5.1)*
+
+- Add the id Vapi returns to `DENKU_TOOL_IDS` in `web/src/lib/vapi/assistantConfig.ts`.
+  ⚠️ Not done in the recall commit on purpose: that file was in flight in another session, and the
+  id does not exist until P5.1 is done.
+- Run `POST /api/internal/reconcile-vapi-assistants` so existing assistants pick the tool up —
+  `ensureAssistantConfig` merges `toolIds`, it never replaces them.
+
+**Then verify on a real call, in this order** (spec §10 — the first one is the security property):
+
+1. Ring from a **known number** and give the **wrong** name. The AI must disclose **nothing** — no
+   name, no appointment, and it must not say "I have no record of you" either.
+2. Ring from the same number and give the **right** name. It should greet you and know your own
+   next appointment.
+3. Message the Telegram bot as a returning contact — recall should appear with **no** verification
+   turn at all.
+
+**Known limit, deliberately shipped:** a caller who gives a name that does not match is still
+linked to the existing lead, because both tool routes resolve a lead with `.eq("phone").maybeSingle()`
+and a second lead on one number would make that error — i.e. break booking for that number. The
+read + verification half is complete and discloses nothing; the write half needs those lookups made
+deterministic first. Recorded in the spec §9.
+
 ---
 
 ## The call script (for the US phone test)

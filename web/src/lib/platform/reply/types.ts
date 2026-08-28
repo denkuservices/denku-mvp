@@ -41,6 +41,12 @@ export interface ReplyRequest {
   incoming: string;
   /** Their name, when the channel knows it — so the AI never asks for what we already have. */
   contactName: string | null;
+  /**
+   * Recall block (R-139), already rendered and already filtered. On chat this is safe without a
+   * verification turn because the channel identity is strong — a Telegram account is not a phone
+   * number that a colleague might answer.
+   */
+  recall?: string | null;
 }
 
 export type ReplyArtifact = { type: "ticket" | "appointment"; id: string };

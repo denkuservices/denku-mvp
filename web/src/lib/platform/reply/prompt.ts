@@ -17,6 +17,12 @@ import type { ReplyEmployee } from "@/lib/platform/reply/types";
 
 export interface ChatPromptInput {
   employee: ReplyEmployee;
+  /**
+   * What the business already knows about this customer (R-139), pre-rendered by
+   * `recallPromptBlock`. Empty on a first contact, and empty on any channel where identity is too
+   * weak to trust — this file never decides that, it only places the text.
+   */
+  recall?: string | null;
   /** Customer-facing channel name ("Telegram") — the AI should know where it is. */
   channelLabel: string;
   contactName: string | null;
@@ -49,6 +55,16 @@ export function buildChatSystemPrompt(input: ChatPromptInput): string {
 
   if (contactName) {
     parts.push(`You are talking to ${contactName}. You already know their name — never ask for it.`);
+  }
+
+  /**
+   * Recall sits AFTER the business's facts and BEFORE the rules, in the same place the owner's
+   * own instructions sit: it may shape what the AI says, and it may never override the honesty
+   * rules below. It arrives already filtered — this file is not where the decision to disclose is
+   * made (see `lib/platform/recall.ts`).
+   */
+  if (input.recall?.trim()) {
+    parts.push(input.recall.trim());
   }
 
   if (employee.timezone) {

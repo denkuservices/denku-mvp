@@ -184,7 +184,37 @@ call site wanting to write has left recall and entered R-110.
 - Recall on an **outbound** call — that is a different consent question entirely.
 - Using recall to skip a question the business is legally required to ask.
 
-## 9. Definition of done
+## 9. Implementation notes (found while building, 2026-08-28)
+
+**§6's write half is deferred, and the reason is in the code.** Both tool routes resolve a lead
+with `.eq("phone", …).maybeSingle()`. `maybeSingle` errors on more than one row, so creating a
+second lead for a shared phone number — exactly what §6 asks for — would make **booking fail** for
+that number. Doing it safely means changing those lookups to be deterministic
+(`order by created_at limit 1`), which is a change inside the voice booking path.
+
+Until then:
+
+- The **read + verification half is built** — which is the whole security property. A mismatch
+  discloses nothing.
+- The **mismatch still links to the existing lead**, as it does today. Recall does not make that
+  worse; it simply does not fix it yet.
+- `resolveRecall` already reads with `order(created_at).limit(1)` rather than `maybeSingle`, so
+  recall itself is correct the day the second lead appears.
+
+**P3's name-capture half was closed separately** by `fillMissingLeadName` (commit `3fcaf8b`): the
+caller's name is now written onto a lead that has none, and never overwrites one that does. That
+rule and this spec agree — the owner's correction is authoritative, and recall reads what is
+stored rather than re-deciding it.
+
+**Two wiring steps remain and neither is code in this repo:**
+
+1. Create the `identify_caller` tool **in the Vapi account**, with a description that instructs the
+   open question ("Who am I speaking with?") and forbids naming the caller first. The handler's
+   contract is documented at the top of `app/api/tools/identify-caller/route.ts`.
+2. Add its id to `DENKU_TOOL_IDS` (`lib/vapi/assistantConfig.ts`) and re-run the reconcile
+   endpoint so live assistants pick it up.
+
+## 10. Definition of done
 
 1. `resolveRecall` unit-tested pure-mapper-first, including: no contact, contact with no
    appointment, contact with a past-only appointment (must not be offered as upcoming).

@@ -9,6 +9,7 @@ import { contactDisplayName, loadHistory, resolveReplyEmployee } from "@/lib/pla
 import { generateReply } from "@/lib/platform/reply/engine";
 import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
 import { rescueFailedReply, shouldRescue } from "@/lib/platform/reply/fallback";
+import { resolveRecall, recallPromptBlock } from "@/lib/platform/recall";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
 import { getHandlingState } from "@/lib/platform/handling";
 import type { ReplyResult } from "@/lib/platform/reply/types";
@@ -98,9 +99,18 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
     // courtesy must never delay the actual answer.
     void transport.indicateTyping?.(target);
 
-    const [history, contactName] = await Promise.all([
+    /**
+     * Recall (R-139) joins this stage rather than running after it.
+     *
+     * On a chat channel the identity is strong — a Telegram account is not a phone number a
+     * colleague might answer — so there is no verification turn to wait for, and the facts are
+     * simply part of what the prompt is built from. `resolveRecall` reads only; it returns null
+     * for a first-time contact, which renders as no block at all.
+     */
+    const [history, contactName, recallFacts] = await Promise.all([
       loadHistory(input.orgId, input.conversationId, 20, db),
       contactDisplayName(input.orgId, input.contactId, db),
+      resolveRecall({ orgId: input.orgId, contactId: input.contactId, db }),
     ]);
 
     // "I just opened this bot" is answered with the greeting, not with a model. See greeting.ts —
@@ -117,6 +127,7 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
             history,
             incoming: input.incoming,
             contactName,
+            recall: recallPromptBlock(recallFacts, employee.timezone),
           },
           db
         );

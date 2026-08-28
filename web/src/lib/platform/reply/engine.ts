@@ -161,6 +161,7 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
     employee: req.employee,
     channelLabel: channelMeta(req.channel).label,
     contactName: req.contactName,
+    recall: req.recall,
     nowLocal: localNow(req.employee.timezone),
   });
 
