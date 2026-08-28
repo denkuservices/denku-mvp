@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
+import { resolveLanguage, resolveVoice } from "@/lib/vapi/assistantConfig";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -15,9 +16,19 @@ type VapiCreatePhoneNumberResponse = { id: string };
 
 export async function createAgentAction(formData: FormData) {
   const name = mustString(formData.get("name"), "name");
-  const language = mustString(formData.get("language"), "language");
-  const voice = mustString(formData.get("voice"), "voice");
   const timezone = mustString(formData.get("timezone"), "timezone");
+
+  /*
+   * Language is normalized, and the voice is derived from it (2026-08-28).
+   *
+   * The form used to post a `voice` of its own — "Alloy", "Verse", "Aria" — which was stored on
+   * the row, put in Vapi metadata, and never applied to anything. `alloy` was also the exact
+   * OpenAI voice English moved off yesterday for sounding like a robot reading. A voice is not an
+   * independent choice: the registry knows which one each language is spoken with, so the form no
+   * longer asks a question whose answer it would only have discarded.
+   */
+  const language = resolveLanguage(mustString(formData.get("language"), "language"));
+  const voice = resolveVoice(language).voiceId;
 
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();

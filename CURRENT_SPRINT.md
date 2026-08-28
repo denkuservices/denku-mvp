@@ -98,18 +98,81 @@ Target: **1–2 seconds, WhatsApp-like.** What has been measured is only the Sup
 5. Only then consider: streaming the thread with Suspense so the header paints immediately, and
    prefetching the neighbouring conversation on hover.
 
-### P2 — Prove a real phone call
+### P2 — ~~Prove a real phone call~~ **DONE 2026-08-27**
 
-A US number, using the script below. Verify afterwards: `calls.from_phone` populated,
-`appointments.lead_id` **not null**, the contact visible in Customers, and that the AI did **not**
-ask for a phone number.
+Verified against production data: `calls.from_phone = +13216634776`, `direction = inbound`,
+`appointments.lead_id` not null, the lead created in the same second with `source = inbound_call`,
+appointment `scheduled` at the caller's stated time in `America/New_York`, owner notified, and the
+transcript shows the AI never asked for a phone number. The booking came from the in-call tool, not
+the guarantee path.
 
-### P3 — Contacts have no names
+### P2.1 — ⚠️ **A hired employee gets an assistant with no tools and no webhook** (found 2026-08-28)
 
-Every Inbox row says "Unknown contact" even though the caller says their name and the classifier
-extracts it ("Daniel", "Max", "Tom"). It is stored in the appointment notes and nowhere else.
-Open question, deliberately not decided alone: on a channel with no phone number, what does a
-contact record key on? Answering it is the first real step of the Contacts model.
+`createAgentAction` (`dashboard/agents/new/actions.ts`, the action behind "Hire an AI employee")
+creates the Vapi assistant with nothing but a name and metadata, binds the phone number, and
+inserts the row. **It never calls `ensureAssistantConfig`.** So the assistant has no
+`create_ticket` / `create_appointment` tool ids and no `server.url` — meaning a call to that
+number produces no webhook, no `calls` row, no artifact. The employee answers and nothing is ever
+recorded.
+
+CLAUDE.md landmine #6 says "all three paths go through it" and names onboarding activation,
+phone-line purchase and Settings sync. This is a **fourth** path, added later, that does not. It
+also never sets a system prompt or opening line, so the employee has no business context either.
+
+Not fixed yet because it is provisioning code that spends money (it buys a phone number) and
+deserves its own change with its own verification, not a drive-by. The fix is to call
+`ensureAssistantConfig` after the assistant is created, with a prompt derived the same way Setup
+derives it. **Until then, "Hire an AI employee" should be considered broken** — every workspace
+today has exactly one employee, created by onboarding, which is why nobody has hit it.
+
+### P3 — Contacts have no names — **partly addressed, NOT verified**
+
+Every Inbox row said "Unknown contact" even though the caller says their name. A fix landed
+2026-08-27 that writes the spoken name onto the lead. **It has not been proven.** The one contact
+now showing a name ("Ali") turned out to be a lead from 2026-01-04 matched by phone number, not the
+new path — the fix never fired, correctly, because that lead already had a name.
+
+Proving it needs a caller who is genuinely new: a number with no existing lead, who says their
+name. Until such a call exists, treat this as unverified.
+
+The open question underneath it is still open, and still deliberately not decided alone: on a
+channel with no phone number, what does a contact record key on? Answering it is the first real
+step of the Contacts model.
+
+### P3.1 — The name the AI hears is not always the name that was said
+
+A real caller said **"Gaye"** and the transcript recorded **"Joya"**. Proper nouns are the hardest
+thing an STT model does. English moved nova-2 → nova-3 on 2026-08-27, which helps and does not
+solve it.
+
+Decided, not built: **do not make callers spell their name.** The identifier on a phone call is
+the number, not the name; spelling taxes every caller to fix a minority of cases, and the person
+who can correct a spelling cheaply is the owner, who can hear the recording. The intended shape is
+that the name is editable in the dashboard, and because the phone number is the key, one correction
+holds for every future call from that person. Needs the Contacts model (P3) first.
+
+### P3.2 — Recording playback: proven at the HTTP layer, unproven in the player
+
+`/api/calls/[callId]/recording` is verified on production: the old stored URL answers **HTTP 400**
+to anyone (so the original bug was real), and the route answers 200 with `content-length`, 206 with
+`content-range` for a range request, and the bytes are a valid 16 kHz mono PCM WAV.
+
+**Whether the `<audio>` element actually plays has not been shown.** The automation browser used to
+test it cannot play audio at all — a 1.6 KB sine wave generated in memory hangs identically. Needs
+one human to press play. (An earlier diagnosis blaming the cross-origin redirect was wrong and has
+been corrected in the file; the route proxies for a CSP reason instead — `media-src` does not
+include Cloudflare's host, so a redirect would break the day CSP goes enforcing.)
+
+### P3.3 — Multilingual employees: shipped, one live check left
+
+`agents.additional_languages` (migration applied to production 2026-08-28), the language registry,
+`multi` transcriber switching, prompt naming, and the "Also understands" control at
+**AI Team → the employee → Setup**. Verified rendering on production after a bug fix (it offered
+English to an English-speaking employee — the R-135 code-vs-label split, reintroduced by me).
+
+Left: an actual call that starts in English and switches to Spanish. Also unverified is that the
+Vapi assistant now carries `transcriber.language = multi` after a save — check the Vapi dashboard,
+or re-run `POST /api/internal/reconcile-vapi-assistants`.
 
 ### P4 — Telegram · **LIVE AND ANSWERING 2026-08-27 · not yet production-ready**
 

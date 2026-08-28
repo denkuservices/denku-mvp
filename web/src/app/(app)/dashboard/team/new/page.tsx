@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
+import { getWorkspaceDefaultLanguage } from "@/lib/org/getWorkspaceDefaultLanguage";
 import { platformUxEnabled } from "@/lib/platform/flags";
+import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
 import { createAgentAction } from "../../agents/new/actions";
 import PageHeader from "../../_platform/PageHeader";
 import { Surface, CONTROL_CLASS } from "../../_platform/ui";
@@ -27,6 +30,20 @@ export default async function HireEmployeePage() {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) redirect("/login");
+
+  /*
+   * The workspace's default language, finally used for something (2026-08-28).
+   *
+   * Settings → Workspace → Identity promises in its own helper text that this is the "starting
+   * point for new employees". This is the one place that promise can be kept, so this is where it
+   * is read. The helper never throws — hiring must not fail over a default.
+   */
+  let defaultLanguage = "en";
+  try {
+    defaultLanguage = await getWorkspaceDefaultLanguage(await getActiveOrgId());
+  } catch {
+    // Not signed into an org yet; English is the product default.
+  }
 
   return (
     <div className="p-4 md:p-6">
@@ -66,22 +83,28 @@ export default async function HireEmployeePage() {
                 <label htmlFor="language" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
                   Language
                 </label>
-                <select id="language" name="language" defaultValue="en" className={`${CONTROL_CLASS} w-full`}>
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="tr">Turkish</option>
+                {/*
+                  Options come from the language registry, so this picker cannot offer what the
+                  voice stack cannot speak. It used to list **Turkish** — removed from the other
+                  two pickers by R-135 for having no voice or transcriber behind it, and left
+                  standing here, the fourth list nobody knew to update.
+                */}
+                <select
+                  id="language"
+                  name="language"
+                  defaultValue={defaultLanguage}
+                  className={`${CONTROL_CLASS} w-full`}
+                >
+                  {LANGUAGE_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {LANGUAGES[code].label}
+                    </option>
+                  ))}
                 </select>
-              </div>
-
-              <div>
-                <label htmlFor="voice" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-                  Voice
-                </label>
-                <select id="voice" name="voice" defaultValue="alloy" className={`${CONTROL_CLASS} w-full`}>
-                  <option value="alloy">Alloy</option>
-                  <option value="verse">Verse</option>
-                  <option value="aria">Aria</option>
-                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Your workspace default. It can also understand other languages — set that under
+                  Setup once it is hired.
+                </p>
               </div>
             </div>
 
