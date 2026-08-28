@@ -8,8 +8,10 @@ import {
   activeSettingsItem,
   SETTINGS_LANDING,
 } from "@/app/(app)/dashboard/_platform/settings/nav";
+import { platformNavRoutes, horizonNavRoutes } from "@/components/horizon-shell/nav";
 
 const APP_DIR = path.join(process.cwd(), "src", "app", "(app)");
+const SRC_DIR = path.join(process.cwd(), "src");
 
 /** Does a route actually exist on disk? (`/dashboard/x` → `src/app/(app)/dashboard/x/page.tsx`) */
 function routeExists(href: string): boolean {
@@ -128,5 +130,70 @@ describe("the merged pages keep every old URL working", () => {
     expect(read("dashboard/settings/workspace/page.tsx")).toContain(
       "/dashboard/settings/workspace/audit"
     );
+  });
+});
+
+/**
+ * SETTINGS NAVIGATES FROM THE SIDEBAR, NOT FROM INSIDE THE PAGE.
+ *
+ * The sections used to be a rail rendered into every settings page: a second navigation column
+ * beside the product's own sidebar, carrying a description line per item, squeezing the forms it
+ * pointed at into a strip. They are now the Settings sub-menu in the sidebar, where the rest of
+ * the product's navigation lives — one place to navigate, as the section above already demands.
+ */
+describe("settings navigation lives in the sidebar", () => {
+  const settingsRoute = platformNavRoutes.find((r) => r.name === "Settings");
+  const children = settingsRoute?.items ?? [];
+
+  it("Settings carries the three sections plus Channels, in order", () => {
+    expect(children.map((c) => c.name)).toEqual([
+      "Workspace",
+      "Billing & usage",
+      "Account",
+      "Channels",
+    ]);
+  });
+
+  it("Settings navigates to the first section, not through the redirect", () => {
+    // `/dashboard/settings` has no page of its own — clicking the sidebar item used to land on an
+    // empty frame on the way to the section. `path` still says `settings` so the item stays
+    // highlighted (and open) across every settings page.
+    expect(settingsRoute?.href).toBe(SETTINGS_LANDING);
+    expect(settingsRoute?.path).toBe("settings");
+  });
+
+  it("every sub-item resolves to a real page", () => {
+    const missing = children.filter((c) => !routeExists(`/dashboard/${c.path}`));
+    expect(missing.map((m) => `${m.name} → /dashboard/${m.path}`)).toEqual([]);
+  });
+
+  it("AI Employees is not repeated — it is the 'AI Team' item", () => {
+    // Channels had no other entry point in the product, so it moved under Settings. The employee
+    // surface already has a top-level slot; listing it twice is the duplication the rail had.
+    expect(children.some((c) => c.path === "team")).toBe(false);
+    expect(platformNavRoutes.some((r) => r.path === "team")).toBe(true);
+  });
+
+  it("labels only — the description lines stay on the pages", () => {
+    // `name` and `path` are the whole sub-item. A nav you read instead of scan has stopped working.
+    for (const child of children) {
+      expect(Object.keys(child).sort()).toEqual(["layout", "name", "path"]);
+    }
+  });
+
+  it("Settings is the only item with a sub-menu, and the legacy nav has none", () => {
+    const withItems = platformNavRoutes.filter((r) => (r.items?.length ?? 0) > 0);
+    expect(withItems.map((r) => r.name)).toEqual(["Settings"]);
+    // Flag-off experience is untouched.
+    expect(horizonNavRoutes.every((r) => !r.items?.length)).toBe(true);
+  });
+
+  it("no settings page renders a navigation rail of its own", () => {
+    const layout = read("dashboard/settings/layout.tsx");
+    expect(layout).not.toMatch(/SettingsNav/);
+    expect(
+      fs.existsSync(path.join(SRC_DIR, "app/(app)/dashboard/_platform/settings/SettingsNav.tsx")),
+      "the in-page rail must not come back"
+    ).toBe(false);
   });
 });

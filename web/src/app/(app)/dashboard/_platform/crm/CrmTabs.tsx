@@ -7,10 +7,11 @@ import { CRM_SECTIONS } from "./nav";
 /**
  * CRM hub tabs (Phase 2).
  *
- * A horizontal tab rail rather than Settings' vertical sidebar: the CRM has two peer sections
- * that share a page's full width for tables, whereas Settings has six groups of forms. The
- * active-state language, focus behaviour and brand accent are identical to `SettingsNav` on
- * purpose — one navigation grammar across the product.
+ * A horizontal tab rail inside the page: the CRM has two peer sections that share a page's full
+ * width for tables, and switching between them is something you do while working. Settings, whose
+ * sections you visit rather than flip between, keeps its sections in the sidebar instead. The
+ * active-state language, focus behaviour and brand accent match the sidebar's on purpose — one
+ * navigation grammar across the product.
  */
 export default function CrmTabs() {
   const pathname = usePathname() ?? "";

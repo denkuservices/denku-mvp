@@ -14,6 +14,36 @@ import {
   Inbox,
 } from 'lucide-react';
 import { NavRoute } from './types';
+import {
+  SETTINGS_ITEMS,
+  SETTINGS_ELSEWHERE,
+  SETTINGS_LANDING,
+} from '@/app/(app)/dashboard/_platform/settings/nav';
+
+/**
+ * Settings' own sections, as a sidebar sub-menu.
+ *
+ * They were a vertical rail rendered into every settings page — the sections listed once in the
+ * page and nowhere in the sidebar, which pushed the forms into a narrow column and made Settings
+ * the one surface whose navigation lived somewhere different from every other surface's. Same
+ * destinations, same source of truth (`_platform/settings/nav`, which the settings-nav contract
+ * test holds to real routes); only the place they are drawn has changed.
+ *
+ * **Labels only.** The one-line descriptions ("Your details and how you sign in.") are page copy,
+ * not nav copy — a sidebar that explains each item is a sidebar you read instead of scan.
+ *
+ * Channels is here even though it routes outside `/dashboard/settings`: connecting a channel is
+ * configuration you do once, so it never earned a top-level slot, and the settings rail was its
+ * only entry point in the product. AI Employees is deliberately NOT repeated — it is the "AI Team"
+ * item two rows up.
+ */
+const settingsChildren: NavRoute[] = [...SETTINGS_ITEMS, ...SETTINGS_ELSEWHERE]
+  .filter((item) => item.href !== '/dashboard/team')
+  .map((item) => ({
+    name: item.label,
+    layout: 'dashboard',
+    path: item.href.replace(/^\/dashboard\/?/, ''),
+  }));
 
 /**
  * Flat dashboard sidebar navigation. No nested menus. Uses 'dashboard' layout.
@@ -68,5 +98,17 @@ export const platformNavRoutes: NavRoute[] = [
   // Analytics is a TAB on Home, not a nav item: Home already leads with outcomes, so a sixth
   // item repeating the same numbers one click away was the sidebar answering one question twice.
   // Every capability Sprint 12 restored lives there, and /dashboard/analytics still redirects.
-  { name: 'Settings', layout: 'dashboard', path: 'settings', icon: <Settings className="h-6 w-6" /> },
+  //
+  // Settings is the only item with a sub-menu, and it opens only while you are inside Settings —
+  // the sidebar stays a five-item list everywhere else. It navigates straight to the first
+  // section: `/dashboard/settings` has no page of its own, only a redirect, and routing the click
+  // through it shows an empty frame on the way.
+  {
+    name: 'Settings',
+    layout: 'dashboard',
+    path: 'settings',
+    href: SETTINGS_LANDING,
+    icon: <Settings className="h-6 w-6" />,
+    items: settingsChildren,
+  },
 ];
