@@ -19,10 +19,24 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export async function recordForwardConfirmation(
   connectionId: string,
   code: string | null,
-  autoConfirmed: boolean
+  autoConfirmed: boolean,
+  verificationUrl?: string | null
 ): Promise<void> {
   try {
     const values: Record<string, unknown> = { forward_verification_code: code };
+
+    /**
+     * The link is stored, not just the code, and that is the difference between a fallback that
+     * works and one that does not.
+     *
+     * Gmail's mail in Turkish carried NO numeric code at all — only the link. Keeping the code
+     * alone left a customer whose auto-confirmation failed with nothing to act on, made worse by
+     * the fact that we correctly hide this mail from their Inbox: hiding it removed the one place
+     * they could have clicked it themselves.
+     */
+    if (verificationUrl) {
+      values.meta = { gmail_verification_url: verificationUrl };
+    }
     // Only an actually-completed handshake counts as verified. A code we merely read proves
     // Gmail is talking to us, not that forwarding is switched on.
     if (autoConfirmed) values.forward_verified_at = new Date().toISOString();

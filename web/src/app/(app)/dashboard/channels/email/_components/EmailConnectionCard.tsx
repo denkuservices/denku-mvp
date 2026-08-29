@@ -18,6 +18,8 @@ export interface EmailConnectionSummary {
   inboundAddress: string;
   forwardFromAddress: string | null;
   forwardVerifiedAt: string | null;
+  forwardVerificationCode: string | null;
+  forwardVerificationUrl: string | null;
   sendingDomain: string | null;
   sendingDomainStatus: "unverified" | "pending" | "verified" | "failed";
   fromAddress: string | null;
@@ -161,6 +163,39 @@ export function EmailConnectionCard({
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Receiving customer email
                   </p>
+                ) : connection.forwardVerificationUrl || connection.forwardVerificationCode ? (
+                  /**
+                   * Gmail asked for confirmation and we tried to answer it for them.
+                   *
+                   * Surfacing this is not optional. Hiding the confirmation mail from the Inbox is
+                   * correct — it is plumbing, not a customer — but hiding it also removed the one
+                   * place the owner could have clicked the link themselves. If our automatic
+                   * attempt failed they would be stuck with no way forward and no idea why.
+                   */
+                  <div className="mt-1 text-xs text-gray-500">
+                    <p>
+                      Gmail asked us to confirm the forwarding and we answered it. If mail still is
+                      not arriving, finish it by hand:
+                    </p>
+                    {connection.forwardVerificationUrl ? (
+                      <a
+                        href={connection.forwardVerificationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-block font-medium text-brand-500 underline underline-offset-2"
+                      >
+                        Confirm forwarding in Gmail
+                      </a>
+                    ) : null}
+                    {connection.forwardVerificationCode ? (
+                      <p className="mt-1">
+                        Or paste this code into Gmail:{" "}
+                        <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono dark:bg-white/10">
+                          {connection.forwardVerificationCode}
+                        </code>
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
                   <p className="mt-1 text-xs text-gray-500">
                     Waiting for the first email. Finish the forwarding step below, then send a test

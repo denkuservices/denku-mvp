@@ -146,7 +146,12 @@ export async function POST(req: NextRequest) {
     const confirmation = parseGmailConfirmation(email);
     if (confirmation) {
       const confirmed = await completeGmailForwarding(confirmation);
-      await recordForwardConfirmation(connection.id, confirmation.code, confirmed);
+      await recordForwardConfirmation(
+        connection.id,
+        confirmation.code,
+        confirmed,
+        confirmation.verificationUrl
+      );
       console.info("[EMAIL][WEBHOOK][GMAIL_CONFIRMATION]", {
         connection_id: connection.id,
         auto_confirmed: confirmed,

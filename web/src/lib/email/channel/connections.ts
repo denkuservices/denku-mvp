@@ -31,6 +31,9 @@ export interface EmailConnection {
   inboundAddress: string;
   forwardFromAddress: string | null;
   forwardVerifiedAt: string | null;
+  /** Shown only while forwarding is unconfirmed, as the manual way out. */
+  forwardVerificationCode: string | null;
+  forwardVerificationUrl: string | null;
   sendingDomain: string | null;
   sendingDomainStatus: SendingDomainStatus;
   /** The provider-side domain record, needed to re-check DNS. Never rendered. */
@@ -51,6 +54,8 @@ type Row = {
   inbound_address: string;
   forward_from_address: string | null;
   forward_verified_at: string | null;
+  forward_verification_code: string | null;
+  meta: Record<string, unknown> | null;
   sending_domain: string | null;
   sending_domain_status: SendingDomainStatus;
   resend_domain_id: string | null;
@@ -65,7 +70,7 @@ type Row = {
 };
 
 const COLUMNS =
-  "id, org_id, inbound_address, forward_from_address, forward_verified_at, sending_domain, " +
+  "id, org_id, inbound_address, forward_from_address, forward_verified_at, forward_verification_code, meta, sending_domain, " +
   "sending_domain_status, resend_domain_id, from_name, from_address, reply_mode, assigned_agent_id, status, " +
   "last_error, last_inbound_at, created_at";
 
@@ -76,6 +81,9 @@ function toConnection(row: Row): EmailConnection {
     inboundAddress: row.inbound_address,
     forwardFromAddress: row.forward_from_address,
     forwardVerifiedAt: row.forward_verified_at,
+    forwardVerificationCode: row.forward_verification_code,
+    forwardVerificationUrl:
+      typeof row.meta?.gmail_verification_url === "string" ? row.meta.gmail_verification_url : null,
     sendingDomain: row.sending_domain,
     sendingDomainStatus: row.sending_domain_status,
     resendDomainId: row.resend_domain_id,
