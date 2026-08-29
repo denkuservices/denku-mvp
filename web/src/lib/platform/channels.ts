@@ -177,10 +177,23 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     icon: "email",
     tone: "email",
     kind: "chat",
-    connection: "oauth",
+    /**
+     * Credentials, not OAuth — decided 2026-08-28.
+     *
+     * Reading a mailbox through the Gmail API needs a RESTRICTED scope, which means a CASA
+     * Tier 2 assessment and an annual re-certification before the first customer can connect.
+     * That is the Instagram position again: finished code waiting on someone else's review
+     * queue. Instead the customer forwards a published address to one we issue, which works
+     * the same way on Gmail, Outlook and any cPanel host and needs no approval from anyone.
+     */
+    connection: "credentials",
     capabilities: chat({ outbound: true }),
+    /**
+     * Not production-ready yet: the pipeline exists but no real mail has made the round trip.
+     * Flipped only on live evidence, exactly as Telegram was.
+     */
     productionReady: false,
-    adopted: false,
+    adopted: true,
   },
   sms: {
     id: "sms",

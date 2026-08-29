@@ -87,7 +87,8 @@ describe("adapter registry", () => {
   it("resolves adopted channels, not unadopted ones", () => {
     expect(getChannelAdapter("voice")).toBe(voiceAdapter);
     expect(getChannelAdapter("instagram")).toBe(instagramAdapter);
+    expect(hasChannelAdapter("email")).toBe(true);
     expect(hasChannelAdapter("whatsapp")).toBe(false);
-    expect(getChannelAdapter("email")).toBeUndefined();
+    expect(getChannelAdapter("sms")).toBeUndefined();
   });
 });

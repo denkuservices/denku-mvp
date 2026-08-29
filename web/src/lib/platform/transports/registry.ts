@@ -2,6 +2,7 @@ import type { Channel } from "@/lib/platform/channels";
 import { channelMeta } from "@/lib/platform/channels";
 import type { ReplyTransport } from "@/lib/platform/reply/types";
 import { telegramTransport } from "@/lib/platform/transports/telegram";
+import { emailTransport } from "@/lib/platform/transports/email";
 
 /**
  * Outbound transport registry — the mirror image of the adapter registry.
@@ -16,6 +17,14 @@ import { telegramTransport } from "@/lib/platform/transports/telegram";
  */
 const TRANSPORTS: Partial<Record<Channel, ReplyTransport>> = {
   telegram: telegramTransport,
+  /**
+   * Email is registered here even though an individual org may not be able to send yet.
+   * `canReplyOn` answers "does this CHANNEL have a voice", which it now does; whether a
+   * particular business has verified its domain is a per-connection question the transport
+   * answers by refusing. Keeping those two separate is what lets the Inbox enable the composer
+   * for email while a specific unverified org still gets a clear reason instead of silence.
+   */
+  email: emailTransport,
 };
 
 export function getTransport(channel: Channel): ReplyTransport | undefined {

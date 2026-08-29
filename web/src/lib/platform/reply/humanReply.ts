@@ -33,6 +33,17 @@ export interface HumanReplyInput {
   text: string;
   /** The person sending, for provenance and for the takeover assignment. */
   userId: string | null;
+  /**
+   * Whether sending means "I am handling this now". Defaults to true.
+   *
+   * False for an approved AI draft: the owner read what the AI wrote and let it go, which is the
+   * opposite of taking over. Flipping to `"human"` there would silence the AI on a conversation
+   * the business is happy for it to keep answering, and every approval would quietly cost them
+   * the automation they are paying for.
+   */
+  takeover?: boolean;
+  /** Marks the message as AI-authored when a person merely approved it. */
+  generated?: boolean;
   db?: SupabaseClient;
 }
 
@@ -108,11 +119,26 @@ export async function sendHumanReply(input: HumanReplyInput): Promise<HumanReply
       content: text,
       externalMessageId: sent.externalMessageId ?? null,
       // `generated: false` is what lets the thread show who actually said this. Without it a
-      // teammate reading back cannot tell their colleague's words from the AI's.
-      meta: { generated: false, sent_by: input.userId },
+      // teammate reading back cannot tell their colleague's words from the AI's. An approved
+      // draft records both facts: the AI wrote it, and a named person released it.
+      meta: {
+        generated: input.generated ?? false,
+        sent_by: input.userId,
+        ...(input.generated ? { approved_by: input.userId } : {}),
+      },
     },
     db
   );
+
+  // An approved draft is not a takeover — the AI keeps the conversation.
+  if (input.takeover === false) {
+    console.info("[REPLY][DRAFT][APPROVED]", {
+      org_id: input.orgId,
+      conversation_id: input.conversationId,
+      channel: input.channel,
+    });
+    return { ok: true };
+  }
 
   // The AI steps back. Best-effort: the customer already has the message, and a failure to record
   // the takeover must not be reported as a failure to send.

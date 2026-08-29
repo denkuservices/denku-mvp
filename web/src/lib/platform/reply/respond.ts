@@ -9,7 +9,8 @@ import { contactDisplayName, loadHistory, resolveReplyEmployee } from "@/lib/pla
 import { generateReply } from "@/lib/platform/reply/engine";
 import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
 import { rescueFailedReply, shouldRescue } from "@/lib/platform/reply/fallback";
-import { resolveRecall, recallPromptBlock } from "@/lib/platform/recall";
+import { resolveRecall, recallForStatedName, recallPromptBlock } from "@/lib/platform/recall";
+import { saveDraft } from "@/lib/platform/drafts";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
 import { getHandlingState } from "@/lib/platform/handling";
 import type { ReplyResult } from "@/lib/platform/reply/types";
@@ -45,6 +46,21 @@ export interface RespondInput {
   agentId: string | null;
   /** What the customer just said. */
   incoming: string;
+  /**
+   * Whether the AI may send by itself, or only write.
+   *
+   * Defaults to `"auto"` so every existing caller (Telegram) is unchanged. Email passes
+   * `"draft"` unless the business has opted into auto-send, because an email reply is a record:
+   * kept, forwarded, sometimes legally meaningful, and never retractable.
+   */
+  replyMode?: "auto" | "draft";
+  /**
+   * The name this person claims, when the channel gives us one we did not verify.
+   *
+   * Present for email, where the `From:` display name is the sender's own assertion. Its
+   * presence switches recall onto the name-gated path — see below.
+   */
+  statedName?: string | null;
   db?: SupabaseClient;
 }
 
@@ -106,11 +122,26 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
      * colleague might answer — so there is no verification turn to wait for, and the facts are
      * simply part of what the prompt is built from. `resolveRecall` reads only; it returns null
      * for a first-time contact, which renders as no block at all.
+     *
+     * **Email is the exception, and it is deliberate.** `docs/CONTACT_RECALL_SPEC.md` §3 rates an
+     * email address as only MEDIUM strength identity: `info@` is a shared mailbox, mail gets
+     * forwarded, and whoever is typing today may not be the person last week's appointment
+     * belongs to. So when the channel hands us a name the sender merely asserted, recall goes
+     * through the name-gated path, which returns nothing unless that claim matches what we
+     * already hold. Unlocking a stranger's appointment because they wrote to a shared address is
+     * exactly the failure the spec was written to prevent.
      */
     const [history, contactName, recallFacts] = await Promise.all([
       loadHistory(input.orgId, input.conversationId, 20, db),
       contactDisplayName(input.orgId, input.contactId, db),
-      resolveRecall({ orgId: input.orgId, contactId: input.contactId, db }),
+      input.statedName !== undefined
+        ? recallForStatedName({
+            orgId: input.orgId,
+            contactId: input.contactId,
+            statedName: input.statedName,
+            db,
+          })
+        : resolveRecall({ orgId: input.orgId, contactId: input.contactId, db }),
     ]);
 
     // "I just opened this bot" is answered with the greeting, not with a model. See greeting.ts —
@@ -164,6 +195,52 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
         reason: result.reason,
       });
       return result;
+    }
+
+    /**
+     * Draft mode: the AI has written the reply, and a person decides whether it goes.
+     *
+     * Nothing is appended to `messages` here — that table is the record of what was actually
+     * exchanged, and this has not been. The draft lands in its own store, the Inbox offers it in
+     * the composer, and the conversation stays with the AI (`handling` is untouched) because
+     * nobody has taken it over yet.
+     *
+     * Artifacts created while writing are kept, not rolled back. That follows the rule
+     * `fallback.ts` already enforces — the artifact exists BEFORE the sentence promising it is
+     * delivered — so nothing has been claimed to the customer that is not true. The cost is a
+     * booking the owner may have to cancel if they throw the draft away; the alternative, telling
+     * a customer their appointment is made and having no record of it, is the failure that
+     * actually hurts.
+     */
+    if (input.replyMode === "draft") {
+      const draft = await saveDraft({
+        orgId: input.orgId,
+        conversationId: input.conversationId,
+        body: result.text,
+        artifacts: result.artifacts,
+        db,
+      });
+
+      if (!draft) {
+        console.error("[REPLY][DRAFT][SAVE][FAILED]", {
+          org_id: input.orgId,
+          conversation_id: input.conversationId,
+        });
+        return { ...result, ok: false, reason: "draft_save_failed" };
+      }
+
+      if (result.artifacts.length > 0) {
+        await notifyNewArtifactsForConversation(input.conversationId, input.orgId);
+      }
+
+      console.info("[REPLY][DRAFTED]", {
+        org_id: input.orgId,
+        channel: input.channel,
+        conversation_id: input.conversationId,
+        artifacts: result.artifacts.map((a) => a.type),
+      });
+
+      return { ...result, ok: true, reason: "drafted" };
     }
 
     const sent = await transport.sendText(target, result.text);

@@ -244,6 +244,31 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     *replies* on: the reply engine (`lib/platform/reply/*`) is channel-agnostic and its prompt
     forbids claiming a booking without the matching tool call. See `skills/telegram-integration.md`.
 
+13. **Email is a FORWARDING channel** (built 2026-08-28, `adopted: true`,
+    `productionReady: false` — migration applied to prod 2026-08-28 and verified, but no real mail
+    has round-tripped yet and sending needs a per-org verified domain). The customer forwards a published address
+    (`info@`) to one Denku issues (`<slug>-<rand>@EMAIL_INBOUND_DOMAIN`); we never hold their
+    mailbox password and never see anything they do not forward. **Do not "upgrade" this to
+    Gmail OAuth casually** — every Gmail *read* scope (`gmail.readonly`/`modify`/`compose`/
+    `metadata`) is Google-**restricted**: CASA Tier 2 + annual re-certification, i.e. the
+    Instagram App Review trap again. (`gmail.send` alone is only *sensitive* — no CASA — so
+    send-side OAuth stays a legitimate future option.) Four things to know before touching it:
+    (a) **forwarding yields no history and no read-state sync** — only mail arriving after the
+    rule is switched on, so never promise "your unread mail appears here"; (b) **threading keys
+    on the `References` root, never the subject** — and the sender is read from the `From:`
+    header because Gmail rewrites the envelope `Return-Path` when forwarding; (c) **a self-feeding
+    loop is a real risk** — `notifyNewArtifactsForConversation` emails the owner on every
+    artifact, so if their notification address is the forwarded mailbox it arrives as a new
+    "customer", which is why `isAutomatedEmail`/`isSelfAddressed` refuse auto-replies, `List-*`,
+    `no-reply@` and our own addresses *before* anything is stored; (d) **nothing is sent from an
+    unverified domain, and there is no fallback to a Denku address** — `lib/email/senders.ts`
+    (fixed `auth|notify|welcome` union, `denku.io` defaults) must never be reused for channel
+    sending, and `addressBelongsToDomain` is a security boundary, not formatting. Also:
+    `reply_mode` defaults to `'draft'` (the AI writes, a person sends); drafts live in
+    `conversation_drafts`, **never in `messages`**, because the Inbox must not show a message the
+    customer never received; approving a draft must NOT flip handling to `"human"`, or every
+    approval silently costs the business its automation. See `skills/email-integration.md`.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -295,6 +320,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
+- `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
 - `skills/auth-and-tenancy.md` — auth flows, middleware, org model, the two admin worlds

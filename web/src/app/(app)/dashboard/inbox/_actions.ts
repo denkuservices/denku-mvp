@@ -6,6 +6,7 @@ import { setHandlingState, type HandlingMode, type ConversationSource } from "@/
 import { isKnownChannel, type Channel } from "@/lib/platform/channels";
 import { setStar } from "@/lib/platform/stars";
 import { markRead } from "@/lib/platform/reads";
+import { discardDraft } from "@/lib/platform/drafts";
 import { sendHumanReply } from "@/lib/platform/reply/humanReply";
 import {
   listInboxPage,
@@ -275,4 +276,64 @@ export async function sendInboxReplyAction(
   // The thread gained a message and the handling state changed; the list did not.
   if (res.ok) revalidatePath(`/dashboard/inbox/${conversationRef}`);
   return res;
+}
+
+/**
+ * Send the reply the AI drafted.
+ *
+ * `text` is what is in the composer, which may be what the AI wrote or the owner's edit of it —
+ * we never send the stored draft, always the words on screen, because an edit that silently did
+ * not take is worse than no draft at all.
+ *
+ * `takeover: false` is the point of this action existing rather than reusing the plain reply
+ * path: approving what the AI wrote is not taking the conversation away from it. The draft is
+ * cleared only after the send succeeds, so a failed send leaves it recoverable.
+ */
+export async function approveDraftAction(
+  conversationRef: string,
+  source: string,
+  channel: string,
+  text: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const valid = validate(conversationRef, source, channel);
+  if (!valid.ok) return { ok: false, error: valid.error };
+  if (valid.source !== "conversations") {
+    return { ok: false, error: "This was a phone call — there is nothing to reply to." };
+  }
+
+  const res = await sendHumanReply({
+    orgId: auth.orgId,
+    conversationId: conversationRef,
+    channel: valid.channel,
+    text,
+    userId: auth.userId,
+    takeover: false,
+    generated: true,
+  });
+
+  if (!res.ok) return res;
+
+  await discardDraft(auth.orgId, conversationRef);
+  revalidatePath(`/dashboard/inbox/${conversationRef}`);
+  return res;
+}
+
+/** Throw away a draft without sending it. The conversation stays with the AI. */
+export async function discardDraftAction(
+  conversationRef: string,
+  source: string,
+  channel: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgMember();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const valid = validate(conversationRef, source, channel);
+  if (!valid.ok) return { ok: false, error: valid.error };
+
+  const ok = await discardDraft(auth.orgId, conversationRef);
+  if (ok) revalidatePath(`/dashboard/inbox/${conversationRef}`);
+  return ok ? { ok: true } : { ok: false, error: "Could not discard the draft." };
 }

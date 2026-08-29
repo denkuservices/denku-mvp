@@ -70,6 +70,18 @@ export const CONNECTION_SOURCES: Partial<Record<Channel, ConnectionSource>> = {
     ownerColumn: "assigned_agent_id",
     metaColumns: ["bot_id", "bot_name", "last_inbound_at"],
   },
+  email: {
+    table: "email_connections",
+    // The customer recognises this channel by THEIR address (info@theirshop.com), not by the
+    // forwarding address we issued them — that one is plumbing they set up once and forget.
+    identifierColumn: "forward_from_address",
+    statusColumn: "status",
+    // Nothing expires: a forwarding rule and a DKIM record both keep working until someone
+    // removes them, so there is no credential expiry to warn about.
+    errorColumn: "last_error",
+    ownerColumn: "assigned_agent_id",
+    metaColumns: ["inbound_address", "sending_domain", "sending_domain_status", "reply_mode", "last_inbound_at"],
+  },
 };
 
 /** Build the view for a channel that has no connection rows for this org. Pure. */

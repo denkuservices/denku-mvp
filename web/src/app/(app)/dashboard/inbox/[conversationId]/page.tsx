@@ -7,6 +7,7 @@ import { getStarWithAvailability } from "@/lib/platform/stars";
 import { getVoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import { canReplyOn } from "@/lib/platform/transports/registry";
 import { resolveOutboundTarget } from "@/lib/platform/reply/humanReply";
+import { getDraft } from "@/lib/platform/drafts";
 import ConversationThread from "../../_platform/conversation/ConversationThread";
 import ContextRail from "../../_platform/conversation/ContextRail";
 import ThreadHeader from "../_components/ThreadHeader";
@@ -58,7 +59,7 @@ export default async function ConversationDetailPage({
    * Handling and stars are additive and inert until their migrations are applied; a failed read
    * degrades those controls only, never the conversation.
    */
-  const [detail, handlingState, starState, voice, outboundTarget] = await Promise.all([
+  const [detail, handlingState, starState, voice, outboundTarget, draft] = await Promise.all([
     getConversationView(orgId, conversationId),
     getHandlingStateWithAvailability(orgId, conversationId),
     getStarWithAvailability(orgId, conversationId),
@@ -67,6 +68,9 @@ export default async function ConversationDetailPage({
     // conversation comes back, for the same reason the voice lookup does. It answers null for a
     // voice call, whose ref is a `calls` row with no thread to send into.
     resolveOutboundTarget(orgId, conversationId),
+    // A reply the AI wrote and has not sent. Joins this stage for the same reason as the rest:
+    // it asks a different table and nothing here depends on anything else here.
+    getDraft(orgId, conversationId),
   ]);
 
   if (!detail) notFound();
@@ -116,6 +120,9 @@ export default async function ConversationDetailPage({
         source={detail.source}
         canSend={canSend}
         handledByHuman={handling.handling === "human"}
+        // Only offered where it could actually be sent. A draft shown beside a dead composer
+        // would be a reply the owner can read and cannot release.
+        draft={canSend ? (draft?.body ?? null) : null}
       />
 
       {/* Opening a conversation is what marks it read. */}

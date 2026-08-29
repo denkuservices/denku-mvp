@@ -139,6 +139,16 @@ The open question underneath it is still open, and still deliberately not decide
 channel with no phone number, what does a contact record key on? Answering it is the first real
 step of the Contacts model.
 
+**Email answers its own half of that question (2026-08-28): the lower-cased address**, stored as
+a `contact_identities` row on `(org_id, 'email', address)`. Two things worth carrying to the next
+channel. First, Gmail's dot-and-`+tag` canonicalisation is deliberately NOT applied — those are
+one mailbox on Gmail and different mailboxes nearly everywhere else, and merging two customers
+into one contact is a worse error than splitting one into two. Second, an email address is only a
+**medium-strength** identity (`docs/CONTACT_RECALL_SPEC.md` §3): `info@` is shared and forwarded,
+so whoever is typing may not be the person the last appointment belongs to. That is why email must
+not inherit `respond.ts`'s unconditional `resolveRecall`, which is justified there by chat
+identity being strong.
+
 ### P3.1 — The name the AI hears is not always the name that was said
 
 A real caller said **"Gaye"** and the transcript recorded **"Joya"**. Proper nouns are the hardest
@@ -186,6 +196,15 @@ detail in **`skills/telegram-integration.md`**; the short version:
   `lib/platform/transports/*`) — the piece the plan said did not exist in any form. Telegram is
   ~500 lines of channel specifics on top of it; WhatsApp/Web Chat/Email should each be an adapter
   + a transport + a connection table and nothing else.
+- **Email tested that claim on 2026-08-28 and it held.** Receiving is built as exactly one
+  adapter, one connection table, one webhook and one connect page, with **zero Inbox edits** — the
+  registry carried the card, the health line and the channel chip by itself. Where email is
+  genuinely unlike Telegram is not the plumbing but the medium: RFC threading (`References` root,
+  never the subject), quoted history that must be cut at ingest because the renderer is
+  plain-text by policy, and auto-reply loops — including a self-feeding one, since artifact
+  notifications email the owner at an address that may be the very mailbox being forwarded.
+  Sending is deliberately NOT built: it needs per-org DKIM verification, and nothing may go out
+  from an unverified domain. See `skills/email-integration.md`.
 - **The AI books and hands over.** `create_appointment` / `create_ticket` write against
   `conversation_id`, with the two rules the voice side learned the hard way: a booking without a
   contact is still a booking, and one conversation books one appointment. The prompt forbids

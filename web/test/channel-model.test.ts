@@ -22,12 +22,15 @@ describe("channel registry — identity + capability model (R-100/R-102)", () =>
     expect(CHANNEL_ORDER).toHaveLength(Object.keys(CHANNELS).length);
   });
 
-  it("voice+telegram are production-ready; voice+instagram+telegram are adopted (no over-claim)", () => {
-    // Both earned it the same way: a real conversation on production, verified in the database
-    // afterwards. Instagram is adopted but cannot reply, so it stays out of the sellable list.
+  it("voice+telegram are production-ready; voice+instagram+telegram+email are adopted (no over-claim)", () => {
+    // Both earned production the same way: a real conversation on production, verified in the
+    // database afterwards. Instagram is adopted but cannot reply, so it stays out of the
+    // sellable list. Email is adopted — it receives and normalizes — but has not yet made the
+    // round trip on a real mailbox, so it stays out too. `adopted` and `productionReady` are
+    // different claims and this is the test that stops them collapsing into one.
     expect(productionChannels()).toEqual(["voice", "telegram"]);
-    expect(adoptedChannels()).toEqual(["voice", "instagram", "telegram"]);
-    expect(comingSoonChannels()).toEqual(["messenger", "whatsapp", "email", "sms", "web"]);
+    expect(adoptedChannels()).toEqual(["voice", "instagram", "telegram", "email"]);
+    expect(comingSoonChannels()).toEqual(["messenger", "whatsapp", "sms", "web"]);
   });
 
   it("Instagram stays receive-only — outbound must not be silently enabled", () => {

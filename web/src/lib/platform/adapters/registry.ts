@@ -3,6 +3,7 @@ import type { ChannelAdapter } from "@/lib/platform/adapters/types";
 import { voiceAdapter } from "@/lib/platform/adapters/voice";
 import { instagramAdapter } from "@/lib/platform/adapters/instagram";
 import { telegramAdapter } from "@/lib/platform/adapters/telegram";
+import { emailAdapter } from "@/lib/platform/adapters/email";
 
 /**
  * Channel adapter registry (Sprint 4.5 — Phase 3).
@@ -16,6 +17,7 @@ const ADAPTERS: Partial<Record<Channel, ChannelAdapter>> = {
   voice: voiceAdapter,
   instagram: instagramAdapter,
   telegram: telegramAdapter,
+  email: emailAdapter,
 };
 
 export function getChannelAdapter(channel: Channel): ChannelAdapter | undefined {

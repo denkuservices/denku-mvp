@@ -25,6 +25,7 @@ const MANAGE_HREF: Partial<Record<Channel, (v: ChannelView) => string>> = {
       : "/dashboard/channels/phone-numbers",
   instagram: () => "/dashboard/channels/instagram",
   telegram: () => "/dashboard/channels/telegram",
+  email: () => "/dashboard/channels/email",
 };
 
 function HealthLine({ health }: { health: ConnectionHealth }) {

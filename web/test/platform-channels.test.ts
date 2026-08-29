@@ -26,8 +26,8 @@ describe("platform channel registry", () => {
     expect(CHANNELS.email.productionReady).toBe(false);
   });
 
-  it("adopted channels are exactly the ones with an adapter (voice + instagram)", () => {
-    expect(new Set(adoptedChannels())).toEqual(new Set(["voice", "instagram", "telegram"]));
+  it("adopted channels are exactly the ones with an adapter", () => {
+    expect(new Set(adoptedChannels())).toEqual(new Set(["voice", "instagram", "telegram", "email"]));
   });
 
   it("every channel has coherent metadata", () => {

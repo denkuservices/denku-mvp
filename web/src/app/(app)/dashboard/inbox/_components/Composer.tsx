@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Paperclip, Send, Smile } from "lucide-react";
 import { channelMeta, type Channel } from "@/lib/platform/channels";
-import { sendInboxReplyAction } from "../_actions";
+import { sendInboxReplyAction, approveDraftAction, discardDraftAction } from "../_actions";
 import { inbox } from "./theme";
 
 /**
@@ -24,6 +24,13 @@ import { inbox } from "./theme";
  * stops until it is handed back from the context rail. The note under the box says so before the
  * first send, not after — a takeover the sender did not expect is a surprise about who is talking
  * to their customer.
+ *
+ * **A pending draft is the exception.** On a channel in draft mode (email, by default) the AI
+ * writes and a person releases it. That is an approval, not a takeover, so sending a draft does
+ * NOT pause the AI — and the box says which of the two it is about to do, because "send" meaning
+ * two different things to the conversation is exactly the kind of surprise this note exists to
+ * prevent. The draft is loaded as ordinary editable text: what gets sent is always what is on
+ * screen, never the stored copy.
  */
 export default function Composer({
   channel,
@@ -31,6 +38,7 @@ export default function Composer({
   source,
   canSend,
   handledByHuman,
+  draft,
 }: {
   channel: Channel;
   conversationRef: string;
@@ -39,10 +47,13 @@ export default function Composer({
   canSend: boolean;
   /** Already taken over — so the note stops promising a takeover that has happened. */
   handledByHuman: boolean;
+  /** What the AI wrote and is waiting to have released, if anything. */
+  draft?: string | null;
 }) {
   const meta = channelMeta(channel);
   const router = useRouter();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft ?? "");
+  const [draftPending, setDraftPending] = useState(Boolean(draft));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -56,7 +67,11 @@ export default function Composer({
     if (!body || pending) return;
     setError(null);
     startTransition(async () => {
-      const res = await sendInboxReplyAction(conversationRef, source, channel, body);
+      // Approving keeps the AI on the conversation; a plain reply takes it over. Which one this
+      // is depends on whether the AI is the one who wrote the words being sent.
+      const res = draftPending
+        ? await approveDraftAction(conversationRef, source, channel, body)
+        : await sendInboxReplyAction(conversationRef, source, channel, body);
       if (!res.ok) {
         setError(res.error ?? "The message could not be delivered.");
         return;
@@ -64,12 +79,46 @@ export default function Composer({
       // Only clear on a confirmed send: losing what you wrote to a failed send is worse than
       // having to clear the box yourself.
       setText("");
+      setDraftPending(false);
+      router.refresh();
+    });
+  }
+
+  function discard() {
+    if (pending) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await discardDraftAction(conversationRef, source, channel);
+      if (!res.ok) {
+        setError(res.error ?? "Could not discard the draft.");
+        return;
+      }
+      setText("");
+      setDraftPending(false);
       router.refresh();
     });
   }
 
   return (
     <div className={`shrink-0 border-t px-3 py-3 ${inbox.frame} ${inbox.panel}`}>
+      {/* The draft is announced, not slipped into the box. Someone glancing at a pre-filled
+          composer would otherwise assume a colleague typed it and send it unread. */}
+      {draftPending ? (
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-[#25D366]/10 px-3 py-2">
+          <p className={`text-[11px] ${inbox.meta}`}>
+            Your AI wrote this reply. Edit it if you like, then send.
+          </p>
+          <button
+            type="button"
+            onClick={discard}
+            disabled={pending}
+            className={`shrink-0 text-[11px] font-medium underline underline-offset-2 disabled:opacity-40 ${inbox.meta}`}
+          >
+            Discard
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -131,9 +180,11 @@ export default function Composer({
             ? reason
             : pending
               ? "Sending…"
-              : handledByHuman
-                ? "You're handling this conversation — the AI is paused until you hand it back."
-                : "Replying takes this conversation over; the AI stops answering until you hand it back."}
+              : draftPending
+                ? "Sending your AI's draft doesn't take the conversation over — it keeps answering."
+                : handledByHuman
+                  ? "You're handling this conversation — the AI is paused until you hand it back."
+                  : "Replying takes this conversation over; the AI stops answering until you hand it back."}
         </p>
       )}
     </div>
