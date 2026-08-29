@@ -34,6 +34,11 @@ import { vapiFetch } from "./server";
 export const DENKU_TOOL_IDS = [
   "6c9b0279-dd71-4511-827f-a3e75b884773", // create_ticket
   "5373add8-b7d2-49f0-a866-f60167a1e624", // create_appointment
+  // identify_caller (R-139). Its DESCRIPTION in the Vapi account is a security control, not
+  // documentation: it is what makes the assistant ask "Who am I speaking with?" instead of
+  // "Am I speaking with Jack?", which would name the customer to whoever picked up. Change the
+  // two together — contract at the top of app/api/tools/identify-caller/route.ts.
+  "f7dba1e6-3e3b-4b22-9dfa-48708a39bc12", // identify_caller
 ] as const;
 
 // R-052 — per-assistant call caps (owner-decided). Applied on EVERY config path so no

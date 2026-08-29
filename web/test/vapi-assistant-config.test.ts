@@ -12,7 +12,7 @@ import {
 import { SETUP_LANGUAGES } from "@/app/(app)/dashboard/_platform/team/setupFields";
 import { LANGUAGE_OPTIONS } from "@/app/(app)/dashboard/settings/_lib/options";
 
-const [CREATE_TICKET, CREATE_APPT] = DENKU_TOOL_IDS;
+const [CREATE_TICKET, CREATE_APPT, IDENTIFY_CALLER] = DENKU_TOOL_IDS;
 const PROD = { VAPI_WEBHOOK_BASE_URL: "https://denku-mvp.vercel.app" };
 
 describe("getVapiWebhookServerUrl (R-077)", () => {
@@ -34,11 +34,13 @@ describe("getVapiWebhookServerUrl (R-077)", () => {
 });
 
 describe("buildAssistantConfigPatch — toolId merge (R-050)", () => {
-  it("attaches both Denku tools when the assistant has none (purchase-path case, R-050a)", () => {
+  it("attaches every Denku tool when the assistant has none (purchase-path case, R-050a)", () => {
     const patch = buildAssistantConfigPatch({ model: { provider: "openai", model: "gpt-4o" } }, {}, PROD);
     const model = patch.model as { toolIds: string[] };
-    expect(model.toolIds).toEqual(expect.arrayContaining([CREATE_TICKET, CREATE_APPT]));
-    expect(model.toolIds).toHaveLength(2);
+    expect(model.toolIds).toEqual(expect.arrayContaining([CREATE_TICKET, CREATE_APPT, IDENTIFY_CALLER]));
+    // Counted from the registry, not hardcoded: adding a tool is a one-line change there, and a
+    // test that says "2" turns that into a puzzle in an unrelated file.
+    expect(model.toolIds).toHaveLength(DENKU_TOOL_IDS.length);
   });
 
   it("MERGES rather than replaces — never drops existing tools (the syncAgentToVapi strip, R-050b)", () => {
@@ -94,7 +96,7 @@ describe("buildAssistantConfigPatch — server / webhook (R-077 + Task 5 secret)
     const patch = buildAssistantConfigPatch({ model: {} }, {}, { NEXT_PUBLIC_SITE_URL: "http://localhost:3000" });
     expect(patch.server).toBeUndefined();
     // ...but still merges tools, so the model is always fixed even without a webhook URL.
-    expect((patch.model as { toolIds: string[] }).toolIds).toHaveLength(2);
+    expect((patch.model as { toolIds: string[] }).toolIds).toHaveLength(DENKU_TOOL_IDS.length);
   });
 
   it("passes firstMessage through only when provided", () => {
