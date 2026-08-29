@@ -141,8 +141,10 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-140
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-141
 > *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch, R-139 contact recall — filed 2026-08-27.)*
+> *(R-140 workspace pause missed purchased phone lines — filed AND fixed 2026-08-29; its backfill
+> migration still needs an operator to apply it.)*
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
 > reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
 > 2026-08-25.)*
@@ -845,6 +847,51 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
   (external):** set `VAPI_WEBHOOK_BASE_URL` in Vercel to the canonical prod origin, run `POST
   /api/internal/reconcile-vapi-assistants` to fix existing assistants, and verify ingestion with a
   live test call.
+
+### R-140 — Workspace pause does not stop purchased phone lines (agent↔number link never written)
+**Priority:** Critical · **Status:** Completed (2026-08-29; backfill **applied to prod** the same day) · **Effort:** S · **Related audit:** found 2026-08-29 while planning BYO SIP numbers (`docs/BYO_PHONE_NUMBERS_PLAN.md` §3)
+- **Business impact:** Pausing a workspace is the enforcement behind hard-cap and past-due — it is
+  supposed to make inbound calls stop. It did not for **any purchased extra line**: those numbers
+  kept answering, kept consuming Vapi minutes, and kept billing an org that had already been cut
+  off. The onboarding Main Line was unaffected, so the failure was invisible in the common case —
+  a single-line org paused correctly and a multi-line org silently did not.
+- **Technical impact:** `unbindOrgPhoneNumbers` / `rebindOrgPhoneNumbers`
+  (`lib/vapi/phoneNumberBinding.ts`) find lines by querying `agents` for rows carrying **both**
+  `vapi_assistant_id` and `vapi_phone_number_id`, then PATCH the number to `assistantId: null` —
+  the only thing that actually stops routing. `/api/phone-lines/purchase` created the backing agent
+  *before* provisioning the number and then wrote the number id **only onto `phone_lines`**, never
+  back onto the agent, so every purchased line was invisible to the sweep. `runActivation` had a
+  narrower instance of the same hole: its resume branch reuses an existing `main_agent_id` without
+  refreshing the link.
+- **Recommended solution:** one shared, org-scoped, never-throwing helper called by every path that
+  binds a number to a backing agent; a backfill for rows created before it; a regression test that
+  asserts pause unbinds *every* line rather than the first.
+- **Completed 2026-08-29.** Added `lib/vapi/agentPhoneLink.ts#linkAgentToPhoneNumber` (org-scoped,
+  idempotent, never throws — a purchase that already took the customer's money must not roll back
+  over this write; failures log `[VAPI][BINDING][AGENT_NUMBER_LINK][FAILED]` with the consequence
+  spelled out). Called from `api/phone-lines/purchase` (new step 10b) and from `runActivation`
+  after the main agent is resolved. Backfill migration
+  `20260829125306_backfill_agent_phone_number_link.sql` repairs existing rows from `phone_lines`
+  and `organization_settings`, refuses to violate the `agents_vapi_phone_number_id_uq` partial
+  unique index, and `raise warning`s with a count of any line it could not link. Regression suite
+  `test/workspace-pause-unbind.test.ts` (6 tests): the link write is org-scoped and never throws,
+  and the pause sweep unbinds every line, still throws when one fails, and skips unlinked rows.
+  Full suite 844 passing; build green.
+- **Applied to prod 2026-08-29** (project `kebqwsdguxxjsijahrox`, recorded as migration
+  `20260829125306`) at the user's explicit instruction, via the Supabase MCP — the one documented
+  exception to the read-only-MCP rule in `CLAUDE.md` landmine #10. Result: linked agents 1 → 2
+  (the org `18a6c65b…` Main Line, from `organization_settings`), nothing left fixable from either
+  source. **The warning fired with a count of 1**, and that row needs a human:
+  - `phone_lines` `23f0042e…` — org `15a79057…` ("Pilot Client"), `+13213928560`, Vapi number
+    `03cd9649…`, `status = 'live'`, **`assigned_agent_id` is NULL** so there is no backing agent to
+    link, and **the same Vapi number id is registered on a different org's
+    `organization_settings` (`174b49cd…`)**. Zero calls have ever arrived on it. It reads as
+    cross-org debris from the pre-D0 test era (cf. the Vapi cleanup 18 assistants/8 numbers → 2/2),
+    not a customer line — but while it exists, workspace pause cannot unbind it. Decide whether to
+    delete the row or attach it to a real agent; do not "fix" it by guessing an owner.
+  - Also note `agents` `f548c864…` now carries a number id but still has **no `vapi_assistant_id`**,
+    so it remains invisible to the pause sweep (which needs both). Same era of debris; the backfill
+    correctly did not invent an assistant id for it.
 
 ## HIGH
 
