@@ -125,6 +125,8 @@ export interface ConversationRow {
   status: string | null;
   last_message_at: string | null;
   created_at: string;
+  /** Channel extras recorded at ingest. Email keeps the subject here. */
+  meta?: Record<string, unknown> | null;
 }
 
 export function conversationRowToConversationView(
@@ -141,8 +143,16 @@ export function conversationRowToConversationView(
     intent: null,
     startedAt: row.created_at,
     lastActivityAt: row.last_message_at ?? row.created_at,
-    summary: null,
-    meta: {},
+    /**
+     * Email's subject is the row's preview.
+     *
+     * Without it two mails from the same person render as two identical rows — same address,
+     * no second line — which reads as a duplicate rather than as two different requests. Chat
+     * channels genuinely have nothing to put here and stay null; this is not a per-channel
+     * branch so much as "use the label the channel actually has".
+     */
+    summary: typeof row.meta?.subject === "string" && row.meta.subject.trim() ? row.meta.subject.trim() : null,
+    meta: row.meta ?? {},
     source: "conversations",
   };
 }
@@ -327,7 +337,7 @@ export async function listConversationViews(
     if (!opts.channel || opts.channel !== "voice") {
       let q = db
         .from("conversations")
-        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at")
+        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at, meta")
         .eq("org_id", orgId);
       if (opts.channel) q = q.eq("channel", opts.channel);
       if (opts.contactId) q = q.eq("contact_id", opts.contactId);
@@ -474,7 +484,7 @@ export async function getConversationView(
         .maybeSingle<CallRow>(),
       db
         .from("conversations")
-        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at")
+        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at, meta")
         .eq("org_id", orgId)
         .eq("id", id)
         .maybeSingle<ConversationRow>(),

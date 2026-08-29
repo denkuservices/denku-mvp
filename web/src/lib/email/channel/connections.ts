@@ -3,6 +3,7 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildInboundAddress, inboundDomain } from "@/lib/email/channel/address";
 import { normalizeEmailAddress } from "@/lib/platform/adapters/email";
+import { addressBelongsToDomain } from "@/lib/email/channel/rules";
 
 /**
  * Email connection lifecycle: issue a forwarding address, resolve it on inbound, drop it.
@@ -287,6 +288,47 @@ export async function assignEmployee(orgId: string, connectionId: string, agentI
 
 export async function setReplyMode(orgId: string, connectionId: string, mode: ReplyMode): Promise<boolean> {
   return patch(orgId, connectionId, { reply_mode: mode });
+}
+
+/**
+ * Set the address replies are sent FROM, and the name shown beside it.
+ *
+ * Normally there is nothing to set: a business forwards `info@theirshop.com`, verifies
+ * `theirshop.com`, and replies go back out as `info@theirshop.com` — the address their customers
+ * already know. This exists for the case that default cannot serve: a small business whose
+ * public address is `theshop@gmail.com`. Nobody can DKIM-sign `gmail.com`, so without a
+ * separate reply address those businesses could never answer as themselves at all.
+ *
+ * The domain check is enforced HERE as well as at send time. Rejecting early gives the owner a
+ * sentence they can act on instead of a reply that silently never leaves.
+ */
+export async function setReplyFrom(
+  orgId: string,
+  connectionId: string,
+  fromAddress: string,
+  fromName: string | null
+): Promise<{ ok: boolean; error?: string }> {
+  const connection = await getConnectionById(connectionId);
+  if (!connection || connection.orgId !== orgId) return { ok: false, error: "Not found" };
+
+  const address = normalizeEmailAddress(fromAddress);
+  if (!address) return { ok: false, error: "That does not look like an email address." };
+
+  if (connection.sendingDomainStatus !== "verified" || !connection.sendingDomain) {
+    return { ok: false, error: "Verify your sending domain first." };
+  }
+  if (!addressBelongsToDomain(address, connection.sendingDomain)) {
+    return {
+      ok: false,
+      error: `Use an address at ${connection.sendingDomain} — that is the domain you verified.`,
+    };
+  }
+
+  const ok = await patch(orgId, connectionId, {
+    from_address: address,
+    from_name: fromName?.trim() || null,
+  });
+  return ok ? { ok: true } : { ok: false, error: "Could not save. Please try again." };
 }
 
 /** Stamped by the webhook the first time real mail arrives — the proof forwarding works. */

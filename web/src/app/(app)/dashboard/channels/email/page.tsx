@@ -91,6 +91,8 @@ export default async function EmailPage() {
                 forwardVerifiedAt: connection.forwardVerifiedAt,
                 sendingDomain: connection.sendingDomain,
                 sendingDomainStatus: connection.sendingDomainStatus,
+                fromAddress: connection.fromAddress,
+                fromName: connection.fromName,
                 replyMode: connection.replyMode,
                 status: connection.status,
                 lastError: connection.lastError,

@@ -82,10 +82,34 @@ function toRecords(raw: unknown): DnsRecord[] {
 }
 
 /**
+ * Find a domain already registered in the Resend account, by name.
+ *
+ * Needed because `domains.create` refuses a name the account already holds, and that is not an
+ * error from the customer's point of view — it means the work is already done. Denku's own
+ * `denku.io` is the first example, but any business whose domain was added for another reason
+ * (an earlier connection, a second address, an operator setting it up by hand) hits the same
+ * wall. Returns null when the account genuinely does not have it.
+ */
+async function findExistingDomain(domain: string): Promise<{ id: string; status: string } | null> {
+  if (!resend) return null;
+  try {
+    const listed = await resend.domains.list();
+    const rows = (listed.data as { data?: Array<{ id: string; name: string; status: string }> } | null)?.data;
+    if (!Array.isArray(rows)) return null;
+    const match = rows.find((d) => d.name?.toLowerCase() === domain);
+    return match ? { id: match.id, status: match.status } : null;
+  } catch (err) {
+    console.error("[EMAIL][DOMAIN][LIST][ERROR]", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/**
  * Register the org's domain with Resend and store what the customer must add to DNS.
  *
- * Idempotent by intent: re-running for the same connection replaces the stored domain, so a
- * customer who typed the wrong domain can simply type the right one.
+ * Idempotent in both directions: re-running for the same connection replaces the stored domain,
+ * so a customer who typed the wrong one can simply type the right one — and a domain the Resend
+ * account ALREADY holds is adopted rather than rejected.
  */
 export async function startDomainVerification(input: {
   orgId: string;
@@ -103,21 +127,42 @@ export async function startDomainVerification(input: {
   }
 
   try {
+    let domainId: string | null = null;
+    let rawStatus: string | null = null;
+    let records: DnsRecord[] = [];
+
     const created = await resend.domains.create({ name: domain });
+
     if (created.error || !created.data) {
-      console.error("[EMAIL][DOMAIN][CREATE][FAILED]", { domain, error: created.error?.message });
-      return { ...empty, error: created.error?.message ?? "Could not register that domain." };
+      /**
+       * A create that failed is not necessarily a customer error — the commonest cause is that
+       * the account already holds this domain. Look before reporting failure, so an
+       * already-verified domain lights up green instead of telling the owner to fix DNS that is
+       * already correct.
+       */
+      const existing = await findExistingDomain(domain);
+      if (!existing) {
+        console.error("[EMAIL][DOMAIN][CREATE][FAILED]", { domain, error: created.error?.message });
+        return { ...empty, error: created.error?.message ?? "Could not register that domain." };
+      }
+      domainId = existing.id;
+      rawStatus = existing.status;
+      records = await getDomainRecords(existing.id);
+      console.info("[EMAIL][DOMAIN][ADOPTED_EXISTING]", { org_id: input.orgId, domain, status: rawStatus });
+    } else {
+      domainId = created.data.id;
+      rawStatus = created.data.status;
+      records = toRecords((created.data as { records?: unknown }).records);
     }
 
-    const status = toStatus(created.data.status);
-    const records = toRecords((created.data as { records?: unknown }).records);
+    const status = toStatus(rawStatus);
 
     const { error } = await supabaseAdmin
       .from("email_connections")
       .update({
         sending_domain: domain,
         sending_domain_status: status,
-        resend_domain_id: created.data.id,
+        resend_domain_id: domainId,
         // Cleared deliberately: a from-address that belonged to the previous domain must not
         // survive a domain change and quietly become unsendable.
         from_address: null,
@@ -130,8 +175,8 @@ export async function startDomainVerification(input: {
       return { ...empty, error: "Could not save the domain. Please try again." };
     }
 
-    console.info("[EMAIL][DOMAIN][CREATED]", { org_id: input.orgId, domain, status });
-    return { ok: true, domainId: created.data.id, status, records };
+    console.info("[EMAIL][DOMAIN][READY]", { org_id: input.orgId, domain, status });
+    return { ok: true, domainId, status, records };
   } catch (err) {
     console.error("[EMAIL][DOMAIN][CREATE][ERROR]", err instanceof Error ? err.message : String(err));
     return { ...empty, error: "Could not reach the email provider. Please try again." };

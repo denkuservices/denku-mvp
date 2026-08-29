@@ -10,6 +10,7 @@ import {
   disconnect,
   assignEmployee,
   setReplyMode,
+  setReplyFrom,
   type ReplyMode,
 } from "@/lib/email/channel/connections";
 
@@ -148,4 +149,17 @@ export async function checkDomainAction(connectionId: string): Promise<{ ok: boo
   revalidatePath("/dashboard/channels/email");
   revalidatePath("/dashboard/channels");
   return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+export async function setEmailReplyFromAction(
+  connectionId: string,
+  fromAddress: string,
+  fromName: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const result = await setReplyFrom(auth.orgId, connectionId, fromAddress, fromName);
+  revalidatePath("/dashboard/channels/email");
+  return result;
 }

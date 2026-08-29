@@ -8,6 +8,7 @@ import {
   disconnectEmailAction,
   assignEmailEmployeeAction,
   setEmailReplyModeAction,
+  setEmailReplyFromAction,
   startDomainVerificationAction,
   checkDomainAction,
 } from "../_actions";
@@ -19,6 +20,8 @@ export interface EmailConnectionSummary {
   forwardVerifiedAt: string | null;
   sendingDomain: string | null;
   sendingDomainStatus: "unverified" | "pending" | "verified" | "failed";
+  fromAddress: string | null;
+  fromName: string | null;
   replyMode: "draft" | "auto";
   status: "connected" | "revoked" | "error";
   lastError: string | null;
@@ -188,8 +191,10 @@ export function EmailConnectionCard({
               <>
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Replies are sent from {connection.sendingDomain}
+                  Replies are sent from {connection.fromAddress ?? connection.forwardFromAddress}
                 </p>
+
+                <ReplyFromSetting connection={connection} canManage={canManage} />
 
                 {/* Auto-send is opt-in, and the label says what changes rather than naming a
                     mode. "Draft" and "auto" mean nothing to a shop owner; "who presses send"
@@ -337,6 +342,108 @@ export function EmailConnectionCard({
           {error}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Which address replies leave from.
+ *
+ * Usually there is nothing to decide — a business forwards `info@theirshop.com`, verifies
+ * `theirshop.com`, and answers come back from the address their customers already wrote to,
+ * which is also where a reply to our reply will land. So this stays collapsed unless asked for.
+ *
+ * It exists for the case that default cannot serve: a shop whose public address is
+ * `theshop@gmail.com`. Nobody can DKIM-sign `gmail.com`, so without a separate reply address
+ * those businesses could not answer as themselves at all.
+ */
+function ReplyFromSetting({
+  connection,
+  canManage,
+}: {
+  connection: EmailConnectionSummary;
+  canManage: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [address, setAddress] = useState(connection.fromAddress ?? "");
+  const [name, setName] = useState(connection.fromName ?? "");
+
+  const defaultAddress = connection.forwardFromAddress ?? "";
+  const defaultUnsendable =
+    Boolean(connection.sendingDomain) &&
+    Boolean(defaultAddress) &&
+    !defaultAddress.toLowerCase().endsWith(`@${connection.sendingDomain?.toLowerCase()}`) &&
+    !defaultAddress.toLowerCase().endsWith(`.${connection.sendingDomain?.toLowerCase()}`);
+
+  function onSave() {
+    setError(null);
+    startTransition(async () => {
+      const res = await setEmailReplyFromAction(connection.id, address, name);
+      if (!res.ok) setError(res.error ?? "Could not save.");
+      else setOpen(false);
+    });
+  }
+
+  // Surfaced without being asked for when the default cannot work — otherwise the owner would
+  // discover it only when a reply refused to send.
+  const shouldPrompt = defaultUnsendable && !connection.fromAddress;
+
+  if (!open && !shouldPrompt) {
+    return canManage ? (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1.5 text-xs font-medium text-brand-500 underline underline-offset-2"
+      >
+        Change reply address
+      </button>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-gray-200 p-3 dark:border-white/10">
+      {shouldPrompt ? (
+        <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
+          Replies cannot be sent from {defaultAddress} — that domain is not yours to sign. Choose
+          an address at {connection.sendingDomain} instead.
+        </p>
+      ) : null}
+
+      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+        Reply from
+      </label>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <input
+          type="email"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          disabled={!canManage || pending}
+          placeholder={`hello@${connection.sendingDomain ?? "yourbusiness.com"}`}
+          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+        />
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={!canManage || pending}
+          placeholder="Name shown to customers"
+          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+        />
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!canManage || pending || address.trim().length === 0}
+          className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Save"}
+        </button>
+      </div>
+      <p className="mt-1.5 text-xs text-gray-500">
+        Must be an address at {connection.sendingDomain} — the domain you verified.
+      </p>
+      {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
     </div>
   );
 }
