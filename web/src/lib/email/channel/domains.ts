@@ -3,11 +3,11 @@ import "server-only";
 import { resend } from "@/lib/email/resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { SendingDomainStatus } from "@/lib/email/channel/connections";
-import { normalizeDomain } from "@/lib/email/channel/rules";
+import { normalizeDomain, isReservedDomain } from "@/lib/email/channel/rules";
 
 // Re-exported so existing importers keep one obvious place to look; the logic lives in the pure
 // module so tests can reach it without a Supabase client.
-export { normalizeDomain, addressBelongsToDomain } from "@/lib/email/channel/rules";
+export { normalizeDomain, addressBelongsToDomain, isReservedDomain } from "@/lib/email/channel/rules";
 
 /**
  * Per-org sending domains.
@@ -120,6 +120,33 @@ export async function startDomainVerification(input: {
 
   const domain = normalizeDomain(input.domain);
   if (!domain) return { ...empty, error: "That does not look like a domain. Try yourshop.com." };
+
+  /**
+   * Two claims that must be refused before a single call reaches the provider.
+   *
+   * Denku runs ONE Resend account for every workspace, so an already-verified domain proves that
+   * SOMEBODY controls its DNS and nothing about who is asking. Without these checks a customer
+   * could type `denku.io` — verified since January — and be handed the right to send as Denku,
+   * or type another workspace's domain and send as them.
+   */
+  if (isReservedDomain(domain, process.env)) {
+    console.warn("[EMAIL][DOMAIN][RESERVED][REFUSED]", { org_id: input.orgId, domain });
+    return { ...empty, error: "That domain cannot be used. Use a domain your business owns." };
+  }
+
+  const { data: claimed } = await supabaseAdmin
+    .from("email_connections")
+    .select("org_id")
+    .eq("sending_domain", domain)
+    .eq("sending_domain_status", "verified")
+    .neq("org_id", input.orgId)
+    .limit(1)
+    .maybeSingle<{ org_id: string }>();
+
+  if (claimed) {
+    console.warn("[EMAIL][DOMAIN][CLAIMED_ELSEWHERE][REFUSED]", { org_id: input.orgId, domain });
+    return { ...empty, error: "That domain is already connected to another workspace." };
+  }
 
   if (!resend) {
     console.error("[EMAIL][DOMAIN][NOT_CONFIGURED]");

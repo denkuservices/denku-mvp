@@ -6,6 +6,7 @@ import {
   formatFrom,
   replySubject,
   angle,
+  isReservedDomain,
 } from "@/lib/email/channel/rules";
 
 /**
@@ -120,5 +121,42 @@ describe("angle — Message-IDs are bracketed exactly once", () => {
 
   it("leaves an already-wrapped id alone", () => {
     expect(angle("<abc@mail.example>")).toBe("<abc@mail.example>");
+  });
+});
+
+describe("isReservedDomain — one Resend account, so a verified domain proves nothing about WHO", () => {
+  const env = { EMAIL_INBOUND_DOMAIN: "in.denku.io" };
+
+  it("refuses the domain Denku sends its own mail from", () => {
+    // The concrete attack: `denku.io` has been verified in the shared Resend account since
+    // January. Adopted by a tenant, it would let them send billing notices as Denku.
+    expect(isReservedDomain("denku.io", env)).toBe(true);
+  });
+
+  it("refuses the inbound domain and any subdomain of a reserved one", () => {
+    expect(isReservedDomain("in.denku.io", env)).toBe(true);
+    expect(isReservedDomain("mail.denku.io", env)).toBe(true);
+    expect(isReservedDomain("anything.in.denku.io", env)).toBe(true);
+  });
+
+  it("is case- and whitespace-insensitive, so casing is not a bypass", () => {
+    expect(isReservedDomain("  DenKu.IO  ", env)).toBe(true);
+  });
+
+  it("does NOT refuse a domain that merely ends with a reserved one", () => {
+    // `notdenku.io` is somebody else's domain and must remain claimable.
+    expect(isReservedDomain("notdenku.io", env)).toBe(false);
+    expect(isReservedDomain("mydenku.io", env)).toBe(false);
+  });
+
+  it("allows an ordinary customer domain", () => {
+    expect(isReservedDomain("yourshop.com", env)).toBe(false);
+    expect(isReservedDomain("reply.yourshop.com", env)).toBe(false);
+  });
+
+  it("still reserves Denku's own domains when no inbound domain is configured", () => {
+    expect(isReservedDomain("denku.io", {})).toBe(true);
+    expect(isReservedDomain("", {})).toBe(false);
+    expect(isReservedDomain(null, {})).toBe(false);
   });
 });

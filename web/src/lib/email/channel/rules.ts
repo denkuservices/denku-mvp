@@ -51,6 +51,34 @@ export function addressBelongsToDomain(
   return host === base || host.endsWith(`.${base}`);
 }
 
+/**
+ * Domains no tenant may ever claim as their own sending identity.
+ *
+ * Denku runs ONE Resend account for every workspace, so "this domain is verified in the account"
+ * is evidence that *somebody* controls its DNS — never evidence that **this** business does. Left
+ * unguarded, a customer could type `denku.io`, have it adopted as already-verified, and send mail
+ * as Denku itself: billing notices, password resets, anything. The domains Denku sends its own
+ * mail from are therefore reserved outright, and the caller separately refuses a domain another
+ * workspace has already claimed.
+ */
+const RESERVED_DOMAINS = ["denku.io", "denkuservices.com"];
+
+/** Is this a domain Denku sends its own mail from, and so nobody else's to claim? */
+export function isReservedDomain(
+  domain: string | null | undefined,
+  env: Record<string, string | undefined> = {}
+): boolean {
+  const value = (domain ?? "").trim().toLowerCase();
+  if (!value) return false;
+
+  const reserved = [...RESERVED_DOMAINS];
+  const inbound = (env.EMAIL_INBOUND_DOMAIN ?? "").trim().toLowerCase();
+  if (inbound) reserved.push(inbound);
+
+  // A subdomain of a reserved domain is reserved too — `mail.denku.io` impersonates just as well.
+  return reserved.some((r) => value === r || value.endsWith(`.${r}`));
+}
+
 /** RFC 5322 `From:` — a display name is quoted so a comma in a business name cannot split it. */
 export function formatFrom(identity: SendIdentity): string {
   const name = identity.fromName?.trim();
