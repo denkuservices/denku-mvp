@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { parseSpokenTime } from "@/lib/time/spokenTime";
+import { parseSpokenTime, parseLocalDateTime } from "@/lib/time/spokenTime";
 import type { ReplyArtifact, ReplyEmployee } from "@/lib/platform/reply/types";
 
 /**
@@ -52,6 +52,14 @@ export const CHAT_TOOL_DEFINITIONS = [
       parameters: {
         type: "object",
         properties: {
+          start_at: {
+            type: "string",
+            description:
+              "The date and time you resolved, as YYYY-MM-DD HH:mm in the business's local time. " +
+              "Work it out from the current local time given above — 'Monday', 'Pazartesi', 'lunes' " +
+              "and 'tomorrow' all mean a specific date, and you are the one who knows which. " +
+              "Always send this when the customer named a day or time.",
+          },
           start_at_text: {
             type: "string",
             description:
@@ -117,7 +125,17 @@ export async function executeCreateAppointment(
   const db = ctx.db ?? supabaseAdmin;
   const startAtText = clean(args.start_at_text);
 
-  const when = startAtText ? parseSpokenTime(startAtText, ctx.employee.timezone) : null;
+  /**
+   * The model's resolved date wins over the customer's words.
+   *
+   * `parseSpokenTime` runs on English-only chrono: given "Pazartesi saat 13:00" it reads the
+   * 13:00, drops the weekday, and books today. It stays as the fallback for a model that sent
+   * only the phrase — better a parse than nothing — but it must not be the first choice on a
+   * product that answers in the customer's own language.
+   */
+  const when =
+    parseLocalDateTime(clean(args.start_at), ctx.employee.timezone) ??
+    (startAtText ? parseSpokenTime(startAtText, ctx.employee.timezone) : null);
   if (!when) {
     // Refusing beats guessing: an appointment invented from "sometime soon" is a customer who
     // turns up on the wrong day, and the owner never learns why.
