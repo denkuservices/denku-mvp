@@ -44,27 +44,59 @@ export function parseGmailConfirmation(email: InboundEmail): GmailForwardingConf
   if (!GMAIL_FORWARDING_SENDERS.some((sender) => from.includes(sender))) return null;
 
   const subject = email.subject ?? "";
-  // Both the English subject and the (#123456789) form Gmail puts in front of it.
-  const looksLikeConfirmation =
-    /forwarding confirmation/i.test(subject) || /gmail.*(confirm|doğrula)/i.test(subject) || /^\(#\d{6,}\)/.test(subject.trim());
-  if (!looksLikeConfirmation) return null;
-
   const body = bodyOf(email);
 
-  // Gmail prints the code in the subject as (#123456789) and again in the body.
+  /**
+   * Detection keys on the LINK, not on the wording.
+   *
+   * The first version matched English subjects ("Gmail Forwarding Confirmation") and the
+   * `(#123456789)` prefix. Gmail sends this mail in the **recipient's own language**: the real
+   * one arrived as "Gmail Yönlendirme Onayı — … Adresinden Posta Alma", matched nothing, and was
+   * shown to the business owner as though a customer had written in. Denku answers in whatever
+   * language the customer writes, so a parser that only reads English was always going to break
+   * on the first non-English workspace.
+   *
+   * The verification URL is the same shape in every language, which makes it the honest key.
+   */
+  const verificationUrl = extractVerificationUrl(body);
+
+  // The English form still carries a numeric code, and a mail that has one is a confirmation even
+  // if the link shape ever changes. Either signal is enough; neither alone is required.
   const codeFromSubject = subject.match(/\(#(\d{6,})\)/);
-  const codeFromBody = body.match(/confirmation code[^0-9]{0,40}(\d{6,})/i) ?? body.match(/\b(\d{9})\b/);
+  const codeFromBody = body.match(/confirmation code[^0-9]{0,40}(\d{6,})/i);
   const code = codeFromSubject?.[1] ?? codeFromBody?.[1] ?? null;
 
-  const urlMatch = body.match(/https:\/\/mail\.google\.com\/[^\s"'<>)]+/);
+  if (!verificationUrl && !code) return null;
 
-  const requestedBy = body.match(/Receive Mail from\s+([^\s<>"']+@[^\s<>"']+)/i)?.[1] ?? null;
+  const requestedBy =
+    body.match(/Receive Mail from\s+([^\s<>"']+@[^\s<>"']+)/i)?.[1] ??
+    // Language-independent fallback: the requesting mailbox is the first address in the body that
+    // is not the address we issued.
+    body.match(/([A-Za-z0-9._%+-]+@(?!in\.)[A-Za-z0-9.-]+\.[A-Za-z]{2,})/)?.[1] ??
+    null;
 
   return {
     code,
-    verificationUrl: urlMatch ? urlMatch[0].replace(/&amp;/g, "&") : null,
+    verificationUrl,
     requestedBy: requestedBy ? requestedBy.toLowerCase() : null,
   };
+}
+
+/**
+ * The "yes, forward here" link — and never the "no, cancel" one.
+ *
+ * Gmail puts BOTH in the same mail: `/mail/vf-…` confirms the request, `/mail/uf-…` withdraws it.
+ * They sit paragraphs apart under localised prose, so taking the first Google link found would
+ * eventually follow `uf-` and cancel the very forwarding the customer just set up — silently, and
+ * looking exactly like Gmail never sent the mail. The prefix is matched explicitly for that
+ * reason.
+ *
+ * The host is `mail-settings.google.com` in current mail and was `mail.google.com` historically;
+ * both are accepted.
+ */
+function extractVerificationUrl(body: string): string | null {
+  const match = body.match(/https:\/\/mail(?:-settings)?\.google\.com\/mail\/vf-[^\s"'<>)]+/i);
+  return match ? match[0].replace(/&amp;/g, "&") : null;
 }
 
 /**

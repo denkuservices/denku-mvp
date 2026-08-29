@@ -274,6 +274,17 @@ export function isAutomatedEmail(email: InboundEmail): boolean {
   const local = from.split("@")[0];
   if (ROBOT_LOCAL_PARTS.some((robot) => local === robot || local.startsWith(`${robot}+`))) return true;
 
+  /**
+   * A no-reply address with something bolted on the front is still a no-reply address.
+   *
+   * The exact-match list missed `forwarding-noreply@google.com`, which is how Gmail's own
+   * forwarding handshake ended up in a business owner's Inbox looking like a customer enquiry.
+   * Matching the token anywhere in the local part catches that whole family — `billing-noreply`,
+   * `noreply-alerts` — without touching ordinary names, since no person's mailbox contains
+   * "noreply".
+   */
+  if (/no-?reply|donotreply|do-not-reply/.test(local)) return true;
+
   return false;
 }
 

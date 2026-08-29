@@ -72,8 +72,50 @@ describe("Gmail forwarding confirmation — finished on the customer's behalf", 
 
   it("returns null for other Google mail that is not the handshake", () => {
     expect(
-      parseGmailConfirmation(mail({ subject: "Security alert for your linked Google Account" }))
+      parseGmailConfirmation(mail({ subject: "Security alert for your linked Google Account", text: "Someone signed in." }))
     ).toBeNull();
+  });
+
+  /**
+   * The real mail that broke it. Gmail sends this in the RECIPIENT'S language, so the English
+   * subject match failed, the mail fell through, and a business owner saw Google's plumbing in
+   * their Inbox as though a customer had written in.
+   */
+  describe("the Turkish confirmation that reached a real Inbox", () => {
+    const turkish = mail({
+      subject: "Gmail Yönlendirme Onayı - minosandco@gmail.com Adresinden Posta Alma",
+      text: [
+        "minosandco@gmail.com, postaların pilot-client-3547de@in.denku.io",
+        "e-posta adresinize otomatik olarak yönlendirilmesini istedi.",
+        "",
+        "izin vermek için lütfen aşağıdaki bağlantıyı tıklayarak isteği onaylayın:",
+        "",
+        "https://mail-settings.google.com/mail/vf-%5BANGjdJ9Dj-hH2iMnn%5D-j-mV3rzu0MLir",
+        "",
+        "Bağlantıyı yanlışlıkla tıkladıysanız ve iptal etmek istiyorsanız:",
+        "https://mail-settings.google.com/mail/uf-%5BANGjdJ_Hi2enWAXFy%5D-j-mV3rzu0MLir",
+      ].join("\n"),
+    });
+
+    it("is recognised despite carrying no English and no numeric code", () => {
+      expect(parseGmailConfirmation(turkish)).not.toBeNull();
+    });
+
+    it("accepts the mail-settings.google.com host", () => {
+      expect(parseGmailConfirmation(turkish)?.verificationUrl).toContain("mail-settings.google.com");
+    });
+
+    it("takes the CONFIRM link and never the cancel link", () => {
+      // `uf-` withdraws the request. Following it would silently undo the forwarding the customer
+      // just set up, and look exactly like Gmail never sent the mail.
+      const url = parseGmailConfirmation(turkish)?.verificationUrl ?? "";
+      expect(url).toContain("/mail/vf-");
+      expect(url).not.toContain("/mail/uf-");
+    });
+
+    it("still names the mailbox that asked to forward", () => {
+      expect(parseGmailConfirmation(turkish)?.requestedBy).toBe("minosandco@gmail.com");
+    });
   });
 });
 

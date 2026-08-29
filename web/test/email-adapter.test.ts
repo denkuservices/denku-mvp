@@ -199,6 +199,28 @@ describe("loop and noise guards — the failure Telegram never had", () => {
     }
   });
 
+  it("refuses a no-reply address with something bolted on the front", () => {
+    /**
+     * `forwarding-noreply@google.com` is how Gmail's own forwarding handshake reached a real
+     * business owner's Inbox looking like a customer enquiry: the exact-match list did not
+     * contain it, and neither did it start with a listed token.
+     */
+    for (const from of [
+      "forwarding-noreply@google.com",
+      "billing-noreply@stripe.com",
+      "noreply-alerts@x.com",
+      "do-not-reply@x.com",
+    ]) {
+      expect(isAutomatedEmail(mail({ from }))).toBe(true);
+    }
+  });
+
+  it("does not mistake an ordinary name for a robot", () => {
+    for (const from of ["ayse@x.com", "reply@x.com", "replies@x.com", "noreen@x.com"]) {
+      expect(isAutomatedEmail(mail({ from }))).toBe(false);
+    }
+  });
+
   it("lets an ordinary customer through", () => {
     expect(isAutomatedEmail(mail())).toBe(false);
   });

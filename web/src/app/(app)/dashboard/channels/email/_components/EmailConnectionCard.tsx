@@ -34,6 +34,17 @@ export interface EmployeeOption {
   name: string;
 }
 
+/** One DNS row the customer must publish. Nothing here is secret. */
+export interface DnsRecordView {
+  record: string;
+  type: string;
+  name: string;
+  value: string;
+  ttl: string;
+  priority: number | null;
+  status: string;
+}
+
 /**
  * The connect surface for a business's email channel.
  *
@@ -54,10 +65,13 @@ export function EmailConnectionCard({
   connection,
   employees,
   canManage,
+  dnsRecords = [],
 }: {
   connection: EmailConnectionSummary | null;
   employees: EmployeeOption[];
   canManage: boolean;
+  /** What the customer must publish to their own DNS. Empty once verified. */
+  dnsRecords?: DnsRecordView[];
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +232,7 @@ export function EmailConnectionCard({
                 </label>
               </>
             ) : (
-              <SendingSetup connection={connection} canManage={canManage} />
+              <SendingSetup connection={connection} canManage={canManage} dnsRecords={dnsRecords} />
             )}
           </div>
 
@@ -459,9 +473,11 @@ function ReplyFromSetting({
 function SendingSetup({
   connection,
   canManage,
+  dnsRecords,
 }: {
   connection: EmailConnectionSummary;
   canManage: boolean;
+  dnsRecords: DnsRecordView[];
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -539,9 +555,12 @@ function SendingSetup({
             </button>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            Add the DNS records from your Resend dashboard to {connection.sendingDomain}, then
-            check again. DNS changes can take a few minutes to a few hours to appear.
+            Add these records to the DNS for {connection.sendingDomain}, then check again. If
+            someone else manages your domain, send them this list. DNS changes usually appear
+            within minutes, occasionally a few hours.
           </p>
+
+          <DnsRecords records={dnsRecords} />
         </div>
       )}
 
@@ -638,5 +657,86 @@ function Address({ value }: { value: string }) {
     <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-navy-700 dark:bg-white/10 dark:text-white">
       {value}
     </code>
+  );
+}
+
+/**
+ * The DNS rows, shown here because the customer cannot go and get them.
+ *
+ * The first version of this card said "add the records from your Resend dashboard". Resend is
+ * DENKU's account — a customer has no login for it, so the sending setup dead-ended on a step
+ * nobody outside Denku could perform. The records are public DNS data, and the person who has to
+ * publish them is the one reading this page.
+ *
+ * Each value is individually copyable because a DKIM key is ~400 characters of base64 that
+ * nobody retypes correctly, and one wrong character fails verification with no clue why.
+ */
+function DnsRecords({ records }: { records: DnsRecordView[] }) {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  async function copyValue(value: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 2000);
+    } catch {
+      setCopiedIndex(null);
+    }
+  }
+
+  if (records.length === 0) {
+    // The provider did not hand any back — say so rather than rendering an empty box that reads
+    // as "nothing to do" on a domain that is demonstrably not verified.
+    return (
+      <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+        The records could not be loaded just now. Press “Check again” in a moment, or contact
+        support if it keeps happening.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200 dark:border-white/10">
+      <table className="w-full min-w-[34rem] text-left text-xs">
+        <thead className="bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-300">
+          <tr>
+            <th className="px-3 py-2 font-medium">Type</th>
+            <th className="px-3 py-2 font-medium">Name</th>
+            <th className="px-3 py-2 font-medium">Value</th>
+            <th className="px-3 py-2 font-medium">TTL</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-white/10">
+          {records.map((record, index) => (
+            <tr key={`${record.type}-${record.name}-${index}`} className="align-top">
+              <td className="whitespace-nowrap px-3 py-2 font-mono text-navy-700 dark:text-white">
+                {record.type}
+                {record.priority != null ? (
+                  <span className="ml-1 text-gray-500">(pri {record.priority})</span>
+                ) : null}
+              </td>
+              <td className="break-all px-3 py-2 font-mono text-navy-700 dark:text-white">{record.name}</td>
+              <td className="px-3 py-2">
+                <div className="flex items-start gap-2">
+                  {/* Capped height so a 400-character DKIM key cannot push the table off screen. */}
+                  <code className="block max-h-16 min-w-0 flex-1 overflow-y-auto break-all font-mono text-[11px] text-navy-700 dark:text-white">
+                    {record.value}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyValue(record.value, index)}
+                    aria-label={`Copy ${record.type} value`}
+                    className="shrink-0 rounded border border-gray-200 p-1 text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
+                  >
+                    {copiedIndex === index ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </div>
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-gray-500">{record.ttl}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

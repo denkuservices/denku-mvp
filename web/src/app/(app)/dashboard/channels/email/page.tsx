@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listConnections } from "@/lib/email/channel/connections";
 import { inboundDomain } from "@/lib/email/channel/address";
+import { getDomainRecords, type DnsRecord } from "@/lib/email/channel/domains";
 import { llmConfigured } from "@/lib/llm/provider";
 import PageHeader from "../../_platform/PageHeader";
 import { EmailConnectionCard, type EmployeeOption } from "./_components/EmailConnectionCard";
@@ -48,6 +49,20 @@ export default async function EmailPage() {
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
     employees = (data ?? []).map((a) => ({ id: a.id as string, name: (a.name as string) || "Assistant" }));
+  }
+
+  /**
+   * The DNS records the customer must publish, fetched here rather than left to the client.
+   *
+   * The card used to tell them to "add the records from your Resend dashboard" — a dashboard
+   * they cannot open, because Resend is Denku's account, not theirs. Without this the whole
+   * sending setup dead-ends on a step nobody outside Denku can perform.
+   *
+   * Only fetched while there is something to do: a verified domain needs no instructions.
+   */
+  let dnsRecords: DnsRecord[] = [];
+  if (connection?.resendDomainId && connection.sendingDomainStatus !== "verified") {
+    dnsRecords = await getDomainRecords(connection.resendDomainId);
   }
 
   const receivingConfigured = Boolean(inboundDomain());
@@ -103,6 +118,7 @@ export default async function EmailPage() {
         }
         employees={employees}
         canManage={canManage}
+        dnsRecords={dnsRecords}
       />
     </div>
   );
