@@ -72,12 +72,23 @@ export async function resolveSendIdentity(connectionId: string | null): Promise<
     };
   }
 
+  /**
+   * Replies must land in the mailbox that actually forwards to us.
+   *
+   * `Reply-To` is the forwarded address, not the From address, and the difference only shows up
+   * in the case this product has to serve: a shop whose public address is `theshop@gmail.com`
+   * but which signs as `info@theshop.com`. Nothing receives mail at `info@theshop.com` — the
+   * domain may have no MX at all — so a customer pressing Reply would get a bounce and conclude
+   * the business ignored them. Pointing Reply-To at the forwarding mailbox closes the loop.
+   *
+   * In the ordinary case the two are the same address and this is a no-op.
+   */
   return {
     ok: true,
     identity: {
       fromName: connection.fromName,
       fromAddress,
-      replyTo: fromAddress,
+      replyTo: connection.forwardFromAddress ?? fromAddress,
     },
   };
 }
