@@ -42,12 +42,12 @@ export function UseCases() {
       <Container>
         <Reveal className="max-w-2xl">
           <div className="brand-eyebrow mb-5">What we build</div>
-          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
+          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[var(--s-ink)]">
             AI employees for the
             <br />
-            moments that <em className="font-medium italic text-[#1B6E6E]">cost</em> you revenue.
+            moments that <em className="font-medium italic text-[var(--s-accent)]">cost</em> you revenue.
           </h2>
-          <p className="mt-5 max-w-xl text-[18px] leading-relaxed text-[#2C3E54]">
+          <p className="mt-5 max-w-xl text-[18px] leading-relaxed text-[var(--s-ink-soft)]">
             Not chatbots. Not scripts. Trained AI team members that handle calls, leads, and
             bookings exactly the way your best employee would.
           </p>
@@ -60,13 +60,13 @@ export function UseCases() {
               <Reveal
                 key={s.title}
                 delay={(i % 3) as 0 | 1 | 2}
-                className="group rounded-[18px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-8 transition-all duration-300 hover:-translate-y-1 hover:border-[#1B6E6E]/20 hover:brand-shadow-md"
+                className="group rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-8 transition-all duration-300 hover:-translate-y-1 hover:border-[var(--s-accent-ring)] hover:brand-shadow-md"
               >
-                <div className="mb-6 flex h-[50px] w-[50px] items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
+                <div className="mb-6 flex h-[50px] w-[50px] items-center justify-center rounded-[12px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
                   <Icon className="h-[22px] w-[22px]" />
                 </div>
-                <h3 className="font-display text-[22px] font-medium tracking-[-0.4px] text-[#0A1A2F]">{s.title}</h3>
-                <p className="mt-2.5 text-[15px] leading-relaxed text-[#2C3E54]">{s.desc}</p>
+                <h3 className="font-display text-[22px] font-medium tracking-[-0.4px] text-[var(--s-ink)]">{s.title}</h3>
+                <p className="mt-2.5 text-[15px] leading-relaxed text-[var(--s-ink-soft)]">{s.desc}</p>
               </Reveal>
             );
           })}

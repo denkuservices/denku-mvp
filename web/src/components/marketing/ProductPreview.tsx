@@ -71,7 +71,7 @@ export function ProductPreview() {
                   className={[
                     'flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all',
                     activeTab === tab.id
-                      ? 'bg-white text-brand-500 shadow-shadow-100'
+                      ? 'bg-[var(--s-panel)] text-brand-500 shadow-shadow-100'
                       : 'text-gray-600 hover:text-navy-700',
                   ].join(' ')}
                 >
@@ -85,7 +85,7 @@ export function ProductPreview() {
 
         {/* Tab Content */}
         <div className="mt-8">
-          <div className="relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-3xl p-8">
+          <div className="relative flex flex-col rounded-[20px] bg-[var(--s-panel)] bg-clip-border shadow-3xl p-8">
             {/* R-004/R-018 honesty: this frame is an illustration of the interface, not live data.
                 Every figure below is invented for the mock, so the frame says so rather than
                 asserting numbers Denku has not measured. */}
@@ -134,7 +134,7 @@ export function ProductPreview() {
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3"
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-[var(--s-panel)] p-3"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-brand-500" />

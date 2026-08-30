@@ -143,7 +143,7 @@ export function LiveAgentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-[20px] bg-white shadow-3xl border border-gray-200 p-0 overflow-hidden">
+      <DialogContent className="max-w-2xl rounded-[20px] bg-[var(--s-panel)] shadow-3xl border border-gray-200 p-0 overflow-hidden">
         <DialogHeader className="px-8 pt-8 pb-6 border-b border-gray-200">
           <DialogTitle className="text-2xl font-bold text-navy-700">
             Talk to Denku

@@ -30,26 +30,26 @@ export function VisualAccordion({ items }: VisualAccordionProps) {
         return (
           <div
             key={index}
-            className="rounded-2xl border border-[#CBD5E1] bg-white overflow-hidden transition-all"
+            className="rounded-2xl border border-[var(--s-border)] bg-[var(--s-panel)] overflow-hidden transition-all"
           >
             <button
               onClick={() => toggleItem(index)}
-              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#F1F5F9] transition-colors"
+              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[var(--s-panel-2)] transition-colors"
               aria-expanded={isOpen}
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9]">
-                  <Icon className="h-4 w-4 text-[#2563EB]" />
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--s-panel-2)]">
+                  <Icon className="h-4 w-4 text-[var(--s-accent)]" />
                 </div>
-                <h3 className="text-base font-bold text-[#0F172A]">
+                <h3 className="text-base font-bold text-[var(--s-ink)]">
                   {item.title}
                 </h3>
               </div>
               <div className="flex-shrink-0">
                 {isOpen ? (
-                  <ChevronUp className="h-5 w-5 text-[#64748B]" />
+                  <ChevronUp className="h-5 w-5 text-[var(--s-ink-faint)]" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-[#64748B]" />
+                  <ChevronDown className="h-5 w-5 text-[var(--s-ink-faint)]" />
                 )}
               </div>
             </button>
@@ -60,7 +60,7 @@ export function VisualAccordion({ items }: VisualAccordionProps) {
             >
               <div className="px-6 pb-4 md:flex md:gap-6">
                 <div className="flex-1">
-                  <div className="text-sm text-[#475569] leading-relaxed pt-2">
+                  <div className="text-sm text-[var(--s-ink-soft)] leading-relaxed pt-2">
                     {item.answer}
                   </div>
                 </div>

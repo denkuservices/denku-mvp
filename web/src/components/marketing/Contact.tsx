@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { Link } from "@/i18n/navigation";
 import { Container } from './Container';
 import { Section } from './Section';
 import { Reveal } from './Reveal';
@@ -17,8 +17,8 @@ function StartInMinutesFlow() {
   ];
 
   return (
-    <div className="rounded-[18px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-6 md:p-8">
-      <h3 className="mb-6 font-display text-[17px] font-medium text-[#0A1A2F]">Start in minutes</h3>
+    <div className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-6 md:p-8">
+      <h3 className="mb-6 font-display text-[17px] font-medium text-[var(--s-ink)]">Start in minutes</h3>
 
       {/* Desktop */}
       <div className="relative hidden md:grid md:grid-cols-3 md:items-start md:gap-6">
@@ -29,26 +29,26 @@ function StartInMinutesFlow() {
             <div key={index} className="relative">
               <div className="flex flex-col items-center text-center">
                 <div className="relative mb-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E3EEED] text-[#134F4F]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
                     <Icon className="h-5 w-5" />
                   </div>
                   {step.isLive && (
-                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full border border-[#1B6E6E]/25 bg-[#FBFAF8] px-2 py-0.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#1B6E6E] pulse-dot" />
-                      <span className="text-xs font-medium text-[#134F4F]">Live</span>
+                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full border border-[var(--s-accent-ring)] bg-[var(--s-panel-2)] px-2 py-0.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--s-accent)] pulse-dot" />
+                      <span className="text-xs font-medium text-[var(--s-accent-deep)]">Live</span>
                     </div>
                   )}
                 </div>
                 <div className="mb-1 flex min-h-[44px] items-start justify-center">
-                  <div className="text-sm font-medium text-[#0A1A2F]">{step.label}</div>
+                  <div className="text-sm font-medium text-[var(--s-ink)]">{step.label}</div>
                 </div>
                 <div className="flex min-h-[36px] items-start justify-center">
-                  <div className="text-xs text-[#6B7888]">{step.sub}</div>
+                  <div className="text-xs text-[var(--s-ink-faint)]">{step.sub}</div>
                 </div>
               </div>
               {!isLast && (
-                <div className="absolute left-1/2 top-5 h-px bg-[#0A1A2F]/10" style={{ width: 'calc(50% + 1.5rem)' }}>
-                  <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#1B6E6E]" style={{ animation: 'flowConnector 3s ease-in-out infinite' }} />
+                <div className="absolute left-1/2 top-5 h-px bg-[var(--s-hover-bg)]" style={{ width: 'calc(50% + 1.5rem)' }}>
+                  <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[var(--s-accent)]" style={{ animation: 'flowConnector 3s ease-in-out infinite' }} />
                 </div>
               )}
             </div>
@@ -65,24 +65,24 @@ function StartInMinutesFlow() {
             <div key={index}>
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E3EEED] text-[#134F4F]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
                     <Icon className="h-5 w-5" />
                   </div>
                   {step.isLive && (
-                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full border border-[#1B6E6E]/25 bg-[#FBFAF8] px-1.5 py-0.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#1B6E6E] pulse-dot" />
-                      <span className="text-xs font-medium text-[#134F4F]">Live</span>
+                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full border border-[var(--s-accent-ring)] bg-[var(--s-panel-2)] px-1.5 py-0.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--s-accent)] pulse-dot" />
+                      <span className="text-xs font-medium text-[var(--s-accent-deep)]">Live</span>
                     </div>
                   )}
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-[#0A1A2F]">{step.label}</div>
-                  <div className="mt-0.5 text-xs text-[#6B7888]">{step.sub}</div>
+                  <div className="text-sm font-medium text-[var(--s-ink)]">{step.label}</div>
+                  <div className="mt-0.5 text-xs text-[var(--s-ink-faint)]">{step.sub}</div>
                 </div>
               </div>
               {!isLast && (
-                <div className="relative ml-5 mb-1 mt-3 h-8 w-px bg-[#0A1A2F]/10">
-                  <div className="absolute left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full bg-[#1B6E6E]" style={{ animation: 'flowConnectorVertical 3s ease-in-out infinite' }} />
+                <div className="relative ml-5 mb-1 mt-3 h-8 w-px bg-[var(--s-hover-bg)]">
+                  <div className="absolute left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full bg-[var(--s-accent)]" style={{ animation: 'flowConnectorVertical 3s ease-in-out infinite' }} />
                 </div>
               )}
             </div>
@@ -94,8 +94,8 @@ function StartInMinutesFlow() {
 }
 
 const inputBase =
-  'mt-2 flex h-12 w-full items-center rounded-[10px] border bg-white px-3 text-sm text-[#0A1A2F] outline-none placeholder:text-[#6B7888]/70 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors';
-const inputOk = `${inputBase} border-[#0A1A2F]/10 focus:border-[#1B6E6E] focus:ring-[#1B6E6E]/15`;
+  'mt-2 flex h-12 w-full items-center rounded-[10px] border bg-[var(--s-panel)] px-3 text-sm text-[var(--s-ink)] outline-none placeholder:text-[var(--s-ink-faint)] focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors';
+const inputOk = `${inputBase} border-[var(--s-border)] focus:border-[var(--s-accent)] focus:ring-[var(--s-accent-ring)]`;
 const inputErr = `${inputBase} border-red-300 bg-red-50/50 focus:border-red-400 focus:ring-red-400/20`;
 
 export function Contact() {
@@ -216,19 +216,19 @@ export function Contact() {
   };
 
   return (
-    <Section id="contact" className="scroll-mt-20 border-t border-[#0A1A2F]/[0.06]">
+    <Section id="contact" className="scroll-mt-20 border-t border-[var(--s-border)]">
       <Container>
         <div className="grid gap-10 md:grid-cols-2 md:items-start">
           {/* Left */}
           <Reveal className="space-y-6">
             <div>
               <div className="brand-eyebrow mb-5">Get started</div>
-              <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
+              <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[var(--s-ink)]">
                 Start in minutes.
                 <br />
-                <em className="font-medium italic text-[#1B6E6E]">No setup calls.</em>
+                <em className="font-medium italic text-[var(--s-accent)]">No setup calls.</em>
               </h2>
-              <p className="mt-4 text-[17px] leading-relaxed text-[#2C3E54]">
+              <p className="mt-4 text-[17px] leading-relaxed text-[var(--s-ink-soft)]">
                 Choose a plan, connect tools, and go live — entirely self-serve.
               </p>
             </div>
@@ -236,13 +236,13 @@ export function Contact() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={scrollToHero}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] bg-[#0A1A2F] px-6 text-sm font-medium text-[#F7F5F1] transition-all hover:-translate-y-0.5 hover:bg-[#1B6E6E] sm:w-auto"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)] sm:w-auto"
               >
                 Talk to Denku
               </button>
               <Link
                 href="/signup"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#0A1A2F]/10 px-6 text-sm font-medium text-[#0A1A2F] transition-all hover:border-[#1B6E6E] hover:text-[#1B6E6E] sm:w-auto"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)] sm:w-auto"
               >
                 Get started free
               </Link>
@@ -252,9 +252,9 @@ export function Contact() {
           </Reveal>
 
           {/* Right: Form */}
-          <Reveal delay={1} className="rounded-[18px] border border-[#0A1A2F]/10 bg-white p-6 brand-shadow-sm md:p-8">
-            <div className="font-display text-[20px] font-medium text-[#0A1A2F]">Contact us</div>
-            <p className="mt-1 text-sm text-[#6B7888]">
+          <Reveal delay={1} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel)] p-6 brand-shadow-sm md:p-8">
+            <div className="font-display text-[20px] font-medium text-[var(--s-ink)]">Contact us</div>
+            <p className="mt-1 text-sm text-[var(--s-ink-faint)]">
               Have a specific workflow? Tell us and we&apos;ll point you to the fastest setup.
             </p>
 
@@ -263,7 +263,7 @@ export function Contact() {
               {error && <InlineBanner type="error" message={error} onDismiss={() => setError(null)} className="mt-0" />}
 
               <div className="space-y-1.5">
-                <label htmlFor="email" className="text-sm font-medium text-[#0A1A2F]">Work email *</label>
+                <label htmlFor="email" className="text-sm font-medium text-[var(--s-ink)]">Work email *</label>
                 <input
                   type="email" id="email" name="email" required placeholder="you@company.com"
                   disabled={loading} onChange={handleEmailChange} onBlur={handleEmailBlur}
@@ -274,12 +274,12 @@ export function Contact() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="company" className="text-sm font-medium text-[#0A1A2F]">Company *</label>
+                <label htmlFor="company" className="text-sm font-medium text-[var(--s-ink)]">Company *</label>
                 <input type="text" id="company" name="company" required placeholder="Company name" disabled={loading} className={inputOk} />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="volume" className="text-sm font-medium text-[#0A1A2F]">Estimated volume *</label>
+                <label htmlFor="volume" className="text-sm font-medium text-[var(--s-ink)]">Estimated volume *</label>
                 <select id="volume" name="volume" required disabled={loading} className={`${inputOk} cursor-pointer`}>
                   <option value="">Select volume</option>
                   <option value="<1k">&lt;1k interactions/month</option>
@@ -289,26 +289,26 @@ export function Contact() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="message" className="text-sm font-medium text-[#0A1A2F]">Message</label>
+                <label htmlFor="message" className="text-sm font-medium text-[var(--s-ink)]">Message</label>
                 <textarea
                   id="message" name="message" rows={3} disabled={loading} placeholder="Tell us about your use case..."
-                  className="mt-2 flex w-full resize-vertical rounded-[10px] border border-[#0A1A2F]/10 bg-white px-3 py-3 text-sm text-[#0A1A2F] outline-none placeholder:text-[#6B7888]/70 focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  className="mt-2 flex w-full resize-vertical rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-3 py-3 text-sm text-[var(--s-ink)] outline-none placeholder:text-[var(--s-ink-faint)] focus:border-[var(--s-accent)] focus:ring-2 focus:ring-[var(--s-accent-ring)] disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="button" onClick={() => setShowAdvanced(!showAdvanced)} disabled={loading}
-                  className="flex items-center gap-2 text-sm font-medium text-[#1B6E6E] transition-colors hover:text-[#134F4F] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 text-sm font-medium text-[var(--s-accent)] transition-colors hover:text-[var(--s-accent-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {showAdvanced ? <><ChevronUp className="h-4 w-4" /> Hide additional details</> : <><ChevronDown className="h-4 w-4" /> Add more details</>}
                 </button>
               </div>
 
               {showAdvanced && (
-                <div className="space-y-4 border-t border-[#0A1A2F]/[0.08] pt-4">
+                <div className="space-y-4 border-t border-[var(--s-border)] pt-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#0A1A2F]">Channels</label>
+                    <label className="text-sm font-medium text-[var(--s-ink)]">Channels</label>
                     <div className="mt-2 flex flex-wrap gap-3">
                       {['Voice', 'Chat'].map((channel) => {
                         const isSelected = channels.includes(channel);
@@ -316,8 +316,8 @@ export function Contact() {
                           <button
                             key={channel} type="button" onClick={() => toggleChannel(channel)} disabled={loading}
                             className={[
-                              'rounded-[10px] border-2 px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B6E6E] disabled:cursor-not-allowed disabled:opacity-50',
-                              isSelected ? 'border-[#1B6E6E] bg-[#E3EEED] text-[#134F4F]' : 'border-[#0A1A2F]/10 bg-white text-[#6B7888] hover:border-[#0A1A2F]/25',
+                              'rounded-[10px] border-2 px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-accent)] disabled:cursor-not-allowed disabled:opacity-50',
+                              isSelected ? 'border-[var(--s-accent)] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]' : 'border-[var(--s-border)] bg-[var(--s-panel)] text-[var(--s-ink-faint)] hover:border-[var(--s-border)]',
                             ].join(' ')}
                           >
                             {channel}
@@ -328,12 +328,12 @@ export function Contact() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="tools" className="text-sm font-medium text-[#0A1A2F]">Tools / Integrations</label>
+                    <label htmlFor="tools" className="text-sm font-medium text-[var(--s-ink)]">Tools / Integrations</label>
                     <input type="text" id="tools" value={tools} onChange={(e) => setTools(e.target.value)} disabled={loading} placeholder="e.g., CRM, Calendar, Helpdesk" className={inputOk} />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="industry" className="text-sm font-medium text-[#0A1A2F]">Industry</label>
+                    <label htmlFor="industry" className="text-sm font-medium text-[var(--s-ink)]">Industry</label>
                     <select id="industry" name="industry" disabled={loading} className={`${inputOk} cursor-pointer`}>
                       <option value="">Select industry</option>
                       <option value="healthcare">Healthcare</option>
@@ -349,12 +349,12 @@ export function Contact() {
 
               <button
                 type="submit" disabled={loading}
-                className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#0A1A2F] text-sm font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : 'Submit request'}
               </button>
 
-              <p className="text-xs text-[#6B7888]">By submitting, you agree to be contacted about {SITE_NAME}. No spam.</p>
+              <p className="text-xs text-[var(--s-ink-faint)]">By submitting, you agree to be contacted about {SITE_NAME}. No spam.</p>
             </form>
           </Reveal>
         </div>

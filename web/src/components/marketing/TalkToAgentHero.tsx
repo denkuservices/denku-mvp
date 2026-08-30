@@ -226,7 +226,7 @@ export function TalkToAgentHero() {
         onClick={handleButtonClick}
         disabled={callState === 'connecting' || callState === 'not-configured'}
         aria-label={getAriaLabel()}
-        className="group relative z-10 flex items-center justify-center gap-2 h-16 min-w-[280px] px-8 rounded-full bg-[#0F1115] text-white border border-white/8 transition-all hover:bg-[#161A22] hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="group relative z-10 flex items-center justify-center gap-2 h-16 min-w-[280px] px-8 rounded-full bg-[var(--s-panel-3)] text-white border border-white/8 transition-all hover:bg-[var(--s-panel-2)] hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         style={{
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         }}
@@ -281,14 +281,14 @@ export function TalkToAgentHero() {
 
       {/* Helper text */}
       {callState === 'idle' && (
-        <p className="mt-3 text-xs text-[#64748B]">
+        <p className="mt-3 text-xs text-[var(--s-ink-faint)]">
           Live voice demo · No signup
         </p>
       )}
 
       {/* Error or configuration message */}
       {callState === 'not-configured' && (
-        <p className="mt-3 text-xs text-[#64748B]">
+        <p className="mt-3 text-xs text-[var(--s-ink-faint)]">
           Voice demo is not configured yet.
         </p>
       )}

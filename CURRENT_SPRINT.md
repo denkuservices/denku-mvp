@@ -72,6 +72,51 @@ Measured against production data, never guessed:
 
 ## Next
 
+### P0 — Four owner steps that unblock the new website (added 2026-08-29)
+
+The marketing site rebuild (D4, `feat/landing-v3-p0` — see
+[docs/LANDING_V3_DESIGN_PLAN.md](docs/LANDING_V3_DESIGN_PLAN.md) §9.4) is code-complete. Four
+things it cannot finish on its own, because each needs an account, a credential, or a business
+decision that is not the engineer's to make.
+
+**1. Create the OAuth apps so social sign-in can be switched on.**
+The Google and Facebook buttons are built and rendered on `/login` and `/signup`, deliberately
+`disabled` rather than fake. To enable:
+- Create an OAuth client in Google Cloud (and a Meta app if Facebook is kept — note that
+  Facebook Login needs Meta App Review, the same process Instagram went through).
+- Add them as providers in Supabase Auth with the callback URL.
+- Set `NEXT_PUBLIC_SOCIAL_AUTH_ENABLED=true` in Vercel.
+- Implement `onProvider` in `web/src/components/auth/SocialAuthButtons.tsx` with
+  `supabase.auth.signInWithOAuth({ provider })`.
+Nothing else in the UI changes. Until then the buttons say "coming soon" and email sign-in works.
+
+**2. Decide the Email channel's `productionReady` flag.**
+The owner states Email is fully working; the runtime registry
+(`web/src/lib/platform/channels.ts`) still has it at `productionReady: false`. The **marketing
+site presents Email as Live**, per the owner. The flag was deliberately left alone — flipping it
+changes product gating (`productionReadyChannels()`), and that should be a deliberate engineering
+change with a verification behind it, not a side effect of a copy decision. **Either flip it and
+record the verification, or correct the website.** The two must not stay in disagreement.
+
+**3. Provide AI Studio price points, or confirm it stays quote-only.**
+`/services/ai-studio` currently says "Quoted per project" because no price list exists. The
+benchmark prints packs ($349/$499/$649 images, $399/$599/$899 video — `docs/denku-2.0/04`). If
+Denku wants printed packs, supply the numbers and they go on the page; otherwise the quote-only
+framing stands and is fine.
+
+**4. Verify geo language detection on a deployed environment.**
+First-visit language is picked from the visitor's country in `web/src/middleware.ts`, reading
+`x-vercel-ip-country`. That header does not exist locally, so **everyone gets English in dev and
+this cannot be tested until deploy**. After deploying, check from (or with a VPN in) Turkey,
+Spain and Germany that the first visit lands on `/tr`, `/es`, `/de`, that an unlisted country
+(e.g. France) lands on English, and that a manual switch sticks afterwards.
+
+**Also outstanding on the website, lower priority:** placeholder metrics are live on the homepage
+behind `web/src/lib/marketing/placeholderMetrics.ts` (owner-approved), and clearing them is a
+blocking item in [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md). Legal and utility pages
+(`/privacy`, `/terms`, `/docs`, `/support`, `/about`, `/contact`, `/use-cases`) are English only —
+legal text should not ship as a machine translation.
+
 ### P1 — Why is switching conversations still 6–7 seconds? (owner-reported, not reproduced)
 
 Target: **1–2 seconds, WhatsApp-like.** What has been measured is only the Supabase round trips

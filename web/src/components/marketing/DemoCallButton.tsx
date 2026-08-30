@@ -39,9 +39,18 @@ async function fetchDemoAssistantId(): Promise<string | null> {
 const MAX_CALL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const WARNING_THRESHOLD_MS = 60 * 1000; // Show warning in last 1 minute
 
-type CallState = 'idle' | 'connecting' | 'live' | 'error';
+export type CallState = 'idle' | 'connecting' | 'live' | 'error';
 
-export function DemoCallButton() {
+export type DemoCallButtonProps = {
+  /**
+   * Notified whenever the call state changes. Purely observational — the landing
+   * hero uses it to make the Spline employee react when a call connects. It must
+   * never influence the state machine below; treat it as a read-only tap.
+   */
+  onStateChange?: (state: CallState) => void;
+};
+
+export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
   const [callState, setCallState] = useState<CallState>('idle');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +64,16 @@ export function DemoCallButton() {
   const vapiCallIdRef = useRef<string | null>(null); // Real Vapi call ID (e.g., "019bb...")
   const callStartTimeRef = useRef<number | null>(null);
   const isEndingRef = useRef<boolean>(false);
+
+  // Read-only tap for presentation layers (see DemoCallButtonProps.onStateChange).
+  // Kept in a ref so a caller passing an inline arrow does not re-fire the effect.
+  const onStateChangeRef = useRef(onStateChange);
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+  useEffect(() => {
+    onStateChangeRef.current?.(callState);
+  }, [callState]);
 
   // Cleanup timers and call on unmount
   useEffect(() => {
@@ -531,14 +550,14 @@ export function DemoCallButton() {
         className={[
           'group inline-flex items-center gap-3 rounded-full px-7 py-3.5 text-[15px] font-medium transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60',
           isLive
-            ? 'border border-[#B8895A]/40 bg-white text-[#134F4F] brand-shadow-md hover:-translate-y-0.5 hover:brand-shadow-lg'
-            : 'border border-[#1B6E6E]/25 bg-white text-[#134F4F] brand-shadow-md hover:-translate-y-0.5 hover:border-[#1B6E6E] hover:brand-shadow-lg',
+            ? 'border border-[var(--s-demo-border-live)] bg-[var(--s-demo-bg)] text-[var(--s-demo-fg)] brand-shadow-md hover:-translate-y-0.5 hover:brand-shadow-lg'
+            : 'border border-[var(--s-demo-border)] bg-[var(--s-demo-bg)] text-[var(--s-demo-fg)] brand-shadow-md hover:-translate-y-0.5 hover:border-[var(--s-accent)] hover:brand-shadow-lg',
         ].join(' ')}
       >
         <span
           className={[
             'flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors',
-            isLive ? 'bg-[#B8895A]' : 'bg-[#1B6E6E] mic-pulse',
+            isLive ? 'bg-[var(--s-demo-icon-live)]' : 'bg-[var(--s-demo-icon)] mic-pulse',
           ].join(' ')}
         >
           {callState === 'connecting' ? (
@@ -554,28 +573,28 @@ export function DemoCallButton() {
 
       {/* Minimal supporting text - only shown when idle */}
       {callState === 'idle' && !rateLimitCooldown && (
-        <p className="font-brand-mono text-xs tracking-wide text-[#6B7888]">
+        <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
           No signup · Takes 30 seconds
         </p>
       )}
 
       {/* Rate limit message - shown when cooldown is active */}
       {rateLimitCooldown && (
-        <p className="font-brand-mono text-xs tracking-wide text-[#6B7888]">
+        <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
           Please try again in a few minutes.
         </p>
       )}
 
       {/* Soft warning - only shown in last 1 minute */}
       {showWarning && isLive && (
-        <p className="animate-in fade-in font-brand-mono text-xs tracking-wide text-[#6B7888] duration-200">
+        <p className="animate-in fade-in font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)] duration-200">
           This session will end shortly.
         </p>
       )}
 
       {/* Error message - minimal and calm */}
       {error && callState === 'error' && (
-        <p className="font-brand-mono text-xs tracking-wide text-[#B8895A]">
+        <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ember)]">
           {error}
         </p>
       )}

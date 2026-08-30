@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import HorizonShell from './HorizonShell';
+import { DenkuLogo } from "@/components/brand/DenkuLogo";
 
 /**
  * Conditional wrapper that applies HorizonShell (with sidebar) to dashboard routes.
@@ -40,7 +41,7 @@ export default function AppShellWrapper({
         <header className="sticky top-0 z-40 border-b border-[#0A1A2F]/[0.06] bg-[#F7F5F1]/85 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-5">
             <div className="font-display text-[22px] font-semibold tracking-tight">
-              den<span className="text-[#1B6E6E]">ku</span>
+              <DenkuLogo size={24} variant="gradient" />
             </div>
             <Link
               href="/onboarding"

@@ -23,14 +23,14 @@ export function FinalCta() {
               Explore the platform and start building today. Deploy your first agent in minutes.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-              <Button asChild size="lg" className="bg-white text-brand-500 hover:bg-gray-50 text-base font-bold">
+              <Button asChild size="lg" className="bg-[var(--s-panel)] text-brand-500 hover:bg-gray-50 text-base font-bold">
                 <Link href="/pricing">Get Started</Link>
               </Button>
               <Button
                 asChild
                 variant="outline"
                 size="lg"
-                className="border-2 border-white/60 bg-transparent text-white hover:bg-white/10 hover:text-white text-base font-bold"
+                className="border-2 border-white/60 bg-transparent text-white hover:bg-[var(--s-panel)]/10 hover:text-white text-base font-bold"
               >
                 <Link href="#contact">Talk to Sales</Link>
               </Button>

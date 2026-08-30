@@ -16,14 +16,14 @@ const benefits = [
 
 export function OutcomesStrip() {
   return (
-    <Section id="benefits" className="scroll-mt-20 border-t border-[#0A1A2F]/[0.06] bg-[#FBFAF8]">
+    <Section id="benefits" className="scroll-mt-20 border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
       <Container>
         <Reveal className="max-w-2xl">
           <div className="brand-eyebrow mb-5">What you get</div>
-          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
+          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[var(--s-ink)]">
             What happens when
             <br />
-            every call gets <em className="font-medium italic text-[#1B6E6E]">answered</em>.
+            every call gets <em className="font-medium italic text-[var(--s-accent)]">answered</em>.
           </h2>
         </Reveal>
 
@@ -34,14 +34,14 @@ export function OutcomesStrip() {
               <Reveal
                 key={b.title}
                 delay={(i % 4) as 0 | 1 | 2 | 3}
-                className="flex items-start gap-4 rounded-[14px] border border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-7"
+                className="flex items-start gap-4 rounded-[14px] border border-[var(--s-border)] bg-[var(--s-bg)] p-7"
               >
-                <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] bg-[#E3EEED] text-[#134F4F]">
+                <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
                   <Icon className="h-[18px] w-[18px]" />
                 </div>
                 <div>
-                  <div className="font-display text-[17px] font-medium text-[#0A1A2F]">{b.title}</div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#2C3E54]">{b.desc}</p>
+                  <div className="font-display text-[17px] font-medium text-[var(--s-ink)]">{b.title}</div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--s-ink-soft)]">{b.desc}</p>
                 </div>
               </Reveal>
             );

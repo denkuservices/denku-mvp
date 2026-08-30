@@ -13,30 +13,30 @@ const pillars = [
 
 export function SecurityTeaser() {
   return (
-    <Section id="security" className="scroll-mt-20 border-t border-[#0A1A2F]/[0.06] bg-[#FBFAF8]">
+    <Section id="security" className="scroll-mt-20 border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
       <Container>
         <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <Reveal>
             <div className="brand-eyebrow mb-5">Security &amp; compliance</div>
-            <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
+            <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[var(--s-ink)]">
               Security you can verify,
               <br />
-              <em className="font-medium italic text-[#1B6E6E]">without</em> the complexity.
+              <em className="font-medium italic text-[var(--s-accent)]">without</em> the complexity.
             </h2>
-            <p className="mt-5 max-w-md text-[18px] leading-relaxed text-[#2C3E54]">
+            <p className="mt-5 max-w-md text-[18px] leading-relaxed text-[var(--s-ink-soft)]">
               Built for production from day one — isolation, control, and observability that pass
               the security review.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3.5">
               <Link
                 href="/security"
-                className="inline-flex items-center gap-2 rounded-[10px] bg-[#0A1A2F] px-6 py-3.5 text-sm font-medium text-[#F7F5F1] transition-all hover:-translate-y-0.5 hover:bg-[#1B6E6E]"
+                className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]"
               >
                 View security
               </Link>
               <Link
                 href="/security#request"
-                className="inline-flex items-center gap-2 rounded-[10px] border border-[#0A1A2F]/10 px-6 py-3.5 text-sm font-medium text-[#0A1A2F] transition-all hover:border-[#1B6E6E] hover:text-[#1B6E6E]"
+                className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]"
               >
                 Request brief
               </Link>
@@ -50,13 +50,13 @@ export function SecurityTeaser() {
                 <Reveal
                   key={p.title}
                   delay={(i % 2) as 0 | 1}
-                  className="rounded-[14px] border border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-6"
+                  className="rounded-[14px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6"
                 >
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#E3EEED] text-[#134F4F]">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
                     <Icon className="h-[18px] w-[18px]" />
                   </div>
-                  <div className="font-display text-[16px] font-medium text-[#0A1A2F]">{p.title}</div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#2C3E54]">{p.desc}</p>
+                  <div className="font-display text-[16px] font-medium text-[var(--s-ink)]">{p.title}</div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--s-ink-soft)]">{p.desc}</p>
                 </Reveal>
               );
             })}

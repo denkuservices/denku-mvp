@@ -64,7 +64,7 @@ export function Security() {
             return (
               <div
                 key={feature.title}
-                className="group relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 p-6 transition-all hover:shadow-3xl hover:-translate-y-1"
+                className="group relative flex flex-col rounded-[20px] bg-[var(--s-panel)] bg-clip-border shadow-shadow-100 p-6 transition-all hover:shadow-3xl hover:-translate-y-1"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50">
                   <Icon className="h-6 w-6 text-brand-500" />

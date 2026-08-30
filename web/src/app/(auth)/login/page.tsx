@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginAction, type LoginResult } from "./loginAction";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,10 +36,11 @@ export default function LoginPage() {
       title="Sign In"
       subtitle="Enter your email and password to sign in!"
       showBackLink
+      secondary={<SocialAuthButtons surface="dark" />}
       footer={
-        <p className="text-sm text-[#6B7888]">
+        <p className="text-sm text-[var(--s-ink-faint)]">
           Not registered yet?{" "}
-          <Link className="font-medium text-[#1B6E6E] underline-offset-2 hover:underline" href="/signup">
+          <Link className="font-medium text-[var(--s-accent)] underline-offset-2 hover:underline" href="/signup">
             Create an account
           </Link>
         </p>
@@ -46,7 +48,7 @@ export default function LoginPage() {
     >
       <form action={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
             Email
           </label>
           <input
@@ -55,13 +57,13 @@ export default function LoginPage() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15"
+            className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
             placeholder="you@company.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
             Password
           </label>
           <input
@@ -70,7 +72,7 @@ export default function LoginPage() {
             type="password"
             required
             autoComplete="current-password"
-            className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15"
+            className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
             placeholder="Your password"
           />
         </div>
@@ -82,15 +84,15 @@ export default function LoginPage() {
               name="remember"
               type="checkbox"
               value="1"
-              className="h-4 w-4 rounded border-[#0A1A2F]/20 text-[#1B6E6E] focus:ring-[#1B6E6E]/20"
+              className="h-4 w-4 rounded border-[var(--s-border)] text-[var(--s-accent)] focus:ring-[var(--s-accent-ring)]"
             />
-            <label htmlFor="remember" className="ml-2 text-sm text-[#6B7888]">
+            <label htmlFor="remember" className="ml-2 text-sm text-[var(--s-ink-faint)]">
               Keep me logged in
             </label>
           </div>
           <Link
             href="/forgot-password"
-            className="text-sm text-[#6B7888] underline-offset-2 transition-colors hover:text-[#1B6E6E] hover:underline"
+            className="text-sm text-[var(--s-ink-faint)] underline-offset-2 transition-colors hover:text-[var(--s-accent)] hover:underline"
           >
             Forgot Password?
           </Link>
@@ -106,7 +108,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-[10px] bg-[#0A1A2F] py-3.5 font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-[10px] bg-[var(--s-cta-bg)] py-3.5 font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "Signing in..." : "Sign in"}
         </button>

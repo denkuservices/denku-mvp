@@ -47,7 +47,7 @@ export function InlineBanner({ type, message, onDismiss, className }: InlineBann
           className="flex-shrink-0 rounded-md p-1 hover:bg-black/5 transition-colors"
           aria-label="Dismiss"
         >
-          <X className="h-4 w-4 text-[#64748B]" />
+          <X className="h-4 w-4 text-[var(--s-ink-faint)]" />
         </button>
       )}
     </div>

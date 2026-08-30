@@ -6,6 +6,7 @@ import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-h
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 import Stripe from "stripe";
+import { DenkuLogo } from "@/components/brand/DenkuLogo";
 
 // Force dynamic rendering to always load fresh org state (disable caching)
 export const dynamic = "force-dynamic";
@@ -177,7 +178,7 @@ export default async function OnboardingPage(props: OnboardingPageProps) {
       <div className="brand-surface flex min-h-screen items-center justify-center bg-[#F7F5F1] p-4">
         <div className="max-w-md rounded-[18px] border border-[#0A1A2F]/[0.08] bg-white p-8 brand-shadow-md">
           <div className="mb-5 font-display text-[24px] font-semibold tracking-tight text-[#0A1A2F]">
-            den<span className="text-[#1B6E6E]">ku</span>
+            <DenkuLogo size={24} variant="gradient" />
           </div>
           <h2 className="mb-2 font-display text-[20px] font-medium text-[#0A1A2F]">Setup required</h2>
           <p className="mb-4 text-sm text-[#2C3E54]">{errorMessage}</p>

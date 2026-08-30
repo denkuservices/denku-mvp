@@ -1,0 +1,220 @@
+{
+  "nav": {
+    "services": "Leistungen",
+    "employees": "Mitarbeiter",
+    "industries": "Branchen",
+    "pricing": "Preise",
+    "company": "Unternehmen",
+    "login": "Anmelden",
+    "bookDemo": "Demo buchen",
+    "toggleMenu": "Menü öffnen",
+    "home": "Denku — Startseite"
+  },
+  "footer": {
+    "services": "Leistungen",
+    "product": "Produkt",
+    "company": "Unternehmen",
+    "tagline": "„Wir erzählen Unternehmen nicht, was KI kann. Wir lassen es sie in Sekunden erleben.“",
+    "rights": "Alle Rechte vorbehalten.",
+    "status": "DENKU · ONLINE · BEREIT ZU SPRECHEN",
+    "voiceReceptionist": "Telefon-Empfang",
+    "appointmentBooking": "Terminvergabe",
+    "leadQualification": "Lead-Qualifizierung",
+    "customerFollowUp": "Kundennachfassung",
+    "customAutomations": "Individuelle Automatisierungen",
+    "security": "Sicherheit",
+    "docs": "Dokumentation",
+    "support": "Support",
+    "about": "Über uns",
+    "contact": "Kontakt",
+    "privacy": "Datenschutz",
+    "terms": "AGB"
+  },
+  "common": {
+    "talkToDenku": "Mit Denku sprechen",
+    "seePricing": "Preise ansehen",
+    "startHiring": "Jetzt einstellen",
+    "hearItNow": "Jetzt anhören",
+    "requestAudit": "Analyse anfordern",
+    "language": "Sprache",
+    "changeLanguage": "Sprache wechseln"
+  },
+  "home": {
+    "eyebrow": "KI-Mitarbeiter · rund um die Uhr im Dienst",
+    "headline": "Stellen Sie Ihren ersten KI-Mitarbeiter ein.",
+    "headlineEmphasis": "KI-Mitarbeiter",
+    "outcomes": [
+      "Er nimmt jeden Anruf an.",
+      "Er vergibt den Termin.",
+      "Er meldet sich bei verpassten Anrufen.",
+      "Er vergisst keinen Kunden."
+    ],
+    "proof": {
+      "callsAnswered": "Angenommene Anrufe",
+      "appointmentsBooked": "Vergebene Termine",
+      "responseTime": "Durchschnittliche Antwort",
+      "neverOff": "Nie im Feierabend"
+    },
+    "demo": {
+      "eyebrow": "Live-Demo",
+      "headline": "Glauben Sie uns nicht einfach.",
+      "sub": "Rufen Sie an. Jetzt sofort.",
+      "footnote": "Ein echter Anruf, über dieselbe Infrastruktur wie bei unseren Kunden.",
+      "ready": "Bereit",
+      "connecting": "Verbindet",
+      "listening": "Hört zu",
+      "tryAgain": "Erneut versuchen"
+    },
+    "how": {
+      "eyebrow": "So läuft die Einstellung",
+      "headline": "An einem Nachmittag eingestellt.",
+      "steps": [
+        { "title": "Erzählen Sie von Ihrem Betrieb", "note": "Zeiten, Leistungen, wie Sie Termine vergeben." },
+        { "title": "Testen Sie ihn per Anruf", "note": "Hören Sie ihn vor allen anderen." },
+        { "title": "Nummer verbinden", "note": "Umleiten oder portieren. Zehn Minuten." },
+        { "title": "Die Schicht beginnt", "note": "Ab dem nächsten Klingeln nimmt er ab." }
+      ]
+    },
+    "roster": {
+      "eyebrow": "Das Team",
+      "headline": "Wählen Sie, wen Sie einstellen.",
+      "seeAll": "Alle fünf ansehen",
+      "seeAllNote": "Was jeder genau macht."
+    },
+    "workday": {
+      "scenes": [
+        {
+          "eyebrow": "18:04 Uhr",
+          "title": "Ein Anruf, den Sie verpasst hätten.",
+          "note": "Er nimmt ab, vergibt den Termin und schreibt ihn selbst auf."
+        },
+        {
+          "eyebrow": "Drei Monate später",
+          "title": "Er erinnert sich an sie.",
+          "note": "Jeder Anruf ergänzt die Historie des Kontakts. Nichts beginnt bei null."
+        },
+        {
+          "eyebrow": "Montag",
+          "title": "Was er tatsächlich getan hat.",
+          "note": "Ergebnisse statt Aktivität. Die Zahl, die zählt, ist die vergebene."
+        }
+      ]
+    },
+    "pricing": {
+      "eyebrow": "Preise",
+      "headline": "Ausgewiesene Preise. Monatlich kündbar.",
+      "mostPicked": "Am häufigsten gewählt",
+      "included": "Telegram und E-Mail inklusive, ohne Zähler",
+      "noSurprise": "Keine Überraschungsrechnungen. Nie.",
+      "noSurpriseBody": "Jeder Tarif hat ein hartes Ausgabenlimit. Ist es erreicht, pausieren wir die Leitung und sagen Ihnen Bescheid — wir rechnen nie stillschweigend weiter ab.",
+      "seeMath": "Die Rechnung ansehen →"
+    },
+    "audit": {
+      "eyebrow": "Kostenlose Analyse",
+      "headline": "Was kostet Sie Ihr Telefon?",
+      "sub": "Wir hören uns an, wie Ihre Leitung heute antwortet, und schicken Ihnen die Lücken."
+    },
+    "faq": {
+      "eyebrow": "Klare Antworten",
+      "headline": "Die Fragen, die wir stellen würden.",
+      "items": [
+        {
+          "q": "Wie wird eine Minute gezählt?",
+          "a": "Jeder Anruf wird auf die nächste volle Minute aufgerundet, dann werden sie addiert. Ein Anruf von 20 Sekunden kostet eine Minute. Mehr nicht — keine Verbindungsgebühr, kein Zuschlag pro Nummer."
+        },
+        {
+          "q": "Was passiert, wenn ich darüber komme?",
+          "a": "Sie zahlen den in Ihrem Tarif ausgewiesenen Mehrpreis, bis zu einem harten Limit. Am Limit pausieren wir die Leitung und melden uns, statt die Rechnung weiter steigen zu lassen."
+        },
+        {
+          "q": "Welche Kanäle laufen heute?",
+          "a": "Telefonie, Telegram und E-Mail sind live. Instagram empfängt Nachrichten in Ihrem Posteingang. Messenger, WhatsApp, SMS und Web-Chat sind in der Beta und noch in keinem Tarif enthalten."
+        },
+        {
+          "q": "Kann ich kündigen?",
+          "a": "Monatlich. Sie kündigen auf der Abrechnungsseite, es endet zum Periodenende. Es gibt keinen Vertrag, aus dem Sie herauskommen müssten."
+        },
+        {
+          "q": "Wem gehören die Daten?",
+          "a": "Ihnen. Anrufe, Transkripte, Kontakte und Termine gehören zu Ihrem Workspace, und Sie können sie exportieren."
+        }
+      ]
+    },
+    "finalCta": {
+      "headline": "Ihr nächster Mitarbeiter",
+      "headlineEmphasis": "fängt heute an"
+    }
+  },
+  "channels": {
+    "eyebrow": "Kanäle",
+    "title": "Wo er arbeitet",
+    "note": "Beta-Kanäle sind sichtbar, damit Sie wissen, was kommt. Sie sind in keinem Tarif enthalten.",
+    "status": {
+      "live": "Live",
+      "limited": "Empfängt",
+      "beta": "Beta"
+    },
+    "notInPlan": "Noch in keinem Tarif enthalten.",
+    "items": {
+      "voice": { "label": "Telefonie", "line": "Nimmt Ihre Leitung an." },
+      "telegram": { "label": "Telegram", "line": "Antwortet in Ihrem eigenen Bot." },
+      "email": { "label": "E-Mail", "line": "Beantwortet weitergeleitete Post." },
+      "instagram": {
+        "label": "Instagram",
+        "line": "Empfängt Ihre DMs.",
+        "caveat": "Nachrichten landen in Ihrem Posteingang. Antworten aus Denku ist noch nicht aktiviert."
+      },
+      "messenger": { "label": "Messenger", "line": "Nachrichten Ihrer Facebook-Seite." },
+      "whatsapp": { "label": "WhatsApp", "line": "Business-Nachrichten." },
+      "sms": { "label": "SMS", "line": "Antwortet auf verpasste Anrufe." },
+      "webchat": { "label": "Web-Chat", "line": "Ein Widget auf Ihrer Seite." }
+    }
+  },
+  "auth": {
+    "backToHome": "Zurück zur Startseite",
+    "or": "oder",
+    "socialSoon": "Anmeldung über soziale Netzwerke kommt noch. Nutzen Sie vorerst Ihre E-Mail.",
+    "socialTooltip": "Demnächst — melden Sie sich vorerst per E-Mail an",
+    "scenes": [
+      {
+        "caption": "Der Anruf, den Sie verpasst hätten",
+        "note": "Nach Feierabend, mitten im Auftrag oder wenn besetzt ist — er wird trotzdem angenommen."
+      },
+      {
+        "caption": "Er vergibt den Termin selbst",
+        "note": "Aus dem Gespräch wird eine Terminanfrage, geschrieben während Sie weg sind."
+      },
+      {
+        "caption": "Er vergisst keinen Kunden",
+        "note": "Jeder Anruf ergänzt die Historie des Kontakts, damit der nächste nicht bei null anfängt."
+      }
+    ]
+  },
+  "request": {
+    "eyebrow": "Anfragen",
+    "headline": "Sagen Sie uns, was Sie brauchen.",
+    "sub": "Vier Dinge, die wir tun. Wählen Sie das, weswegen Sie hier sind.",
+    "name": "Ihr Name",
+    "email": "Geschäftliche E-Mail",
+    "company": "Unternehmen",
+    "anythingElse": "Sonst noch etwas",
+    "anythingElsePlaceholder": "Ein Satz genügt.",
+    "send": "Anfrage senden",
+    "sending": "Wird gesendet…",
+    "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "failed": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "doneTitle": "Angekommen.",
+    "doneBody": "Wir melden uns unter der Adresse, die Sie angegeben haben.",
+    "sendAnother": "Weitere senden",
+    "privacy": "Wir nutzen das, um Ihnen zu antworten — sonst nichts. Keine Liste, keine Kampagne.",
+    "orTalk": "Oder tippen Sie gar nicht",
+    "orTalkTitle": "Sagen Sie es unserem KI-Mitarbeiter.",
+    "orTalkBody": "Fragen Sie ihn, was Sie uns fragen würden. Er nimmt die Details auf und vereinbart den Termin — und nebenbei hören Sie am schnellsten, wie er klingt.",
+    "nextTitle": "Wie es weitergeht",
+    "next": [
+      "Ein Mensch liest es — kein Verteiler-Bot.",
+      "Wir antworten mit einem Preis oder einer Rückfrage.",
+      "Wenn wir nicht passen, sagen wir das."
+    ]
+  }
+}

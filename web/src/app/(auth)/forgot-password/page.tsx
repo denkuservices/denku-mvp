@@ -28,17 +28,17 @@ export default function ForgotPasswordPage() {
       subtitle="Enter your email and we'll send you a link to set a new password."
       showBackLink
       footer={
-        <p className="text-sm text-[#6B7888]">
+        <p className="text-sm text-[var(--s-ink-faint)]">
           Remembered it?{" "}
-          <Link className="font-medium text-[#1B6E6E] underline-offset-2 hover:underline" href="/login">
+          <Link className="font-medium text-[var(--s-accent)] underline-offset-2 hover:underline" href="/login">
             Back to sign in
           </Link>
         </p>
       }
     >
       {sent ? (
-        <div className="rounded-[10px] border border-[#1B6E6E]/20 bg-[#1B6E6E]/[0.06] p-4">
-          <p className="text-sm text-[#0A1A2F]">
+        <div className="rounded-[10px] border border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] p-4">
+          <p className="text-sm text-[var(--s-ink)]">
             If an account exists for that email, a password reset link is on its way.
             Check your inbox (and spam folder) and follow the link to choose a new password.
           </p>
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <form action={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
               Email
             </label>
             <input
@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
               type="email"
               required
               autoComplete="email"
-              className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15"
+              className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
               placeholder="you@company.com"
             />
           </div>
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full rounded-[10px] bg-[#0A1A2F] py-3.5 font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-[10px] bg-[var(--s-cta-bg)] py-3.5 font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "Sending..." : "Send reset link"}
           </button>

@@ -122,6 +122,14 @@ deliberately last: once the UI reads one stable interface, swapping the source b
 - [ ] Live acceptance (Phase 7) passed on prod.
 - [ ] Support inbox (`NEXT_PUBLIC_SUPPORT_EMAIL`) monitored; a test invite (R-010) delivered + accepted.
 - [ ] Marketing copy reviewed for honesty (R-004 — see `docs/MARKETING_HONESTY_DRAFT.md`).
+- [ ] **BLOCKING — no placeholder metrics remain.** The landing rebuild ships invented
+      figures behind a registry (owner-approved, `docs/LANDING_V3_DESIGN_PLAN.md` §2).
+      Before launch: every entry in `web/src/lib/marketing/placeholderMetrics.ts` is either
+      replaced with the real source named in its `realSource` field, or removed along with
+      the component that rendered it. Verify by loading each marketing route and running
+      `document.querySelectorAll('[data-placeholder="true"]').length` — it must be `0`.
+      Fabricating a number is an explicit D4 failure condition (`docs/denku-2.0/20-denku-roadmap.md`),
+      and this repo has already shipped false claims once (Sprint 6, SOC2/HIPAA).
 
 ## Rollback (per phase)
 

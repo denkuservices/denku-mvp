@@ -273,7 +273,252 @@
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Shared SURFACE ROLE tokens (see .landing-surface below).
+     Chrome shared between marketing surfaces — Navbar, Footer — reads these
+     instead of literal hex, so one markup serves both the warm and the dark
+     surface. Values here are byte-identical to the hexes they replaced:
+     the warm surface renders exactly as before. */
+  --s-bg: #F7F5F1;
+  --s-bg-glass-a: rgba(247, 245, 241, 0.80);
+  --s-bg-glass-b: rgba(247, 245, 241, 0.60);
+  --s-bg-overlay: #F7F5F1;
+  --s-ink: #0A1A2F;
+  --s-ink-soft: #2C3E54;
+  --s-ink-faint: #6B7888;
+  --s-accent: #1B6E6E;
+  --s-cta-bg: #0A1A2F;
+  --s-cta-bg-hover: #1B6E6E;
+  --s-cta-fg: #F7F5F1;
+  --s-border: rgba(10, 26, 47, 0.10);
+  --s-border-soft: rgba(10, 26, 47, 0.06);
+  --s-hover-bg: rgba(10, 26, 47, 0.04);
+  /* Demo call button (shared marketing component, both surfaces) */
+  --s-demo-bg: #FFFFFF;
+  --s-demo-fg: #134F4F;
+  --s-demo-border: rgba(27, 110, 110, 0.25);
+  --s-demo-border-live: rgba(184, 137, 90, 0.40);
+  --s-demo-icon: #1B6E6E;
+  --s-demo-icon-live: #B8895A;
+  --s-ember: #B8895A;
+  /* Panels and accent tints — the rest of the marketing surface */
+  --s-panel: #FFFFFF;
+  --s-panel-2: #FBFAF8;
+  --s-panel-3: #EFEBE4;
+  --s-panel-border: rgba(10, 26, 47, 0.08);
+  --s-accent-deep: #134F4F;
+  --s-accent-soft: #E3EEED;
+  --s-accent-ring: rgba(27, 110, 110, 0.15);
+  /* Featured panel (the highlighted pricing plan) */
+  --s-feature-bg: #0A1A2F;
+  --s-feature-border: rgba(10, 26, 47, 0.10);
+  --s-feature-fg: #F7F5F1;
+  --s-feature-fg-soft: rgba(247, 245, 241, 0.72);
 }
+
+/* ============================================================
+   DENKU LANDING v3 — "a warm employee in a dark suit"
+   Teal-black canvas / bone ink / copper signature.
+   Source of truth: docs/denku-2.0/17-denku-visual-system.md §2,
+   plan: docs/LANDING_V3_DESIGN_PLAN.md §3.
+
+   Scoped to the routes listed in
+   web/src/components/marketing/MarketingSurface.tsx — never global,
+   and deliberately NOT applied to auth / onboarding / dashboard.
+   ============================================================ */
+.landing-surface {
+  /* Canvas */
+  --d-bg: #0A1414;
+  --d-bg-raised: #0E1A1A;
+  --d-surface-glass: rgba(247, 245, 241, 0.04);
+  --d-surface-glass-hi: rgba(247, 245, 241, 0.07);
+  --d-border: rgba(247, 245, 241, 0.10);
+
+  /* Ink */
+  --d-ink: #F7F5F1;
+  --d-ink-soft: #C9C4B8;
+  --d-ink-faint: rgba(247, 245, 241, 0.55);
+
+  /* Accents — copper appears in at most three places per viewport */
+  --d-teal: #2FA39A;
+  --d-copper: #C89468;
+  --d-success: #7FC98F;
+  --d-danger: #E2695C;
+
+  /* Signature gradients */
+  --d-grad-ember: linear-gradient(120deg, #C89468, #F7F5F1);
+  --d-grad-depth: radial-gradient(circle at 50% -60%, rgba(47, 163, 154, 0.35), transparent 60%);
+  --d-grad-sweep: conic-gradient(from 280deg, transparent, rgba(200, 148, 104, 0.9) 12%, transparent 22%);
+
+  /* Same role tokens as .brand-surface, mapped to the dark canvas */
+  --s-bg: #0A1414;
+  --s-bg-glass-a: rgba(10, 20, 20, 0.80);
+  --s-bg-glass-b: rgba(10, 20, 20, 0.55);
+  --s-bg-overlay: #0A1414;
+  --s-ink: #F7F5F1;
+  --s-ink-soft: #C9C4B8;
+  --s-ink-faint: rgba(247, 245, 241, 0.55);
+  --s-accent: #2FA39A;
+  /* Copper-filled pill with ink-dark text — doc 17 §4, unusual in the category */
+  --s-cta-bg: #C89468;
+  --s-cta-bg-hover: #D9A87C;
+  --s-cta-fg: #0A1414;
+  --s-border: rgba(247, 245, 241, 0.10);
+  --s-border-soft: rgba(247, 245, 241, 0.06);
+  --s-hover-bg: rgba(247, 245, 241, 0.05);
+  /* Demo call button — bone pill with ink text, distinct from the copper hero CTA */
+  --s-demo-bg: #F7F5F1;
+  --s-demo-fg: #0A1414;
+  --s-demo-border: rgba(247, 245, 241, 0.22);
+  --s-demo-border-live: rgba(200, 148, 104, 0.60);
+  --s-demo-icon: #1B6E6E;
+  --s-demo-icon-live: #C89468;
+  --s-ember: #C89468;
+  /* On the dark canvas a "panel" is glass, never a solid fill (doc 17 §4). */
+  --s-panel: rgba(247, 245, 241, 0.04);
+  --s-panel-2: #0E1A1A;
+  --s-panel-3: #12161F;
+  --s-panel-border: rgba(247, 245, 241, 0.10);
+  --s-accent-deep: #7FD9CE;
+  --s-accent-soft: rgba(47, 163, 154, 0.14);
+  --s-accent-ring: rgba(47, 163, 154, 0.28);
+  /* Featured panel: lifted glass with a copper edge — copper is an edge here,
+     never a field (doc 17 §2: at most three copper moments per viewport). */
+  --s-feature-bg: rgba(247, 245, 241, 0.07);
+  --s-feature-border: rgba(200, 148, 104, 0.38);
+  --s-feature-fg: #F7F5F1;
+  --s-feature-fg-soft: #C9C4B8;
+
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Landing helpers (scoped: only inside .landing-surface) ---- */
+
+/* Copper→bone gradient on a keyword. Doc 06: one phrase per heading glows. */
+.landing-surface .landing-ember {
+  background: var(--d-grad-ember);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Typewriter caret for the rotating outcome line. */
+.landing-surface .landing-caret {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--d-copper);
+  animation: landingCaret 1.05s steps(1) infinite;
+}
+@keyframes landingCaret { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+
+/* Bone glass — the whole card system. No solid fills on the dark canvas. */
+.landing-surface .landing-glass {
+  background: var(--d-surface-glass);
+  border: 1px solid var(--d-border);
+  border-radius: 20px;
+  transition: background .35s ease, border-color .35s ease, transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.landing-surface .landing-glass:hover {
+  background: var(--d-surface-glass-hi);
+  border-color: rgba(200, 148, 104, 0.34);
+}
+
+/*
+ * Conic sweep — the rotating edge highlight. Reserved for exactly two elements
+ * (doc 17 §4: hero CTA and the live-demo card); using it more makes it wallpaper.
+ */
+@property --landing-sweep {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.landing-surface .landing-sweep {
+  position: relative;
+  isolation: isolate;
+}
+.landing-surface .landing-sweep::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--landing-sweep), transparent, rgba(200,148,104,.9) 12%, transparent 24%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: landingSweep 6s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes landingSweep { to { --landing-sweep: 360deg } }
+
+/* Live status pulse — used by the Employee Card's "On shift" chip. */
+.landing-surface .landing-pulse {
+  position: relative;
+}
+.landing-surface .landing-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: inherit;
+  animation: landingPulse 2.4s ease-out infinite;
+}
+@keyframes landingPulse {
+  0%   { transform: scale(1);   opacity: .7 }
+  70%  { transform: scale(3.2); opacity: 0 }
+  100% { transform: scale(3.2); opacity: 0 }
+}
+
+/* Focus is visible on the dark ground — copper at 2px, never a removed outline. */
+.landing-surface a:focus-visible,
+.landing-surface button:focus-visible,
+.landing-surface summary:focus-visible {
+  outline: 2px solid var(--d-copper);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Live-demo rings: the AI employee's state, breathing. */
+@keyframes landingRingBreath {
+  0%, 100% { transform: scale(1);    opacity: var(--ring-o, .9) }
+  50%      { transform: scale(1.06); opacity: calc(var(--ring-o, .9) * .55) }
+}
+
+/*
+ * Reduced motion, guaranteed at the surface rather than per component.
+ * The individual components already render their final state (their hooks return
+ * "shown"), but this makes the promise structural: nothing inside the landing
+ * surface animates, including hover transitions and smooth scrolling, and a new
+ * component cannot forget to opt in.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .landing-surface *,
+  .landing-surface *::before,
+  .landing-surface *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-surface .landing-caret,
+  .landing-surface .landing-sweep::before,
+  .landing-surface .landing-pulse::after {
+    animation: none !important;
+  }
+  .landing-surface .landing-caret { opacity: 1 }
+}
+
 
 .font-display {
   font-family: 'Fraunces', Georgia, serif;

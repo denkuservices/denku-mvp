@@ -24,7 +24,7 @@ const steps = [
 
 export function ProcessSteps() {
   return (
-    <Section className="bg-white/50">
+    <Section className="bg-[var(--s-panel)]/50">
       <Container>
         <div className="text-center">
           <h2 className="text-3xl font-bold text-navy-700 md:text-4xl">
@@ -43,7 +43,7 @@ export function ProcessSteps() {
                 key={step.number}
                 className="relative flex flex-col items-center text-center"
               >
-                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full border-2 border-brand-500 bg-white text-xl font-bold text-brand-500 shadow-shadow-100">
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full border-2 border-brand-500 bg-[var(--s-panel)] text-xl font-bold text-brand-500 shadow-shadow-100">
                   {step.number}
                 </div>
                 <h3 className="text-xl font-bold text-navy-700">{step.title}</h3>

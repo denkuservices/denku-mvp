@@ -1,0 +1,220 @@
+{
+  "nav": {
+    "services": "Services",
+    "employees": "Employees",
+    "industries": "Industries",
+    "pricing": "Pricing",
+    "company": "Company",
+    "login": "Log in",
+    "bookDemo": "Book a demo",
+    "toggleMenu": "Toggle menu",
+    "home": "Denku — home"
+  },
+  "footer": {
+    "services": "Services",
+    "product": "Product",
+    "company": "Company",
+    "tagline": "“We don't tell businesses what AI can do. We let them experience it in seconds.”",
+    "rights": "All rights reserved.",
+    "status": "DENKU · ONLINE · READY TO TALK",
+    "voiceReceptionist": "Voice Receptionist",
+    "appointmentBooking": "Appointment Booking",
+    "leadQualification": "Lead Qualification",
+    "customerFollowUp": "Customer Follow-Up",
+    "customAutomations": "Custom Automations",
+    "security": "Security",
+    "docs": "Docs",
+    "support": "Support",
+    "about": "About",
+    "contact": "Contact",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
+  "common": {
+    "talkToDenku": "Talk to Denku",
+    "seePricing": "See pricing",
+    "startHiring": "Start hiring",
+    "hearItNow": "Hear it now",
+    "requestAudit": "Request an audit",
+    "language": "Language",
+    "changeLanguage": "Change language"
+  },
+  "home": {
+    "eyebrow": "AI employees · on shift 24/7",
+    "headline": "Hire your first AI employee.",
+    "headlineEmphasis": "employee",
+    "outcomes": [
+      "It answers every call.",
+      "It books the job.",
+      "It texts back missed calls.",
+      "It never forgets a customer."
+    ],
+    "proof": {
+      "callsAnswered": "Calls answered",
+      "appointmentsBooked": "Appointments booked",
+      "responseTime": "Average response",
+      "neverOff": "Never off shift"
+    },
+    "demo": {
+      "eyebrow": "Live demo",
+      "headline": "Don't take our word for it.",
+      "sub": "Call it. Right now.",
+      "footnote": "A real call, on the same pipeline our customers run on.",
+      "ready": "Ready",
+      "connecting": "Connecting",
+      "listening": "Listening",
+      "tryAgain": "Try again"
+    },
+    "how": {
+      "eyebrow": "How hiring works",
+      "headline": "Hired in an afternoon.",
+      "steps": [
+        { "title": "Tell it about your business", "note": "Hours, services, how you book." },
+        { "title": "Test-call it", "note": "Hear it before anyone else does." },
+        { "title": "Connect your number", "note": "Forward or port. Ten minutes." },
+        { "title": "It starts its shift", "note": "Answering from the next ring." }
+      ]
+    },
+    "roster": {
+      "eyebrow": "The roster",
+      "headline": "Pick who you're hiring.",
+      "seeAll": "See all five",
+      "seeAllNote": "What each one does, in full."
+    },
+    "workday": {
+      "scenes": [
+        {
+          "eyebrow": "6:04pm",
+          "title": "A call you'd have missed.",
+          "note": "It answers, books the job, and writes the appointment itself."
+        },
+        {
+          "eyebrow": "Three months later",
+          "title": "It remembers her.",
+          "note": "Every call joins a contact's history. Nothing starts from zero."
+        },
+        {
+          "eyebrow": "Monday",
+          "title": "What it actually did.",
+          "note": "Outcomes, not activity. The number that matters is the booked one."
+        }
+      ]
+    },
+    "pricing": {
+      "eyebrow": "Pricing",
+      "headline": "Printed prices. Month to month.",
+      "mostPicked": "Most picked",
+      "included": "Telegram & email included, unmetered",
+      "noSurprise": "No surprise invoices. Ever.",
+      "noSurpriseBody": "Every plan has a hard spend cap. When you hit it we pause the line and tell you — we never quietly bill past it.",
+      "seeMath": "See the math →"
+    },
+    "audit": {
+      "eyebrow": "Free audit",
+      "headline": "What is your phone costing you?",
+      "sub": "We'll listen to how your line answers today and send you the gaps."
+    },
+    "faq": {
+      "eyebrow": "Straight answers",
+      "headline": "The questions we'd ask.",
+      "items": [
+        {
+          "q": "How is a minute counted?",
+          "a": "Each call rounds up to the next whole minute, then they're added together. A 20-second call costs one minute. That's it — no connection fees, no per-number surcharge."
+        },
+        {
+          "q": "What happens if I go over?",
+          "a": "You're billed the overage rate printed on your plan, up to a hard cap. At the cap we pause the line and tell you, rather than letting the bill keep climbing."
+        },
+        {
+          "q": "Which channels work today?",
+          "a": "Voice, Telegram and email are live. Instagram receives messages into your Inbox. Messenger, WhatsApp, SMS and web chat are in beta and are not part of any plan yet."
+        },
+        {
+          "q": "Can I cancel?",
+          "a": "Month to month. Cancel from the billing page and it stops at the end of the period. There is no contract to get out of."
+        },
+        {
+          "q": "Who owns the data?",
+          "a": "You do. Calls, transcripts, contacts and appointments belong to your workspace, and you can export them."
+        }
+      ]
+    },
+    "finalCta": {
+      "headline": "Your next employee",
+      "headlineEmphasis": "starts today"
+    }
+  },
+  "channels": {
+    "eyebrow": "Channels",
+    "title": "Where it works",
+    "note": "Beta channels are visible so you know what's coming. They are not part of any plan.",
+    "status": {
+      "live": "Live",
+      "limited": "Receiving",
+      "beta": "Beta"
+    },
+    "notInPlan": "Not included in any plan yet.",
+    "items": {
+      "voice": { "label": "Voice", "line": "Answers your phone line." },
+      "telegram": { "label": "Telegram", "line": "Replies in your own bot." },
+      "email": { "label": "Email", "line": "Answers forwarded mail." },
+      "instagram": {
+        "label": "Instagram",
+        "line": "Receives your DMs.",
+        "caveat": "Messages arrive in your Inbox. Replying from Denku is not switched on yet."
+      },
+      "messenger": { "label": "Messenger", "line": "Facebook page messages." },
+      "whatsapp": { "label": "WhatsApp", "line": "Business messaging." },
+      "sms": { "label": "SMS", "line": "Texts back missed calls." },
+      "webchat": { "label": "Web chat", "line": "A widget on your site." }
+    }
+  },
+  "auth": {
+    "backToHome": "Back to home",
+    "or": "or",
+    "socialSoon": "Social sign-in is coming. Use your email for now.",
+    "socialTooltip": "Coming soon — sign in with email for now",
+    "scenes": [
+      {
+        "caption": "The call you'd have missed",
+        "note": "After hours, mid-job, or already on the line — it still gets answered."
+      },
+      {
+        "caption": "It books the job itself",
+        "note": "The conversation becomes an appointment request, written while you're away."
+      },
+      {
+        "caption": "It never forgets a customer",
+        "note": "Every call joins a contact's history, so the next one starts from something."
+      }
+    ]
+  },
+  "request": {
+    "eyebrow": "Requests",
+    "headline": "Tell us what you need.",
+    "sub": "Four things we do. Pick the one you came for.",
+    "name": "Your name",
+    "email": "Work email",
+    "company": "Company",
+    "anythingElse": "Anything else",
+    "anythingElsePlaceholder": "A sentence is plenty.",
+    "send": "Send request",
+    "sending": "Sending…",
+    "invalidEmail": "Please enter a valid email address.",
+    "failed": "Something went wrong. Please try again.",
+    "doneTitle": "Got it.",
+    "doneBody": "We'll come back to you at the address you gave us.",
+    "sendAnother": "Send another",
+    "privacy": "We use this to reply to you and nothing else. No list, no sequence.",
+    "orTalk": "Or don't type at all",
+    "orTalkTitle": "Tell our AI employee instead.",
+    "orTalkBody": "Ask it what you'd ask us. It takes the details and books the call — which is also the fastest way to hear what it sounds like.",
+    "nextTitle": "What happens next",
+    "next": [
+      "A person reads it — not a routing bot.",
+      "We reply with either a price or a question.",
+      "If we're the wrong fit, we say so."
+    ]
+  }
+}

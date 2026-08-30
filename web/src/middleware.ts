@@ -8,6 +8,72 @@ import {
 } from "@/lib/supabase/cookiePolicy";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { platformRedirectTarget, splitRedirectTarget } from "@/lib/platform/routeRedirects";
+import createIntlMiddleware from "next-intl/middleware";
+import { routing, localeForCountry } from "@/i18n/routing";
+
+const intlMiddleware = createIntlMiddleware(routing);
+
+/**
+ * Paths that are NOT localised. Everything else under the site root belongs to the
+ * marketing tree and goes through next-intl.
+ *
+ * Inverted deliberately: enumerating the marketing routes would mean editing this
+ * list every time a page is added, and a forgotten entry would 404 rather than
+ * fail loudly.
+ */
+const UNLOCALISED = [
+  "/api", "/admin", "/dashboard", "/onboarding",
+  "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password",
+  "/auth", "/_next", "/horizon",
+];
+
+function isUnlocalised(pathname: string): boolean {
+  if (UNLOCALISED.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
+  // Files (favicon.ico, robots.txt, sitemap.xml, og.jpg …)
+  return /\.[a-zA-Z0-9]+$/.test(pathname);
+}
+
+// Crawlers are never geo-redirected: sending Googlebot (which crawls from the US)
+// somewhere other than the canonical English page pollutes the index.
+const BOT_RE = /bot|crawler|spider|crawling|facebookexternalhit|slurp|bingpreview/i;
+
+/**
+ * First-visit language pick, from the visitor's country.
+ *
+ * Owner's rule: serve the country's language if we have it, otherwise English.
+ * Only fires when the visitor has no explicit locale yet — no cookie and no locale
+ * already in the path — so a manual switch is never overridden on the next click.
+ * The country comes from the edge header Vercel populates; locally it is absent
+ * and everyone simply gets English.
+ */
+function geoRedirect(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl;
+
+  if (request.cookies.has("NEXT_LOCALE")) return null;
+  if (BOT_RE.test(request.headers.get("user-agent") ?? "")) return null;
+
+  const alreadyPrefixed = routing.locales.some(
+    (l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`)
+  );
+  if (alreadyPrefixed) return null;
+
+  const country =
+    request.headers.get("x-vercel-ip-country") ??
+    request.headers.get("cf-ipcountry");
+  const locale = localeForCountry(country);
+  if (locale === routing.defaultLocale) return null;
+
+  const url = request.nextUrl.clone();
+  url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
+  const res = NextResponse.redirect(url);
+  // Remember the pick so this runs once per visitor, not on every navigation.
+  res.cookies.set("NEXT_LOCALE", locale, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  return res;
+}
 
 function isAuthorizedBasic(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -47,6 +113,13 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
 }
 
 export async function middleware(request: NextRequest) {
+  // Marketing tree: locale routing only. The app-protection logic below never
+  // applied to these paths (they were not in the matcher before), so nothing about
+  // dashboard gating or admin auth changes by widening the matcher for locales.
+  if (!isUnlocalised(request.nextUrl.pathname)) {
+    return geoRedirect(request) ?? intlMiddleware(request);
+  }
+
   const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 
@@ -288,5 +361,10 @@ export const config = {
     "/api/admin/:path*",
     "/dashboard/:path*",
     "/onboarding/:path*",
+    // Marketing tree, for locale routing. Kept deliberately broad and simple —
+    // a clever matcher regex silently failed to fire here, so the filtering is
+    // done in code by `isUnlocalised`, which is testable and obvious.
+    "/",
+    "/((?!_next|api).*)",
   ],
 };

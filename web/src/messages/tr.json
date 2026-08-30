@@ -1,0 +1,220 @@
+{
+  "nav": {
+    "services": "Hizmetler",
+    "employees": "Çalışanlar",
+    "industries": "Sektörler",
+    "pricing": "Fiyatlar",
+    "company": "Şirket",
+    "login": "Giriş yap",
+    "bookDemo": "Demo ayarla",
+    "toggleMenu": "Menüyü aç/kapat",
+    "home": "Denku — ana sayfa"
+  },
+  "footer": {
+    "services": "Hizmetler",
+    "product": "Ürün",
+    "company": "Şirket",
+    "tagline": "“İşletmelere yapay zekânın ne yapabileceğini anlatmıyoruz. Saniyeler içinde deneyimletiyoruz.”",
+    "rights": "Tüm hakları saklıdır.",
+    "status": "DENKU · ÇEVRİMİÇİ · KONUŞMAYA HAZIR",
+    "voiceReceptionist": "Sesli Resepsiyonist",
+    "appointmentBooking": "Randevu Oluşturma",
+    "leadQualification": "Müşteri Adayı Değerlendirme",
+    "customerFollowUp": "Müşteri Takibi",
+    "customAutomations": "Özel Otomasyonlar",
+    "security": "Güvenlik",
+    "docs": "Dokümanlar",
+    "support": "Destek",
+    "about": "Hakkımızda",
+    "contact": "İletişim",
+    "privacy": "Gizlilik",
+    "terms": "Koşullar"
+  },
+  "common": {
+    "talkToDenku": "Denku ile konuş",
+    "seePricing": "Fiyatları gör",
+    "startHiring": "İşe almaya başla",
+    "hearItNow": "Şimdi dinle",
+    "requestAudit": "Analiz iste",
+    "language": "Dil",
+    "changeLanguage": "Dili değiştir"
+  },
+  "home": {
+    "eyebrow": "Yapay zekâ çalışanlar · 7/24 görevde",
+    "headline": "İlk yapay zekâ çalışanını işe al.",
+    "headlineEmphasis": "çalışanını",
+    "outcomes": [
+      "Her aramayı yanıtlar.",
+      "Randevuyu kendisi yazar.",
+      "Kaçan aramalara geri döner.",
+      "Hiçbir müşteriyi unutmaz."
+    ],
+    "proof": {
+      "callsAnswered": "Yanıtlanan arama",
+      "appointmentsBooked": "Oluşturulan randevu",
+      "responseTime": "Ortalama yanıt",
+      "neverOff": "Hiç mesai bitmez"
+    },
+    "demo": {
+      "eyebrow": "Canlı demo",
+      "headline": "Sözümüze güvenmeyin.",
+      "sub": "Arayın. Hemen şimdi.",
+      "footnote": "Gerçek bir arama — müşterilerimizin kullandığı hattın aynısı.",
+      "ready": "Hazır",
+      "connecting": "Bağlanıyor",
+      "listening": "Dinliyor",
+      "tryAgain": "Tekrar deneyin"
+    },
+    "how": {
+      "eyebrow": "İşe alım nasıl işler",
+      "headline": "Bir öğleden sonrada işe alınır.",
+      "steps": [
+        { "title": "İşinizi anlatın", "note": "Çalışma saatleri, hizmetler, randevu şekliniz." },
+        { "title": "Deneme araması yapın", "note": "Müşterinizden önce siz duyun." },
+        { "title": "Numaranızı bağlayın", "note": "Yönlendirin ya da taşıyın. On dakika." },
+        { "title": "Göreve başlar", "note": "Bir sonraki çalıştan itibaren yanıtlar." }
+      ]
+    },
+    "roster": {
+      "eyebrow": "Kadro",
+      "headline": "Kimi işe alacağınızı seçin.",
+      "seeAll": "Beşini de gör",
+      "seeAllNote": "Her birinin tam olarak ne yaptığı."
+    },
+    "workday": {
+      "scenes": [
+        {
+          "eyebrow": "18:04",
+          "title": "Kaçıracağınız bir arama.",
+          "note": "Yanıtlar, randevuyu oluşturur ve kaydı kendisi yazar."
+        },
+        {
+          "eyebrow": "Üç ay sonra",
+          "title": "Onu hatırlıyor.",
+          "note": "Her arama bir müşterinin geçmişine eklenir. Hiçbir şey sıfırdan başlamaz."
+        },
+        {
+          "eyebrow": "Pazartesi",
+          "title": "Gerçekte ne yaptı.",
+          "note": "Faaliyet değil sonuç. Önemli olan sayı, randevuya dönen."
+        }
+      ]
+    },
+    "pricing": {
+      "eyebrow": "Fiyatlar",
+      "headline": "Açık fiyat. Aydan aya.",
+      "mostPicked": "En çok seçilen",
+      "included": "Telegram ve e-posta dahil, sayaçsız",
+      "noSurprise": "Sürpriz fatura yok. Hiçbir zaman.",
+      "noSurpriseBody": "Her planın sert bir harcama limiti var. Limite ulaştığınızda hattı durdurup size haber veriyoruz — sessizce üstüne fatura kesmiyoruz.",
+      "seeMath": "Hesabı görün →"
+    },
+    "audit": {
+      "eyebrow": "Ücretsiz analiz",
+      "headline": "Telefonunuz size neye mal oluyor?",
+      "sub": "Hattınızın bugün nasıl yanıt verdiğini dinleyip eksikleri size gönderiyoruz."
+    },
+    "faq": {
+      "eyebrow": "Net cevaplar",
+      "headline": "Bizim soracağımız sorular.",
+      "items": [
+        {
+          "q": "Dakika nasıl sayılıyor?",
+          "a": "Her arama bir üst tam dakikaya yuvarlanır, sonra toplanır. 20 saniyelik bir arama bir dakikadır. Hepsi bu — bağlantı ücreti yok, numara başına ek ücret yok."
+        },
+        {
+          "q": "Limiti aşarsam ne olur?",
+          "a": "Planınızda yazan aşım ücretini ödersiniz, sert bir üst limite kadar. Limitte hattı durdurup size haber veriyoruz; faturanın tırmanmasına izin vermiyoruz."
+        },
+        {
+          "q": "Bugün hangi kanallar çalışıyor?",
+          "a": "Ses, Telegram ve e-posta canlı. Instagram mesajları gelen kutunuza düşürür. Messenger, WhatsApp, SMS ve web sohbeti beta aşamasında ve henüz hiçbir plana dahil değil."
+        },
+        {
+          "q": "İptal edebilir miyim?",
+          "a": "Aydan aya. Faturalandırma sayfasından iptal edersiniz, dönem sonunda durur. Çıkmanız gereken bir sözleşme yok."
+        },
+        {
+          "q": "Veriler kimin?",
+          "a": "Sizin. Aramalar, dökümler, kişiler ve randevular çalışma alanınıza aittir ve dışa aktarabilirsiniz."
+        }
+      ]
+    },
+    "finalCta": {
+      "headline": "Yeni çalışanınız",
+      "headlineEmphasis": "bugün başlıyor"
+    }
+  },
+  "channels": {
+    "eyebrow": "Kanallar",
+    "title": "Nerelerde çalışıyor",
+    "note": "Beta kanalları neyin geldiğini görün diye açıkta. Hiçbir plana dahil değiller.",
+    "status": {
+      "live": "Canlı",
+      "limited": "Alıyor",
+      "beta": "Beta"
+    },
+    "notInPlan": "Henüz hiçbir plana dahil değil.",
+    "items": {
+      "voice": { "label": "Ses", "line": "Telefon hattınızı yanıtlar." },
+      "telegram": { "label": "Telegram", "line": "Kendi botunuzdan yanıtlar." },
+      "email": { "label": "E-posta", "line": "Yönlendirilen postaları yanıtlar." },
+      "instagram": {
+        "label": "Instagram",
+        "line": "DM'lerinizi alır.",
+        "caveat": "Mesajlar gelen kutunuza düşer. Denku üzerinden yanıtlama henüz açık değil."
+      },
+      "messenger": { "label": "Messenger", "line": "Facebook sayfa mesajları." },
+      "whatsapp": { "label": "WhatsApp", "line": "İşletme mesajlaşması." },
+      "sms": { "label": "SMS", "line": "Kaçan aramalara mesaj atar." },
+      "webchat": { "label": "Web sohbeti", "line": "Sitenizde bir widget." }
+    }
+  },
+  "auth": {
+    "backToHome": "Ana sayfaya dön",
+    "or": "veya",
+    "socialSoon": "Sosyal giriş yolda. Şimdilik e-postanızı kullanın.",
+    "socialTooltip": "Yakında — şimdilik e-posta ile giriş yapın",
+    "scenes": [
+      {
+        "caption": "Kaçıracağınız arama",
+        "note": "Mesai dışında, iş üstünde ya da hat meşgulken — yine de yanıtlanır."
+      },
+      {
+        "caption": "Randevuyu kendisi oluşturur",
+        "note": "Konuşma bir randevu talebine dönüşür; siz yokken yazılır."
+      },
+      {
+        "caption": "Hiçbir müşteriyi unutmaz",
+        "note": "Her arama bir kişinin geçmişine eklenir, böylece sonraki sıfırdan başlamaz."
+      }
+    ]
+  },
+  "request": {
+    "eyebrow": "Talepler",
+    "headline": "Neye ihtiyacınız olduğunu söyleyin.",
+    "sub": "Yaptığımız dört şey. Hangisi için geldiyseniz onu seçin.",
+    "name": "Adınız",
+    "email": "İş e-postası",
+    "company": "Şirket",
+    "anythingElse": "Eklemek istediğiniz",
+    "anythingElsePlaceholder": "Bir cümle yeter.",
+    "send": "Talebi gönder",
+    "sending": "Gönderiliyor…",
+    "invalidEmail": "Lütfen geçerli bir e-posta adresi girin.",
+    "failed": "Bir şeyler ters gitti. Lütfen tekrar deneyin.",
+    "doneTitle": "Aldık.",
+    "doneBody": "Verdiğiniz adresten size döneceğiz.",
+    "sendAnother": "Bir tane daha gönder",
+    "privacy": "Bunu yalnızca size dönmek için kullanıyoruz. Liste yok, otomatik e-posta dizisi yok.",
+    "orTalk": "Ya da hiç yazmayın",
+    "orTalkTitle": "Yapay zekâ çalışanımıza anlatın.",
+    "orTalkBody": "Bize soracağınızı ona sorun. Detayları alır ve görüşmeyi ayarlar — üstelik sesini duymanın en hızlı yolu bu.",
+    "nextTitle": "Bundan sonra ne oluyor",
+    "next": [
+      "Bir insan okuyor — yönlendirme botu değil.",
+      "Ya bir fiyatla ya bir soruyla dönüyoruz.",
+      "Yanlış adres bizsek, bunu söylüyoruz."
+    ]
+  }
+}

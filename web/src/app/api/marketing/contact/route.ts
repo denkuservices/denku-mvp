@@ -22,19 +22,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /**
+     * `source` tells us which surface the request came from, so the four service
+     * request forms don't all land in one undifferentiated pile.
+     *
+     * Allowlisted rather than free-text: this value is written straight into the
+     * table and read by humans triaging leads, so an attacker must not be able to
+     * choose it. Anything unrecognised falls back to the contact-form default
+     * instead of being rejected — a lead is worth more than a tidy label.
+     */
+    const ALLOWED_SOURCES = new Set([
+      'marketing_contact',
+      'request_ai-employees',
+      'request_ai-audit',
+      'request_ai-studio',
+      'request_custom-ai',
+    ]);
+    const requestedSource = typeof body.source === 'string' ? body.source.trim() : '';
+    const source = ALLOWED_SOURCES.has(requestedSource)
+      ? requestedSource
+      : 'marketing_contact';
+
     // Prepare data for insertion
     const insertData = {
       work_email,
       name: body.name?.trim() || null,
       company: body.company?.trim() || null,
       industry: body.industry?.trim() || null,
-      channels: body.channels && Array.isArray(body.channels) && body.channels.length > 0 
-        ? body.channels 
+      channels: body.channels && Array.isArray(body.channels) && body.channels.length > 0
+        ? body.channels
         : null,
       tools: body.tools?.trim() || null,
       estimated_volume: body.estimated_volume?.trim() || null,
       message: body.message?.trim() || null,
-      source: 'marketing_contact',
+      source,
     };
 
     // Insert into Supabase

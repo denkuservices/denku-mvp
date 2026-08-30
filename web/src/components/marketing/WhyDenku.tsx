@@ -20,16 +20,16 @@ const denkuWay = [
 
 export function WhyDenku() {
   return (
-    <Section id="why" className="scroll-mt-20 border-y border-[#0A1A2F]/[0.06] bg-[#FBFAF8]">
+    <Section id="why" className="scroll-mt-20 border-y border-[var(--s-border)] bg-[var(--s-panel-2)]">
       <Container>
         <Reveal className="max-w-2xl">
           <div className="brand-eyebrow mb-5">The Denku difference</div>
-          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[#0A1A2F]">
+          <h2 className="font-display text-[clamp(32px,3.8vw,50px)] font-normal leading-[1.08] tracking-[-1.2px] text-[var(--s-ink)]">
             Experience it first.
             <br />
-            Decide <em className="font-medium italic text-[#1B6E6E]">today</em>.
+            Decide <em className="font-medium italic text-[var(--s-accent)]">today</em>.
           </h2>
-          <p className="mt-5 max-w-xl text-[18px] leading-relaxed text-[#2C3E54]">
+          <p className="mt-5 max-w-xl text-[18px] leading-relaxed text-[var(--s-ink-soft)]">
             Most agencies make you wait days to see what AI can do. We let you experience it in the
             next 30 seconds — on this page.
           </p>
@@ -37,36 +37,36 @@ export function WhyDenku() {
 
         <div className="mt-14 grid gap-6 md:grid-cols-2">
           {/* Old way */}
-          <Reveal className="rounded-[18px] border border-[#0A1A2F]/10 bg-[#F7F5F1] p-10">
-            <div className="mb-7 border-b border-[#0A1A2F]/10 pb-4 font-brand-mono text-xs tracking-wider text-[#6B7888]">
+          <Reveal className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-10">
+            <div className="mb-7 border-b border-[var(--s-border)] pb-4 font-brand-mono text-xs tracking-wider text-[var(--s-ink-faint)]">
               // THE OLD WAY
             </div>
             <div className="space-y-1">
               {oldWay.map((s) => (
-                <div key={s.step} className="flex items-center gap-3.5 py-3 text-[15px] text-[#6B7888]">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#EFEBE4] text-xs text-[#6B7888]">
+                <div key={s.step} className="flex items-center gap-3.5 py-3 text-[15px] text-[var(--s-ink-faint)]">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[var(--s-panel-3)] text-xs text-[var(--s-ink-faint)]">
                     {s.step}
                   </span>
                   {s.label}
-                  {s.note && <span className="ml-auto font-brand-mono text-[11px] text-[#6B7888]">{s.note}</span>}
+                  {s.note && <span className="ml-auto font-brand-mono text-[11px] text-[var(--s-ink-faint)]">{s.note}</span>}
                 </div>
               ))}
             </div>
           </Reveal>
 
           {/* Denku way */}
-          <Reveal delay={1} className="rounded-[18px] border border-[#0A1A2F] bg-[#0A1A2F] p-10 brand-shadow-lg">
-            <div className="mb-7 border-b border-white/10 pb-4 font-brand-mono text-xs tracking-wider text-[#3FA3A3]">
+          <Reveal delay={1} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-cta-bg)] p-10 brand-shadow-lg">
+            <div className="mb-7 border-b border-white/10 pb-4 font-brand-mono text-xs tracking-wider text-[var(--s-accent-deep)]">
               // THE DENKU WAY
             </div>
             <div className="space-y-1">
               {denkuWay.map((s) => (
-                <div key={s.label} className="flex items-center gap-3.5 py-3 text-[15px] text-[#F7F5F1]/90">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#1B6E6E] text-white">
+                <div key={s.label} className="flex items-center gap-3.5 py-3 text-[15px] text-[var(--s-cta-fg)]">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[var(--s-accent)] text-white">
                     <Check className="h-3 w-3" />
                   </span>
                   {s.label}
-                  <span className="ml-auto font-brand-mono text-[11px] text-[#3FA3A3]">{s.note}</span>
+                  <span className="ml-auto font-brand-mono text-[11px] text-[var(--s-accent-deep)]">{s.note}</span>
                 </div>
               ))}
             </div>

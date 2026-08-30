@@ -31,6 +31,7 @@ import {
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
 import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
+import { DenkuLogo } from "@/components/brand/DenkuLogo";
 
 
 type OnboardingState = {
@@ -598,7 +599,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         <div className="relative z-10 flex h-full flex-col">
           {/* Logo */}
           <div className="font-display text-[26px] font-semibold tracking-tight">
-            den<span className="text-[#3FA3A3]">ku</span>
+            <DenkuLogo size={24} variant="gradient" />
           </div>
 
           {/* Intro.
@@ -677,7 +678,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         <div className="border-b border-[#0A1A2F]/[0.06] bg-[#F7F5F1]/80 px-5 py-4 backdrop-blur-md lg:hidden">
           <div className="flex items-center justify-between">
             <div className="font-display text-[22px] font-semibold tracking-tight text-[#0A1A2F]">
-              den<span className="text-[#1B6E6E]">ku</span>
+              <DenkuLogo size={24} variant="gradient" />
             </div>
             {/* The stepper rail is desktop-only, so on a phone this line is the ONLY thing
                 naming the step. It reads the label from STEPS rather than repeating it, which is

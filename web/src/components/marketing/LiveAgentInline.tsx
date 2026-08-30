@@ -158,7 +158,7 @@ export function LiveAgentInline() {
   };
 
   return (
-    <div className="relative rounded-[20px] border border-gray-200 bg-white/90 shadow-shadow-100 p-8 overflow-hidden">
+    <div className="relative rounded-[20px] border border-gray-200 bg-[var(--s-panel)]/90 shadow-shadow-100 p-8 overflow-hidden">
       {/* Waveform decoration behind button */}
       <div className="absolute inset-0 flex items-end justify-center gap-1.5 opacity-5 pointer-events-none z-0 pb-6">
         {WAVEFORM_HEIGHTS.map((height, i) => (
@@ -213,7 +213,7 @@ export function LiveAgentInline() {
         {callState === 'connected' && (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center rounded-full bg-green-500 px-12 py-6 text-lg font-bold text-white shadow-lg">
-              <div className="h-3 w-3 rounded-full bg-white mr-3 animate-pulse" />
+              <div className="h-3 w-3 rounded-full bg-[var(--s-panel)] mr-3 animate-pulse" />
               Live conversation active
             </div>
             <p className="text-sm text-gray-600">
@@ -222,7 +222,7 @@ export function LiveAgentInline() {
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={handleToggleMute}
-                className="flex items-center gap-2 rounded-full border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-navy-700 transition-all hover:bg-gray-50 hover:border-gray-300"
+                className="flex items-center gap-2 rounded-full border-2 border-gray-200 bg-[var(--s-panel)] px-4 py-2 text-sm font-bold text-navy-700 transition-all hover:bg-gray-50 hover:border-gray-300"
               >
                 {isMuted ? (
                   <>
@@ -238,7 +238,7 @@ export function LiveAgentInline() {
               </button>
               <button
                 onClick={handleStop}
-                className="flex items-center gap-2 rounded-full border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-navy-700 transition-all hover:bg-gray-50 hover:border-gray-300"
+                className="flex items-center gap-2 rounded-full border-2 border-gray-200 bg-[var(--s-panel)] px-4 py-2 text-sm font-bold text-navy-700 transition-all hover:bg-gray-50 hover:border-gray-300"
               >
                 End call
               </button>

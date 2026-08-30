@@ -51,18 +51,18 @@ function renderCellValue(value: string) {
   if (value === '✓') {
     return (
       <div className="flex items-center justify-center">
-        <Check className="h-5 w-5 text-[#2563EB]" />
+        <Check className="h-5 w-5 text-[var(--s-accent)]" />
       </div>
     );
   }
   if (value === '—') {
     return (
       <div className="flex items-center justify-center">
-        <Minus className="h-5 w-5 text-[#CBD5E1]" />
+        <Minus className="h-5 w-5 text-[var(--s-ink-faint)]" />
       </div>
     );
   }
-  return <p className="text-sm font-bold text-[#0F172A]">{value}</p>;
+  return <p className="text-sm font-bold text-[var(--s-ink)]">{value}</p>;
 }
 
 export function ComparePlans() {
@@ -71,15 +71,15 @@ export function ComparePlans() {
   return (
     <Section id="compare" className="scroll-mt-20">
       <Container>
-        <div className="relative flex flex-col rounded-2xl border border-[#CBD5E1] bg-white shadow-sm w-full">
+        <div className="relative flex flex-col rounded-2xl border border-[var(--s-border)] bg-[var(--s-panel)] shadow-sm w-full">
           {/* Header with toggle */}
-          <div className="relative flex items-center justify-between px-6 pt-6 pb-4 border-b border-[#CBD5E1]">
-            <h2 className="text-xl font-semibold text-[#0F172A]">
+          <div className="relative flex items-center justify-between px-6 pt-6 pb-4 border-b border-[var(--s-border)]">
+            <h2 className="text-xl font-semibold text-[var(--s-ink)]">
               Compare Plans
             </h2>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-[#F1F5F9] transition-colors"
+              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[var(--s-accent)] hover:bg-[var(--s-panel-2)] transition-colors"
             >
               <span>{isExpanded ? 'Hide' : 'Compare plans'}</span>
               {isExpanded ? (
@@ -100,30 +100,30 @@ export function ComparePlans() {
               <div className="mt-4 overflow-x-scroll xl:overflow-x-hidden">
                 <table className="w-full">
                   <thead>
-                    <tr className="!border-px !border-[#CBD5E1]">
-                      <th className="cursor-pointer border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-start">
+                    <tr className="!border-px !border-[var(--s-border)]">
+                      <th className="cursor-pointer border-b-[1px] border-[var(--s-border)] pt-4 pb-2 pr-4 text-start">
                         <div className="items-center justify-between">
-                          <p className="text-sm font-bold text-[#64748B] uppercase">FEATURE</p>
+                          <p className="text-sm font-bold text-[var(--s-ink-faint)] uppercase">FEATURE</p>
                         </div>
                       </th>
-                      <th className="cursor-pointer border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
+                      <th className="cursor-pointer border-b-[1px] border-[var(--s-border)] pt-4 pb-2 pr-4 text-center">
                         <div className="items-center justify-between">
-                          <p className="text-sm font-bold text-[#64748B] uppercase">STARTER</p>
+                          <p className="text-sm font-bold text-[var(--s-ink-faint)] uppercase">STARTER</p>
                         </div>
                       </th>
-                      <th className="cursor-pointer border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
+                      <th className="cursor-pointer border-b-[1px] border-[var(--s-border)] pt-4 pb-2 pr-4 text-center">
                         <div className="items-center justify-between">
                           <div className="flex items-center justify-center gap-2">
-                            <p className="text-sm font-bold text-[#64748B] uppercase">PRO</p>
-                            <span className="rounded-full bg-[#2563EB] px-2 py-0.5 text-xs font-bold text-white">
+                            <p className="text-sm font-bold text-[var(--s-ink-faint)] uppercase">PRO</p>
+                            <span className="rounded-full bg-[var(--s-accent)] px-2 py-0.5 text-xs font-bold text-white">
                               Most Popular
                             </span>
                           </div>
                         </div>
                       </th>
-                      <th className="cursor-pointer border-b-[1px] border-[#CBD5E1] pt-4 pb-2 pr-4 text-center">
+                      <th className="cursor-pointer border-b-[1px] border-[var(--s-border)] pt-4 pb-2 pr-4 text-center">
                         <div className="items-center justify-between">
-                          <p className="text-sm font-bold text-[#64748B] uppercase">ENTERPRISE</p>
+                          <p className="text-sm font-bold text-[var(--s-ink-faint)] uppercase">ENTERPRISE</p>
                         </div>
                       </th>
                     </tr>
@@ -134,9 +134,9 @@ export function ComparePlans() {
                         <tr>
                           <td
                             colSpan={4}
-                            className="min-w-[150px] border-white/0 py-2 pr-4 bg-[#F1F5F9]"
+                            className="min-w-[150px] border-white/0 py-2 pr-4 bg-[var(--s-panel-2)]"
                           >
-                            <p className="text-xs font-bold text-[#64748B] uppercase">
+                            <p className="text-xs font-bold text-[var(--s-ink-faint)] uppercase">
                               {group.category}
                             </p>
                           </td>
@@ -144,7 +144,7 @@ export function ComparePlans() {
                         {group.features.map((feature, featureIdx) => (
                           <tr key={feature.name}>
                             <td className="min-w-[150px] border-white/0 py-3 pr-4">
-                              <p className="text-sm font-bold text-[#0F172A]">
+                              <p className="text-sm font-bold text-[var(--s-ink)]">
                                 {feature.name}
                               </p>
                             </td>

@@ -1,0 +1,220 @@
+{
+  "nav": {
+    "services": "Servicios",
+    "employees": "Empleados",
+    "industries": "Sectores",
+    "pricing": "Precios",
+    "company": "Empresa",
+    "login": "Iniciar sesión",
+    "bookDemo": "Reservar demo",
+    "toggleMenu": "Abrir menú",
+    "home": "Denku — inicio"
+  },
+  "footer": {
+    "services": "Servicios",
+    "product": "Producto",
+    "company": "Empresa",
+    "tagline": "“No le contamos a los negocios lo que puede hacer la IA. Dejamos que la prueben en segundos.”",
+    "rights": "Todos los derechos reservados.",
+    "status": "DENKU · EN LÍNEA · LISTO PARA HABLAR",
+    "voiceReceptionist": "Recepcionista de voz",
+    "appointmentBooking": "Reserva de citas",
+    "leadQualification": "Calificación de leads",
+    "customerFollowUp": "Seguimiento de clientes",
+    "customAutomations": "Automatizaciones a medida",
+    "security": "Seguridad",
+    "docs": "Documentación",
+    "support": "Soporte",
+    "about": "Nosotros",
+    "contact": "Contacto",
+    "privacy": "Privacidad",
+    "terms": "Términos"
+  },
+  "common": {
+    "talkToDenku": "Habla con Denku",
+    "seePricing": "Ver precios",
+    "startHiring": "Empezar a contratar",
+    "hearItNow": "Escúchalo ahora",
+    "requestAudit": "Solicitar análisis",
+    "language": "Idioma",
+    "changeLanguage": "Cambiar idioma"
+  },
+  "home": {
+    "eyebrow": "Empleados de IA · de turno 24/7",
+    "headline": "Contrata a tu primer empleado de IA.",
+    "headlineEmphasis": "empleado",
+    "outcomes": [
+      "Contesta todas las llamadas.",
+      "Agenda el trabajo.",
+      "Responde las llamadas perdidas.",
+      "Nunca olvida a un cliente."
+    ],
+    "proof": {
+      "callsAnswered": "Llamadas atendidas",
+      "appointmentsBooked": "Citas agendadas",
+      "responseTime": "Respuesta media",
+      "neverOff": "Nunca libra"
+    },
+    "demo": {
+      "eyebrow": "Demo en vivo",
+      "headline": "No nos creas a nosotros.",
+      "sub": "Llámalo. Ahora mismo.",
+      "footnote": "Una llamada real, sobre la misma infraestructura que usan nuestros clientes.",
+      "ready": "Listo",
+      "connecting": "Conectando",
+      "listening": "Escuchando",
+      "tryAgain": "Reintentar"
+    },
+    "how": {
+      "eyebrow": "Cómo se contrata",
+      "headline": "Contratado en una tarde.",
+      "steps": [
+        { "title": "Cuéntale sobre tu negocio", "note": "Horarios, servicios, cómo agendas." },
+        { "title": "Haz una llamada de prueba", "note": "Escúchalo antes que nadie." },
+        { "title": "Conecta tu número", "note": "Desvía o porta. Diez minutos." },
+        { "title": "Empieza su turno", "note": "Contesta desde el siguiente timbre." }
+      ]
+    },
+    "roster": {
+      "eyebrow": "La plantilla",
+      "headline": "Elige a quién contratas.",
+      "seeAll": "Ver los cinco",
+      "seeAllNote": "Qué hace cada uno, en detalle."
+    },
+    "workday": {
+      "scenes": [
+        {
+          "eyebrow": "18:04",
+          "title": "Una llamada que habrías perdido.",
+          "note": "Contesta, agenda el trabajo y escribe la cita él mismo."
+        },
+        {
+          "eyebrow": "Tres meses después",
+          "title": "Se acuerda de ella.",
+          "note": "Cada llamada se suma al historial del contacto. Nada empieza de cero."
+        },
+        {
+          "eyebrow": "Lunes",
+          "title": "Lo que realmente hizo.",
+          "note": "Resultados, no actividad. El número que importa es el que se agendó."
+        }
+      ]
+    },
+    "pricing": {
+      "eyebrow": "Precios",
+      "headline": "Precios publicados. Mes a mes.",
+      "mostPicked": "El más elegido",
+      "included": "Telegram y correo incluidos, sin contador",
+      "noSurprise": "Sin facturas sorpresa. Nunca.",
+      "noSurpriseBody": "Cada plan tiene un tope de gasto estricto. Al alcanzarlo pausamos la línea y te avisamos — nunca seguimos facturando en silencio.",
+      "seeMath": "Ver el cálculo →"
+    },
+    "audit": {
+      "eyebrow": "Análisis gratuito",
+      "headline": "¿Cuánto te cuesta tu teléfono?",
+      "sub": "Escuchamos cómo responde tu línea hoy y te enviamos lo que falta."
+    },
+    "faq": {
+      "eyebrow": "Respuestas claras",
+      "headline": "Las preguntas que haríamos nosotros.",
+      "items": [
+        {
+          "q": "¿Cómo se cuenta un minuto?",
+          "a": "Cada llamada se redondea al minuto entero siguiente y luego se suman. Una llamada de 20 segundos cuesta un minuto. Eso es todo — sin cuotas de conexión ni recargos por número."
+        },
+        {
+          "q": "¿Qué pasa si me paso?",
+          "a": "Se te cobra la tarifa por exceso publicada en tu plan, hasta un tope estricto. En el tope pausamos la línea y te avisamos, en vez de dejar que la factura siga subiendo."
+        },
+        {
+          "q": "¿Qué canales funcionan hoy?",
+          "a": "Voz, Telegram y correo están en producción. Instagram recibe mensajes en tu bandeja. Messenger, WhatsApp, SMS y chat web están en beta y todavía no forman parte de ningún plan."
+        },
+        {
+          "q": "¿Puedo cancelar?",
+          "a": "Mes a mes. Cancelas desde la página de facturación y termina al final del periodo. No hay contrato del que salir."
+        },
+        {
+          "q": "¿De quién son los datos?",
+          "a": "Tuyos. Llamadas, transcripciones, contactos y citas pertenecen a tu espacio de trabajo, y puedes exportarlos."
+        }
+      ]
+    },
+    "finalCta": {
+      "headline": "Tu próximo empleado",
+      "headlineEmphasis": "empieza hoy"
+    }
+  },
+  "channels": {
+    "eyebrow": "Canales",
+    "title": "Dónde funciona",
+    "note": "Los canales en beta están a la vista para que sepas qué viene. No forman parte de ningún plan.",
+    "status": {
+      "live": "En producción",
+      "limited": "Recibiendo",
+      "beta": "Beta"
+    },
+    "notInPlan": "Todavía no está incluido en ningún plan.",
+    "items": {
+      "voice": { "label": "Voz", "line": "Contesta tu línea telefónica." },
+      "telegram": { "label": "Telegram", "line": "Responde en tu propio bot." },
+      "email": { "label": "Correo", "line": "Responde el correo reenviado." },
+      "instagram": {
+        "label": "Instagram",
+        "line": "Recibe tus DMs.",
+        "caveat": "Los mensajes llegan a tu bandeja. Responder desde Denku aún no está activo."
+      },
+      "messenger": { "label": "Messenger", "line": "Mensajes de tu página de Facebook." },
+      "whatsapp": { "label": "WhatsApp", "line": "Mensajería para empresas." },
+      "sms": { "label": "SMS", "line": "Responde por texto a llamadas perdidas." },
+      "webchat": { "label": "Chat web", "line": "Un widget en tu sitio." }
+    }
+  },
+  "auth": {
+    "backToHome": "Volver al inicio",
+    "or": "o",
+    "socialSoon": "El acceso con redes sociales está en camino. Usa tu correo por ahora.",
+    "socialTooltip": "Próximamente — entra con tu correo por ahora",
+    "scenes": [
+      {
+        "caption": "La llamada que habrías perdido",
+        "note": "Fuera de horario, en pleno trabajo o con la línea ocupada — igual se contesta."
+      },
+      {
+        "caption": "Agenda el trabajo él mismo",
+        "note": "La conversación se convierte en una solicitud de cita, escrita mientras no estás."
+      },
+      {
+        "caption": "Nunca olvida a un cliente",
+        "note": "Cada llamada se suma al historial del contacto, así la siguiente no empieza de cero."
+      }
+    ]
+  },
+  "request": {
+    "eyebrow": "Solicitudes",
+    "headline": "Cuéntanos qué necesitas.",
+    "sub": "Cuatro cosas que hacemos. Elige la que te trajo aquí.",
+    "name": "Tu nombre",
+    "email": "Correo de trabajo",
+    "company": "Empresa",
+    "anythingElse": "Algo más",
+    "anythingElsePlaceholder": "Con una frase basta.",
+    "send": "Enviar solicitud",
+    "sending": "Enviando…",
+    "invalidEmail": "Introduce un correo electrónico válido.",
+    "failed": "Algo salió mal. Inténtalo de nuevo.",
+    "doneTitle": "Recibido.",
+    "doneBody": "Te responderemos a la dirección que nos diste.",
+    "sendAnother": "Enviar otra",
+    "privacy": "Lo usamos para responderte y nada más. Sin listas, sin secuencias.",
+    "orTalk": "O no escribas nada",
+    "orTalkTitle": "Cuéntaselo a nuestro empleado de IA.",
+    "orTalkBody": "Pregúntale lo que nos preguntarías. Toma los datos y agenda la llamada — y de paso es la forma más rápida de oír cómo suena.",
+    "nextTitle": "Qué pasa después",
+    "next": [
+      "Lo lee una persona — no un bot de enrutamiento.",
+      "Respondemos con un precio o con una pregunta.",
+      "Si no encajamos, te lo decimos."
+    ]
+  }
+}

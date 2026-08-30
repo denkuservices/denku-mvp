@@ -40,7 +40,7 @@ export function SignupForm() {
     <>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#0A1A2F]">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
             Email
           </label>
           <input
@@ -50,10 +50,10 @@ export function SignupForm() {
             required
             disabled={isPending}
             autoComplete="email"
-            className="w-full rounded-[10px] border border-[#0A1A2F]/10 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/70 transition-colors focus:border-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/15 disabled:opacity-60"
+            className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] disabled:opacity-60"
             placeholder="you@company.com"
           />
-          <p className="mt-1 text-xs text-[#6B7888]">
+          <p className="mt-1 text-xs text-[var(--s-ink-faint)]">
             We'll email you an 8-digit code.
           </p>
         </div>
@@ -67,7 +67,7 @@ export function SignupForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-[10px] bg-[#0A1A2F] py-3.5 font-medium text-[#F7F5F1] transition-all hover:bg-[#1B6E6E] focus:outline-none focus:ring-2 focus:ring-[#1B6E6E]/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-[10px] bg-[var(--s-cta-bg)] py-3.5 font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Sending code..." : "Continue"}
         </button>

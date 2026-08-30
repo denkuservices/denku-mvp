@@ -9,7 +9,7 @@ export function Waveform() {
       {BAR_HEIGHTS.map((height, index) => (
         <div
           key={index}
-          className="w-1 bg-[#2563EB] rounded-full transition-all duration-300"
+          className="w-1 bg-[var(--s-accent)] rounded-full transition-all duration-300"
           style={{
             height: `${height}%`,
             animation: 'breath 3s ease-in-out infinite',
