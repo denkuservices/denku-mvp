@@ -24,6 +24,21 @@ app/(app)/layout.tsx                 → DM Sans font, HorizonStylesheet, getOnb
   *inside* a hub (CRM tabs, Settings rail), never in the sidebar.
 - Route-title mapping via `horizon-shell/navigation.ts`; brand text computed client-side after
   mount to avoid hydration mismatch (keep that pattern).
+- **Topbar capsule** (`HorizonTopbar` → `ProfileWidget`): search · notifications · theme · help ·
+  account. Sprint 9 deleted the first, second and fourth of those because they were controls you
+  could click that did nothing; they came back only once each was wired to something real —
+  `readModel/search.ts` (conversations + contacts + requests, one org-scoped query set, called via
+  `dashboard/_actions/topbar.ts`), `readModel/attention.ts` (paused workspace · usage threshold ·
+  needs-a-person · unread, all **derived** from existing state — there is no notifications table,
+  so there is no "mark as read"), and `/docs` + `/support` + the support mailto. **That is the bar
+  for anything added to this capsule: it must do its job.** The bell caches its feed at module
+  scope for 60s because the shell mounts on every dashboard page and the badge has to be right
+  before anyone opens it.
+- **Full-bleed routes.** `HorizonShell` drops `max-w-7xl` and the side padding for
+  `/dashboard/inbox` — the Inbox is a messaging *surface*, not a page of cards, and scrolls in its
+  panes rather than in the page (`InboxSplit` pins `100vh − 101px`: 10px wrapper padding + the
+  81px topbar). Sidebar and capsule are untouched. Add a route to `fullBleed` only for another
+  surface of that kind.
 - Horizon assets: `next.config.ts` rewrites `/img|/fonts|/svg → /horizon/*` and webpack-aliases
   `components|contexts|variables|utils|routes|styles → src/horizon/*`. **Do not "clean up" these
   aliases** — Horizon template code depends on them; they also mean those bare specifiers are
