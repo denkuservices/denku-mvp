@@ -62,12 +62,6 @@ export function PricingPreview() {
                     </span>
                   </div>
 
-                  {plan.concurrencyLine && (
-                    <div className="mt-2 font-brand-mono text-[11px] uppercase tracking-[.12em] text-[var(--d-teal)]">
-                      {plan.concurrencyLine}
-                    </div>
-                  )}
-
                   <ul className="mt-6 flex flex-1 flex-col gap-2.5">
                     {bullets.map((b) => (
                       <li
