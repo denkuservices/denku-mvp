@@ -3,6 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import { Magnetic, Reveal } from "./primitives";
 import { useTranslations } from "next-intl";
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 /**
  * The closing run — plan §5 rows 9–11.
@@ -137,12 +138,12 @@ export function FinalCta() {
                 <span aria-hidden="true">→</span>
               </Link>
             </Magnetic>
-            <Link
+            <ExternalToLocale
               href="/signup"
               className="inline-flex items-center rounded-full border border-[var(--d-border)] px-7 py-4 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
             >
               {tc("startHiring")}
-            </Link>
+            </ExternalToLocale>
           </div>
         </Reveal>
       </div>

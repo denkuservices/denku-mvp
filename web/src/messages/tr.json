@@ -69,10 +69,22 @@
       "eyebrow": "İşe alım nasıl işler",
       "headline": "Bir öğleden sonrada işe alınır.",
       "steps": [
-        { "title": "İşinizi anlatın", "note": "Çalışma saatleri, hizmetler, randevu şekliniz." },
-        { "title": "Deneme araması yapın", "note": "Müşterinizden önce siz duyun." },
-        { "title": "Numaranızı bağlayın", "note": "Yönlendirin ya da taşıyın. On dakika." },
-        { "title": "Göreve başlar", "note": "Bir sonraki çalıştan itibaren yanıtlar." }
+        {
+          "title": "İşinizi anlatın",
+          "note": "Çalışma saatleri, hizmetler, randevu şekliniz."
+        },
+        {
+          "title": "Deneme araması yapın",
+          "note": "Müşterinizden önce siz duyun."
+        },
+        {
+          "title": "Numaranızı bağlayın",
+          "note": "Yönlendirin ya da taşıyın. On dakika."
+        },
+        {
+          "title": "Göreve başlar",
+          "note": "Bir sonraki çalıştan itibaren yanıtlar."
+        }
       ]
     },
     "roster": {
@@ -156,18 +168,39 @@
     },
     "notInPlan": "Henüz hiçbir plana dahil değil.",
     "items": {
-      "voice": { "label": "Ses", "line": "Telefon hattınızı yanıtlar." },
-      "telegram": { "label": "Telegram", "line": "Kendi botunuzdan yanıtlar." },
-      "email": { "label": "E-posta", "line": "Yönlendirilen postaları yanıtlar." },
+      "voice": {
+        "label": "Ses",
+        "line": "Telefon hattınızı yanıtlar."
+      },
+      "telegram": {
+        "label": "Telegram",
+        "line": "Kendi botunuzdan yanıtlar."
+      },
+      "email": {
+        "label": "E-posta",
+        "line": "Yönlendirilen postaları yanıtlar."
+      },
       "instagram": {
         "label": "Instagram",
         "line": "DM'lerinizi alır.",
         "caveat": "Mesajlar gelen kutunuza düşer. Denku üzerinden yanıtlama henüz açık değil."
       },
-      "messenger": { "label": "Messenger", "line": "Facebook sayfa mesajları." },
-      "whatsapp": { "label": "WhatsApp", "line": "İşletme mesajlaşması." },
-      "sms": { "label": "SMS", "line": "Kaçan aramalara mesaj atar." },
-      "webchat": { "label": "Web sohbeti", "line": "Sitenizde bir widget." }
+      "messenger": {
+        "label": "Messenger",
+        "line": "Facebook sayfa mesajları."
+      },
+      "whatsapp": {
+        "label": "WhatsApp",
+        "line": "İşletme mesajlaşması."
+      },
+      "sms": {
+        "label": "SMS",
+        "line": "Kaçan aramalara mesaj atar."
+      },
+      "webchat": {
+        "label": "Web sohbeti",
+        "line": "Sitenizde bir widget."
+      }
     }
   },
   "auth": {
@@ -215,6 +248,647 @@
       "Bir insan okuyor — yönlendirme botu değil.",
       "Ya bir fiyatla ya bir soruyla dönüyoruz.",
       "Yanlış adres bizsek, bunu söylüyoruz."
+    ],
+    "extra": {
+      "ai-employees": {
+        "label": "Haftada kabaca kaç arama alıyorsunuz?",
+        "placeholder": "örn. 80–120"
+      },
+      "ai-audit": {
+        "label": "Hangi numarayı arayalım?",
+        "placeholder": "+90 …"
+      },
+      "ai-studio": {
+        "label": "Neye ihtiyacınız var?",
+        "placeholder": "örn. 20 ürün görseli + 3 kısa video"
+      },
+      "custom-ai": {
+        "label": "Hangi sistemlerle konuşmalı?",
+        "placeholder": "örn. HubSpot, Google Takvim, kendi API'miz"
+      }
+    }
+  },
+  "subpage": {
+    "dayTitle": "Bir günü.",
+    "doesTitle": "Bugün ne yapıyor",
+    "notYetTitle": "Ne yapmıyor",
+    "faqTitle": "Haklı sorular.",
+    "fits": "Uygun",
+    "ctaDefault": "Yeni çalışanınız bugün başlıyor.",
+    "whatYouGet": "Ne alıyorsunuz.",
+    "howItWorks": "Nasıl işliyor",
+    "whatItCosts": "Ne kadar",
+    "platform": "Platform",
+    "doneForYou": "Sizin için yapılıyor",
+    "pricePrinted": "Fiyatı açık",
+    "quoted": "Teklifle"
+  },
+  "employeeCard": {
+    "onShift": "Görevde",
+    "justNow": "Az önce"
+  },
+  "productFrame": {
+    "sampleData": "Örnek veri",
+    "inboxTitle": "Gelen kutusu · Ses",
+    "crmTitle": "CRM · Kişi",
+    "homeTitle": "Ana sayfa · Bu hafta",
+    "appointment": "Randevu",
+    "appointmentValue": "Per 09:30 · otomatik oluşturuldu",
+    "inbox": [
+      "Merhaba — perşembe için yeriniz var mı?",
+      "Var. 09:30 ya da 14:00 — hangisi uyar?",
+      "09:30 olur.",
+      "Ayarlandı. Onay mesajı geleceek."
+    ],
+    "crmEvents": [
+      {
+        "when": "4 Mar",
+        "what": "Su kaçağı için aradı · kayıt açıldı"
+      },
+      {
+        "when": "6 Mar",
+        "what": "Randevu · Per 09:30"
+      },
+      {
+        "when": "18 Haz",
+        "what": "Tekrar aradı — aynı teknisyeni istedi"
+      },
+      {
+        "when": "Bugün",
+        "what": "Tanındı. Adıyla karşılandı."
+      }
+    ],
+    "stats": [
+      {
+        "k": "Yanıtlanan arama",
+        "v": "38"
+      },
+      {
+        "k": "Randevu",
+        "v": "11"
+      },
+      {
+        "k": "Kurtarılan kaçan arama",
+        "v": "6"
+      },
+      {
+        "k": "Mesai dışı",
+        "v": "%43"
+      }
     ]
+  },
+  "services": {
+    "eyebrow": "Hizmetler",
+    "headline": "Tek ürün. Ötesinde üç yardım biçimi.",
+    "sub": "Kendi kullandığınız platform. Sizin için yaptığımız işler.",
+    "notSure": "Hangisi gerekli, emin değil misiniz?",
+    "items": {
+      "ai-employees": {
+        "name": "AI Çalışanlar",
+        "line": "Telefon hattınız için bir çalışan.",
+        "headline": "Hiçbir aramayı kaçırmayan bir çalışan işe alın.",
+        "sub": "Ses, Telegram ve e-posta — yanıtlanır, kaydedilir, hatırlanır.",
+        "includes": [
+          "Her aramayı 7/24, 20+ dilde yanıtlar",
+          "Her konuşmayı bir kayda ya da randevu talebine dönüştürür",
+          "Müşteriyi yaptığı her aramada hatırlar",
+          "Ses, Telegram ve e-posta için tek gelen kutusu"
+        ],
+        "delivery": "Kendi kurarsınız. Bir öğleden sonrada hazır, sonraki çalıştan itibaren çalışır.",
+        "pricing": "Aylık 149 dolardan başlayan açık fiyatlar. Sözleşme yok, istediğinizde iptal.",
+        "cta": "Fiyatları gör"
+      },
+      "ai-audit": {
+        "name": "AI Analiz",
+        "line": "Telefonunuzun size neye mal olduğunu öğrenin.",
+        "headline": "Hattınız ne kaybettiriyor?",
+        "sub": "Arıyoruz, nasıl yanıt verdiğini dinliyoruz ve eksikleri size gönderiyoruz.",
+        "includes": [
+          "Hattınızı bir müşterinin arayacağı gibi arıyoruz",
+          "Aramaların nerede düştüğünü, takıldığını ya da sesli mesaja gittiğini",
+          "Kaçan her aramanın size makul olarak neye mal olduğunu",
+          "Hangi AI çalışanla başlayacağımızı ve nedenini"
+        ],
+        "delivery": "Bize bir numara veriyorsunuz. Kısa bir yazılı rapor gönderiyoruz.",
+        "pricing": "Ücretsiz. Kendimizi bir satış görüşmesiyle değil böyle tanıtmayı tercih ediyoruz.",
+        "cta": "Analiz iste"
+      },
+      "ai-studio": {
+        "name": "AI Studio",
+        "line": "Görsel ve video, siparişe göre.",
+        "headline": "Yapay zekâyla üretilen kreatif iş.",
+        "sub": "Kendi kullanacağınız bir araç değil — varlıklarınızı üreten küçük bir ekip.",
+        "includes": [
+          "Ürün ve kampanya görselleri",
+          "Sosyal medya ve reklam için kısa video",
+          "Test için reklam kreatif varyantları",
+          "Doğru olana kadar revizyon"
+        ],
+        "delivery": "Panelden değil, tek tek teslim edilir. Siz brief verirsiniz, biz üretiriz, siz onaylarsınız.",
+        "pricing": "Projeye göre teklif — kapsam ve hacim belirler. Sorun, fiyatlayalım.",
+        "cta": "Teklif iste"
+      },
+      "custom-ai": {
+        "name": "Özel AI",
+        "line": "İşinizin gerçekten ihtiyaç duyduğu otomasyon.",
+        "headline": "Hazır çalışan tek başına cevap olmadığında.",
+        "sub": "Entegrasyonlar, otomasyonlar ve iç araçlar — çalışma biçiminize göre kurulur.",
+        "includes": [
+          "Denku'yu zaten kullandığınız sistemlere bağlamak",
+          "Birbiriyle konuşmayan araçlar arasında iş akışı otomasyonu",
+          "Kendi verinizle raporlama ve panolar",
+          "Şablonların ötesinde özel konuşma akışları"
+        ],
+        "delivery": "Bir görüşmede kapsamlanır, sonra kurulur. Yapmaya değmiyorsa bunu söyleriz.",
+        "pricing": "Kapsam görüşmesinden sonra projeye göre teklif.",
+        "cta": "Proje hakkında konuşalım"
+      }
+    }
+  },
+  "employees": {
+    "eyebrow": "Kadro",
+    "headline": "Beş çalışan. Tek telefon hattı.",
+    "sub": "Her biri aynı sistem, farklı bir iş için brieflenmiş.",
+    "items": {
+      "receptionist": {
+        "role": "Resepsiyonist",
+        "line": "Her aramayı yanıtlar, gece gündüz.",
+        "ticker": [
+          "Bugün 12 arama yanıtladı",
+          "İkisi gece yarısından sonra"
+        ],
+        "headline": "Arama her zaman yanıtlanır.",
+        "sub": "Her çalışta, her saatte, aynı sesle.",
+        "day": [
+          {
+            "when": "07:12",
+            "what": "Günün ilk araması, kimse gelmeden önce."
+          },
+          {
+            "when": "13:40",
+            "what": "Aynı anda iki arama — ikisi de yanıtlandı."
+          },
+          {
+            "when": "18:04",
+            "what": "Kapanıştan sonra. Hâlâ açıyor."
+          },
+          {
+            "when": "23:58",
+            "what": "Not alıyor, kayıt açıyor."
+          }
+        ],
+        "does": [
+          "Gelen aramaları 7/24 yanıtlar",
+          "Arayanı ve arama nedenini kaydeder",
+          "Her aramadan bir kayıt ya da randevu talebi açar",
+          "20+ dil konuşur"
+        ],
+        "notYet": [
+          "Giden arama yapmaz.",
+          "Henüz SMS göndermiyor."
+        ],
+        "fits": [
+          "Ev hizmetleri",
+          "Klinikler",
+          "Kuaförler",
+          "Hukuk"
+        ],
+        "cta": "Ava'yı telefona verin."
+      },
+      "booking-assistant": {
+        "role": "Randevu asistanı",
+        "line": "Konuşmayı bir randevuya çevirir.",
+        "ticker": [
+          "Per 09:30 randevu oluşturdu",
+          "Cuma işini erteledi"
+        ],
+        "headline": "Bir sorudan bir randevuya.",
+        "sub": "İhtiyacı olanı sorar, sonra talebi kendisi yazar.",
+        "day": [
+          {
+            "when": "08:20",
+            "what": "Arayan bu hafta için keşif istiyor."
+          },
+          {
+            "when": "08:21",
+            "what": "Gerçekten müsait olduğunuz saatleri sunuyor."
+          },
+          {
+            "when": "08:22",
+            "what": "Randevu talebini yazıyor."
+          },
+          {
+            "when": "08:23",
+            "what": "Siz bakmadan panonuzda."
+          }
+        ],
+        "does": [
+          "Bir randevunun gerektirdiği detayları toplar",
+          "Her randevu aramasında bir randevu talebi oluşturur",
+          "Kaydetmediği bir randevuyu asla iddia etmez",
+          "Karar bir insana aitse temiz şekilde devreder"
+        ],
+        "notYet": [
+          "Çift yönlü takvim senkronu henüz canlı değil — talepler onaylamanız için panoya düşer."
+        ],
+        "fits": [
+          "Ev hizmetleri",
+          "Med spa",
+          "Diş",
+          "Oto"
+        ],
+        "cta": "Miles'ı telefona verin."
+      },
+      "missed-call-rescuer": {
+        "role": "Kaçan arama kurtarma",
+        "line": "Kimsenin açmadığı aramaları yakalar.",
+        "ticker": [
+          "6 kaçan aramayı kurtardı",
+          "Dördü randevuya döndü"
+        ],
+        "headline": "Kaybettiğinizi bilmediğiniz aramalar.",
+        "sub": "Yoğunluk ve mesai dışı aramalar düşmek yerine yanıtlanır.",
+        "day": [
+          {
+            "when": "12:30",
+            "what": "Siz diğer hattasınız."
+          },
+          {
+            "when": "12:30",
+            "what": "İkinci arayanı o açıyor."
+          },
+          {
+            "when": "12:33",
+            "what": "İş detaylarını alıyor."
+          },
+          {
+            "when": "12:34",
+            "what": "Müşteri adayını bir kişiye bağlıyor."
+          }
+        ],
+        "does": [
+          "Hattınız meşgulken taşan aramaları yanıtlar",
+          "Masada kimsenin olmadığı saatleri kapatır",
+          "Kurtardığı her aramayı bir kayda ya da randevu talebine çevirir"
+        ],
+        "notYet": [
+          "Kaçan numaraya otomatik mesaj atma henüz yapılmadı. Bugün kurtarma, mesajla değil yanıtlayarak oluyor."
+        ],
+        "fits": [
+          "Ev hizmetleri",
+          "Müteahhitler",
+          "Klinikler"
+        ],
+        "cta": "Rae'yi telefona verin."
+      },
+      "after-hours": {
+        "role": "Mesai dışı",
+        "line": "Kapalı olduğunuz saatleri kapatır.",
+        "ticker": [
+          "Sabah 7'ye kadar hattı tuttu",
+          "Hiçbiri sesli mesaja gitmedi"
+        ],
+        "headline": "Kapalı ama ulaşılmaz değil.",
+        "sub": "Geceler, hafta sonları, tatiller — hat yine çalışıyor.",
+        "day": [
+          {
+            "when": "21:02",
+            "what": "Acil sorunu olan bir arayan."
+          },
+          {
+            "when": "21:03",
+            "what": "Ayırıyor: acil mi, bekleyebilir mi?"
+          },
+          {
+            "when": "21:04",
+            "what": "Her iki durumda da yazıyor."
+          },
+          {
+            "when": "07:00",
+            "what": "Panoyu açtığınızda tablo eksiksiz."
+          }
+        ],
+        "does": [
+          "Sizin programınıza göre çalışır — devri siz belirlersiniz",
+          "Kayıtta acili rutinden ayırır",
+          "Gecenin eksiksiz bir kaydını bırakır"
+        ],
+        "notYet": [
+          "Nöbetçi birini henüz arayamıyor."
+        ],
+        "fits": [
+          "Gayrimenkul yönetimi",
+          "Klinikler",
+          "Hukuk",
+          "Veteriner"
+        ],
+        "cta": "Nox'u telefona verin."
+      },
+      "support-agent": {
+        "role": "Destek",
+        "line": "Aynı soruları sonsuza kadar yanıtlar.",
+        "ticker": [
+          "9 soruyu çözdü",
+          "Birini size iletti"
+        ],
+        "headline": "Yirminci sefer birinciyle aynı.",
+        "sub": "Saatler, fiyat, konum, politika — yorulmadan yanıtlanır.",
+        "day": [
+          {
+            "when": "Gün boyu",
+            "what": "Pazar açık mısınız?"
+          },
+          {
+            "when": "Gün boyu",
+            "what": "Sigortamı kabul ediyor musunuz?"
+          },
+          {
+            "when": "Gün boyu",
+            "what": "Nereye park edebilirim?"
+          },
+          {
+            "when": "Bir kez",
+            "what": "Tahmin etmemesi gereken bir şey, size iletildi."
+          }
+        ],
+        "does": [
+          "İşiniz hakkında ona söylediklerinizden yanıtlar",
+          "Cevap uydurmak yerine size iletir",
+          "Bir insan gerektiğinde kayıt açar"
+        ],
+        "notYet": [
+          "Sitenizi otomatik okumuyor — neyin doğru olduğunu siz söylersiniz."
+        ],
+        "fits": [
+          "Perakende",
+          "Klinikler",
+          "Restoranlar",
+          "Stüdyolar"
+        ],
+        "cta": "Iris'i telefona verin."
+      }
+    }
+  },
+  "industries": {
+    "eyebrow": "Sektörler",
+    "headline": "Aynı telefon sorunu. Farklı gün.",
+    "whereCallsGo": "Aramalar nereye gidiyor.",
+    "wedStartYouWith": "Sizi şununla başlatırdık",
+    "whatItDoes": "Ne yapıyor",
+    "items": {
+      "hvac-plumbing": {
+        "name": "Tesisat & iklimlendirme",
+        "headline": "Arama siz lavabonun altındayken geliyor.",
+        "sub": "Elleriniz dolu. Telefon yine çalıyor.",
+        "pain": [
+          "Aramalar siz iş üstündeyken geliyor, masada değil.",
+          "Acil iş, ilk açan kim ise ona gidiyor.",
+          "Borular akşamları ve hafta sonları patlıyor."
+        ],
+        "faq": [
+          {
+            "q": "Acili teklif talebinden ayırabiliyor mu?",
+            "a": "Sorabilir ve cevabı kayda yazar. Sevkiyat kararını sizin yerinize vermez."
+          },
+          {
+            "q": "Telefonda fiyat verebiliyor mu?",
+            "a": "Yalnızca ona söylediğinizi. Telefonda fiyat vermiyorsanız bunu söyler ve keşif randevusu oluşturur."
+          }
+        ]
+      },
+      "dental": {
+        "name": "Diş hekimliği",
+        "headline": "Ön büro bir hastayla ilgileniyor.",
+        "sub": "Kimin görüleceğine telefon karar vermemeli.",
+        "pain": [
+          "Tek kişi hem kabulü, hem çıkışı, hem telefonu karşılıyor.",
+          "Yeni hasta aramaları en kaçırmak istemediğiniz aramalar.",
+          "İptaller, kimsenin doldurmak için aramadığı boşluklar açıyor."
+        ],
+        "faq": [
+          {
+            "q": "Sigortamı kontrol edebiliyor mu?",
+            "a": "Hayır. Arayanın hangi poliçesi olduğunu sorup kaydedebilir, böylece ekibiniz sıfırdan başlamaz."
+          },
+          {
+            "q": "HIPAA uyumlu mu?",
+            "a": "Denku bugün HIPAA sertifikalı değil ve aksini iddia etmeyeceğiz. Bu değişene kadar korunan sağlık bilgisini buradan geçirmeyin."
+          }
+        ]
+      },
+      "med-spa-salon": {
+        "name": "Med spa & kuaför",
+        "headline": "Her kaçan arama boş bir koltuk.",
+        "sub": "İş randevudan ibaret ve randevular telefonla geliyor.",
+        "pain": [
+          "Aramalar siz bir müşteriyle ilgilenirken geliyor.",
+          "Randevu aramalarının çoğu çalışma saatleri dışında geliyor.",
+          "Fiyat ve müsaitlik soruları gün boyu tekrarlıyor."
+        ],
+        "faq": [
+          {
+            "q": "Doğrudan takvimime randevu yazabiliyor mu?",
+            "a": "Henüz değil. Detaylarıyla randevu talebi oluşturur, ekibiniz onaylar."
+          },
+          {
+            "q": "Müşterilerime robot gibi mi gelecek?",
+            "a": "Ana sayfadaki demo hattını arayın ve kendiniz karar verin. Zaten bunun için orada."
+          }
+        ]
+      },
+      "law": {
+        "name": "Hukuk",
+        "headline": "İlk arama davayı belirler.",
+        "sub": "Asla sesli mesaja düşmeyen bir ön görüşme.",
+        "pain": [
+          "Potansiyel müvekkiller birkaç büroyu arar ve ilk yanıtı alır.",
+          "Ön görüşme soruları her seferinde aynı.",
+          "Duruşma saatleri ile telefon saatleri aynı saatler."
+        ],
+        "faq": [
+          {
+            "q": "Hukuki tavsiye verebiliyor mu?",
+            "a": "Hayır ve denememesi talimatlandırılmış. Ön görüşme detaylarını alır ve bir kişinin incelemesi için dosya açar."
+          },
+          {
+            "q": "Görüşme gizli mi?",
+            "a": "Aramalar ve dökümler çalışma alanınızda kalır ve kuruluşunuza kapsanır. Bir gizlilik ayrıcalığı garantisi sunmuyoruz."
+          }
+        ]
+      }
+    }
+  },
+  "pricingPage": {
+    "eyebrow": "Fiyatlar",
+    "headline": "Açık fiyat. Aydan aya.",
+    "sub": "Ses dakikası için ödüyorsunuz. Çalışanınızın yaptığı diğer her şey dahil.",
+    "included": "Telegram ve e-posta dahil, sayaçsız",
+    "mostPicked": "En çok seçilen",
+    "payFor": "Ödediğiniz",
+    "payForV": "Ses dakikası",
+    "payForN": "Arama başına yukarı yuvarlanır, sonra toplanır.",
+    "inc": "Dahil",
+    "incV": "{count} kanal daha",
+    "incN": "Telegram ve e-posta. Mesaj sayacı yok.",
+    "notSold": "Henüz satılmıyor",
+    "notSoldV": "{count} tanesi beta",
+    "notSoldN": "Messenger, WhatsApp, SMS, web sohbeti. Hiçbir planda değil.",
+    "mathEyebrow": "Faturalama matematiği",
+    "mathHeadline": "Sürpriz fatura yok. Hiçbir zaman.",
+    "mathSub": "Kartınıza yansıyan rakam tam olarak böyle oluşuyor.",
+    "math": [
+      {
+        "q": "Dakika nasıl sayılıyor",
+        "a": "Her arama bir üst tam dakikaya yuvarlanır, sonra aramalar toplanır. 20 saniyelik arama bir dakikadır. 61 saniyelik arama iki."
+      },
+      {
+        "q": "Dahil dakikalarınız bittiğinde",
+        "a": "Planınızda yazan aşım ücretini ödersiniz. Dakika başınadır ve aynı şekilde sayılır."
+      },
+      {
+        "q": "Limitte ne oluyor",
+        "a": "Her çalışma alanının sert bir harcama limiti var. Ulaştığınızda hattı durdurup size haber veriyoruz. Üstüne fatura kesip sonra hesaplaşmıyoruz."
+      },
+      {
+        "q": "Neyin sayacı yok",
+        "a": "Telegram ve e-posta konuşmaları. Dahiller ve tükenecek bir mesaj sayacı yok."
+      }
+    ],
+    "exampleTitle": "Örnek hesap",
+    "exampleBody": "Ortalama 90 saniyelik kırk arama. Her biri 2 dakikaya yuvarlanır, yani 80 dakika — Starter'ın 400 dakikasının rahat içinde. 149 dolar ödersiniz, başka bir şey değil.",
+    "cta": "Tek çalışanla başlayın.",
+    "perMonth": "/ ay",
+    "plans": {
+      "Starter": {
+        "subtitle": "Tek lokasyon ya da küçük ekipler için",
+        "bullets": [
+          "1 eşzamanlı arama",
+          "400 dakika (kapasite bonusu)",
+          "Aşımda dakika başı $0,22",
+          "1 telefon dahil",
+          "Sınırsız persona"
+        ]
+      },
+      "Growth": {
+        "subtitle": "Gerçek arama hacmi olan büyüyen ekipler için",
+        "bullets": [
+          "4 eşzamanlı arama",
+          "1.200 dakika (kapasite bonusu)",
+          "Aşımda dakika başı $0,18",
+          "1 telefon dahil",
+          "Sınırsız persona"
+        ]
+      },
+      "Scale": {
+        "subtitle": "Yüksek hacimli operasyonlar için",
+        "bullets": [
+          "10 eşzamanlı arama",
+          "3.600 dakika (kapasite bonusu)",
+          "Aşımda dakika başı $0,13",
+          "1 telefon dahil",
+          "Sınırsız persona"
+        ]
+      }
+    },
+    "planCta": "Başla"
+  },
+  "securityPage": {
+    "eyebrow": "Güvenlik & güven",
+    "headline": "Ne yapıyoruz ve neyi iddia etmiyoruz.",
+    "sub": "Bu sayfanın iki yarısı da önemli. İkincisi, birincisine inanmanın sebebi.",
+    "controls": [
+      {
+        "title": "Kiracı izolasyonu",
+        "body": "Her kiracı tablosu bir kuruluş kimliği taşır ve satır düzeyi güvenlik politikaları okumaları profilinizdeki kuruluşa kapsar. Ayrıcalıklı arka plan yazımları, kuruluşu açıkça belirtmek zorunda olan ayrı bir istemciden geçer."
+      },
+      {
+        "title": "Şifreleme",
+        "body": "Aktarımda TLS. Bekleyen veri, veritabanı sağlayıcımız tarafından şifrelenir. Kiracıya özel kanal kimlik bilgileri — bot token'ları, erişim token'ları — saklanmadan önce ayrı bir anahtarla şifrelenir ve tarayıcıdan asla okunamaz."
+      },
+      {
+        "title": "Doğrulanmış webhook'lar",
+        "body": "Gelen webhook'lar gövdeleri ayrıştırılmadan önce doğrulanır: Instagram için Meta'nın imzası, Telegram için bağlantıya özel bir gizli token. Doğrulamayı geçemeyen istekler işlenmez, reddedilir."
+      },
+      {
+        "title": "Harcama limitleri",
+        "body": "Her çalışma alanının sert bir limiti var. Ulaşıldığında faturalamaya devam etmek yerine hattı durduruyoruz — bir tabloda değil, platformun kendisinde uygulanıyor. Durdurma gelen aramaları gerçekten kesiyor; sonradan bakılan bir işaret değil."
+      },
+      {
+        "title": "Veriniz sizde kalır",
+        "body": "Aramalar, dökümler, kişiler ve randevular çalışma alanınıza aittir. Dışa aktarabilirsiniz ve hesabınızı silmek onları da siler."
+      },
+      {
+        "title": "Erişim kontrolü",
+        "body": "Operatör konsolu müşteri uygulamasından ayrıdır ve kendi kimlik doğrulamasının arkasındadır. Müşteri oturumları oraya asla ulaşamaz."
+      }
+    ],
+    "notClaimedEyebrow": "İddia etmediklerimiz",
+    "notClaimedHeadline": "Henüz söyleyemediklerimiz.",
+    "notClaimed": [
+      {
+        "title": "SOC 2 sertifikalı değiliz.",
+        "body": "Henüz değiliz ve aksini ima etmeyeceğiz. Satın alma süreciniz bugün bir rapor istiyorsa şu an yanlış tedarikçiyiz — söyleyin, biz de bunu söyleyelim."
+      },
+      {
+        "title": "HIPAA uyumlu değiliz.",
+        "body": "Korunan sağlık bilgisini Denku üzerinden geçirmeyin. Diş randevusu almak sorun değil; klinik detay sorun."
+      },
+      {
+        "title": "Gösterecek bağımsız bir sızma testimiz yok.",
+        "body": "Bir tane yaptırdığımızda sonuç, hangi yönde çıkarsa çıksın bu sayfaya girecek."
+      }
+    ],
+    "askPrefix": "Burada belirsiz bir şey mi var, ya da listede olmayan bir ihtiyacınız mı?",
+    "askLink": "Doğrudan bize sorun",
+    "askSuffix": "— bir insan yanıtlıyor.",
+    "cta": "Telefonu bize emanet etmeden önce sorularınız mı var?"
+  },
+  "companyPage": {
+    "eyebrow": "Şirket",
+    "headline": "Tek bir şey yapıyoruz, özenle.",
+    "sub": "Telefonunuzu yanıtlayan, ne olduğunu yazan ve müşteriyi bir dahakine hatırlayan bir çalışan.",
+    "facts": [
+      {
+        "k": "Ne satıyoruz",
+        "v": "Telefon hattınız için bir AI çalışan, artı etrafındaki işler."
+      },
+      {
+        "k": "Kimin için",
+        "v": "Kaçan bir aramanın kaybedilen bir iş olduğu ABD'deki hizmet işletmeleri."
+      },
+      {
+        "k": "Nasıl alınır",
+        "v": "Kendi kendine, açık fiyatlarla, aydan aya."
+      },
+      {
+        "k": "Desteğe kim bakıyor",
+        "v": "Bir insan. Bazen kendi AI'ımız — ve bunu söylüyor."
+      }
+    ],
+    "howEyebrow": "Nasıl inşa ediyoruz",
+    "howHeadline": "Dört kural, kodda zorunlu.",
+    "howSub": "Her birini ürüne karşı kontrol edebilirsiniz.",
+    "principles": [
+      {
+        "title": "Arama asla çıkmaza girmez.",
+        "body": "Biten her arama bir şey üretir — bir kayıt ya da randevu talebi — AI hiçbir araca uzanmasa bile. Bu, tutmasını umduğumuz bir talimat değil, hattaki bir garanti."
+      },
+      {
+        "title": "Parada kapalı başarısız oluruz.",
+        "body": "Geçit kontrolleri açık başarısız olur, böylece ödeyen bir müşteri asla dışarıda kalmaz. Faturalama yazımları kapalı başarısız olur, böylece hiçbir şey tahmin edilmez. Bu ikisi çakıştığında para kaybeder."
+      },
+      {
+        "title": "Her şey iki kez olabilir.",
+        "body": "Webhook'lar tekrar dener. Ağlar kendini tekrarlar. Her yazma yolu, zarar vermeden tekrar çalıştırılabilecek şekilde kurulur — tekrarlanan bir arama bu yüzden iki randevu oluşturmaz."
+      },
+      {
+        "title": "Yapılmamış olanı söyleriz.",
+        "body": "Beta kanallar beta olarak etiketlenir. Sahip olmadığımız sertifikalar güvenlik sayfasında adıyla yazar. Arkasında duramayacağımız uyumluluk iddialarını bu siteden kaldırdık."
+      }
+    ],
+    "checkTitle": "Bunlardan birini kontrol etmek ister misiniz?",
+    "checkBody": "Güvenlik sayfasını okuyun ya da demo hattını arayıp metni değil ürünü değerlendirin.",
+    "security": "Güvenlik",
+    "contact": "İletişim"
   }
 }

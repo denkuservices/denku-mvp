@@ -33,6 +33,20 @@ function isUnlocalised(pathname: string): boolean {
   return /\.[a-zA-Z0-9]+$/.test(pathname);
 }
 
+/**
+ * `/tr/login` -> `/login`. Returns the unprefixed path when a locale prefix has been
+ * put in front of a route that is not localised, otherwise null.
+ */
+function stripLocaleFromUnlocalised(pathname: string): string | null {
+  for (const locale of routing.locales) {
+    const prefix = `/${locale}`;
+    if (pathname === prefix || !pathname.startsWith(`${prefix}/`)) continue;
+    const rest = pathname.slice(prefix.length);
+    if (isUnlocalised(rest)) return rest;
+  }
+  return null;
+}
+
 // Crawlers are never geo-redirected: sending Googlebot (which crawls from the US)
 // somewhere other than the canonical English page pollutes the index.
 const BOT_RE = /bot|crawler|spider|crawling|facebookexternalhit|slurp|bingpreview/i;
@@ -113,6 +127,17 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
 }
 
 export async function middleware(request: NextRequest) {
+  // Auth lives OUTSIDE the [locale] tree, so /tr/login has no route. Links no
+  // longer generate one, but a typed URL or an old bookmark still could — strip
+  // the prefix rather than 404. The language survives in the NEXT_LOCALE cookie,
+  // which is what the auth layout reads anyway.
+  const localised = stripLocaleFromUnlocalised(request.nextUrl.pathname);
+  if (localised) {
+    const url = request.nextUrl.clone();
+    url.pathname = localised;
+    return NextResponse.redirect(url);
+  }
+
   // Marketing tree: locale routing only. The app-protection logic below never
   // applied to these paths (they were not in the matcher before), so nothing about
   // dashboard gating or admin auth changes by widening the matcher for locales.

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SplineClient from '@/components/marketing/SplineClient';
 import { DemoCallButton } from '@/components/marketing/DemoCallButton';
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 const SPLINE_SCENE = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || '';
 
@@ -37,12 +38,12 @@ export default function HeroPremium() {
           </p>
 
           <div className="mt-9 flex flex-wrap items-center gap-3.5">
-            <Link
+            <ExternalToLocale
               href="/signup"
               className="inline-flex items-center gap-2.5 rounded-[10px] bg-[var(--s-cta-bg)] px-7 py-4 text-[15px] font-medium text-[var(--s-cta-fg)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[var(--s-accent)] hover:brand-shadow-md"
             >
               Book a demo
-            </Link>
+            </ExternalToLocale>
             <Link
               href="/pricing"
               className="inline-flex items-center gap-2.5 rounded-[10px] border border-[var(--s-border)] bg-transparent px-7 py-4 text-[15px] font-medium text-[var(--s-ink)] transition-all duration-300 hover:border-[var(--s-accent)] hover:bg-[var(--s-panel-2)] hover:text-[var(--s-accent)]"

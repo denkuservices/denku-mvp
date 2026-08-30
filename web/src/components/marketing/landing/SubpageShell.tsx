@@ -1,7 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Magnetic, Reveal, SplitHeading } from "./primitives";
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 /**
  * Shared chrome for the dark subpages (`/employees/*`, `/industries/*`).
@@ -25,6 +27,8 @@ export function SubpageHero({
   emphasis?: string[];
   children?: React.ReactNode;
 }) {
+  const tc = useTranslations("common");
+
   return (
     <section className="relative w-full overflow-hidden px-6 pb-16 pt-28 md:px-8 md:pt-32">
       <div
@@ -54,7 +58,7 @@ export function SubpageHero({
                 href="/#demo"
                 className="inline-flex items-center gap-2.5 rounded-full bg-[var(--d-copper)] px-7 py-3.5 text-[15px] font-medium text-[#0A1414] transition-colors hover:bg-[#D9A87C]"
               >
-                Hear it now
+                {tc("hearItNow")}
                 <span aria-hidden="true">→</span>
               </Link>
             </Magnetic>
@@ -62,7 +66,7 @@ export function SubpageHero({
               href="/#pricing"
               className="inline-flex items-center rounded-full border border-[var(--d-border)] px-6 py-3.5 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
             >
-              See pricing
+              {tc("seePricing")}
             </Link>
           </div>
         </div>
@@ -74,12 +78,14 @@ export function SubpageHero({
 
 /** A day in the life — the Thread, told vertically. */
 export function DayTimeline({ beats }: { beats: { when: string; what: string }[] }) {
+  const t = useTranslations("subpage");
+
   return (
     <section className="relative w-full px-6 py-20 md:px-8">
       <div className="mx-auto max-w-3xl">
         <Reveal className="mb-10">
           <h2 className="font-display text-[clamp(26px,3.4vw,40px)] font-semibold leading-[1.05] tracking-[-.02em] text-[var(--d-ink)]">
-            A day in the life.
+            {t("dayTitle")}
           </h2>
         </Reveal>
         <ol className="relative flex flex-col gap-7 border-l border-[var(--d-border)] pl-7">
@@ -115,13 +121,15 @@ export function CapabilityColumns({
   does: string[];
   notYet: string[];
 }) {
+  const t = useTranslations("subpage");
+
   return (
     <section className="relative w-full px-6 py-20 md:px-8">
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
         <Reveal>
           <div className="landing-glass h-full p-7">
             <h3 className="font-brand-mono text-[10.5px] uppercase tracking-[.16em] text-[var(--d-teal)]">
-              What it does today
+              {t("doesTitle")}
             </h3>
             <ul className="mt-5 flex flex-col gap-3">
               {does.map((d) => (
@@ -136,7 +144,7 @@ export function CapabilityColumns({
         <Reveal delay={90}>
           <div className="h-full rounded-[20px] border border-dashed border-[var(--d-border)] p-7">
             <h3 className="font-brand-mono text-[10.5px] uppercase tracking-[.16em] text-[var(--d-ink-faint)]">
-              What it doesn&apos;t
+              {t("notYetTitle")}
             </h3>
             <ul className="mt-5 flex flex-col gap-3">
               {notYet.map((d) => (
@@ -154,13 +162,14 @@ export function CapabilityColumns({
 }
 
 export function SubpageFaq({ items }: { items: { q: string; a: string }[] }) {
+  const t = useTranslations("subpage");
   if (items.length === 0) return null;
   return (
     <section className="relative w-full px-6 py-20 md:px-8">
       <div className="mx-auto max-w-3xl">
         <Reveal className="mb-8">
           <h2 className="font-display text-[clamp(26px,3.4vw,40px)] font-semibold leading-[1.05] tracking-[-.02em] text-[var(--d-ink)]">
-            Fair questions.
+            {t("faqTitle")}
           </h2>
         </Reveal>
         <div className="flex flex-col">
@@ -188,7 +197,11 @@ export function SubpageFaq({ items }: { items: { q: string; a: string }[] }) {
   );
 }
 
-export function SubpageCta({ label = "Your next employee starts today." }: { label?: string }) {
+export function SubpageCta({ label }: { label?: string }) {
+  const t = useTranslations("subpage");
+  const tc = useTranslations("common");
+  const heading = label ?? t("ctaDefault");
+
   return (
     <section className="relative w-full overflow-hidden px-6 py-28 md:px-8">
       <div
@@ -202,7 +215,7 @@ export function SubpageCta({ label = "Your next employee starts today." }: { lab
       <div className="relative mx-auto max-w-3xl text-center">
         <Reveal>
           <h2 className="font-display text-[clamp(28px,4.2vw,52px)] font-semibold leading-[1.02] tracking-[-.02em] text-[var(--d-ink)]">
-            {label}
+            {heading}
           </h2>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
             <Magnetic>
@@ -210,16 +223,16 @@ export function SubpageCta({ label = "Your next employee starts today." }: { lab
                 href="/#demo"
                 className="inline-flex items-center gap-2.5 rounded-full bg-[var(--d-copper)] px-7 py-3.5 text-[15px] font-medium text-[#0A1414] transition-colors hover:bg-[#D9A87C]"
               >
-                Talk to Denku
+                {tc("talkToDenku")}
                 <span aria-hidden="true">→</span>
               </Link>
             </Magnetic>
-            <Link
+            <ExternalToLocale
               href="/signup"
               className="inline-flex items-center rounded-full border border-[var(--d-border)] px-6 py-3.5 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
             >
-              Start hiring
-            </Link>
+              {tc("startHiring")}
+            </ExternalToLocale>
           </div>
         </Reveal>
       </div>

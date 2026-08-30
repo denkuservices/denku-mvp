@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * The real-UI frame — doc-17 signature #3.
@@ -23,6 +24,8 @@ export function ProductFrame({
   children: React.ReactNode;
   className?: string;
 }) {
+  const sampleLabel = useTranslations("productFrame")("sampleData");
+
   return (
     <div
       className={`overflow-hidden rounded-[18px] border border-[var(--d-border)] bg-[var(--d-bg-raised)] ${className}`}
@@ -36,7 +39,7 @@ export function ProductFrame({
           </span>
         </div>
         <span className="rounded-full border border-[var(--d-border)] px-2 py-0.5 font-brand-mono text-[9px] uppercase tracking-[.12em] text-[var(--d-ink-faint)]">
-          Sample data
+          {sampleLabel}
         </span>
       </div>
       <div className="p-4">{children}</div>
@@ -46,14 +49,11 @@ export function ProductFrame({
 
 /** A conversation turning into an artifact — the Inbox. */
 export function InboxScene({ reveal = 1 }: { reveal?: number }) {
-  const rows = [
-    { who: "them", text: "Hi — do you have anything Thursday?" },
-    { who: "ai", text: "We do. 9:30am or 2pm — which suits?" },
-    { who: "them", text: "9:30 works." },
-    { who: "ai", text: "Booked. You'll get a text confirmation." },
-  ];
+  const t = useTranslations("productFrame");
+  const lines = t.raw("inbox") as string[];
+  const rows = lines.map((text, i) => ({ who: i % 2 === 0 ? "them" : "ai", text }));
   return (
-    <ProductFrame title="Inbox · Voice">
+    <ProductFrame title={t("inboxTitle")}>
       <div className="flex flex-col gap-2.5">
         {rows.map((r, i) => {
           const shown = reveal > (i + 0.4) / rows.length;
@@ -98,10 +98,10 @@ export function InboxScene({ reveal = 1 }: { reveal?: number }) {
           }}
         >
           <span className="font-brand-mono text-[9.5px] uppercase tracking-[.14em] text-[var(--d-copper)]">
-            Appointment
+            {t("appointment")}
           </span>
           <span className="text-[12.5px] text-[var(--d-ink-soft)]">
-            Thu 9:30am · created automatically
+            {t("appointmentValue")}
           </span>
         </div>
       </div>
@@ -111,14 +111,10 @@ export function InboxScene({ reveal = 1 }: { reveal?: number }) {
 
 /** A contact whose history keeps growing — the CRM. */
 export function CrmScene({ reveal = 1 }: { reveal?: number }) {
-  const events = [
-    { when: "Mar 4", what: "Called about a leak · ticket opened" },
-    { when: "Mar 6", what: "Booked · Thu 9:30am" },
-    { when: "Jun 18", what: "Called back — asked for the same tech" },
-    { when: "Today", what: "Recognised. Greeted by name." },
-  ];
+  const t = useTranslations("productFrame");
+  const events = t.raw("crmEvents") as { when: string; what: string }[];
   return (
-    <ProductFrame title="CRM · Contact">
+    <ProductFrame title={t("crmTitle")}>
       <div className="mb-3 flex items-center gap-3 border-b border-[var(--d-border)] pb-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--d-border)] bg-[var(--d-surface-glass)] text-[12px] text-[var(--d-ink-soft)]">
           DM
@@ -169,14 +165,10 @@ export function CrmScene({ reveal = 1 }: { reveal?: number }) {
 
 /** What the week produced — Home. */
 export function OutcomesScene({ reveal = 1 }: { reveal?: number }) {
-  const stats = [
-    { k: "Calls answered", v: "38" },
-    { k: "Booked", v: "11" },
-    { k: "Missed-call rescues", v: "6" },
-    { k: "After hours", v: "43%" },
-  ];
+  const t = useTranslations("productFrame");
+  const stats = t.raw("stats") as { k: string; v: string }[];
   return (
-    <ProductFrame title="Home · This week">
+    <ProductFrame title={t("homeTitle")}>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--d-border)] bg-[var(--d-border)]">
         {stats.map((s, i) => {
           const shown = reveal > (i + 0.3) / stats.length;

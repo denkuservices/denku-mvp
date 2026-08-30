@@ -21,31 +21,17 @@ import { useTranslations } from "next-intl";
  * ask than type, the AI employee takes the enquiry itself.
  */
 
-const EXTRA_FIELD: Record<string, { label: string; placeholder: string; name: string }> = {
-  "ai-employees": {
-    name: "estimated_volume",
-    label: "Roughly how many calls a week?",
-    placeholder: "e.g. 80–120",
-  },
-  "ai-audit": {
-    name: "estimated_volume",
-    label: "Which number should we call?",
-    placeholder: "+1 …",
-  },
-  "ai-studio": {
-    name: "estimated_volume",
-    label: "What do you need made?",
-    placeholder: "e.g. 20 product images + 3 short videos",
-  },
-  "custom-ai": {
-    name: "tools",
-    label: "Which systems should it talk to?",
-    placeholder: "e.g. HubSpot, Google Calendar, our own API",
-  },
+/** Which form field each intent adds. The label and placeholder are translated. */
+const EXTRA_FIELD: Record<string, string> = {
+  "ai-employees": "estimated_volume",
+  "ai-audit": "estimated_volume",
+  "ai-studio": "estimated_volume",
+  "custom-ai": "tools",
 };
 
 export function RequestForm({ initialService }: { initialService?: string }) {
   const t = useTranslations("request");
+  const tsv = useTranslations("services");
   const nextSteps = t.raw("next") as string[];
   const valid = SERVICES.some((s) => s.slug === initialService);
   const [active, setActive] = React.useState(
@@ -56,7 +42,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
   const [error, setError] = React.useState<string | null>(null);
 
   const service = SERVICES.find((s) => s.slug === active) ?? SERVICES[0];
-  const extra = EXTRA_FIELD[service.slug];
+  const extraName = EXTRA_FIELD[service.slug];
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -82,7 +68,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
           name: String(data.get("name") ?? "").trim(),
           company: String(data.get("company") ?? "").trim(),
           message: String(data.get("message") ?? "").trim(),
-          [extra.name]: String(data.get(extra.name) ?? "").trim(),
+          [extraName]: String(data.get(extraName) ?? "").trim(),
           source: `request_${service.slug}`,
         }),
       });
@@ -135,7 +121,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
                     color: on ? "var(--d-ink)" : "var(--d-ink-soft)",
                   }}
                 >
-                  {s.name}
+                  {tsv(`items.${s.slug}.name`)}
                 </button>
               );
             })}
@@ -190,13 +176,13 @@ export function RequestForm({ initialService }: { initialService?: string }) {
 
               <div>
                 <label className={label} htmlFor="req-extra">
-                  {extra.label}
+                  {t(`extra.${service.slug}.label`)}
                 </label>
                 <input
                   id="req-extra"
-                  name={extra.name}
+                  name={extraName}
                   className={field}
-                  placeholder={extra.placeholder}
+                  placeholder={t(`extra.${service.slug}.placeholder`)}
                 />
               </div>
 

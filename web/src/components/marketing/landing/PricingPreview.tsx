@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
  */
 export function PricingPreview() {
   const t = useTranslations("home.pricing");
+  const tp = useTranslations("pricingPage");
 
   return (
     <section id="pricing" className="relative w-full px-6 py-28 md:px-8">
@@ -32,7 +33,7 @@ export function PricingPreview() {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           {pricingPlans.map((plan, i) => {
             const featured = Boolean(plan.highlight);
-            const bullets = plan.coreBullets ?? plan.features.slice(0, 5);
+            const bullets = tp.raw(`plans.${plan.name}.bullets`) as string[];
             return (
               <Reveal key={plan.name} delay={i * 90}>
                 <div
@@ -57,7 +58,7 @@ export function PricingPreview() {
                       {plan.price ?? plan.monthlyPrice}
                     </span>
                     <span className="text-[14px] text-[var(--d-ink-faint)]">
-                      {plan.priceUnit ?? "/ month"}
+                      {tp("perMonth")}
                     </span>
                   </div>
 
@@ -87,7 +88,7 @@ export function PricingPreview() {
                         : "border border-[var(--d-border)] text-[var(--d-ink-soft)] hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
                     }`}
                   >
-                    {plan.cta.label}
+                    {tp("planCta")}
                   </Link>
                 </div>
               </Reveal>

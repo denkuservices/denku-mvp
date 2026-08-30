@@ -348,7 +348,7 @@ pages, 864/864 tests, lint clean on every file authored here.**
 | **Four services** | `/services` plus `/services/[slug]` for AI Employees, AI Audit, AI Studio and Custom AI. Each states what you get, how it is delivered, and how it is priced — including "quoted" where no price list exists. |
 | **Request page** | `/request` with intent tabs, reusing the existing `/api/marketing/contact` route and `contact_requests` table. The only backend change is an **allowlisted `source`** so the four intents don't land in one pile. Second path out: the demo line takes the enquiry itself. |
 | **Pricing** | `/pricing` rebuilt dark, with the billing math spelled out and a worked example. |
-| **i18n** | `next-intl` with `localePrefix: "as-needed"` — English at the root, `/es`, `/de`, `/tr`. Marketing moved under `app/[locale]`. Four message files, hand-written (not machine-translated). Locale switcher in the nav and footer. Sitemap emits every path per locale with `hreflang` alternates. |
+| **i18n** | `next-intl` with `localePrefix: "as-needed"` — English at the root, `/es`, `/de`, `/tr`. Marketing moved under `app/[locale]`. Four message files, hand-written (not machine-translated). Locale switcher in the nav and footer. Sitemap emits every path per locale with `hreflang` alternates. **Completed 2026-08-31** — the first pass only translated the chrome and the homepage; every subpage's body was still English. See §9.5. |
 | **Geo detection** | Country → language in middleware (`x-vercel-ip-country`, `cf-ipcountry` fallback), unknown country → English. Skipped for crawlers, and skipped once `NEXT_LOCALE` exists so a manual choice is never overridden. |
 | **Auth** | Dark, matching the site. Right panel is a rotating three-scene story of the product (missed call → booked → remembered). Google/Facebook buttons present but genuinely `disabled` behind `NEXT_PUBLIC_SOCIAL_AUTH_ENABLED`. |
 | **Brand** | `DenkuMark` — three swept blades around a hollow core, filled by one diagonal gradient across the whole form. Applied to nav, footer, auth, onboarding and the dashboard shell; `icon.svg` and `apple-icon.svg` share the geometry. Gradient is **deep teal → brand teal → copper** (doc-17 tokens), chosen by rendering five candidates side by side: routing through bone came out milky, and copper→bone alone collapsed to one warm blob at favicon size. |
@@ -391,6 +391,48 @@ pages, 864/864 tests, lint clean on every file authored here.**
 - **Legacy pages are English only.** `/privacy`, `/terms`, `/docs`, `/support`, `/about`,
   `/contact`, `/use-cases` were not translated. Legal text in particular should not ship as a
   machine translation.
+
+---
+
+### 9.5 Translation completion and two bugs (2026-08-31)
+
+The owner found two real defects in the first i18n pass, and both were mine.
+
+**1. Non-English pages still showed English.** The first pass translated the chrome
+(nav, footer) and the homepage, and I reported it as "every page I built, in four
+languages". That was an overclaim: the bodies of `/services`, `/employees`,
+`/industries`, `/pricing`, `/company` and `/security` were still hardcoded English,
+because the copy lived in the data modules where a translation had nowhere to go.
+
+Fixed by moving **all** page copy into the message files and reducing the data
+modules to structure only:
+
+- `lib/marketing/content/services.ts` now carries slug, glyph, kind, whether a price
+  is printed, and the CTA target. Nothing else.
+- `lib/marketing/employees.ts` carries slug, given name and glyph. The given name is
+  deliberately not translated — Ava is Ava in every language.
+- `lib/marketing/industries.ts` carries slug and which employee it recommends.
+
+Everything visible is now keyed by slug in `src/messages/*.json`, so adding a language
+is a message file rather than a code change, and the two cannot drift.
+
+Also translated in the same pass: the plan bullets and the `/ month` unit, which come
+from `pricing-data.ts`. **Plan names stay untranslated** — "Starter" on the site and
+"Starter" in the billing account have to be the same word in every language.
+
+Verified by a scanner that pulls every English string out of `en.json` and looks for
+it verbatim in the rendered HTML of the other three locales, across 14 pages × 3
+locales: **0 leaks**, plus a targeted sweep for the `pricing-data.ts` strings.
+
+**2. `/tr/login` returned 404.** Auth lives outside the `[locale]` tree by design, but
+the nav used the locale-aware `Link`, which prefixed `/login` to `/tr/login` — a route
+that does not exist. Every non-English visitor hit a 404 from the header.
+
+Two-part fix: auth links now go through `ExternalToLocale` (a named component rather
+than a bare `next/link`, so the intent is legible at the call site and nobody
+"corrects" it back), and the middleware now redirects `/{locale}/login` → `/login` so a
+typed URL or an old bookmark resolves instead of 404ing. The language survives in the
+`NEXT_LOCALE` cookie, which is what the auth layout reads.
 
 ---
 

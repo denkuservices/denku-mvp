@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Container } from "@/components/marketing/Container";
 import { LocaleSwitcher } from "@/components/marketing/LocaleSwitcher";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 const NAV = [
   { key: "services", href: "/services" },
@@ -87,18 +88,18 @@ export function Navbar() {
 
           <div className="hidden shrink-0 items-center gap-3 lg:flex">
             <LocaleSwitcher compact />
-            <Link
+            <ExternalToLocale
               href="/login"
               className="whitespace-nowrap text-sm font-medium text-[var(--s-ink-soft)] transition-colors hover:text-[var(--s-accent)]"
             >
               {t("login")}
-            </Link>
-            <Link
+            </ExternalToLocale>
+            <ExternalToLocale
               href="/signup"
               className="whitespace-nowrap rounded-lg bg-[var(--s-cta-bg)] px-5 py-2.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-cta-bg-hover)] hover:brand-shadow-md"
             >
               {t("bookDemo")}
-            </Link>
+            </ExternalToLocale>
           </div>
 
           <div className="flex items-center gap-1 lg:hidden">
@@ -131,20 +132,20 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-6 flex flex-col gap-3">
-              <Link
+              <ExternalToLocale
                 href="/signup"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex h-12 items-center justify-center rounded-xl bg-[var(--s-cta-bg)] text-sm font-medium text-[var(--s-cta-fg)]"
               >
                 {t("bookDemo")}
-              </Link>
-              <Link
+              </ExternalToLocale>
+              <ExternalToLocale
                 href="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex h-12 items-center justify-center rounded-xl border border-[var(--s-border)] text-sm font-medium text-[var(--s-ink-soft)]"
               >
                 {t("login")}
-              </Link>
+              </ExternalToLocale>
             </div>
           </div>
         </div>

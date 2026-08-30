@@ -69,10 +69,22 @@
       "eyebrow": "So läuft die Einstellung",
       "headline": "An einem Nachmittag eingestellt.",
       "steps": [
-        { "title": "Erzählen Sie von Ihrem Betrieb", "note": "Zeiten, Leistungen, wie Sie Termine vergeben." },
-        { "title": "Testen Sie ihn per Anruf", "note": "Hören Sie ihn vor allen anderen." },
-        { "title": "Nummer verbinden", "note": "Umleiten oder portieren. Zehn Minuten." },
-        { "title": "Die Schicht beginnt", "note": "Ab dem nächsten Klingeln nimmt er ab." }
+        {
+          "title": "Erzählen Sie von Ihrem Betrieb",
+          "note": "Zeiten, Leistungen, wie Sie Termine vergeben."
+        },
+        {
+          "title": "Testen Sie ihn per Anruf",
+          "note": "Hören Sie ihn vor allen anderen."
+        },
+        {
+          "title": "Nummer verbinden",
+          "note": "Umleiten oder portieren. Zehn Minuten."
+        },
+        {
+          "title": "Die Schicht beginnt",
+          "note": "Ab dem nächsten Klingeln nimmt er ab."
+        }
       ]
     },
     "roster": {
@@ -156,18 +168,39 @@
     },
     "notInPlan": "Noch in keinem Tarif enthalten.",
     "items": {
-      "voice": { "label": "Telefonie", "line": "Nimmt Ihre Leitung an." },
-      "telegram": { "label": "Telegram", "line": "Antwortet in Ihrem eigenen Bot." },
-      "email": { "label": "E-Mail", "line": "Beantwortet weitergeleitete Post." },
+      "voice": {
+        "label": "Telefonie",
+        "line": "Nimmt Ihre Leitung an."
+      },
+      "telegram": {
+        "label": "Telegram",
+        "line": "Antwortet in Ihrem eigenen Bot."
+      },
+      "email": {
+        "label": "E-Mail",
+        "line": "Beantwortet weitergeleitete Post."
+      },
       "instagram": {
         "label": "Instagram",
         "line": "Empfängt Ihre DMs.",
         "caveat": "Nachrichten landen in Ihrem Posteingang. Antworten aus Denku ist noch nicht aktiviert."
       },
-      "messenger": { "label": "Messenger", "line": "Nachrichten Ihrer Facebook-Seite." },
-      "whatsapp": { "label": "WhatsApp", "line": "Business-Nachrichten." },
-      "sms": { "label": "SMS", "line": "Antwortet auf verpasste Anrufe." },
-      "webchat": { "label": "Web-Chat", "line": "Ein Widget auf Ihrer Seite." }
+      "messenger": {
+        "label": "Messenger",
+        "line": "Nachrichten Ihrer Facebook-Seite."
+      },
+      "whatsapp": {
+        "label": "WhatsApp",
+        "line": "Business-Nachrichten."
+      },
+      "sms": {
+        "label": "SMS",
+        "line": "Antwortet auf verpasste Anrufe."
+      },
+      "webchat": {
+        "label": "Web-Chat",
+        "line": "Ein Widget auf Ihrer Seite."
+      }
     }
   },
   "auth": {
@@ -215,6 +248,647 @@
       "Ein Mensch liest es — kein Verteiler-Bot.",
       "Wir antworten mit einem Preis oder einer Rückfrage.",
       "Wenn wir nicht passen, sagen wir das."
+    ],
+    "extra": {
+      "ai-employees": {
+        "label": "Wie viele Anrufe bekommen Sie ungefähr pro Woche?",
+        "placeholder": "z. B. 80–120"
+      },
+      "ai-audit": {
+        "label": "Welche Nummer sollen wir anrufen?",
+        "placeholder": "+49 …"
+      },
+      "ai-studio": {
+        "label": "Was sollen wir produzieren?",
+        "placeholder": "z. B. 20 Produktbilder + 3 kurze Videos"
+      },
+      "custom-ai": {
+        "label": "Mit welchen Systemen soll es sprechen?",
+        "placeholder": "z. B. HubSpot, Google Kalender, unsere eigene API"
+      }
+    }
+  },
+  "subpage": {
+    "dayTitle": "Ein Arbeitstag.",
+    "doesTitle": "Was er heute kann",
+    "notYetTitle": "Was er nicht kann",
+    "faqTitle": "Berechtigte Fragen.",
+    "fits": "Passt zu",
+    "ctaDefault": "Ihr nächster Mitarbeiter fängt heute an.",
+    "whatYouGet": "Was Sie bekommen.",
+    "howItWorks": "So läuft es",
+    "whatItCosts": "Was es kostet",
+    "platform": "Plattform",
+    "doneForYou": "Wir machen es",
+    "pricePrinted": "Preis ausgewiesen",
+    "quoted": "Auf Anfrage"
+  },
+  "employeeCard": {
+    "onShift": "Im Dienst",
+    "justNow": "Gerade eben"
+  },
+  "productFrame": {
+    "sampleData": "Beispieldaten",
+    "inboxTitle": "Posteingang · Telefonie",
+    "crmTitle": "CRM · Kontakt",
+    "homeTitle": "Start · Diese Woche",
+    "appointment": "Termin",
+    "appointmentValue": "Do 9:30 · automatisch angelegt",
+    "inbox": [
+      "Hallo — haben Sie am Donnerstag etwas frei?",
+      "Ja. 9:30 Uhr oder 14 Uhr — was passt Ihnen?",
+      "9:30 passt.",
+      "Eingetragen. Sie bekommen eine Bestätigung per SMS."
+    ],
+    "crmEvents": [
+      {
+        "when": "4. Mär",
+        "what": "Anruf wegen eines Lecks · Ticket eröffnet"
+      },
+      {
+        "when": "6. Mär",
+        "what": "Termin · Do 9:30"
+      },
+      {
+        "when": "18. Jun",
+        "what": "Rief wieder an — bat um denselben Techniker"
+      },
+      {
+        "when": "Heute",
+        "what": "Erkannt. Mit Namen begrüßt."
+      }
+    ],
+    "stats": [
+      {
+        "k": "Angenommene Anrufe",
+        "v": "38"
+      },
+      {
+        "k": "Termine",
+        "v": "11"
+      },
+      {
+        "k": "Gerettete Anrufe",
+        "v": "6"
+      },
+      {
+        "k": "Außerhalb der Zeiten",
+        "v": "43 %"
+      }
     ]
+  },
+  "services": {
+    "eyebrow": "Leistungen",
+    "headline": "Ein Produkt. Drei Arten, darüber hinaus zu helfen.",
+    "sub": "Die Plattform, die Sie selbst betreiben. Die Arbeit, die wir übernehmen.",
+    "notSure": "Unsicher, was Sie brauchen?",
+    "items": {
+      "ai-employees": {
+        "name": "KI-Mitarbeiter",
+        "line": "Ein Mitarbeiter für Ihre Telefonleitung.",
+        "headline": "Stellen Sie jemanden ein, der keinen Anruf verpasst.",
+        "sub": "Telefonie, Telegram und E-Mail — angenommen, festgehalten, erinnert.",
+        "includes": [
+          "Nimmt jeden Anruf an, rund um die Uhr, in über 20 Sprachen",
+          "Macht aus jedem Gespräch ein Ticket oder eine Terminanfrage",
+          "Erinnert sich an den Kunden über alle Anrufe hinweg",
+          "Ein Posteingang für Telefonie, Telegram und E-Mail"
+        ],
+        "delivery": "Selbst einrichten. An einem Nachmittag fertig, ab dem nächsten Klingeln im Dienst.",
+        "pricing": "Ausgewiesene Tarife ab 149 $ im Monat. Kein Vertrag, jederzeit kündbar.",
+        "cta": "Preise ansehen"
+      },
+      "ai-audit": {
+        "name": "KI-Analyse",
+        "line": "Finden Sie heraus, was Ihr Telefon kostet.",
+        "headline": "Was verliert Ihre Leitung?",
+        "sub": "Wir rufen an, hören zu, wie sie antwortet, und schicken Ihnen die Lücken.",
+        "includes": [
+          "Wir rufen Ihre Leitung an wie ein Kunde",
+          "Wo Anrufe abbrechen, hängen bleiben oder auf der Mailbox landen",
+          "Was jeder verpasste Anruf plausibel wert ist",
+          "Mit welchem KI-Mitarbeiter wir anfangen würden, und warum"
+        ],
+        "delivery": "Sie geben uns eine Nummer. Wir schicken einen kurzen schriftlichen Bericht zurück.",
+        "pricing": "Kostenlos. Wir stellen uns lieber so vor als mit einem Verkaufsgespräch.",
+        "cta": "Analyse anfordern"
+      },
+      "ai-studio": {
+        "name": "AI Studio",
+        "line": "Bilder und Video, auf Bestellung.",
+        "headline": "Kreativarbeit, produziert mit KI.",
+        "sub": "Kein Selbstbedienungstool — ein kleines Team, das mit KI Ihre Assets baut.",
+        "includes": [
+          "Produkt- und Kampagnenbilder",
+          "Kurzvideo für Social und Ads",
+          "Creative-Varianten zum Testen",
+          "Korrekturen, bis es stimmt"
+        ],
+        "delivery": "Wird einzeln geliefert, nicht aus einem Dashboard. Sie briefen, wir produzieren, Sie prüfen.",
+        "pricing": "Angebot pro Projekt — Umfang und Menge entscheiden. Fragen Sie, wir kalkulieren.",
+        "cta": "Angebot anfragen"
+      },
+      "custom-ai": {
+        "name": "Individuelle KI",
+        "line": "Die Automatisierung, die Ihr Betrieb wirklich braucht.",
+        "headline": "Wenn der Mitarbeiter von der Stange nicht die ganze Antwort ist.",
+        "sub": "Integrationen, Automatisierungen und interne Tools, gebaut um Ihre Arbeitsweise.",
+        "includes": [
+          "Denku mit den Systemen verbinden, die Sie schon nutzen",
+          "Abläufe automatisieren zwischen Tools, die nicht miteinander reden",
+          "Auswertungen und Dashboards auf Ihren eigenen Daten",
+          "Eigene Gesprächsabläufe jenseits der Vorlagen"
+        ],
+        "delivery": "Im Gespräch abgesteckt, dann gebaut. Wenn es sich nicht lohnt, sagen wir das.",
+        "pricing": "Angebot pro Projekt nach einem Abstimmungsgespräch.",
+        "cta": "Über ein Projekt sprechen"
+      }
+    }
+  },
+  "employees": {
+    "eyebrow": "Das Team",
+    "headline": "Fünf Mitarbeiter. Eine Telefonleitung.",
+    "sub": "Alle sind dasselbe System, nur anders eingewiesen.",
+    "items": {
+      "receptionist": {
+        "role": "Empfang",
+        "line": "Nimmt jeden Anruf an, Tag und Nacht.",
+        "ticker": [
+          "Heute 12 Anrufe angenommen",
+          "Zwei nach Mitternacht"
+        ],
+        "headline": "Der Anruf wird immer angenommen.",
+        "sub": "Jedes Klingeln, jede Stunde, dieselbe Stimme.",
+        "day": [
+          {
+            "when": "7:12 Uhr",
+            "what": "Erster Anruf des Tages, bevor jemand da ist."
+          },
+          {
+            "when": "13:40 Uhr",
+            "what": "Zwei Anrufe gleichzeitig — beide angenommen."
+          },
+          {
+            "when": "18:04 Uhr",
+            "what": "Nach Feierabend. Nimmt immer noch ab."
+          },
+          {
+            "when": "23:58 Uhr",
+            "what": "Nimmt eine Nachricht auf, eröffnet ein Ticket."
+          }
+        ],
+        "does": [
+          "Nimmt eingehende Anrufe rund um die Uhr an",
+          "Hält fest, wer anruft und warum",
+          "Eröffnet aus jedem Anruf ein Ticket oder eine Terminanfrage",
+          "Spricht über 20 Sprachen"
+        ],
+        "notYet": [
+          "Er ruft nicht selbst heraus.",
+          "Er verschickt noch keine SMS."
+        ],
+        "fits": [
+          "Handwerk",
+          "Praxen",
+          "Salons",
+          "Kanzleien"
+        ],
+        "cta": "Geben Sie Ava ans Telefon."
+      },
+      "booking-assistant": {
+        "role": "Terminassistent",
+        "line": "Macht aus einem Gespräch einen Termin.",
+        "ticker": [
+          "Do 9:30 eingetragen",
+          "Freitagsauftrag verschoben"
+        ],
+        "headline": "Von einer Frage zu einem Termin.",
+        "sub": "Er fragt, was er braucht, und schreibt es dann auf.",
+        "day": [
+          {
+            "when": "8:20 Uhr",
+            "what": "Anrufer möchte diese Woche einen Kostenvoranschlag."
+          },
+          {
+            "when": "8:21 Uhr",
+            "what": "Bietet die Zeiten an, die Sie wirklich frei haben."
+          },
+          {
+            "when": "8:22 Uhr",
+            "what": "Schreibt die Terminanfrage."
+          },
+          {
+            "when": "8:23 Uhr",
+            "what": "Sie steht im Dashboard, bevor Sie hinsehen."
+          }
+        ],
+        "does": [
+          "Sammelt die Angaben, die ein Termin braucht",
+          "Legt bei jedem Terminanruf eine Terminanfrage an",
+          "Behauptet nie einen Termin, den er nicht erfasst hat",
+          "Übergibt sauber, wenn ein Mensch entscheiden sollte"
+        ],
+        "notYet": [
+          "Der beidseitige Kalenderabgleich ist noch nicht aktiv — Anfragen landen im Dashboard zur Bestätigung."
+        ],
+        "fits": [
+          "Handwerk",
+          "Med Spa",
+          "Zahnmedizin",
+          "Kfz"
+        ],
+        "cta": "Geben Sie Miles ans Telefon."
+      },
+      "missed-call-rescuer": {
+        "role": "Rettung verpasster Anrufe",
+        "line": "Fängt die Anrufe auf, die niemand annahm.",
+        "ticker": [
+          "6 verpasste Anrufe gerettet",
+          "Vier wurden Termine"
+        ],
+        "headline": "Die Anrufe, von deren Verlust Sie nie erfuhren.",
+        "sub": "Überlauf und Anrufe nach Feierabend werden angenommen statt fallen gelassen.",
+        "day": [
+          {
+            "when": "12:30 Uhr",
+            "what": "Sie sind auf der anderen Leitung."
+          },
+          {
+            "when": "12:30 Uhr",
+            "what": "Er nimmt den zweiten Anrufer an."
+          },
+          {
+            "when": "12:33 Uhr",
+            "what": "Erfragt die Details zum Auftrag."
+          },
+          {
+            "when": "12:34 Uhr",
+            "what": "Legt den Lead zu einem Kontakt ab."
+          }
+        ],
+        "does": [
+          "Nimmt Überlaufanrufe an, wenn Ihre Leitung besetzt ist",
+          "Deckt die Stunden ab, in denen niemand am Platz ist",
+          "Macht aus jedem geretteten Anruf ein Ticket oder eine Terminanfrage"
+        ],
+        "notYet": [
+          "Die automatische SMS an eine verpasste Nummer ist noch nicht gebaut. Heute rettet er durch Annehmen, nicht durch Schreiben."
+        ],
+        "fits": [
+          "Handwerk",
+          "Bauunternehmen",
+          "Praxen"
+        ],
+        "cta": "Geben Sie Rae ans Telefon."
+      },
+      "after-hours": {
+        "role": "Nach Feierabend",
+        "line": "Deckt die Stunden ab, in denen Sie zu haben.",
+        "ticker": [
+          "Hielt die Leitung bis 7 Uhr",
+          "Nichts ging auf die Mailbox"
+        ],
+        "headline": "Geschlossen, aber nicht unerreichbar.",
+        "sub": "Nachts, am Wochenende, an Feiertagen — die Leitung läuft weiter.",
+        "day": [
+          {
+            "when": "21:02 Uhr",
+            "what": "Ein Anrufer mit einem dringenden Problem."
+          },
+          {
+            "when": "21:03 Uhr",
+            "what": "Ordnet ein: dringend oder kann es warten?"
+          },
+          {
+            "when": "21:04 Uhr",
+            "what": "Schreibt es in beiden Fällen auf."
+          },
+          {
+            "when": "7:00 Uhr",
+            "what": "Sie öffnen das Dashboard und sehen das ganze Bild."
+          }
+        ],
+        "does": [
+          "Läuft nach Ihrem Zeitplan — Sie legen fest, wann er übernimmt",
+          "Trennt Dringendes von Routine in der Notiz",
+          "Hinterlässt ein vollständiges Protokoll der Nacht"
+        ],
+        "notYet": [
+          "Er kann noch niemanden aus der Rufbereitschaft alarmieren."
+        ],
+        "fits": [
+          "Hausverwaltung",
+          "Praxen",
+          "Kanzleien",
+          "Tierarzt"
+        ],
+        "cta": "Geben Sie Nox ans Telefon."
+      },
+      "support-agent": {
+        "role": "Support",
+        "line": "Beantwortet dieselben Fragen, immer wieder.",
+        "ticker": [
+          "9 Fragen geklärt",
+          "Eine an Sie eskaliert"
+        ],
+        "headline": "Das zwanzigste Mal ist wie das erste.",
+        "sub": "Zeiten, Preise, Anfahrt, Regeln — beantwortet ohne zu ermüden.",
+        "day": [
+          {
+            "when": "Den ganzen Tag",
+            "what": "Haben Sie sonntags offen?"
+          },
+          {
+            "when": "Den ganzen Tag",
+            "what": "Nehmen Sie meine Versicherung?"
+          },
+          {
+            "when": "Den ganzen Tag",
+            "what": "Wo kann ich parken?"
+          },
+          {
+            "when": "Einmal",
+            "what": "Etwas, das er nicht raten sollte, eskaliert."
+          }
+        ],
+        "does": [
+          "Antwortet aus dem, was Sie ihm über Ihren Betrieb gesagt haben",
+          "Eskaliert, statt sich eine Antwort auszudenken",
+          "Eröffnet ein Ticket, wenn ein Mensch gebraucht wird"
+        ],
+        "notYet": [
+          "Er liest Ihre Website nicht automatisch — Sie sagen ihm, was stimmt."
+        ],
+        "fits": [
+          "Einzelhandel",
+          "Praxen",
+          "Restaurants",
+          "Studios"
+        ],
+        "cta": "Geben Sie Iris ans Telefon."
+      }
+    }
+  },
+  "industries": {
+    "eyebrow": "Branchen",
+    "headline": "Dasselbe Telefonproblem. Anderer Tag.",
+    "whereCallsGo": "Wohin die Anrufe gehen.",
+    "wedStartYouWith": "Wir würden anfangen mit",
+    "whatItDoes": "Was er macht",
+    "items": {
+      "hvac-plumbing": {
+        "name": "SHK & Klima",
+        "headline": "Der Anruf kommt, während Sie unter der Spüle liegen.",
+        "sub": "Ihre Hände sind voll. Das Telefon klingelt trotzdem.",
+        "pain": [
+          "Anrufe kommen, während Sie auf der Baustelle sind, nicht am Schreibtisch.",
+          "Notfälle gehen an den, der zuerst abnimmt.",
+          "Rohre platzen abends und am Wochenende."
+        ],
+        "faq": [
+          {
+            "q": "Erkennt er einen Notfall gegenüber einer Angebotsanfrage?",
+            "a": "Er kann danach fragen und schreibt die Antwort ins Ticket. Die Disposition entscheidet er nicht für Sie."
+          },
+          {
+            "q": "Kann er am Telefon einen Preis nennen?",
+            "a": "Nur das, was Sie ihm gesagt haben. Wenn Sie am Telefon keine Preise nennen, sagt er das und vereinbart die Besichtigung."
+          }
+        ]
+      },
+      "dental": {
+        "name": "Zahnmedizin",
+        "headline": "Der Empfang ist bei einem Patienten.",
+        "sub": "Das Telefon sollte nicht entscheiden, wer drankommt.",
+        "pain": [
+          "Eine Person macht Aufnahme, Abrechnung und Telefon.",
+          "Anrufe neuer Patienten sind die, die Sie am wenigsten verpassen wollen.",
+          "Absagen öffnen Lücken, die niemand anruft, um sie zu füllen."
+        ],
+        "faq": [
+          {
+            "q": "Kann er meine Versicherung prüfen?",
+            "a": "Nein. Er kann fragen, welche Kasse der Anrufer hat, und es festhalten, damit Ihr Team nicht bei null anfängt."
+          },
+          {
+            "q": "Ist das HIPAA-konform?",
+            "a": "Denku ist heute nicht HIPAA-zertifiziert, und wir behaupten nichts anderes. Leiten Sie keine geschützten Gesundheitsdaten hierüber, bis sich das ändert."
+          }
+        ]
+      },
+      "med-spa-salon": {
+        "name": "Med Spa & Salon",
+        "headline": "Jeder verpasste Anruf ist ein leerer Stuhl.",
+        "sub": "Termine sind das Geschäft, und sie kommen per Telefon.",
+        "pain": [
+          "Anrufe kommen, während Sie bei einer Kundin sind.",
+          "Die meisten Terminanrufe kommen außerhalb der Öffnungszeiten.",
+          "Fragen zu Preis und Verfügbarkeit wiederholen sich den ganzen Tag."
+        ],
+        "faq": [
+          {
+            "q": "Kann er direkt in meinen Kalender buchen?",
+            "a": "Noch nicht. Er legt die Terminanfrage mit allen Angaben an, Ihr Team bestätigt sie."
+          },
+          {
+            "q": "Klingt er für meine Kundinnen wie ein Roboter?",
+            "a": "Rufen Sie die Demo-Leitung auf der Startseite an und entscheiden Sie selbst. Dafür ist sie da."
+          }
+        ]
+      },
+      "law": {
+        "name": "Kanzleien",
+        "headline": "Der erste Anruf entscheidet den Fall.",
+        "sub": "Erstkontakt, der nie auf der Mailbox landet.",
+        "pain": [
+          "Interessenten rufen mehrere Kanzleien an und nehmen die erste Antwort.",
+          "Die Fragen beim Erstkontakt sind jedes Mal dieselben.",
+          "Gerichtszeiten und Telefonzeiten sind dieselben Zeiten."
+        ],
+        "faq": [
+          {
+            "q": "Darf er Rechtsberatung geben?",
+            "a": "Nein, und er ist angewiesen, es nicht zu versuchen. Er nimmt die Angaben auf und legt einen Vorgang zur Prüfung durch einen Menschen an."
+          },
+          {
+            "q": "Ist das Gespräch vertraulich?",
+            "a": "Anrufe und Transkripte bleiben in Ihrem Workspace und sind auf Ihre Organisation begrenzt. Eine Garantie des Mandatsgeheimnisses geben wir nicht."
+          }
+        ]
+      }
+    }
+  },
+  "pricingPage": {
+    "eyebrow": "Preise",
+    "headline": "Ausgewiesene Preise. Monatlich kündbar.",
+    "sub": "Sie zahlen für Gesprächsminuten. Alles andere, was Ihr Mitarbeiter tut, ist enthalten.",
+    "included": "Telegram und E-Mail inklusive, ohne Zähler",
+    "mostPicked": "Am häufigsten gewählt",
+    "payFor": "Sie zahlen für",
+    "payForV": "Gesprächsminuten",
+    "payForN": "Pro Anruf aufgerundet, dann addiert.",
+    "inc": "Inklusive",
+    "incV": "{count} weitere Kanäle",
+    "incN": "Telegram und E-Mail. Kein Nachrichtenzähler.",
+    "notSold": "Noch nicht im Verkauf",
+    "notSoldV": "{count} in der Beta",
+    "notSoldN": "Messenger, WhatsApp, SMS, Web-Chat. In keinem Tarif.",
+    "mathEyebrow": "Die Abrechnung",
+    "mathHeadline": "Keine Überraschungsrechnungen. Nie.",
+    "mathSub": "So genau entsteht der Betrag auf Ihrer Karte.",
+    "math": [
+      {
+        "q": "Wie eine Minute gezählt wird",
+        "a": "Jeder Anruf wird auf die nächste volle Minute aufgerundet, dann werden die Anrufe addiert. Ein Anruf von 20 Sekunden kostet eine Minute. Einer von 61 Sekunden kostet zwei."
+      },
+      {
+        "q": "Was passiert über Ihre Freiminuten hinaus",
+        "a": "Sie zahlen den in Ihrem Tarif ausgewiesenen Mehrpreis. Er gilt pro Minute und wird genauso gezählt."
+      },
+      {
+        "q": "Was am Limit passiert",
+        "a": "Jeder Workspace hat ein hartes Ausgabenlimit. Ist es erreicht, pausieren wir die Leitung und sagen Ihnen Bescheid. Wir rechnen nicht weiter ab und klären es später."
+      },
+      {
+        "q": "Was nicht gezählt wird",
+        "a": "Telegram- und E-Mail-Gespräche. Sie sind enthalten, und es gibt keinen Nachrichtenzähler, der leerlaufen kann."
+      }
+    ],
+    "exampleTitle": "Rechenbeispiel",
+    "exampleBody": "Vierzig Anrufe mit durchschnittlich 90 Sekunden. Jeder rundet auf 2 Minuten, macht 80 Minuten — bequem innerhalb der 400 von Starter. Sie zahlen 149 $ und sonst nichts.",
+    "cta": "Fangen Sie mit einem Mitarbeiter an.",
+    "perMonth": "/ Monat",
+    "plans": {
+      "Starter": {
+        "subtitle": "Für Einzelstandorte oder kleine Teams",
+        "bullets": [
+          "1 gleichzeitiges Gespräch",
+          "400 Minuten (Kapazitätsbonus)",
+          "0,22 $/Min. Mehrpreis",
+          "1 Rufnummer inklusive",
+          "Unbegrenzte Personas"
+        ]
+      },
+      "Growth": {
+        "subtitle": "Für wachsende Teams mit echtem Anrufvolumen",
+        "bullets": [
+          "4 gleichzeitige Gespräche",
+          "1.200 Minuten (Kapazitätsbonus)",
+          "0,18 $/Min. Mehrpreis",
+          "1 Rufnummer inklusive",
+          "Unbegrenzte Personas"
+        ]
+      },
+      "Scale": {
+        "subtitle": "Für Betriebe mit hohem Volumen",
+        "bullets": [
+          "10 gleichzeitige Gespräche",
+          "3.600 Minuten (Kapazitätsbonus)",
+          "0,13 $/Min. Mehrpreis",
+          "1 Rufnummer inklusive",
+          "Unbegrenzte Personas"
+        ]
+      }
+    },
+    "planCta": "Loslegen"
+  },
+  "securityPage": {
+    "eyebrow": "Sicherheit & Vertrauen",
+    "headline": "Was wir tun und was wir nicht behaupten.",
+    "sub": "Beide Hälften dieser Seite zählen. Die zweite ist der Grund, der ersten zu glauben.",
+    "controls": [
+      {
+        "title": "Mandantentrennung",
+        "body": "Jede Mandantentabelle trägt eine Organisations-ID, und Row-Level-Security-Regeln begrenzen Lesezugriffe auf die Organisation in Ihrem Profil. Privilegierte Hintergrundschreibvorgänge laufen über einen separaten Client, der die Organisation ausdrücklich nennen muss."
+      },
+      {
+        "title": "Verschlüsselung",
+        "body": "TLS bei der Übertragung. Ruhende Daten verschlüsselt unser Datenbankanbieter. Kanal-Zugangsdaten je Mandant — Bot-Token, Access-Token — werden vor dem Speichern mit einem eigenen Schlüssel verschlüsselt und sind aus dem Browser nie lesbar."
+      },
+      {
+        "title": "Authentifizierte Webhooks",
+        "body": "Eingehende Webhooks werden geprüft, bevor ihr Inhalt gelesen wird: Metas Signatur für Instagram, ein Secret-Token je Verbindung für Telegram. Anfragen, die die Prüfung nicht bestehen, werden abgewiesen, nicht protokolliert und verarbeitet."
+      },
+      {
+        "title": "Ausgabenlimits",
+        "body": "Jeder Workspace hat ein hartes Limit. Ist es erreicht, pausieren wir die Leitung, statt weiter abzurechnen — durchgesetzt in der Plattform selbst, nicht in einer Tabelle. Die Pause stoppt eingehende Anrufe wirklich; sie ist kein Vermerk, den wir später prüfen."
+      },
+      {
+        "title": "Ihre Daten bleiben Ihre",
+        "body": "Anrufe, Transkripte, Kontakte und Termine gehören Ihrem Workspace. Sie können sie exportieren, und das Löschen Ihres Kontos löscht sie."
+      },
+      {
+        "title": "Zugriffskontrolle",
+        "body": "Die Betreiberkonsole ist von der Kundenanwendung getrennt und hinter einer eigenen Authentifizierung. Kundensitzungen können sie nie erreichen."
+      }
+    ],
+    "notClaimedEyebrow": "Nicht behauptet",
+    "notClaimedHeadline": "Was wir noch nicht sagen können.",
+    "notClaimed": [
+      {
+        "title": "Wir sind nicht SOC-2-zertifiziert.",
+        "body": "Noch nicht, und wir tun auch nicht so. Wenn Ihr Einkauf heute einen Bericht braucht, sind wir gerade der falsche Anbieter — sagen Sie es, und wir sagen es Ihnen."
+      },
+      {
+        "title": "Wir sind nicht HIPAA-konform.",
+        "body": "Leiten Sie keine geschützten Gesundheitsdaten über Denku. Einen Zahnarzttermin zu vereinbaren ist in Ordnung; klinische Details nicht."
+      },
+      {
+        "title": "Wir haben keinen externen Penetrationstest vorzuweisen.",
+        "body": "Wenn wir einen beauftragen, kommt das Ergebnis auf diese Seite, wie immer es ausfällt."
+      }
+    ],
+    "askPrefix": "Etwas hier unklar, oder brauchen Sie etwas, das nicht aufgeführt ist?",
+    "askLink": "Fragen Sie uns direkt",
+    "askSuffix": "— es antwortet ein Mensch.",
+    "cta": "Fragen, bevor Sie uns das Telefon anvertrauen?"
+  },
+  "companyPage": {
+    "eyebrow": "Unternehmen",
+    "headline": "Wir bauen eine Sache, sorgfältig.",
+    "sub": "Einen Mitarbeiter, der Ihr Telefon annimmt, aufschreibt was war, und den Kunden beim nächsten Mal erinnert.",
+    "facts": [
+      {
+        "k": "Was wir verkaufen",
+        "v": "Einen KI-Mitarbeiter für Ihre Leitung, plus die Arbeit drumherum."
+      },
+      {
+        "k": "Für wen",
+        "v": "Dienstleister in den USA, bei denen ein verpasster Anruf ein verlorener Auftrag ist."
+      },
+      {
+        "k": "Wie man kauft",
+        "v": "Selbstbedienung, ausgewiesene Preise, monatlich kündbar."
+      },
+      {
+        "k": "Wer den Support macht",
+        "v": "Ein Mensch. Manchmal unsere eigene KI — und sie sagt das."
+      }
+    ],
+    "howEyebrow": "Wie wir bauen",
+    "howHeadline": "Vier Regeln, im Code durchgesetzt.",
+    "howSub": "Sie können jede davon am Produkt überprüfen.",
+    "principles": [
+      {
+        "title": "Ein Anruf endet nie im Nichts.",
+        "body": "Jeder beendete Anruf erzeugt etwas — ein Ticket oder eine Terminanfrage — auch wenn die KI nie zu einem Werkzeug greift. Das ist eine Garantie in der Verarbeitung, keine Anweisung, auf deren Wirkung wir hoffen."
+      },
+      {
+        "title": "Beim Geld scheitern wir geschlossen.",
+        "body": "Zugangsprüfungen scheitern offen, damit ein zahlender Kunde nie ausgesperrt wird. Abrechnungsvorgänge scheitern geschlossen, damit nie geraten wird. Wenn beides kollidiert, verliert das Geld."
+      },
+      {
+        "title": "Alles kann zweimal passieren.",
+        "body": "Webhooks wiederholen sich. Netze wiederholen sich. Jeder Schreibpfad ist so gebaut, dass er erneut laufen kann, ohne Schaden anzurichten — deshalb erzeugt ein wiederholter Anruf keine zwei Termine."
+      },
+      {
+        "title": "Wir sagen, was nicht gebaut ist.",
+        "body": "Kanäle in der Beta sind als Beta gekennzeichnet. Zertifizierungen, die wir nicht haben, stehen mit Namen auf der Sicherheitsseite. Wir haben Compliance-Aussagen von dieser Website entfernt, hinter denen wir nicht stehen konnten."
+      }
+    ],
+    "checkTitle": "Möchten Sie etwas davon nachprüfen?",
+    "checkBody": "Lesen Sie die Sicherheitsseite, oder rufen Sie die Demo-Leitung an und beurteilen Sie das Produkt statt den Text.",
+    "security": "Sicherheit",
+    "contact": "Kontakt"
   }
 }

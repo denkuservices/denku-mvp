@@ -1,18 +1,36 @@
 import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { routing } from "@/i18n/routing";
 import Link from "next/link";
 import { SERVICES } from "@/lib/marketing/content/services";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { ChannelGrid } from "@/components/marketing/landing/ChannelGrid";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
 
-export const metadata: Metadata = {
-  title: "Services",
-  description:
-    "What Denku does: the AI Employees platform, a free AI Audit of your phone line, AI Studio creative production, and custom AI automation.",
-  alternates: { canonical: "/services" },
-};
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
-export default function ServicesIndexPage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "services" });
+  return { title: t("eyebrow"), description: t("sub"), alternates: { canonical: "/services" } };
+}
+
+export default async function ServicesIndexPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("services");
+  const ts = await getTranslations("subpage");
+
   return (
     <>
       <section className="relative w-full overflow-hidden px-6 pb-14 pt-28 md:px-8 md:pt-32">
@@ -26,13 +44,13 @@ export default function ServicesIndexPage() {
         />
         <div className="relative mx-auto max-w-6xl">
           <div className="mb-6 font-brand-mono text-[10.5px] uppercase tracking-[.2em] text-[var(--d-copper)]">
-            Services
+            {t("eyebrow")}
           </div>
           <h1 className="max-w-3xl font-display text-[clamp(34px,5vw,68px)] font-semibold leading-[.98] tracking-[-.02em] text-[var(--d-ink)]">
-            One product. Three ways we help beyond it.
+            {t("headline")}
           </h1>
           <p className="mt-6 max-w-lg text-[18px] leading-relaxed text-[var(--d-ink-soft)]">
-            The platform you run yourself. The work we do for you.
+            {t("sub")}
           </p>
         </div>
       </section>
@@ -55,20 +73,20 @@ export default function ServicesIndexPage() {
                     {s.glyph}
                   </span>
                   <span className="rounded-full border border-[var(--d-border)] px-2.5 py-1 font-brand-mono text-[9px] uppercase tracking-[.14em] text-[var(--d-ink-faint)]">
-                    {s.kind === "product" ? "Platform" : "Done for you"}
+                    {s.kind === "product" ? ts("platform") : ts("doneForYou")}
                   </span>
                 </div>
 
                 <h2 className="mt-6 font-display text-[26px] font-semibold leading-tight text-[var(--d-ink)]">
-                  {s.name}
+                  {t(`items.${s.slug}.name`)}
                 </h2>
                 <p className="mt-2.5 text-[15.5px] leading-relaxed text-[var(--d-ink-soft)]">
-                  {s.line}
+                  {t(`items.${s.slug}.line`)}
                 </p>
 
                 <div className="mt-auto flex items-center justify-between gap-4 pt-7">
                   <span className="font-brand-mono text-[11px] text-[var(--d-ink-faint)]">
-                    {s.pricePrinted ? "Price printed" : "Quoted"}
+                    {s.pricePrinted ? ts("pricePrinted") : ts("quoted")}
                   </span>
                   <span
                     aria-hidden="true"
@@ -84,7 +102,7 @@ export default function ServicesIndexPage() {
       </section>
 
       <ChannelGrid />
-      <SubpageCta label="Not sure which one you need?" />
+      <SubpageCta label={t("notSure")} />
     </>
   );
 }

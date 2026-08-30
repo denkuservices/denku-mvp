@@ -69,10 +69,22 @@
       "eyebrow": "How hiring works",
       "headline": "Hired in an afternoon.",
       "steps": [
-        { "title": "Tell it about your business", "note": "Hours, services, how you book." },
-        { "title": "Test-call it", "note": "Hear it before anyone else does." },
-        { "title": "Connect your number", "note": "Forward or port. Ten minutes." },
-        { "title": "It starts its shift", "note": "Answering from the next ring." }
+        {
+          "title": "Tell it about your business",
+          "note": "Hours, services, how you book."
+        },
+        {
+          "title": "Test-call it",
+          "note": "Hear it before anyone else does."
+        },
+        {
+          "title": "Connect your number",
+          "note": "Forward or port. Ten minutes."
+        },
+        {
+          "title": "It starts its shift",
+          "note": "Answering from the next ring."
+        }
       ]
     },
     "roster": {
@@ -156,18 +168,39 @@
     },
     "notInPlan": "Not included in any plan yet.",
     "items": {
-      "voice": { "label": "Voice", "line": "Answers your phone line." },
-      "telegram": { "label": "Telegram", "line": "Replies in your own bot." },
-      "email": { "label": "Email", "line": "Answers forwarded mail." },
+      "voice": {
+        "label": "Voice",
+        "line": "Answers your phone line."
+      },
+      "telegram": {
+        "label": "Telegram",
+        "line": "Replies in your own bot."
+      },
+      "email": {
+        "label": "Email",
+        "line": "Answers forwarded mail."
+      },
       "instagram": {
         "label": "Instagram",
         "line": "Receives your DMs.",
         "caveat": "Messages arrive in your Inbox. Replying from Denku is not switched on yet."
       },
-      "messenger": { "label": "Messenger", "line": "Facebook page messages." },
-      "whatsapp": { "label": "WhatsApp", "line": "Business messaging." },
-      "sms": { "label": "SMS", "line": "Texts back missed calls." },
-      "webchat": { "label": "Web chat", "line": "A widget on your site." }
+      "messenger": {
+        "label": "Messenger",
+        "line": "Facebook page messages."
+      },
+      "whatsapp": {
+        "label": "WhatsApp",
+        "line": "Business messaging."
+      },
+      "sms": {
+        "label": "SMS",
+        "line": "Texts back missed calls."
+      },
+      "webchat": {
+        "label": "Web chat",
+        "line": "A widget on your site."
+      }
     }
   },
   "auth": {
@@ -215,6 +248,647 @@
       "A person reads it — not a routing bot.",
       "We reply with either a price or a question.",
       "If we're the wrong fit, we say so."
+    ],
+    "extra": {
+      "ai-employees": {
+        "label": "Roughly how many calls a week?",
+        "placeholder": "e.g. 80–120"
+      },
+      "ai-audit": {
+        "label": "Which number should we call?",
+        "placeholder": "+1 …"
+      },
+      "ai-studio": {
+        "label": "What do you need made?",
+        "placeholder": "e.g. 20 product images + 3 short videos"
+      },
+      "custom-ai": {
+        "label": "Which systems should it talk to?",
+        "placeholder": "e.g. HubSpot, Google Calendar, our own API"
+      }
+    }
+  },
+  "subpage": {
+    "dayTitle": "A day in the life.",
+    "doesTitle": "What it does today",
+    "notYetTitle": "What it doesn't",
+    "faqTitle": "Fair questions.",
+    "fits": "Fits",
+    "ctaDefault": "Your next employee starts today.",
+    "whatYouGet": "What you get.",
+    "howItWorks": "How it works",
+    "whatItCosts": "What it costs",
+    "platform": "Platform",
+    "doneForYou": "Done for you",
+    "pricePrinted": "Price printed",
+    "quoted": "Quoted"
+  },
+  "employeeCard": {
+    "onShift": "On shift",
+    "justNow": "Just now"
+  },
+  "productFrame": {
+    "sampleData": "Sample data",
+    "inboxTitle": "Inbox · Voice",
+    "crmTitle": "CRM · Contact",
+    "homeTitle": "Home · This week",
+    "appointment": "Appointment",
+    "appointmentValue": "Thu 9:30am · created automatically",
+    "inbox": [
+      "Hi — do you have anything Thursday?",
+      "We do. 9:30am or 2pm — which suits?",
+      "9:30 works.",
+      "Booked. You'll get a text confirmation."
+    ],
+    "crmEvents": [
+      {
+        "when": "Mar 4",
+        "what": "Called about a leak · ticket opened"
+      },
+      {
+        "when": "Mar 6",
+        "what": "Booked · Thu 9:30am"
+      },
+      {
+        "when": "Jun 18",
+        "what": "Called back — asked for the same tech"
+      },
+      {
+        "when": "Today",
+        "what": "Recognised. Greeted by name."
+      }
+    ],
+    "stats": [
+      {
+        "k": "Calls answered",
+        "v": "38"
+      },
+      {
+        "k": "Booked",
+        "v": "11"
+      },
+      {
+        "k": "Missed-call rescues",
+        "v": "6"
+      },
+      {
+        "k": "After hours",
+        "v": "43%"
+      }
     ]
+  },
+  "services": {
+    "eyebrow": "Services",
+    "headline": "One product. Three ways we help beyond it.",
+    "sub": "The platform you run yourself. The work we do for you.",
+    "notSure": "Not sure which one you need?",
+    "items": {
+      "ai-employees": {
+        "name": "AI Employees",
+        "line": "An employee for your phone line.",
+        "headline": "Hire an employee that never misses a call.",
+        "sub": "Voice, Telegram and email — answered, written up, remembered.",
+        "includes": [
+          "Answers every call, 24/7, in 20+ languages",
+          "Turns each conversation into a ticket or an appointment request",
+          "Remembers the customer across every call they ever make",
+          "One Inbox for voice, Telegram and email"
+        ],
+        "delivery": "Self-serve. You set it up in an afternoon and it starts on the next ring.",
+        "pricing": "Printed plans from $149/month. No contract, cancel any time.",
+        "cta": "See pricing"
+      },
+      "ai-audit": {
+        "name": "AI Audit",
+        "line": "Find out what your phone is costing you.",
+        "headline": "What is your phone line losing?",
+        "sub": "We call it, listen to how it answers, and send you the gaps.",
+        "includes": [
+          "We call your line the way a customer would",
+          "Where calls drop, stall, or go to voicemail",
+          "What each missed call is plausibly worth to you",
+          "Which AI employee we'd start you with, and why"
+        ],
+        "delivery": "You give us a number. We send back a short written report.",
+        "pricing": "Free. It is how we'd rather introduce ourselves than with a sales call.",
+        "cta": "Request an audit"
+      },
+      "ai-studio": {
+        "name": "AI Studio",
+        "line": "Images and video, made to order.",
+        "headline": "Creative work, produced with AI.",
+        "sub": "Not a self-serve tool — a small team using AI to make your assets.",
+        "includes": [
+          "Product and campaign imagery",
+          "Short-form video for social and ads",
+          "Ad creative variants for testing",
+          "Revisions until it is right"
+        ],
+        "delivery": "Delivered individually, not from a dashboard. You brief us, we produce, you review.",
+        "pricing": "Quoted per project — scope and volume decide it. Ask and we'll price it.",
+        "cta": "Ask for a quote"
+      },
+      "custom-ai": {
+        "name": "Custom AI",
+        "line": "The automation your business actually needs.",
+        "headline": "When the off-the-shelf employee isn't the whole answer.",
+        "sub": "Integrations, automations and internal tools, built around how you work.",
+        "includes": [
+          "Connecting Denku to the systems you already run",
+          "Workflow automation across tools that don't talk",
+          "Reporting and dashboards on your own data",
+          "Custom conversation flows beyond the templates"
+        ],
+        "delivery": "Scoped in a call, then built. We tell you if it isn't worth doing.",
+        "pricing": "Quoted per project after a scoping call.",
+        "cta": "Talk about a project"
+      }
+    }
+  },
+  "employees": {
+    "eyebrow": "The roster",
+    "headline": "Five employees. One phone line.",
+    "sub": "Each one is the same system, briefed for a different job.",
+    "items": {
+      "receptionist": {
+        "role": "Receptionist",
+        "line": "Answers every call, day or night.",
+        "ticker": [
+          "Answered 12 calls today",
+          "Two after midnight"
+        ],
+        "headline": "The call always gets answered.",
+        "sub": "Every ring, every hour, in the same voice.",
+        "day": [
+          {
+            "when": "7:12am",
+            "what": "First call of the day, before anyone is in."
+          },
+          {
+            "when": "1:40pm",
+            "what": "Two calls at once — both answered."
+          },
+          {
+            "when": "6:04pm",
+            "what": "After close. Still picking up."
+          },
+          {
+            "when": "11:58pm",
+            "what": "Takes a message, opens a ticket."
+          }
+        ],
+        "does": [
+          "Answers inbound calls 24/7",
+          "Captures the caller and why they called",
+          "Opens a ticket or an appointment request from every call",
+          "Speaks 20+ languages"
+        ],
+        "notYet": [
+          "It does not make outbound calls.",
+          "It does not send SMS yet."
+        ],
+        "fits": [
+          "Home services",
+          "Clinics",
+          "Salons",
+          "Legal"
+        ],
+        "cta": "Put Ava on the phone."
+      },
+      "booking-assistant": {
+        "role": "Booking assistant",
+        "line": "Turns a conversation into a slot.",
+        "ticker": [
+          "Booked Thu 9:30am",
+          "Rescheduled a Friday job"
+        ],
+        "headline": "From a question to a booking.",
+        "sub": "It asks what it needs, then writes the request down.",
+        "day": [
+          {
+            "when": "8:20am",
+            "what": "Caller wants an estimate this week."
+          },
+          {
+            "when": "8:21am",
+            "what": "Offers the times you actually have."
+          },
+          {
+            "when": "8:22am",
+            "what": "Writes the appointment request."
+          },
+          {
+            "when": "8:23am",
+            "what": "It is on your dashboard before you look."
+          }
+        ],
+        "does": [
+          "Collects the details a booking needs",
+          "Creates an appointment request on every booking call",
+          "Never claims a booking it did not record",
+          "Hands off cleanly when a human should decide"
+        ],
+        "notYet": [
+          "Two-way calendar sync is not live yet — requests land in the dashboard for you to confirm."
+        ],
+        "fits": [
+          "Home services",
+          "Med spa",
+          "Dental",
+          "Auto"
+        ],
+        "cta": "Put Miles on the phone."
+      },
+      "missed-call-rescuer": {
+        "role": "Missed-call rescue",
+        "line": "Catches the calls nobody picked up.",
+        "ticker": [
+          "Recovered 6 missed calls",
+          "Four became bookings"
+        ],
+        "headline": "The calls you never knew you lost.",
+        "sub": "Overflow and after-hours calls get answered instead of dropped.",
+        "day": [
+          {
+            "when": "12:30pm",
+            "what": "You are on the other line."
+          },
+          {
+            "when": "12:30pm",
+            "what": "It picks up the second caller."
+          },
+          {
+            "when": "12:33pm",
+            "what": "Gets the job details."
+          },
+          {
+            "when": "12:34pm",
+            "what": "Logs the lead against a contact."
+          }
+        ],
+        "does": [
+          "Answers overflow calls when your line is busy",
+          "Covers the hours nobody is at the desk",
+          "Turns every rescued call into a ticket or a booking request"
+        ],
+        "notYet": [
+          "Automatic text-back to a missed number is not built yet. Today the rescue is by answering, not by texting."
+        ],
+        "fits": [
+          "Home services",
+          "Contractors",
+          "Clinics"
+        ],
+        "cta": "Put Rae on the phone."
+      },
+      "after-hours": {
+        "role": "After hours",
+        "line": "Covers the hours you are closed.",
+        "ticker": [
+          "Held the line until 7am",
+          "Nothing went to voicemail"
+        ],
+        "headline": "Closed, but not unreachable.",
+        "sub": "Nights, weekends, holidays — the line still works.",
+        "day": [
+          {
+            "when": "9:02pm",
+            "what": "A caller with an urgent problem."
+          },
+          {
+            "when": "9:03pm",
+            "what": "Triages: urgent, or can it wait?"
+          },
+          {
+            "when": "9:04pm",
+            "what": "Writes it up either way."
+          },
+          {
+            "when": "7:00am",
+            "what": "You open the dashboard to a full picture."
+          }
+        ],
+        "does": [
+          "Runs on your schedule — you set when it takes over",
+          "Separates urgent from routine in the write-up",
+          "Leaves a complete record of the night"
+        ],
+        "notYet": [
+          "It cannot page an on-call person yet."
+        ],
+        "fits": [
+          "Property management",
+          "Clinics",
+          "Legal",
+          "Veterinary"
+        ],
+        "cta": "Put Nox on the phone."
+      },
+      "support-agent": {
+        "role": "Support",
+        "line": "Answers the same questions, forever.",
+        "ticker": [
+          "Resolved 9 questions",
+          "Escalated one to you"
+        ],
+        "headline": "The twentieth time is the same as the first.",
+        "sub": "Hours, pricing, location, policy — answered without fatigue.",
+        "day": [
+          {
+            "when": "All day",
+            "what": "Are you open Sunday?"
+          },
+          {
+            "when": "All day",
+            "what": "Do you take my insurance?"
+          },
+          {
+            "when": "All day",
+            "what": "Where do I park?"
+          },
+          {
+            "when": "Once",
+            "what": "Something it should not guess at, escalated."
+          }
+        ],
+        "does": [
+          "Answers from what you told it about your business",
+          "Escalates rather than inventing an answer",
+          "Opens a ticket when something needs a person"
+        ],
+        "notYet": [
+          "It does not read your website automatically — you tell it what is true."
+        ],
+        "fits": [
+          "Retail",
+          "Clinics",
+          "Restaurants",
+          "Studios"
+        ],
+        "cta": "Put Iris on the phone."
+      }
+    }
+  },
+  "industries": {
+    "eyebrow": "Industries",
+    "headline": "Same phone problem. Different day.",
+    "whereCallsGo": "Where the calls go.",
+    "wedStartYouWith": "We would start you with",
+    "whatItDoes": "What it does",
+    "items": {
+      "hvac-plumbing": {
+        "name": "HVAC & plumbing",
+        "headline": "The call comes while you are under a sink.",
+        "sub": "Your hands are busy. The phone still rings.",
+        "pain": [
+          "Calls arrive while you are on a job, not at a desk.",
+          "Emergency work goes to whoever answers first.",
+          "Evenings and weekends are when the pipes burst."
+        ],
+        "faq": [
+          {
+            "q": "Can it tell an emergency from a quote request?",
+            "a": "It can ask, and it writes the answer into the ticket. It does not decide dispatch for you."
+          },
+          {
+            "q": "Can it give a price over the phone?",
+            "a": "Only what you told it. If you do not price over the phone, it says so and books the estimate."
+          }
+        ]
+      },
+      "dental": {
+        "name": "Dental",
+        "headline": "Front desk is with a patient.",
+        "sub": "The phone should not decide who gets seen.",
+        "pain": [
+          "One person covers check-in, checkout and the phone.",
+          "New-patient calls are the ones you least want to miss.",
+          "Cancellations open slots nobody calls to fill."
+        ],
+        "faq": [
+          {
+            "q": "Can it check my insurance?",
+            "a": "No. It can ask which plan the caller has and record it, so your team is not starting from scratch."
+          },
+          {
+            "q": "Is this HIPAA compliant?",
+            "a": "Denku is not certified for HIPAA today, and we will not claim otherwise. Do not route protected health information through it until that changes."
+          }
+        ]
+      },
+      "med-spa-salon": {
+        "name": "Med spa & salon",
+        "headline": "Every missed call is an empty chair.",
+        "sub": "Bookings are the business, and they arrive by phone.",
+        "pain": [
+          "Calls come in while you are with a client.",
+          "Most booking calls arrive outside opening hours.",
+          "Price and availability questions repeat all day."
+        ],
+        "faq": [
+          {
+            "q": "Can it book directly into my calendar?",
+            "a": "Not yet. It creates the appointment request with the details, and your team confirms it."
+          },
+          {
+            "q": "Will it sound like a robot to my clients?",
+            "a": "Call the demo line on the homepage and decide for yourself. That is why it is there."
+          }
+        ]
+      },
+      "law": {
+        "name": "Legal",
+        "headline": "The first call decides the case.",
+        "sub": "Intake that never goes to voicemail.",
+        "pain": [
+          "Prospective clients call several firms and take the first answer.",
+          "Intake questions are the same every time.",
+          "Court hours and phone hours are the same hours."
+        ],
+        "faq": [
+          {
+            "q": "Can it give legal advice?",
+            "a": "No, and it is instructed not to try. It takes intake details and opens a matter for a person to review."
+          },
+          {
+            "q": "Is the call confidential?",
+            "a": "Calls and transcripts stay in your workspace and are scoped to your organisation. We are not offering a privilege guarantee."
+          }
+        ]
+      }
+    }
+  },
+  "pricingPage": {
+    "eyebrow": "Pricing",
+    "headline": "Printed prices. Month to month.",
+    "sub": "You pay for voice minutes. Everything else your employee does is included.",
+    "included": "Telegram & email included, unmetered",
+    "mostPicked": "Most picked",
+    "payFor": "You pay for",
+    "payForV": "Voice minutes",
+    "payForN": "Rounded up per call, then added together.",
+    "inc": "Included",
+    "incV": "{count} more channels",
+    "incN": "Telegram and email. No message counter.",
+    "notSold": "Not sold yet",
+    "notSoldV": "{count} in beta",
+    "notSoldN": "Messenger, WhatsApp, SMS, web chat. Not in any plan.",
+    "mathEyebrow": "The billing math",
+    "mathHeadline": "No surprise invoices. Ever.",
+    "mathSub": "Here is exactly how the number on your card is produced.",
+    "math": [
+      {
+        "q": "How a minute is counted",
+        "a": "Each call is rounded up to the next whole minute, then the calls are added together. A 20-second call costs one minute. A 61-second call costs two."
+      },
+      {
+        "q": "What happens past your included minutes",
+        "a": "You pay the overage rate printed on your plan. It is per minute, counted the same way."
+      },
+      {
+        "q": "What happens at the cap",
+        "a": "Every workspace has a hard spend cap. When you reach it we pause the line and tell you. We do not keep billing past it and settle up later."
+      },
+      {
+        "q": "What is not metered",
+        "a": "Telegram and email conversations. They are included, and there is no message counter to run out of."
+      }
+    ],
+    "exampleTitle": "Worked example",
+    "exampleBody": "Forty calls averaging 90 seconds. Each rounds to 2 minutes, so that is 80 minutes — comfortably inside Starter's 400. You pay $149 and nothing else.",
+    "cta": "Start with one employee.",
+    "perMonth": "/ month",
+    "plans": {
+      "Starter": {
+        "subtitle": "For single-location or small teams",
+        "bullets": [
+          "1 concurrent call",
+          "400 minutes (capacity bonus)",
+          "$0.22/min overage",
+          "1 phone included",
+          "Unlimited personas"
+        ]
+      },
+      "Growth": {
+        "subtitle": "Designed for growing teams with real call volume",
+        "bullets": [
+          "4 concurrent calls",
+          "1,200 minutes (capacity bonus)",
+          "$0.18/min overage",
+          "1 phone included",
+          "Unlimited personas"
+        ]
+      },
+      "Scale": {
+        "subtitle": "For high-volume operations",
+        "bullets": [
+          "10 concurrent calls",
+          "3,600 minutes (capacity bonus)",
+          "$0.13/min overage",
+          "1 phone included",
+          "Unlimited personas"
+        ]
+      }
+    },
+    "planCta": "Get started"
+  },
+  "securityPage": {
+    "eyebrow": "Security & trust",
+    "headline": "What we do, and what we don't claim.",
+    "sub": "Both halves of this page matter. The second one is the reason to believe the first.",
+    "controls": [
+      {
+        "title": "Tenant isolation",
+        "body": "Every tenant table carries an organisation id, and row-level security policies scope reads to the organisation on your profile. Privileged background writes go through a separate client that must name the organisation explicitly."
+      },
+      {
+        "title": "Encryption",
+        "body": "TLS in transit. Data at rest is encrypted by our database provider. Per-tenant channel credentials — bot tokens, access tokens — are encrypted with a separate key before they are stored, and are never readable from the browser."
+      },
+      {
+        "title": "Authenticated webhooks",
+        "body": "Inbound webhooks are verified before their body is parsed: Meta's signature for Instagram, a per-connection secret token for Telegram. Requests that fail verification are rejected, not logged and processed."
+      },
+      {
+        "title": "Spend caps",
+        "body": "Each workspace has a hard cap. On reaching it we pause the line rather than continue billing — enforced in the platform itself, not in a spreadsheet. Pausing actually stops inbound calls; it is not a flag we check later."
+      },
+      {
+        "title": "Your data stays yours",
+        "body": "Calls, transcripts, contacts and appointments belong to your workspace. You can export them, and deleting your account deletes them."
+      },
+      {
+        "title": "Access control",
+        "body": "The operator console is separate from the customer application and behind its own authentication. Customer sessions can never reach it."
+      }
+    ],
+    "notClaimedEyebrow": "Not claimed",
+    "notClaimedHeadline": "The things we can't say yet.",
+    "notClaimed": [
+      {
+        "title": "We are not SOC 2 certified.",
+        "body": "Not yet, and we will not imply otherwise. If your procurement needs a report today, we are the wrong vendor right now — tell us and we will say so."
+      },
+      {
+        "title": "We are not HIPAA compliant.",
+        "body": "Do not route protected health information through Denku. Booking a dental appointment is fine; clinical detail is not."
+      },
+      {
+        "title": "We have no third-party penetration test to show.",
+        "body": "When we commission one, the result goes on this page whichever way it reads."
+      }
+    ],
+    "askPrefix": "Something here unclear, or something you need that isn't listed?",
+    "askLink": "Ask us directly",
+    "askSuffix": "— a person answers.",
+    "cta": "Questions before you trust us with the phone?"
+  },
+  "companyPage": {
+    "eyebrow": "Company",
+    "headline": "We build one thing, carefully.",
+    "sub": "An employee that answers your phone, writes down what happened, and remembers the customer next time.",
+    "facts": [
+      {
+        "k": "What we sell",
+        "v": "An AI employee for your phone line, plus the work around it."
+      },
+      {
+        "k": "Who it's for",
+        "v": "Service businesses in the US where a missed call is a lost job."
+      },
+      {
+        "k": "How you buy",
+        "v": "Self-serve, printed prices, month to month."
+      },
+      {
+        "k": "Who answers support",
+        "v": "A person. Sometimes our own AI — and it says so."
+      }
+    ],
+    "howEyebrow": "How we build",
+    "howHeadline": "Four rules, enforced in code.",
+    "howSub": "You can check every one of these against the product.",
+    "principles": [
+      {
+        "title": "A call never dead-ends.",
+        "body": "Every finished call produces something — a ticket or an appointment request — even when the AI never reaches for a tool. It is a guarantee in the pipeline, not a prompt we hope holds."
+      },
+      {
+        "title": "We fail closed on money.",
+        "body": "Gating checks fail open so a paying customer is never locked out. Billing writes fail closed so nothing is ever guessed. When those two conflict, money loses."
+      },
+      {
+        "title": "Everything can happen twice.",
+        "body": "Webhooks retry. Networks repeat themselves. Every write path is built to be run again without doing damage — that is why a retried call does not create two appointments."
+      },
+      {
+        "title": "We say what isn't built.",
+        "body": "Channels in beta are labelled beta. Certifications we don't hold are named on the security page. We removed compliance claims from this site that we could not stand behind."
+      }
+    ],
+    "checkTitle": "Want to check any of this?",
+    "checkBody": "Read the security page, or call the demo line and judge the product rather than the copy.",
+    "security": "Security",
+    "contact": "Contact"
   }
 }

@@ -1,18 +1,35 @@
 import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { routing } from "@/i18n/routing";
 import Link from "next/link";
 import { EMPLOYEES } from "@/lib/marketing/employees";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
 
-export const metadata: Metadata = {
-  title: "The roster",
-  description:
-    "Five AI employees you can hire for your phone line: receptionist, booking assistant, missed-call rescue, after hours, and support.",
-  alternates: { canonical: "/employees" },
-};
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
-export default function EmployeesIndexPage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "employees" });
+  return { title: t("eyebrow"), description: t("sub"), alternates: { canonical: "/employees" } };
+}
+
+export default async function EmployeesIndexPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("employees");
+
   return (
     <>
       <section className="relative w-full overflow-hidden px-6 pb-16 pt-28 md:px-8 md:pt-32">
@@ -26,13 +43,13 @@ export default function EmployeesIndexPage() {
         />
         <div className="relative mx-auto max-w-6xl">
           <div className="mb-6 font-brand-mono text-[10.5px] uppercase tracking-[.2em] text-[var(--d-copper)]">
-            The roster
+            {t("eyebrow")}
           </div>
           <h1 className="max-w-3xl font-display text-[clamp(34px,5vw,68px)] font-semibold leading-[.98] tracking-[-.02em] text-[var(--d-ink)]">
-            Five employees. One phone line.
+            {t("headline")}
           </h1>
           <p className="mt-6 max-w-lg text-[18px] leading-relaxed text-[var(--d-ink-soft)]">
-            Each one is the same system, briefed for a different job.
+            {t("sub")}
           </p>
         </div>
       </section>
@@ -44,19 +61,19 @@ export default function EmployeesIndexPage() {
               <Link
                 href={`/employees/${e.slug}`}
                 className="group block h-full"
-                aria-label={`${e.role}: ${e.line}`}
+                aria-label={`${t(`items.${e.slug}.role`)}: ${t(`items.${e.slug}.line`)}`}
               >
                 <div className="flex h-full flex-col gap-4">
                   <EmployeeCard
                     name={e.name}
-                    role={e.role}
+                    role={t(`items.${e.slug}.role`)}
                     glyph={e.glyph}
-                    ticker={e.ticker}
+                    ticker={t.raw(`items.${e.slug}.ticker`) as string[]}
                     fragments={[]}
                     className="[&>div]:max-w-none"
                   />
                   <p className="px-1 text-[14.5px] leading-relaxed text-[var(--d-ink-soft)] transition-colors group-hover:text-[var(--d-ink)]">
-                    {e.line}
+                    {t(`items.${e.slug}.line`)}
                   </p>
                 </div>
               </Link>

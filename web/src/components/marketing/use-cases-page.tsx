@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Container } from './Container';
 import { Section } from './Section';
 import { Headphones, Phone, Calendar, Package, ArrowRight, CheckCircle2, Database, MessageSquare, Mic } from 'lucide-react';
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 type UseCase = 'support' | 'sales' | 'appointment' | 'order-status';
 
@@ -177,9 +178,9 @@ export function UseCasesPage() {
                 <Mic className="h-4 w-4" />
                 Talk to Denku
               </button>
-              <Link href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)] sm:w-auto">
+              <ExternalToLocale href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)] sm:w-auto">
                 Get started
-              </Link>
+              </ExternalToLocale>
             </div>
           </div>
         </Container>

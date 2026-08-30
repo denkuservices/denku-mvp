@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { useInView, usePrefersReducedMotion } from "./primitives";
 
 /**
@@ -43,6 +44,7 @@ export function EmployeeCard({
   fragments,
   className = "",
 }: EmployeeCardProps) {
+  const t = useTranslations("employeeCard");
   const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.25 });
   const reduced = usePrefersReducedMotion();
   const shown = inView || reduced;
@@ -119,19 +121,19 @@ export function EmployeeCard({
           </div>
           <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(127,201,143,.28)] bg-[rgba(127,201,143,.10)] px-2.5 py-1 font-brand-mono text-[9.5px] uppercase tracking-[.14em] text-[var(--d-success)]">
             <span className="landing-pulse relative h-[5px] w-[5px] rounded-full bg-[var(--d-success)]" />
-            On shift
+            {t("onShift")}
           </span>
         </div>
 
         {ticker && ticker.length > 0 && (
           <div className="mt-5 border-t border-[var(--d-border)] pt-4">
             <div className="font-brand-mono text-[9.5px] uppercase tracking-[.16em] text-[var(--d-ink-faint)]">
-              Just now
+              {t("justNow")}
             </div>
             <div className="relative mt-1.5 h-[20px] overflow-hidden">
-              {ticker.map((t, i) => (
+              {ticker.map((line, i) => (
                 <div
-                  key={t}
+                  key={line}
                   className="absolute inset-x-0 top-0 truncate text-[13.5px] text-[var(--d-ink-soft)]"
                   style={{
                     transform: reduced
@@ -142,7 +144,7 @@ export function EmployeeCard({
                   }}
                   aria-hidden={reduced ? i !== 0 : i !== tick}
                 >
-                  {t}
+                  {line}
                 </div>
               ))}
             </div>

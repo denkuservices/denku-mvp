@@ -8,6 +8,7 @@ import { Reveal } from './Reveal';
 import { InlineBanner } from './InlineBanner';
 import { CreditCard, Users, Mic, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { SITE_NAME } from '@/config/site';
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 function StartInMinutesFlow() {
   const steps = [
@@ -240,12 +241,12 @@ export function Contact() {
               >
                 Talk to Denku
               </button>
-              <Link
+              <ExternalToLocale
                 href="/signup"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)] sm:w-auto"
               >
                 Get started free
-              </Link>
+              </ExternalToLocale>
             </div>
 
             <StartInMinutesFlow />

@@ -3,6 +3,7 @@ import { Container } from './Container';
 import { Section } from './Section';
 import { Reveal } from './Reveal';
 import { DemoCallButton } from './DemoCallButton';
+import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 export function DemoCallout() {
   return (
@@ -31,12 +32,12 @@ export function DemoCallout() {
 
           <div className="mt-9 flex flex-col items-center justify-center gap-5 sm:flex-row">
             <DemoCallButton />
-            <Link
+            <ExternalToLocale
               href="/signup"
               className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-7 py-3.5 text-[15px] font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)]"
             >
               Book a real demo
-            </Link>
+            </ExternalToLocale>
           </div>
         </Reveal>
       </Container>

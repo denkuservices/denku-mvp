@@ -19,6 +19,7 @@ import { useTranslations } from "next-intl";
 
 export function MeetEmployees() {
   const t = useTranslations("home.roster");
+  const te = useTranslations("employees");
 
   return (
     <section id="employees" className="relative w-full px-6 py-28 md:px-8">
@@ -38,19 +39,19 @@ export function MeetEmployees() {
               <Link
                 href={`/employees/${e.slug}`}
                 className="group block h-full"
-                aria-label={`${e.role}: ${e.line}`}
+                aria-label={`${te(`items.${e.slug}.role`)}: ${te(`items.${e.slug}.line`)}`}
               >
                 <div className="flex h-full flex-col gap-4">
                   <EmployeeCard
                     name={e.name}
-                    role={e.role}
+                    role={te(`items.${e.slug}.role`)}
                     glyph={e.glyph}
-                    ticker={e.ticker}
+                    ticker={te.raw(`items.${e.slug}.ticker`) as string[]}
                     fragments={[]}
                     className="max-w-none [&>div]:max-w-none"
                   />
                   <p className="px-1 text-[14.5px] leading-relaxed text-[var(--d-ink-soft)] transition-colors group-hover:text-[var(--d-ink)]">
-                    {e.line}
+                    {te(`items.${e.slug}.line`)}
                   </p>
                 </div>
               </Link>
