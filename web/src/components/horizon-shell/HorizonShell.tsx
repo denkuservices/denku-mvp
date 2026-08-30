@@ -27,6 +27,14 @@ function HorizonShellInner({ children, platformUx = false }: HorizonShellProps) 
 
   const navRoutes = platformUx ? platformNavRoutes : horizonNavRoutes;
 
+  /**
+   * The Inbox is the one route that is a *surface*, not a page of cards: it wants the whole
+   * area between the sidebar and the right edge, with only the profile/theme capsule above it.
+   * So for `/dashboard/inbox` the content wrapper drops its reading-width cap and its side
+   * padding — the sidebar and the topbar stay exactly where they are.
+   */
+  const fullBleed = (pathname ?? '').startsWith('/dashboard/inbox');
+
   // Close mobile drawer when route changes (mobile only)
   // Only depend on pathname - don't include mobileNavOpen to avoid closing when opening
   useEffect(() => {
@@ -57,7 +65,11 @@ function HorizonShellInner({ children, platformUx = false }: HorizonShellProps) 
           {/* Routes wrapper - matches Horizon structure */}
           <div>
             {/* Old mobile hamburger removed - now in ProfileWidget */}
-            <div className="mx-auto min-h-screen max-w-7xl px-4 !pt-[10px] md:px-6">
+            <div
+              className={`mx-auto !pt-[10px] ${
+                fullBleed ? 'w-full max-w-none' : 'min-h-screen max-w-7xl px-4 md:px-6'
+              }`}
+            >
               {children}
             </div>
           </div>

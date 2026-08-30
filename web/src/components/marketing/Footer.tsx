@@ -6,36 +6,40 @@ import { DenkuLogo } from "@/components/brand/DenkuLogo";
 
 const COLUMNS = [
   {
-    heading: "services",
+    heading: "product",
     links: [
-      { key: "voiceReceptionist", href: "/services/ai-employees" },
-      { key: "appointmentBooking", href: "/employees/booking-assistant" },
-      { key: "leadQualification", href: "/employees/receptionist" },
-      { key: "customerFollowUp", href: "/employees/missed-call-rescuer" },
-      { key: "customAutomations", href: "/services/custom-ai" },
+      { key: "voice", href: "/voice", ns: "nav" },
+      { key: "chat", href: "/chat", ns: "nav" },
+      { key: "studio", href: "/services/ai-studio", ns: "nav" },
+      { key: "pricingLink", href: "/pricing", ns: "footer" },
     ],
   },
   {
-    heading: "product",
+    // The nav went channel-led; these keep their home here rather than disappearing.
+    heading: "explore",
     links: [
-      { key: "security", href: "/security" },
-      { key: "docs", href: "/docs" },
-      { key: "support", href: "/support" },
+      { key: "servicesLink", href: "/services", ns: "footer" },
+      { key: "employeesLink", href: "/employees", ns: "footer" },
+      { key: "industriesLink", href: "/industries", ns: "footer" },
+      { key: "requestsLink", href: "/request", ns: "footer" },
     ],
   },
   {
     heading: "company",
     links: [
-      { key: "about", href: "/about" },
-      { key: "contact", href: "/contact" },
-      { key: "privacy", href: "/privacy" },
-      { key: "terms", href: "/terms" },
+      { key: "about", href: "/about", ns: "footer" },
+      { key: "security", href: "/security", ns: "footer" },
+      { key: "docs", href: "/docs", ns: "footer" },
+      { key: "support", href: "/support", ns: "footer" },
+      { key: "privacy", href: "/privacy", ns: "footer" },
+      { key: "terms", href: "/terms", ns: "footer" },
     ],
   },
 ] as const;
 
 export function Footer() {
   const t = useTranslations("footer");
+  const tn = useTranslations("nav");
 
   return (
     <footer className="border-t border-[var(--s-border)] bg-[var(--s-bg)]">
@@ -65,7 +69,7 @@ export function Footer() {
                       href={link.href}
                       className="text-sm text-[var(--s-ink-soft)] transition-colors hover:text-[var(--s-accent)]"
                     >
-                      {t(link.key)}
+                      {link.ns === "nav" ? tn(link.key) : t(link.key)}
                     </Link>
                   </li>
                 ))}

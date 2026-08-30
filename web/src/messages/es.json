@@ -8,7 +8,11 @@
     "login": "Iniciar sesión",
     "bookDemo": "Reservar demo",
     "toggleMenu": "Abrir menú",
-    "home": "Denku — inicio"
+    "home": "Denku — inicio",
+    "voice": "IA de Voz",
+    "chat": "IA de Chat",
+    "studio": "AI Studio",
+    "requests": "Solicitudes"
   },
   "footer": {
     "services": "Servicios",
@@ -28,7 +32,13 @@
     "about": "Nosotros",
     "contact": "Contacto",
     "privacy": "Privacidad",
-    "terms": "Términos"
+    "terms": "Términos",
+    "explore": "Explorar",
+    "servicesLink": "Todos los servicios",
+    "employeesLink": "La plantilla",
+    "industriesLink": "Sectores",
+    "requestsLink": "Hacer una solicitud",
+    "pricingLink": "Precios"
   },
   "common": {
     "talkToDenku": "Habla con Denku",
@@ -890,5 +900,45 @@
     "checkBody": "Lee la página de seguridad, o llama a la línea de demo y juzga el producto en vez del texto.",
     "security": "Seguridad",
     "contact": "Contacto"
+  },
+  "channelPages": {
+    "voice": {
+      "eyebrow": "IA de Voz",
+      "status": "En producción",
+      "headline": "El teléfono, atendido.",
+      "sub": "Cada llamada cogida, anotada y recordada — a las 2 de la mañana igual que a las 2 de la tarde.",
+      "does": [
+        "Atiende todas las llamadas entrantes, 24/7, en más de 20 idiomas",
+        "Toma la reserva, el mensaje o la queja — y lo anota él mismo",
+        "Gestiona varias llamadas a la vez, hasta el límite de tu plan",
+        "Archiva cada una en el historial de quien llama, para que la siguiente no empiece de cero"
+      ],
+      "billingTitle": "Cómo se factura",
+      "billingBody": "Por minuto. Cada llamada se redondea al minuto entero siguiente y luego se suman. Tu plan incluye un bloque de minutos y publica la tarifa por exceso.",
+      "notYet": [
+        "No hace llamadas salientes.",
+        "No envía un SMS a un número perdido — lo que hace es atender."
+      ],
+      "cta": "Escúchalo atender una llamada."
+    },
+    "chat": {
+      "eyebrow": "IA de Chat",
+      "status": "En producción en Telegram y correo",
+      "headline": "Los mensajes, respondidos.",
+      "sub": "El mismo empleado, trabajando los canales donde la gente escribe en vez de llamar.",
+      "does": [
+        "Responde en tu propio bot de Telegram, con tu tono",
+        "Contesta el correo reenviado a una dirección que te damos",
+        "Recibe los DM de Instagram en la misma bandeja que todo lo demás",
+        "Convierte una conversación en un ticket o una solicitud de cita, igual que una llamada"
+      ],
+      "billingTitle": "Cómo se factura",
+      "billingBody": "No se factura. El chat está incluido en todos los planes y no hay contador de mensajes que se agote — pagas minutos de voz y nada más.",
+      "notYet": [
+        "Responder en Instagram aún no está activo — solo recibe.",
+        "Messenger, WhatsApp, SMS y chat web todavía no tienen conector y no están en ningún plan."
+      ],
+      "cta": "Ponlo en tus canales."
+    }
   }
 }

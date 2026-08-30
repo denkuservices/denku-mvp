@@ -347,15 +347,6 @@ export default async function CallsPage({
         const cutoffUtc = new Date(midnightUTC.getTime() - offsetMs);
         cutoffUtcISO = cutoffUtc.toISOString();
       }
-      
-      // Debug logs (temporary)
-      console.log("DEBUG time filter:", {
-        sinceFilter,
-        days,
-        nowISO: now.toISOString(),
-        cutoffISO: cutoffUtcISO,
-        hoursAgo: (now.getTime() - new Date(cutoffUtcISO).getTime()) / (60 * 60 * 1000),
-      });
     }
   }
   // Build Supabase query with org_id scoping and time range filter (server-side)

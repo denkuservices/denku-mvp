@@ -8,7 +8,11 @@
     "login": "Giriş yap",
     "bookDemo": "Demo ayarla",
     "toggleMenu": "Menüyü aç/kapat",
-    "home": "Denku — ana sayfa"
+    "home": "Denku — ana sayfa",
+    "voice": "AI Ses",
+    "chat": "AI Sohbet",
+    "studio": "AI Studio",
+    "requests": "Talepler"
   },
   "footer": {
     "services": "Hizmetler",
@@ -28,7 +32,13 @@
     "about": "Hakkımızda",
     "contact": "İletişim",
     "privacy": "Gizlilik",
-    "terms": "Koşullar"
+    "terms": "Koşullar",
+    "explore": "Keşfet",
+    "servicesLink": "Tüm hizmetler",
+    "employeesLink": "Kadro",
+    "industriesLink": "Sektörler",
+    "requestsLink": "Talep oluştur",
+    "pricingLink": "Fiyatlar"
   },
   "common": {
     "talkToDenku": "Denku ile konuş",
@@ -890,5 +900,45 @@
     "checkBody": "Güvenlik sayfasını okuyun ya da demo hattını arayıp metni değil ürünü değerlendirin.",
     "security": "Güvenlik",
     "contact": "İletişim"
+  },
+  "channelPages": {
+    "voice": {
+      "eyebrow": "AI Ses",
+      "status": "Canlı",
+      "headline": "Telefon, yanıtlanmış.",
+      "sub": "Her arama açılır, yazılır ve hatırlanır — gece ikide de öğleden sonra ikide de.",
+      "does": [
+        "Gelen her aramayı 7/24, 20'den fazla dilde yanıtlar",
+        "Randevuyu, mesajı ya da şikâyeti alır ve kaydı kendisi yazar",
+        "Planınızın eşzamanlılık sınırına kadar aynı anda birden fazla aramayı karşılar",
+        "Her birini arayanın geçmişine işler, böylece sonraki arama sıfırdan başlamaz"
+      ],
+      "billingTitle": "Nasıl faturalanır",
+      "billingBody": "Dakika üzerinden. Her arama bir üst tam dakikaya yuvarlanır, sonra aramalar toplanır. Planınız bir dakika bloğu içerir ve aşım ücretini açıkça yazar.",
+      "notYet": [
+        "Giden arama yapmaz.",
+        "Kaçan bir numaraya mesaj atmaz — onun yerine aramayı yanıtlar."
+      ],
+      "cta": "Bir aramayı yanıtlayışını dinleyin."
+    },
+    "chat": {
+      "eyebrow": "AI Sohbet",
+      "status": "Telegram ve e-postada canlı",
+      "headline": "Mesajlar, yanıtlanmış.",
+      "sub": "Aynı çalışan, insanların aramak yerine yazdığı kanallarda.",
+      "does": [
+        "Kendi Telegram botunuzdan, sizin üslubunuzla yanıtlar",
+        "Size verdiğimiz adrese yönlendirilen postaları yanıtlar",
+        "Instagram DM'lerini diğer her şeyle aynı gelen kutusuna alır",
+        "Bir konuşmayı tıpkı bir arama gibi kayda ya da randevu talebine çevirir"
+      ],
+      "billingTitle": "Nasıl faturalanır",
+      "billingBody": "Faturalanmaz. Sohbet her plana dahildir ve tükenecek bir mesaj sayacı yoktur — yalnızca ses dakikası ödersiniz.",
+      "notYet": [
+        "Instagram'da yanıtlama henüz açık değil — yalnızca alıyor.",
+        "Messenger, WhatsApp, SMS ve web sohbetinin henüz bağlayıcısı yok ve hiçbir planda değiller."
+      ],
+      "cta": "Kanallarınıza yerleştirin."
+    }
   }
 }

@@ -436,6 +436,65 @@ typed URL or an old bookmark resolves instead of 404ing. The language survives i
 
 ---
 
+### 9.6 Channel landing pages and a channel-led nav (2026-08-31)
+
+**Shipped.** `/voice` and `/chat`, in all four languages, plus a nav reorganised the
+way the benchmark's is.
+
+The roster pages are organised by ROLE — receptionist, missed-call rescue — which
+matches the hiring metaphor but misses how people search. "AI call agent" and "AI
+chat agent" are distinct queries and distinct ad destinations, and the site had
+nowhere to land them. These two pages catch that intent.
+
+They do **not** imply two products. Both point at the same single plan, and each
+carries a billing paragraph that is different and true: voice is billed by the
+minute, chat is included and unmetered. If chat is ever priced separately, that
+paragraph is what changes.
+
+Nav is now **AI Voice · AI Chat · AI Studio · Requests**. Services, Employees,
+Industries, Pricing and Company moved to the footer under a new "Explore" column
+rather than disappearing.
+
+Naming: "AI Voice", never "AI Call Agent". CLAUDE.md bans "agent" in customer-facing
+copy and doc 14 makes "AI Employee" the category term, so the channel is the noun
+and never the worker.
+
+### 9.7 Splitting Voice and Chat into separately priced products — NOT DONE, and why
+
+The owner proposed six Stripe products (Voice ×3, Chat ×3) plus AI Studio packages.
+The Stripe side is genuinely easy. The rest is not, and the blocker is not the
+website:
+
+| What the split needs | State today |
+|---|---|
+| A way to count chat usage | **None.** No `message_count`, `messages_used`, `message_quota`, `billable_messages` or `message_overage` anywhere in `src/lib` or `src/app/api`. |
+| A usage metric that isn't minutes | `usageMath.ts` computes one number: `billable_minutes = Σ ceil(duration_seconds/60)` per call. The whole view chain (`org_daily_usage` → `org_monthly_invoice_preview`) is shaped around it. |
+| Plan limits with a message axis | `getEffectiveLimits` returns `max_concurrent_calls` and `included_phones`. Add-ons are `extra_concurrency` and `extra_phone`. There is no message dimension. |
+| More than one plan per org | `org_plan_limits` holds a single `plan_code`. Selling voice and chat separately means either two subscriptions per org (schema change) or a 3×3 matrix of combined plans. |
+| Something to sell on the chat plan | Only Telegram is `productionReady` among chat channels, plus email by owner statement. Instagram is receive-only; Messenger, WhatsApp, SMS and web chat have no adapter at all. |
+
+Selling a "Chat plan with N messages" today would mean promising a quota nobody can
+count, enforce, or cap — which breaks the repo's own "fail closed on money" rule and
+is the same class of mistake as the SOC 2 claims that had to be removed.
+
+**Recommended order if the owner wants the split:**
+
+1. Message metering: a usage row per inbound/outbound message, aggregated the way
+   minutes already are, with the same idempotency guarantees.
+2. A second axis on `billing_plan_catalog` and `getEffectiveLimits`, plus a cap and
+   pause path for messages mirroring the minute one.
+3. Decide the plan model: two subscriptions per org, or a combined matrix. This is
+   the decision that shapes the other two.
+4. Only then: Stripe products, and the pricing page becomes a small change.
+
+**AI Studio packages** are blocked on something much smaller — the owner has not
+given price points. The page says "quoted per project" until they exist. Given
+Studio is delivered by hand rather than by the platform, its packages could be sold
+as one-off Stripe products without any of the metering work above; that is the
+cheapest of the three ideas to ship.
+
+---
+
 ## 10. Buy vs build
 
 - **ThemeForest: no** — and §0 is the reason. The admired reference *is* a ThemeForest theme; buying

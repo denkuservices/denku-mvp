@@ -14,7 +14,11 @@ import { inbox } from "./theme";
  *
  * The height is pinned rather than flowing, because a messaging surface scrolls in its panes,
  * not in the page: 100vh minus the shell's top bar (10px padding + 12px margin + a 61px capsule
- * + 8px margin ≈ 91px) and the panel's own bottom breathing room.
+ * + 8px margin = 91px) and a 10px gutter at the bottom.
+ *
+ * **It is full-bleed.** The shell drops its reading-width cap and side padding for this route
+ * (see `HorizonShell`), so the frame runs from the sidebar to the right edge — the surface gets
+ * every pixel the sidebar and the profile capsule are not using.
  */
 export default function InboxSplit({
   list,
@@ -27,13 +31,13 @@ export default function InboxSplit({
   const hasSelection = /^\/dashboard\/inbox\/.+/.test(pathname ?? "");
 
   return (
-    <div className="px-4 pb-4 md:px-6 md:pb-6">
+    <div>
       {/* The page's heading. Invisible on purpose: the panel below is self-evidently an inbox,
           and the reference gives that space to the conversations. Screen readers still get it. */}
       <h1 className="sr-only">Inbox</h1>
 
       <div
-        className={`flex h-[calc(100vh-108px)] min-h-[520px] overflow-hidden rounded-2xl border shadow-sm ${inbox.frame} ${inbox.panel}`}
+        className={`flex h-[calc(100vh-101px)] min-h-[520px] overflow-hidden rounded-2xl border shadow-sm ${inbox.frame} ${inbox.panel}`}
       >
         <aside
           className={`h-full w-full shrink-0 flex-col border-r md:w-[320px] lg:w-[368px] ${inbox.frame} ${

@@ -8,7 +8,11 @@
     "login": "Anmelden",
     "bookDemo": "Demo buchen",
     "toggleMenu": "Menü öffnen",
-    "home": "Denku — Startseite"
+    "home": "Denku — Startseite",
+    "voice": "KI-Telefonie",
+    "chat": "KI-Chat",
+    "studio": "AI Studio",
+    "requests": "Anfragen"
   },
   "footer": {
     "services": "Leistungen",
@@ -28,7 +32,13 @@
     "about": "Über uns",
     "contact": "Kontakt",
     "privacy": "Datenschutz",
-    "terms": "AGB"
+    "terms": "AGB",
+    "explore": "Entdecken",
+    "servicesLink": "Alle Leistungen",
+    "employeesLink": "Das Team",
+    "industriesLink": "Branchen",
+    "requestsLink": "Anfrage stellen",
+    "pricingLink": "Preise"
   },
   "common": {
     "talkToDenku": "Mit Denku sprechen",
@@ -890,5 +900,45 @@
     "checkBody": "Lesen Sie die Sicherheitsseite, oder rufen Sie die Demo-Leitung an und beurteilen Sie das Produkt statt den Text.",
     "security": "Sicherheit",
     "contact": "Kontakt"
+  },
+  "channelPages": {
+    "voice": {
+      "eyebrow": "KI-Telefonie",
+      "status": "Live",
+      "headline": "Das Telefon, angenommen.",
+      "sub": "Jeder Anruf angenommen, festgehalten und erinnert — um 2 Uhr nachts so zuverlässig wie um 14 Uhr.",
+      "does": [
+        "Nimmt jeden eingehenden Anruf an, rund um die Uhr, in über 20 Sprachen",
+        "Nimmt den Termin, die Nachricht oder die Beschwerde auf — und schreibt sie selbst nieder",
+        "Bearbeitet mehrere Anrufe gleichzeitig, bis zum Limit Ihres Tarifs",
+        "Legt jeden zur Historie des Anrufers, damit der nächste nicht bei null anfängt"
+      ],
+      "billingTitle": "Wie abgerechnet wird",
+      "billingBody": "Nach Minuten. Jeder Anruf wird auf die nächste volle Minute aufgerundet, dann werden die Anrufe addiert. Ihr Tarif enthält ein Minutenkontingent und weist den Mehrpreis aus.",
+      "notYet": [
+        "Er ruft nicht selbst heraus.",
+        "Er schickt einer verpassten Nummer keine SMS — er nimmt stattdessen ab."
+      ],
+      "cta": "Hören Sie ihn einen Anruf annehmen."
+    },
+    "chat": {
+      "eyebrow": "KI-Chat",
+      "status": "Live auf Telegram und E-Mail",
+      "headline": "Die Nachrichten, beantwortet.",
+      "sub": "Derselbe Mitarbeiter, auf den Kanälen, wo Menschen schreiben statt anzurufen.",
+      "does": [
+        "Antwortet in Ihrem eigenen Telegram-Bot, in Ihrem Ton",
+        "Beantwortet Post, die an eine von uns vergebene Adresse weitergeleitet wird",
+        "Empfängt Instagram-DMs im selben Posteingang wie alles andere",
+        "Macht aus einem Gespräch ein Ticket oder eine Terminanfrage, genau wie bei einem Anruf"
+      ],
+      "billingTitle": "Wie abgerechnet wird",
+      "billingBody": "Gar nicht. Chat ist in jedem Tarif enthalten, und es gibt keinen Nachrichtenzähler, der leerlaufen kann — Sie zahlen Gesprächsminuten und sonst nichts.",
+      "notYet": [
+        "Antworten auf Instagram ist noch nicht aktiviert — es empfängt nur.",
+        "Messenger, WhatsApp, SMS und Web-Chat haben noch keinen Connector und sind in keinem Tarif."
+      ],
+      "cta": "Setzen Sie ihn auf Ihre Kanäle."
+    }
   }
 }

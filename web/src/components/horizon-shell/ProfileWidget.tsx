@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Moon, Sun, Menu, User } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
+import GlobalSearch from './GlobalSearch';
+import NotificationsBell from './NotificationsBell';
+import HelpMenu from './HelpMenu';
 import { useProfileIdentity } from './useProfileIdentity';
 
 interface ProfileWidgetProps {
@@ -10,12 +13,14 @@ interface ProfileWidgetProps {
 }
 
 /**
- * The authenticated topbar capsule (Sprint 9 · T1–T3).
+ * The authenticated topbar capsule (Sprint 9 · T1–T3; search/bell/help restored).
  *
- * Holds exactly three things, and nothing decorative: the mobile menu button, the
- * theme toggle, and the account menu. The global search box, the notifications bell
- * and the info button were removed — all three were controls a user could focus and
- * click that did nothing (the search stored typed text and never read it back).
+ * Search, notifications and help were **removed** in Sprint 9 because all three were controls a
+ * person could focus and click that did nothing — the search box stored what you typed and never
+ * read it back. They are back only now that each one is wired to something real: the search spans
+ * conversations, contacts and requests (`readModel/search.ts`), the bell shows state the product
+ * can already prove (`readModel/attention.ts`), and the help menu links to pages that exist.
+ * **That is the bar for anything added here later — a control in this capsule must do its job.**
  *
  * Identity comes from the signed-in profile: the user's own avatar when they have one,
  * otherwise their initials. Never a stock template image.
@@ -95,6 +100,10 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
           </button>
         )}
 
+        <GlobalSearch />
+
+        <NotificationsBell />
+
         <button
           type="button"
           onClick={toggleDarkMode}
@@ -103,6 +112,8 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
         >
           {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
+
+        <HelpMenu />
 
         {/* Account menu */}
         <div className="relative shrink-0" ref={profileDropdownRef}>

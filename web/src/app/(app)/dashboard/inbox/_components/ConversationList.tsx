@@ -72,6 +72,21 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
   const [query, setQuery] = useState(initial.search);
 
   const seeded = !initial.channel && !initial.search && initial.filter === "all";
+  const initialKey = `${initial.channel ?? ""}|${initial.search}|${initial.filter}`;
+
+  /**
+   * Stale-while-revalidate cache of list pages, keyed by `${channel}|${query}|${filter}`.
+   *
+   * Switching a channel chip or a filter used to blank the list to a skeleton and refetch from
+   * offset 0 every single time — so flicking between All and Voice and back hit the server three
+   * times and flashed three skeletons (the "switching channels is very slow" symptom). Holding each
+   * filter's last page here lets a return to a filter you have already seen render instantly from
+   * memory while a fresh copy loads behind it. Client-only; the server action is unchanged.
+   */
+  const pageCache = useRef<Map<string, InboxPage>>(
+    new Map<string, InboxPage>(seeded ? [[initialKey, initialPage]] : [])
+  );
+
   const [page, setPage] = useState<InboxPage>(initialPage);
   const [rows, setRows] = useState<InboxRow[]>(initialPage.rows);
   const [loading, setLoading] = useState(!seeded);
@@ -83,33 +98,48 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
     return () => clearTimeout(t);
   }, [search]);
 
-  /**
-   * Every filter change refetches from the top.
-   *
-   * Keyed on the filters themselves rather than on a "first run" flag: the flag was flipped by
-   * React's double-invoked effects in development, so the seeded first page was thrown away and
-   * refetched on every load. Comparing the key the data was fetched with cannot be fooled that
-   * way — a repeated effect for the same filters is a no-op.
-   */
   const key = `${channel ?? ""}|${query}|${filter}`;
-  const fetchedKey = useRef<string | null>(seeded ? key : null);
+  /**
+   * The key whose FRESH copy we already hold. Set to the seeded key on mount so React's
+   * double-invoked dev effects cannot throw the server-seeded first page away and refetch it;
+   * updated after every successful fetch so a filter is only skipped when its data is known-fresh.
+   */
+  const freshKey = useRef<string | null>(seeded ? initialKey : null);
   useEffect(() => {
-    if (fetchedKey.current === key) return;
-    fetchedKey.current = key;
     let cancelled = false;
-    setLoading(true);
-    setFailed(false);
+
+    // Render the cached page for this filter immediately (stale); only fall back to a skeleton
+    // when we have never loaded it. This is what makes channel/filter switching feel instant.
+    const cached = pageCache.current.get(key);
+    if (cached) {
+      setPage(cached);
+      setRows(cached.rows);
+      setLoading(false);
+      setFailed(false);
+    } else {
+      setLoading(true);
+      setFailed(false);
+    }
+
+    // Skip the network only when this exact filter's data is already fresh (the seeded page).
+    // Every other transition revalidates in the background — behind the cached rows if we have them.
+    if (freshKey.current === key) return;
+
     fetchInboxPageAction({ channel, search: query, filter, offset: 0, limit: PAGE_SIZE })
       .then((res) => {
         if (cancelled) return;
         if (res.ok && res.page) {
+          freshKey.current = key;
+          pageCache.current.set(key, res.page);
           setPage(res.page);
           setRows(res.page.rows);
-        } else {
+        } else if (!cached) {
           setFailed(true);
         }
       })
-      .catch(() => !cancelled && setFailed(true))
+      .catch(() => {
+        if (!cancelled && !cached) setFailed(true);
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -126,7 +156,11 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
         // De-duplicate defensively: the window can shift under us while a call is in flight.
         setRows((prev) => {
           const seen = new Set(prev.map((r) => r.id));
-          return [...prev, ...next.rows.filter((r) => !seen.has(r.id))];
+          const merged = [...prev, ...next.rows.filter((r) => !seen.has(r.id))];
+          // Keep the cache in step so returning to this filter shows every row already loaded,
+          // not just the first page.
+          pageCache.current.set(key, { ...next, rows: merged });
+          return merged;
         });
         setPage(next);
       })
@@ -152,7 +186,13 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
    * are already looking at reads as a bug.
    */
   const clearUnread = (id: string) =>
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, unread: 0 } : r)));
+    setRows((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, unread: 0 } : r));
+      // Persist the optimistic clear into the cache so re-selecting this filter does not un-read it.
+      const cur = pageCache.current.get(key);
+      if (cur) pageCache.current.set(key, { ...cur, rows: next });
+      return next;
+    });
 
   /**
    * Every channel, not only the two that work.
@@ -359,9 +399,15 @@ function ConversationRow({
             {row.starred ? (
               <Star className="h-3.5 w-3.5 shrink-0 fill-[#F5B301] text-[#F5B301]" aria-label="Starred" />
             ) : null}
+            {/* `relative` on the badge below is load-bearing, not decoration: `sr-only` is
+                `position:absolute`, and an absolutely positioned element is NOT clipped by an
+                `overflow:hidden` ancestor that sits outside its containing block. Without a
+                positioned parent, each badge's hidden " unread" text resolved against the shell's
+                `main`, escaped the split view's frame, and added its own row's offset to the
+                page's scroll height — a phantom scrollbar on a surface that scrolls in its panes. */}
             {row.unread > 0 ? (
               <span
-                className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${inbox.unread}`}
+                className={`relative inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${inbox.unread}`}
               >
                 {row.unread}
                 <span className="sr-only"> unread</span>

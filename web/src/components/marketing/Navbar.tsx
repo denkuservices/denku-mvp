@@ -10,12 +10,22 @@ import { LocaleSwitcher } from "@/components/marketing/LocaleSwitcher";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
 import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
+/**
+ * Channel-led, the way the benchmark's nav is: a visitor scanning for "something
+ * that answers my phone" finds it faster under "AI Voice" than under "Services".
+ *
+ * The pages this displaced — Services, Employees, Industries, Pricing, Company —
+ * are not lost; they move to the footer, which is where secondary IA belongs.
+ *
+ * Labels say "AI Voice", never "AI Call Agent": CLAUDE.md bans "agent" in
+ * customer-facing copy, and doc 14 makes "AI Employee" the category term. The
+ * channel is the noun here, not the worker.
+ */
 const NAV = [
-  { key: "services", href: "/services" },
-  { key: "employees", href: "/employees" },
-  { key: "industries", href: "/industries" },
-  { key: "pricing", href: "/pricing" },
-  { key: "company", href: "/company" },
+  { key: "voice", href: "/voice" },
+  { key: "chat", href: "/chat" },
+  { key: "studio", href: "/services/ai-studio" },
+  { key: "requests", href: "/request" },
 ] as const;
 
 export function Navbar() {

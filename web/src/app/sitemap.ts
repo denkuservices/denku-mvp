@@ -24,6 +24,8 @@ type Entry = {
 
 const entries: Entry[] = [
   { path: "", priority: 1.0, changeFrequency: "weekly" },
+  { path: "/voice", priority: 0.95, changeFrequency: "monthly" },
+  { path: "/chat", priority: 0.95, changeFrequency: "monthly" },
   { path: "/pricing", priority: 0.9, changeFrequency: "monthly" },
   { path: "/services", priority: 0.9, changeFrequency: "monthly" },
   { path: "/employees", priority: 0.9, changeFrequency: "monthly" },

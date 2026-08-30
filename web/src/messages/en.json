@@ -8,7 +8,11 @@
     "login": "Log in",
     "bookDemo": "Book a demo",
     "toggleMenu": "Toggle menu",
-    "home": "Denku — home"
+    "home": "Denku — home",
+    "voice": "AI Voice",
+    "chat": "AI Chat",
+    "studio": "AI Studio",
+    "requests": "Requests"
   },
   "footer": {
     "services": "Services",
@@ -28,7 +32,13 @@
     "about": "About",
     "contact": "Contact",
     "privacy": "Privacy",
-    "terms": "Terms"
+    "terms": "Terms",
+    "explore": "Explore",
+    "servicesLink": "All services",
+    "employeesLink": "The roster",
+    "industriesLink": "Industries",
+    "requestsLink": "Make a request",
+    "pricingLink": "Pricing"
   },
   "common": {
     "talkToDenku": "Talk to Denku",
@@ -890,5 +900,45 @@
     "checkBody": "Read the security page, or call the demo line and judge the product rather than the copy.",
     "security": "Security",
     "contact": "Contact"
+  },
+  "channelPages": {
+    "voice": {
+      "eyebrow": "AI Voice",
+      "status": "Live",
+      "headline": "The phone, answered.",
+      "sub": "Every call picked up, written down, and remembered — at 2am as readily as at 2pm.",
+      "does": [
+        "Answers every inbound call, 24/7, in over 20 languages",
+        "Takes the booking, the message, or the complaint — and writes it down itself",
+        "Handles several calls at once, up to your plan's concurrency",
+        "Files each one against the caller's history, so the next call starts from something"
+      ],
+      "billingTitle": "How it's billed",
+      "billingBody": "By the minute. Each call rounds up to the next whole minute, then the calls are added together. Your plan includes a block of minutes and prints the overage rate.",
+      "notYet": [
+        "It does not make outbound calls.",
+        "It does not text a missed number back — it answers instead."
+      ],
+      "cta": "Hear it answer a call."
+    },
+    "chat": {
+      "eyebrow": "AI Chat",
+      "status": "Live on Telegram and email",
+      "headline": "The messages, answered.",
+      "sub": "The same employee, working the channels where people type instead of call.",
+      "does": [
+        "Replies in your own Telegram bot, in your voice",
+        "Answers mail forwarded to an address we issue you",
+        "Receives Instagram DMs into the same Inbox as everything else",
+        "Turns a conversation into a ticket or an appointment request, exactly like a call"
+      ],
+      "billingTitle": "How it's billed",
+      "billingBody": "It isn't. Chat is included with every plan and there is no message counter to run out of — you pay for voice minutes and nothing else.",
+      "notYet": [
+        "Replying on Instagram is not switched on yet — it receives only.",
+        "Messenger, WhatsApp, SMS and web chat have no connector yet and are in no plan."
+      ],
+      "cta": "Put it on your channels."
+    }
   }
 }

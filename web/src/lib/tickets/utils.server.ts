@@ -1,5 +1,5 @@
 import "server-only";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getOrgSettingsContext } from "@/lib/org/orgSettingsContext";
 
 /**
  * Server-only utility functions for tickets.
@@ -9,16 +9,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Get organization timezone (defaults to UTC)
+ *
+ * Reads through the per-request cached settings context (perf, 2026-08-31) so a page that also
+ * checks workspace status/pause pays one shared `organization_settings` round-trip, not three.
  */
 export async function getOrgTimezone(orgId: string): Promise<string> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("organization_settings")
-    .select("default_timezone")
-    .eq("org_id", orgId)
-    .maybeSingle<{ default_timezone: string | null }>();
-
-  return data?.default_timezone ?? "UTC";
+  return (await getOrgSettingsContext(orgId)).defaultTimezone;
 }
 
 /**

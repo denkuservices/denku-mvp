@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnalyticsParams, AnalyticsRange } from "./types";
@@ -54,7 +55,15 @@ export function getDateRange(range: AnalyticsRange): { from: Date; to: Date; com
   return { from, to, compareFrom, compareTo };
 }
 
-export async function resolveOrgId(): Promise<string> {
+/**
+ * Resolve the current user's org for the (legacy) analytics/dashboard pages.
+ *
+ * **Wrapped in React `cache()`** (perf, 2026-08-31): a single page render calls this through several
+ * helpers (the page itself, `getWorkspaceStatus`, timezone, admin checks), and each call was an
+ * independent `auth.getUser()` — an HTTP round-trip to Supabase Auth, one of the slowest single
+ * things a request does. `cache()` collapses them to ONE auth call + one profiles read per request.
+ */
+export const resolveOrgId = cache(async function resolveOrgId(): Promise<string> {
   const supabase = await createSupabaseServerClient();
   const { data: auth, error: authErr } = await supabase.auth.getUser();
   if (authErr) throw new Error(authErr.message);
@@ -78,7 +87,7 @@ export async function resolveOrgId(): Promise<string> {
   throw new Error(
     "Could not resolve org_id for this user. Expected one of: profiles.org_id / organization_id / current_org_id / orgs_id."
   );
-}
+});
 
 /**
  * Check if user is admin or owner for the given org.

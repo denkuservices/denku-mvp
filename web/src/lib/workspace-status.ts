@@ -1,24 +1,17 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getOrgSettingsContext } from "@/lib/org/orgSettingsContext";
 
 /**
  * Check if a workspace is paused
  * Returns true if workspace_status is 'paused', false otherwise
+ *
+ * Reads through the per-request cached settings context (perf, 2026-08-31) so this — a
+ * load-bearing gate called on many mutation paths — shares one `organization_settings` round-trip
+ * with the status/timezone reads instead of issuing its own. Default-false-when-missing preserved.
  */
 export async function isWorkspacePaused(orgId: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from("organization_settings")
-    .select("workspace_status")
-    .eq("org_id", orgId)
-    .maybeSingle<{ workspace_status: "active" | "paused" }>();
-
-  if (error || !data) {
-    // Default to active if settings not found
-    return false;
-  }
-
-  return data.workspace_status === "paused";
+  return (await getOrgSettingsContext(orgId)).workspaceStatus === "paused";
 }
 
 /**
@@ -26,16 +19,6 @@ export async function isWorkspacePaused(orgId: string): Promise<boolean> {
  * Returns 'active' | 'paused' (defaults to 'active')
  */
 export async function getWorkspaceStatus(orgId: string): Promise<"active" | "paused"> {
-  const { data, error } = await supabaseAdmin
-    .from("organization_settings")
-    .select("workspace_status")
-    .eq("org_id", orgId)
-    .maybeSingle<{ workspace_status: "active" | "paused" }>();
-
-  if (error || !data) {
-    return "active"; // Default to active
-  }
-
-  return data.workspace_status;
+  return (await getOrgSettingsContext(orgId)).workspaceStatus;
 }
 
