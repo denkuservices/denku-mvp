@@ -111,6 +111,27 @@ this cannot be tested until deploy**. After deploying, check from (or with a VPN
 Spain and Germany that the first visit lands on `/tr`, `/es`, `/de`, that an unlisted country
 (e.g. France) lands on English, and that a manual switch sticks afterwards.
 
+**5. Turn on the chat plans (added 2026-08-31).** The code, the gate and the pricing pages
+are built; three operator steps stand between them and a sale:
+
+- **Apply the migration** `supabase/migrations/20260831100000_chat_plans_and_channel_activation.sql`.
+  It adds the `chat_only` $0 base plan (so chat can be bought without voice), the two add-on
+  catalogue rows, and `org_active_channels`. Additive and inert until applied — before it,
+  `getChatEntitlement` returns zero slots, which reads as "chat not purchased".
+- **Create the two Stripe products** — Chat 1 channel at $299/mo, Chat 2 channels at $499/mo —
+  the same way the existing add-ons were created, then write their price ids into
+  `billing_addon_catalog.stripe_price_id` for `chat_basic` and `chat_standard`. Until those are
+  filled, `/api/billing/addons/update` refuses with "stripe_price_id not configured for addon",
+  which is the correct fail-closed behaviour.
+- **Set `NEXT_PUBLIC_CHAT_PLANS_PURCHASABLE=true`** in Vercel once the above is done. Until then
+  the pricing pages show the tiers with a "talk to us" CTA rather than a checkout that would
+  fail.
+
+Note the deliberate MVP shape: chat is sold by **channel capacity**, never by message volume.
+There is no message metering anywhere in the codebase and none was added — a quota nobody can
+count, enforce or cap must not be sold. Reasoning in
+[docs/LANDING_V3_DESIGN_PLAN.md](docs/LANDING_V3_DESIGN_PLAN.md) §9.8.
+
 **Also outstanding on the website, lower priority:** placeholder metrics are live on the homepage
 behind `web/src/lib/marketing/placeholderMetrics.ts` (owner-approved), and clearing them is a
 blocking item in [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md). Legal and utility pages

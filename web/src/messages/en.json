@@ -126,7 +126,7 @@
       "eyebrow": "Pricing",
       "headline": "Printed prices. Month to month.",
       "mostPicked": "Most picked",
-      "included": "Telegram & email included, unmetered",
+      "included": "Chat sold separately, by channel",
       "noSurprise": "No surprise invoices. Ever.",
       "noSurpriseBody": "Every plan has a hard spend cap. When you hit it we pause the line and tell you — we never quietly bill past it.",
       "seeMath": "See the math →"
@@ -732,14 +732,14 @@
     "eyebrow": "Pricing",
     "headline": "Printed prices. Month to month.",
     "sub": "You pay for voice minutes. Everything else your employee does is included.",
-    "included": "Telegram & email included, unmetered",
+    "included": "Chat sold separately, by channel",
     "mostPicked": "Most picked",
     "payFor": "You pay for",
     "payForV": "Voice minutes",
     "payForN": "Rounded up per call, then added together.",
-    "inc": "Included",
-    "incV": "{count} more channels",
-    "incN": "Telegram and email. No message counter.",
+    "inc": "Chat",
+    "incV": "By the channel",
+    "incN": "Pick which channels your AI answers on. Still no message counter.",
     "notSold": "Not sold yet",
     "notSoldV": "{count} in beta",
     "notSoldN": "Messenger, WhatsApp, SMS, web chat. Not in any plan.",
@@ -760,8 +760,8 @@
         "a": "Every workspace has a hard spend cap. When you reach it we pause the line and tell you. We do not keep billing past it and settle up later."
       },
       {
-        "q": "What is not metered",
-        "a": "Telegram and email conversations. They are included, and there is no message counter to run out of."
+        "q": "What is never metered",
+        "a": "Messages. Chat is bought by the channel, not by volume — there is no message counter to run out of, on any plan."
       }
     ],
     "exampleTitle": "Worked example",
@@ -933,12 +933,40 @@
         "Turns a conversation into a ticket or an appointment request, exactly like a call"
       ],
       "billingTitle": "How it's billed",
-      "billingBody": "It isn't. Chat is included with every plan and there is no message counter to run out of — you pay for voice minutes and nothing else.",
+      "billingBody": "By the channel, not by the message. You choose how many chat channels your AI answers on — one for $299 a month, two for $499 — and there is no message counter to run out of.",
       "notYet": [
         "Replying on Instagram is not switched on yet — it receives only.",
         "Messenger, WhatsApp, SMS and web chat have no connector yet and are in no plan."
       ],
       "cta": "Put it on your channels."
+    }
+  },
+  "chatPlans": {
+    "eyebrow": "Chat plans",
+    "headline": "Chat is sold by channel, not by message.",
+    "sub": "You pick which channels your AI answers on. There is no message counter to run out of.",
+    "availableTitle": "Channels you can pick today",
+    "available": "Telegram and email. You can connect the others now and watch messages arrive — the AI starts answering on them when they ship.",
+    "slotOne": "1 channel of your choice",
+    "slotTwo": "2 channels of your choice",
+    "custom": "Custom",
+    "customPrice": "Talk to us",
+    "customNote": "More channels, CRM and API integrations, a model trained on your own material.",
+    "notPurchasable": "Chat plans are not self-serve yet — tell us which channels you want and we'll set it up.",
+    "cta": "Get chat",
+    "ctaContact": "Talk to us",
+    "features": {
+      "basic": [
+        "1 channel of your choice",
+        "Answers in your own voice",
+        "Same Inbox as your calls",
+        "Tickets and appointment requests, exactly like voice"
+      ],
+      "standard": [
+        "Everything in the 1-channel plan",
+        "2 channels of your choice",
+        "Priority support"
+      ]
     }
   }
 }

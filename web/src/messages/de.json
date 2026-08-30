@@ -126,7 +126,7 @@
       "eyebrow": "Preise",
       "headline": "Ausgewiesene Preise. Monatlich kündbar.",
       "mostPicked": "Am häufigsten gewählt",
-      "included": "Telegram und E-Mail inklusive, ohne Zähler",
+      "included": "Chat wird separat verkauft, pro Kanal",
       "noSurprise": "Keine Überraschungsrechnungen. Nie.",
       "noSurpriseBody": "Jeder Tarif hat ein hartes Ausgabenlimit. Ist es erreicht, pausieren wir die Leitung und sagen Ihnen Bescheid — wir rechnen nie stillschweigend weiter ab.",
       "seeMath": "Die Rechnung ansehen →"
@@ -732,14 +732,14 @@
     "eyebrow": "Preise",
     "headline": "Ausgewiesene Preise. Monatlich kündbar.",
     "sub": "Sie zahlen für Gesprächsminuten. Alles andere, was Ihr Mitarbeiter tut, ist enthalten.",
-    "included": "Telegram und E-Mail inklusive, ohne Zähler",
+    "included": "Chat wird separat verkauft, pro Kanal",
     "mostPicked": "Am häufigsten gewählt",
     "payFor": "Sie zahlen für",
     "payForV": "Gesprächsminuten",
     "payForN": "Pro Anruf aufgerundet, dann addiert.",
-    "inc": "Inklusive",
-    "incV": "{count} weitere Kanäle",
-    "incN": "Telegram und E-Mail. Kein Nachrichtenzähler.",
+    "inc": "Chat",
+    "incV": "Pro Kanal",
+    "incN": "Sie wählen, auf welchen Kanälen Ihre KI antwortet. Weiterhin kein Nachrichtenzähler.",
     "notSold": "Noch nicht im Verkauf",
     "notSoldV": "{count} in der Beta",
     "notSoldN": "Messenger, WhatsApp, SMS, Web-Chat. In keinem Tarif.",
@@ -760,8 +760,8 @@
         "a": "Jeder Workspace hat ein hartes Ausgabenlimit. Ist es erreicht, pausieren wir die Leitung und sagen Ihnen Bescheid. Wir rechnen nicht weiter ab und klären es später."
       },
       {
-        "q": "Was nicht gezählt wird",
-        "a": "Telegram- und E-Mail-Gespräche. Sie sind enthalten, und es gibt keinen Nachrichtenzähler, der leerlaufen kann."
+        "q": "Was nie gezählt wird",
+        "a": "Nachrichten. Chat wird pro Kanal gekauft, nicht nach Volumen — in keinem Tarif gibt es einen Nachrichtenzähler, der leerlaufen kann."
       }
     ],
     "exampleTitle": "Rechenbeispiel",
@@ -933,12 +933,40 @@
         "Macht aus einem Gespräch ein Ticket oder eine Terminanfrage, genau wie bei einem Anruf"
       ],
       "billingTitle": "Wie abgerechnet wird",
-      "billingBody": "Gar nicht. Chat ist in jedem Tarif enthalten, und es gibt keinen Nachrichtenzähler, der leerlaufen kann — Sie zahlen Gesprächsminuten und sonst nichts.",
+      "billingBody": "Pro Kanal, nicht pro Nachricht. Sie wählen, auf wie vielen Chat-Kanälen Ihre KI antwortet — einer für 299 $ im Monat, zwei für 499 $ — und es gibt keinen Nachrichtenzähler, der leerläuft.",
       "notYet": [
         "Antworten auf Instagram ist noch nicht aktiviert — es empfängt nur.",
         "Messenger, WhatsApp, SMS und Web-Chat haben noch keinen Connector und sind in keinem Tarif."
       ],
       "cta": "Setzen Sie ihn auf Ihre Kanäle."
+    }
+  },
+  "chatPlans": {
+    "eyebrow": "Chat-Tarife",
+    "headline": "Chat wird nach Kanal verkauft, nicht nach Nachricht.",
+    "sub": "Sie wählen, auf welchen Kanälen Ihre KI antwortet. Es gibt keinen Nachrichtenzähler, der leerläuft.",
+    "availableTitle": "Kanäle, die Sie heute wählen können",
+    "available": "Telegram und E-Mail. Die übrigen können Sie schon verbinden und die Nachrichten eintreffen sehen — die KI antwortet dort, sobald sie fertig sind.",
+    "slotOne": "1 Kanal Ihrer Wahl",
+    "slotTwo": "2 Kanäle Ihrer Wahl",
+    "custom": "Individuell",
+    "customPrice": "Sprechen Sie uns an",
+    "customNote": "Mehr Kanäle, CRM- und API-Integrationen, ein auf Ihr eigenes Material trainiertes Modell.",
+    "notPurchasable": "Chat-Tarife sind noch nicht selbst buchbar — sagen Sie uns, welche Kanäle Sie wollen, wir richten es ein.",
+    "cta": "Chat buchen",
+    "ctaContact": "Sprechen Sie uns an",
+    "features": {
+      "basic": [
+        "1 Kanal Ihrer Wahl",
+        "Antwortet in Ihrem Ton",
+        "Derselbe Posteingang wie Ihre Anrufe",
+        "Tickets und Terminanfragen, genau wie bei Telefonie"
+      ],
+      "standard": [
+        "Alles aus dem 1-Kanal-Tarif",
+        "2 Kanäle Ihrer Wahl",
+        "Priorisierter Support"
+      ]
     }
   }
 }

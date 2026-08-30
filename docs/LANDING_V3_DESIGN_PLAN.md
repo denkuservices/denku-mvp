@@ -495,6 +495,54 @@ cheapest of the three ideas to ship.
 
 ---
 
+### 9.8 Chat as a purchasable capacity (2026-08-31)
+
+The owner asked whether to meter messages or price flat like the benchmark. Answer: **neither
+exactly — price on capacity.** The benchmark does not meter either; its tiers read "1 agent /
+3 agents / team". A capacity number is a COUNT this schema already answers; a message quota
+would need the metering pipeline §9.7 showed does not exist.
+
+**What shipped**
+
+| Piece | Where |
+|---|---|
+| Entitlement (slots bought) | Derived from `billing_org_addons` — nothing stored, so it cannot drift from what Stripe charged |
+| Activation (channels switched on) | `org_active_channels`, new table |
+| The gate | `respondToInbound`, beside the existing handling checks. Ingest stays OPEN — a workspace can connect a channel and watch messages arrive before paying; only the REPLY is gated. Same shape as Instagram's existing receive-only behaviour |
+| Workspace safety valve | `MAX_REPLIES_PER_ORG_PER_HOUR = 500` in the reply engine, beside the per-conversation cap that was already there |
+| Chat-only customers | A `chat_only` $0 base plan. `org_plan_limits` holds one `plan_code`, so chat-only needs something to point at; zero concurrency also makes the existing lease check deny voice with no new code |
+| Pricing | $299 for one channel, $499 for two, plus a quoted tier — on `/pricing` and `/chat`, in four languages |
+
+**Decisions worth keeping**
+
+1. **Two tiers, not three.** The benchmark has three because Instagram, WhatsApp and web chat
+   are all live for them. Only Telegram and email are sellable here, so a three-slot tier would
+   sell a number against two available channels. `chat_standard` is two slots today and becomes
+   three when a third channel ships — and the pricing page imports `CHAT_ADDON_SLOTS` rather
+   than hardcoding, so the page cannot advertise more than the gate grants.
+2. **No schema change for the add-on.** `billing_org_addons.addon_key` is plain `text` with no
+   CHECK, so `chat_basic` / `chat_standard` are just new values reusing the existing Stripe
+   flow, idempotency keys and invoice-staleness marking.
+3. **A downgrade is explainable.** When slots shrink below the number of activated channels,
+   the oldest activations keep working and the rest go quiet, rather than the system guessing
+   which one the customer meant.
+4. **Six strings had to change.** "Telegram and email included, unmetered" was true until chat
+   became an add-on. Leaving it would have put two prices for the same thing on one page — the
+   same class of error as the compliance claims that had to be removed.
+
+**One gap found while building and closed:** buying a plan fills the slot count, but
+`org_active_channels` starts empty — so without an activation screen the AI would have stayed
+silent right after a sale and the feature would have looked broken. Rather than add a settings
+UI, a spare *paid* slot now claims itself on the first message: the customer connected the
+channel and a message arrived, which is what they meant. The claim is idempotent on
+`(org_id, channel)`, so a retried webhook cannot consume two, and a failed write refuses the
+reply rather than reading as "allowed".
+
+**Not built, deliberately:** message metering. If chat volume ever needs billing, it gets built
+then, and nothing shipped here has promised a number it cannot count.
+
+---
+
 ## 10. Buy vs build
 
 - **ThemeForest: no** — and §0 is the reason. The admired reference *is* a ThemeForest theme; buying

@@ -12,7 +12,7 @@
  * minute. (Summing seconds first then dividing would bill materially less.)
  */
 
-export type PlanCode = "starter" | "growth" | "scale";
+export type PlanCode = "starter" | "growth" | "scale" | "chat_only";
 
 export interface PlanPricing {
   monthlyFeeUsd: number;
@@ -26,6 +26,12 @@ export const PLAN_PRICING: Record<PlanCode, PlanPricing> = {
   starter: { monthlyFeeUsd: 149, includedMinutes: 400, overageRateUsdPerMin: 0.22, concurrencyLimit: 1 },
   growth: { monthlyFeeUsd: 399, includedMinutes: 1200, overageRateUsdPerMin: 0.18, concurrencyLimit: 4 },
   scale: { monthlyFeeUsd: 899, includedMinutes: 3600, overageRateUsdPerMin: 0.13, concurrencyLimit: 10 },
+  /**
+   * The base plan a chat-only workspace sits on. Everything is zero on purpose: the money
+   * comes from the chat add-on, and a concurrency limit of 0 means the existing lease check
+   * denies voice calls without any new code.
+   */
+  chat_only: { monthlyFeeUsd: 0, includedMinutes: 0, overageRateUsdPerMin: 0, concurrencyLimit: 0 },
 };
 
 /** round to 2dp (mirrors SQL round(x, 2) for the non-negative billing amounts here). */

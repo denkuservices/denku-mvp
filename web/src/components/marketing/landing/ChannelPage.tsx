@@ -3,6 +3,7 @@ import { EmployeeCard } from "./EmployeeCard";
 import { Reveal } from "./primitives";
 import { ChannelGrid } from "./ChannelGrid";
 import { CapabilityColumns, SubpageCta, SubpageHero } from "./SubpageShell";
+import { ChatPlans } from "./ChatPlans";
 
 /**
  * The two channel landing pages, `/voice` and `/chat`.
@@ -75,6 +76,7 @@ export async function ChannelPage({ channel }: { channel: ChannelKey }) {
       </section>
 
       {channel === "chat" && <ChannelGrid />}
+      {channel === "chat" && <ChatPlans />}
 
       <SubpageCta label={t("cta")} />
     </>

@@ -14,6 +14,7 @@ import { saveDraft } from "@/lib/platform/drafts";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
 import { getHandlingState } from "@/lib/platform/handling";
 import type { ReplyResult } from "@/lib/platform/reply/types";
+import { canAiReplyOnChannel } from "@/lib/billing/chatEntitlement";
 
 /**
  * One inbound message in, one answer out — for any chat channel.
@@ -72,6 +73,27 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
     if (!canReplyOn(input.channel)) return { ...silent, reason: "channel_cannot_reply" };
     const transport = getTransport(input.channel);
     if (!transport) return { ...silent, reason: "no_transport" };
+
+    /**
+     * Did they buy this channel, and switch it on?
+     *
+     * Chat is sold as capacity — how many chat channels a workspace may run. A workspace can
+     * CONNECT more than it bought, on purpose: it should be able to set Telegram up and watch
+     * messages land in the Inbox before paying. Ingest therefore stays open and only the REPLY
+     * is gated, which is exactly how Instagram already behaves (receive-only).
+     *
+     * Voice is never refused here — its entitlement is the plan's concurrency limit, enforced
+     * at the lease.
+     */
+    const entitlement = await canAiReplyOnChannel(input.orgId, input.channel);
+    if (!entitlement.allowed) {
+      console.info("[REPLY][HELD][NOT_ENTITLED]", {
+        org_id: input.orgId,
+        channel: input.channel,
+        reason: entitlement.reason,
+      });
+      return { ...silent, reason: entitlement.reason ?? "channel_not_entitled" };
+    }
 
     /**
      * A person has this conversation — the AI does not speak over them.

@@ -126,7 +126,7 @@
       "eyebrow": "Fiyatlar",
       "headline": "Açık fiyat. Aydan aya.",
       "mostPicked": "En çok seçilen",
-      "included": "Telegram ve e-posta dahil, sayaçsız",
+      "included": "Sohbet ayrı satılır, kanal başına",
       "noSurprise": "Sürpriz fatura yok. Hiçbir zaman.",
       "noSurpriseBody": "Her planın sert bir harcama limiti var. Limite ulaştığınızda hattı durdurup size haber veriyoruz — sessizce üstüne fatura kesmiyoruz.",
       "seeMath": "Hesabı görün →"
@@ -732,14 +732,14 @@
     "eyebrow": "Fiyatlar",
     "headline": "Açık fiyat. Aydan aya.",
     "sub": "Ses dakikası için ödüyorsunuz. Çalışanınızın yaptığı diğer her şey dahil.",
-    "included": "Telegram ve e-posta dahil, sayaçsız",
+    "included": "Sohbet ayrı satılır, kanal başına",
     "mostPicked": "En çok seçilen",
     "payFor": "Ödediğiniz",
     "payForV": "Ses dakikası",
     "payForN": "Arama başına yukarı yuvarlanır, sonra toplanır.",
-    "inc": "Dahil",
-    "incV": "{count} kanal daha",
-    "incN": "Telegram ve e-posta. Mesaj sayacı yok.",
+    "inc": "Sohbet",
+    "incV": "Kanal başına",
+    "incN": "AI'ınızın hangi kanallarda yanıt vereceğini seçersiniz. Yine mesaj sayacı yok.",
     "notSold": "Henüz satılmıyor",
     "notSoldV": "{count} tanesi beta",
     "notSoldN": "Messenger, WhatsApp, SMS, web sohbeti. Hiçbir planda değil.",
@@ -760,8 +760,8 @@
         "a": "Her çalışma alanının sert bir harcama limiti var. Ulaştığınızda hattı durdurup size haber veriyoruz. Üstüne fatura kesip sonra hesaplaşmıyoruz."
       },
       {
-        "q": "Neyin sayacı yok",
-        "a": "Telegram ve e-posta konuşmaları. Dahiller ve tükenecek bir mesaj sayacı yok."
+        "q": "Hiçbir zaman sayılmayan",
+        "a": "Mesajlar. Sohbet hacimle değil kanalla satın alınır — hiçbir planda tükenecek bir mesaj sayacı yoktur."
       }
     ],
     "exampleTitle": "Örnek hesap",
@@ -933,12 +933,40 @@
         "Bir konuşmayı tıpkı bir arama gibi kayda ya da randevu talebine çevirir"
       ],
       "billingTitle": "Nasıl faturalanır",
-      "billingBody": "Faturalanmaz. Sohbet her plana dahildir ve tükenecek bir mesaj sayacı yoktur — yalnızca ses dakikası ödersiniz.",
+      "billingBody": "Mesajla değil, kanalla. AI'ınızın kaç sohbet kanalında yanıt vereceğini siz seçersiniz — bir kanal aylık $299, iki kanal $499 — ve tükenecek bir mesaj sayacı yoktur.",
       "notYet": [
         "Instagram'da yanıtlama henüz açık değil — yalnızca alıyor.",
         "Messenger, WhatsApp, SMS ve web sohbetinin henüz bağlayıcısı yok ve hiçbir planda değiller."
       ],
       "cta": "Kanallarınıza yerleştirin."
+    }
+  },
+  "chatPlans": {
+    "eyebrow": "Sohbet planları",
+    "headline": "Sohbet mesajla değil, kanalla satılır.",
+    "sub": "AI'ınızın hangi kanallarda yanıt vereceğini siz seçersiniz. Tükenecek bir mesaj sayacı yok.",
+    "availableTitle": "Bugün seçebileceğiniz kanallar",
+    "available": "Telegram ve e-posta. Diğerlerini şimdiden bağlayıp mesajların geldiğini görebilirsiniz — AI, o kanallar yayına girdiğinde yanıtlamaya başlar.",
+    "slotOne": "Seçeceğiniz 1 kanal",
+    "slotTwo": "Seçeceğiniz 2 kanal",
+    "custom": "Özel",
+    "customPrice": "Bize danışın",
+    "customNote": "Daha fazla kanal, CRM ve API entegrasyonları, kendi materyalinizle eğitilmiş model.",
+    "notPurchasable": "Sohbet planları henüz self-servis değil — hangi kanalları istediğinizi söyleyin, biz kuralım.",
+    "cta": "Sohbeti al",
+    "ctaContact": "Bize danışın",
+    "features": {
+      "basic": [
+        "Seçeceğiniz 1 kanal",
+        "Sizin üslubunuzla yanıtlar",
+        "Aramalarınızla aynı gelen kutusu",
+        "Aynen seste olduğu gibi kayıt ve randevu talepleri"
+      ],
+      "standard": [
+        "1 kanallı plandaki her şey",
+        "Seçeceğiniz 2 kanal",
+        "Öncelikli destek"
+      ]
     }
   }
 }

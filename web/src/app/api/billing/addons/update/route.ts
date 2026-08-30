@@ -20,7 +20,10 @@ function getCurrentMonthStart(): string {
  * Request schema for addon update.
  */
 const RequestSchema = z.object({
-  addon_key: z.enum(["extra_concurrency", "extra_phone"]),
+  // `chat_basic` / `chat_standard` sell chat capacity (how many channels the AI may
+  // answer on). They reuse this route wholesale — the Stripe flow, the idempotency key
+  // and the invoice-staleness marking are all already correct for them.
+  addon_key: z.enum(["extra_concurrency", "extra_phone", "chat_basic", "chat_standard"]),
   qty: z.number().int().min(0).max(100),
 });
 

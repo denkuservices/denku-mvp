@@ -46,6 +46,20 @@ const MAX_REPLY_CHARS = 1200;
  */
 const MAX_REPLIES_PER_CONVERSATION_PER_HOUR = 30;
 
+/**
+ * The same guard, one level up.
+ *
+ * The per-conversation cap stops one thread running away; it does nothing about a thousand
+ * threads opened at once, which is what an abusive integration or a leaked bot token actually
+ * looks like. This is the workspace ceiling for that case.
+ *
+ * Sized so no real customer meets it: an SMB answering 500 messages in a single hour is having
+ * an extraordinary day, and would still be answered for the first 500. It is a safety valve
+ * against a runaway model bill, NOT a billing meter — chat is sold by channel capacity, not by
+ * message count (docs/LANDING_V3_DESIGN_PLAN.md §9.7), and nothing here is metered for money.
+ */
+const MAX_REPLIES_PER_ORG_PER_HOUR = 500;
+
 export async function replyBudgetRemaining(
   orgId: string,
   conversationId: string,
@@ -53,15 +67,27 @@ export async function replyBudgetRemaining(
 ): Promise<boolean> {
   try {
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count, error } = await db
-      .from("messages")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("conversation_id", conversationId)
-      .eq("direction", "outbound")
-      .gte("created_at", since);
-    if (error) return true; // A broken count must not silence a real customer.
-    return (count ?? 0) < MAX_REPLIES_PER_CONVERSATION_PER_HOUR;
+    const base = () =>
+      db
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("direction", "outbound")
+        .gte("created_at", since);
+
+    // Both windows are asked at once — neither answer depends on the other, and waiting for the
+    // first before starting the second would be a round trip spent on nothing.
+    const [thread, workspace] = await Promise.all([
+      base().eq("conversation_id", conversationId),
+      base(),
+    ]);
+
+    // A broken count must not silence a real customer.
+    if (thread.error || workspace.error) return true;
+    return (
+      (thread.count ?? 0) < MAX_REPLIES_PER_CONVERSATION_PER_HOUR &&
+      (workspace.count ?? 0) < MAX_REPLIES_PER_ORG_PER_HOUR
+    );
   } catch {
     return true;
   }

@@ -6,6 +6,7 @@ import { LIVE_CHANNELS, BETA_CHANNELS } from "@/lib/marketing/content/channels";
 import { routing } from "@/i18n/routing";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
+import { ChatPlans } from "@/components/marketing/landing/ChatPlans";
 
 /**
  * Pricing — restyle and translate only.
@@ -159,6 +160,8 @@ export default async function PricingPage({
           })}
         </div>
       </section>
+
+      <ChatPlans />
 
       {/* What the price is actually for */}
       <section className="relative w-full px-6 py-16 md:px-8">
