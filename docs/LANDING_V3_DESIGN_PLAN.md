@@ -351,7 +351,7 @@ pages, 864/864 tests, lint clean on every file authored here.**
 | **i18n** | `next-intl` with `localePrefix: "as-needed"` — English at the root, `/es`, `/de`, `/tr`. Marketing moved under `app/[locale]`. Four message files, hand-written (not machine-translated). Locale switcher in the nav and footer. Sitemap emits every path per locale with `hreflang` alternates. |
 | **Geo detection** | Country → language in middleware (`x-vercel-ip-country`, `cf-ipcountry` fallback), unknown country → English. Skipped for crawlers, and skipped once `NEXT_LOCALE` exists so a manual choice is never overridden. |
 | **Auth** | Dark, matching the site. Right panel is a rotating three-scene story of the product (missed call → booked → remembered). Google/Facebook buttons present but genuinely `disabled` behind `NEXT_PUBLIC_SOCIAL_AUTH_ENABLED`. |
-| **Brand** | `DenkuMark` — a "D" whose bowl is three radiating signal arcs. Applied to nav, footer, auth, onboarding and the dashboard shell; `icon.svg` and `apple-icon.svg` generated from it. |
+| **Brand** | `DenkuMark` — three swept blades around a hollow core, filled by one diagonal gradient across the whole form. Applied to nav, footer, auth, onboarding and the dashboard shell; `icon.svg` and `apple-icon.svg` share the geometry. Gradient is **deep teal → brand teal → copper** (doc-17 tokens), chosen by rendering five candidates side by side: routing through bone came out milky, and copper→bone alone collapsed to one warm blob at favicon size. |
 | **Filled-out pages** | `/security` (six real controls plus a "not claimed" section naming no SOC 2, no HIPAA, no pen test) and `/company` (four engineering rules that can be checked against the product). |
 
 **Decisions taken rather than asked, with the reasoning:**
