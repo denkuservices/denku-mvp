@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
 
 /**
  * API Route: /api/vapi/start
- * 
+ *
  * Environment Variables Required (Server-side only):
  * - VAPI_API_KEY: Private API key for server-side Vapi operations (never exposed)
  * - VAPI_AGENT_ID: Marketing agent ID (can also be hardcoded constant)
- * 
+ *
  * Client-side Requirements:
  * - NEXT_PUBLIC_VAPI_PUBLIC_KEY: Public key from Vapi dashboard (safe to expose)
- * 
+ *
  * Flow:
- * 1. Client calls this route to get the assistantId
+ * 1. Client calls this route with the locale the page is being read in
  * 2. Client uses NEXT_PUBLIC_VAPI_PUBLIC_KEY to initialize Vapi Web SDK
- * 3. Client starts call with assistantId using Web SDK
+ * 3. Client starts the call with assistantId + assistantOverrides
  * 4. VAPI_API_KEY stays server-side (used by /lib/vapi/server.ts for admin operations)
+ *
+ * The overrides are built HERE rather than in the browser because they come from the language
+ * registry (`lib/language/registry.ts`), which decides what Denku can hear and speak. That
+ * decision should not be restatable — or contradictable — by client code.
  */
 
 // Marketing demo agent ID - server-side only
@@ -24,16 +29,16 @@ const MARKETING_AGENT_ID = process.env.VAPI_AGENT_ID || '155b21ad-2f8b-4593-b33c
 
 export async function POST(req: NextRequest) {
   try {
-    // Return ONLY the assistantId for the Web SDK to use
-    // The Web SDK will handle the call creation client-side using the public key
-    // This keeps VAPI_API_KEY server-side while allowing the client to start calls
-    
-    // Note: Vapi Web SDK requires a public key (NEXT_PUBLIC_VAPI_PUBLIC_KEY, safe to expose) to initialize
-    // The assistantId is returned here but could be considered semi-public
-    // For maximum security, consider using Vapi's token-based auth if available
-    
+    // Body is optional on purpose: an older client (or a cached bundle mid-deploy) posts nothing
+    // and must still get a working call, in English.
+    const body = await req.json().catch(() => null);
+    const locale = typeof body?.locale === 'string' ? body.locale : null;
+
     return NextResponse.json({
       assistantId: MARKETING_AGENT_ID,
+      // Per-call only. The demo assistant is a shared, live object — it also answers a real phone
+      // number — so the language is applied as an override and the assistant itself is untouched.
+      assistantOverrides: demoAssistantOverrides(locale),
     });
   } catch (error: any) {
     console.error('Vapi start error:', error);

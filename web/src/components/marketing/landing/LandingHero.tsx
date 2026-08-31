@@ -26,6 +26,11 @@ const SignalField = dynamic(() => import("./SignalField"), {
 export function LandingHero() {
   const t = useTranslations("home");
   const tc = useTranslations("common");
+  // The hero card names the same employee and the same channel as the roster below it, so it
+  // reads the same two keys rather than carrying its own copy of the words. One string to
+  // translate, and no way for the two to drift apart.
+  const temp = useTranslations("employees");
+  const tch = useTranslations("channels");
   const outcomes = t.raw("outcomes") as string[];
 
   return (
@@ -84,13 +89,9 @@ export function LandingHero() {
         <div className="flex justify-center lg:justify-end">
           <EmployeeCard
             name="Ava"
-            role="Receptionist · Voice"
+            role={`${temp("items.receptionist.role")} · ${tch("items.voice.label")}`}
             glyph="◍"
-            ticker={[
-              "Booked a 9:30am estimate",
-              "Texted back a missed call",
-              "Logged a new contact",
-            ]}
+            ticker={t.raw("hero.ticker") as string[]}
           />
         </div>
       </div>

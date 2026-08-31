@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Mic, PhoneOff, Loader2 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 
 /**
  * Premium Call Button Component
@@ -26,12 +27,33 @@ let Vapi: any = null;
  * accounts would leave this button rendering normally and failing silently on every click.
  * Now the server owns it, so `VAPI_AGENT_ID` alone is enough to repoint the demo.
  */
-async function fetchDemoAssistantId(): Promise<string | null> {
+type DemoSession = { assistantId: string; assistantOverrides?: Record<string, unknown> };
+
+/**
+ * The server also decides what language the demo answers in.
+ *
+ * The locale travels with the request because the page knows it and the API route does not: a
+ * visitor from Germany is reading `/de`, and a demo that greets them in English under a German
+ * page is the product contradicting itself. The overrides come back built from the language
+ * registry — the browser never gets to choose a voice or a transcriber.
+ */
+async function fetchDemoSession(locale: string): Promise<DemoSession | null> {
   try {
-    const res = await fetch('/api/vapi/start', { method: 'POST' });
+    const res = await fetch('/api/vapi/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale }),
+    });
     if (!res.ok) return null;
-    const data = (await res.json()) as { assistantId?: unknown };
-    return typeof data.assistantId === 'string' && data.assistantId ? data.assistantId : null;
+    const data = (await res.json()) as { assistantId?: unknown; assistantOverrides?: unknown };
+    if (typeof data.assistantId !== 'string' || !data.assistantId) return null;
+    return {
+      assistantId: data.assistantId,
+      assistantOverrides:
+        data.assistantOverrides && typeof data.assistantOverrides === 'object'
+          ? (data.assistantOverrides as Record<string, unknown>)
+          : undefined,
+    };
   } catch {
     return null;
   }
@@ -51,6 +73,13 @@ export type DemoCallButtonProps = {
 };
 
 export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
+  // The language the visitor is reading the page in. Safe here: every consumer of this button
+  // lives under the marketing `[locale]` tree, inside NextIntlClientProvider.
+  const locale = useLocale();
+  // Every visible string on this button comes from the message files. It used to be English
+  // hardcoded here, which meant a German visitor read a fully German page with an English call
+  // button on it — the one control the page exists to get pressed.
+  const t = useTranslations('home.demo');
   const [callState, setCallState] = useState<CallState>('idle');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,7 +219,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
     const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
     if (!publicKey) {
       setCallState('error');
-      setError('Voice agent is not available.');
+      setError(t('errUnavailable'));
       return;
     }
 
@@ -200,7 +229,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
         const module = await import('@vapi-ai/web');
         Vapi = module.default;
       } catch (e) {
-        setError('Unable to connect. Please refresh the page.');
+        setError(t('errRefresh'));
         setCallState('error');
         return;
       }
@@ -210,10 +239,10 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
     setError(null);
     setShowWarning(false);
 
-    const assistantId = await fetchDemoAssistantId();
-    if (!assistantId) {
+    const session = await fetchDemoSession(locale);
+    if (!session) {
       setCallState('error');
-      setError('Voice agent is not available.');
+      setError(t('errUnavailable'));
       return;
     }
 
@@ -227,8 +256,10 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
       // Reset ending flag when starting new call
       isEndingRef.current = false;
 
-      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID)
-      vapi.start(assistantId);
+      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID) and the
+      // per-call language overrides. Overrides are passed as the second argument so the shared
+      // demo assistant — which also answers a real phone number — is never modified.
+      vapi.start(session.assistantId, session.assistantOverrides);
 
       // Set up event handlers
       vapi.on('call-start', (data: any) => {
@@ -435,7 +466,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
         isEndingRef.current = false;
         
         console.error('Vapi error:', e);
-        setError('Connection error. Please try again.');
+        setError(t('errConnection'));
         setCallState('error');
         setShowWarning(false);
         if (durationTimerRef.current) {
@@ -467,7 +498,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
       vapiRef.current = vapi;
     } catch (err: any) {
       console.error('Start error:', err);
-      setError('Agent is unavailable. Please try again later.');
+      setError(t('errAgentDown'));
       setCallState('error');
     }
   };
@@ -568,27 +599,27 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
             <Mic className="h-4 w-4" />
           )}
         </span>
-        {callState === 'connecting' ? 'Connecting…' : isLive ? 'End call' : 'Talk to Denku now'}
+        {callState === 'connecting' ? t('connectingCta') : isLive ? t('endCall') : t('cta')}
       </button>
 
       {/* Minimal supporting text - only shown when idle */}
       {callState === 'idle' && !rateLimitCooldown && (
         <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
-          No signup · Takes 30 seconds
+          {t('noSignup')}
         </p>
       )}
 
       {/* Rate limit message - shown when cooldown is active */}
       {rateLimitCooldown && (
         <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
-          Please try again in a few minutes.
+          {t('cooldown')}
         </p>
       )}
 
       {/* Soft warning - only shown in last 1 minute */}
       {showWarning && isLive && (
         <p className="animate-in fade-in font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)] duration-200">
-          This session will end shortly.
+          {t('endingSoon')}
         </p>
       )}
 

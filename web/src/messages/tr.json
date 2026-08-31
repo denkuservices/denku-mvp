@@ -73,7 +73,17 @@
       "ready": "Hazır",
       "connecting": "Bağlanıyor",
       "listening": "Dinliyor",
-      "tryAgain": "Tekrar deneyin"
+      "tryAgain": "Tekrar deneyin",
+      "cta": "Denku ile konuşun",
+      "endCall": "Aramayı bitir",
+      "connectingCta": "Bağlanıyor…",
+      "noSignup": "Kayıt gerekmez · 30 saniye sürer",
+      "endingSoon": "Bu görüşme birazdan sona erecek.",
+      "cooldown": "Lütfen birkaç dakika sonra tekrar deneyin.",
+      "errUnavailable": "Sesli asistan şu anda kullanılamıyor.",
+      "errRefresh": "Bağlanılamadı. Lütfen sayfayı yenileyin.",
+      "errConnection": "Bağlantı hatası. Lütfen tekrar deneyin.",
+      "errAgentDown": "Asistan şu anda erişilebilir değil. Lütfen daha sonra deneyin."
     },
     "how": {
       "eyebrow": "İşe alım nasıl işler",
@@ -165,6 +175,13 @@
     "finalCta": {
       "headline": "Yeni çalışanınız",
       "headlineEmphasis": "bugün başlıyor"
+    },
+    "hero": {
+      "ticker": [
+        "09:30'a keşif randevusu verdi",
+        "Kaçan aramaya mesaj attı",
+        "Yeni kişi kaydetti"
+      ]
     }
   },
   "channels": {

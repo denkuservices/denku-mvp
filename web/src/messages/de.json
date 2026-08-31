@@ -73,7 +73,17 @@
       "ready": "Bereit",
       "connecting": "Verbindet",
       "listening": "Hört zu",
-      "tryAgain": "Erneut versuchen"
+      "tryAgain": "Erneut versuchen",
+      "cta": "Mit Denku sprechen",
+      "endCall": "Anruf beenden",
+      "connectingCta": "Verbinde …",
+      "noSignup": "Keine Anmeldung · Dauert 30 Sekunden",
+      "endingSoon": "Dieses Gespräch endet gleich.",
+      "cooldown": "Bitte versuchen Sie es in ein paar Minuten erneut.",
+      "errUnavailable": "Der Sprachassistent ist nicht verfügbar.",
+      "errRefresh": "Verbindung nicht möglich. Bitte laden Sie die Seite neu.",
+      "errConnection": "Verbindungsfehler. Bitte versuchen Sie es erneut.",
+      "errAgentDown": "Der Assistent ist gerade nicht erreichbar. Bitte später erneut versuchen."
     },
     "how": {
       "eyebrow": "So läuft die Einstellung",
@@ -165,6 +175,13 @@
     "finalCta": {
       "headline": "Ihr nächster Mitarbeiter",
       "headlineEmphasis": "fängt heute an"
+    },
+    "hero": {
+      "ticker": [
+        "Termin für 9:30 Uhr vergeben",
+        "Verpassten Anruf beantwortet",
+        "Neuen Kontakt angelegt"
+      ]
     }
   },
   "channels": {
