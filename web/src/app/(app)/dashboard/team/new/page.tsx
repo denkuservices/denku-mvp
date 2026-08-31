@@ -5,11 +5,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { getWorkspaceDefaultLanguage } from "@/lib/org/getWorkspaceDefaultLanguage";
 import { platformUxEnabled } from "@/lib/platform/flags";
-import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
-import { createAgentAction } from "../../agents/new/actions";
 import PageHeader from "../../_platform/PageHeader";
-import { Surface, CONTROL_CLASS } from "../../_platform/ui";
-import TimezoneField from "../../_platform/TimezoneField";
+import { Surface } from "../../_platform/ui";
+import HireEmployeeForm from "./HireEmployeeForm";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +44,39 @@ export default async function HireEmployeePage() {
     // Not signed into an org yet; English is the product default.
   }
 
+  /*
+   * Whether this employee will get a phone number, decided here so the form can SAY so before
+   * the button is pressed rather than after. A chat-only plan includes zero numbers, and a voice
+   * plan can be at its limit; in both cases the hire still succeeds and produces an employee that
+   * answers on chat channels.
+   */
+  let willGetPhone = false;
+  let phoneReason: string | null = "Your plan has no phone line available for it.";
+  try {
+    const orgId = await getActiveOrgId();
+    if (orgId) {
+      const { getEffectiveLimits } = await import("@/lib/billing/limits");
+      const limits = await getEffectiveLimits(orgId);
+      const { count } = await supabase
+        .from("agents")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .not("vapi_phone_number_id", "is", null)
+        .not("vapi_assistant_id", "is", null);
+
+      const bound = count ?? 0;
+      willGetPhone = bound < limits.included_phones;
+      phoneReason = willGetPhone
+        ? null
+        : limits.included_phones === 0
+          ? "Your plan does not include a phone line."
+          : `You are using all ${limits.included_phones} of your plan's numbers.`;
+    }
+  } catch {
+    // Never block hiring over a capacity read. The action makes the same decision again and is
+    // the one that counts; this only decides what the page promises.
+  }
+
   return (
     <div className="p-4 md:p-6">
       <Link
@@ -62,83 +93,11 @@ export default async function HireEmployeePage() {
 
       <div className="max-w-2xl">
         <Surface>
-          <form action={createAgentAction} className="space-y-5">
-            <div>
-              <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-                Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                required
-                placeholder="e.g. Front Desk"
-                className={`${CONTROL_CLASS} w-full`}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                How you&apos;ll recognise this employee in Denku.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div>
-                <label htmlFor="language" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-                  Primary language
-                </label>
-                {/*
-                  Options come from the language registry, so this picker cannot offer what the
-                  voice stack cannot speak. It used to list **Turkish** — removed from the other
-                  two pickers by R-135 for having no voice or transcriber behind it, and left
-                  standing here, the fourth list nobody knew to update.
-                */}
-                <select
-                  id="language"
-                  name="language"
-                  defaultValue={defaultLanguage}
-                  className={`${CONTROL_CLASS} w-full`}
-                >
-                  {LANGUAGE_CODES.map((code) => (
-                    <option key={code} value={code}>
-                      {LANGUAGES[code].label}
-                    </option>
-                  ))}
-                </select>
-                {/*
-                  Deliberately says something different about each channel, because the truth is
-                  different. In chat the system prompt instructs the AI to answer in whatever
-                  language the customer wrote in, with nothing to configure. On a call it is bound
-                  by the language registry — an ear that transcribes it and a mouth that speaks
-                  it — which is why the picker is short. Writing one reassuring sentence covering
-                  both would be false for voice, and false in the direction that loses a caller.
-                */}
-                <p className="mt-1 text-xs text-gray-500">
-                  What it speaks on calls, and its default everywhere. <strong>In chat it replies
-                  in whichever language the customer writes in</strong> — Turkish, German, anything —
-                  no setup needed. Calls are limited to the languages listed here; add more under
-                  Setup once it is hired.
-                </p>
-              </div>
-            </div>
-
-            {/*
-              Was a free-text box defaulting to "UTC". Almost nobody edited it, so employees were
-              created believing they worked in UTC — and this is the value the AI uses to decide
-              what "tomorrow" means when it books. A business in İstanbul books three hours off
-              and nothing looks broken while it happens.
-            */}
-            <TimezoneField />
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-              <button
-                type="submit"
-                className="inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600"
-              >
-                Hire
-              </button>
-              <Link href="/dashboard/team" className="text-sm font-medium text-gray-500 transition hover:text-gray-800 dark:hover:text-gray-200">
-                Cancel
-              </Link>
-            </div>
-          </form>
+          <HireEmployeeForm
+            defaultLanguage={defaultLanguage}
+            willGetPhone={willGetPhone}
+            phoneReason={phoneReason}
+          />
         </Surface>
 
         <p className="mt-4 text-xs text-gray-500">

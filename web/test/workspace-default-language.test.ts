@@ -14,7 +14,9 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
  * These tests pin the place the promise is now kept.
  */
 describe("the workspace default language is real", () => {
-  const hire = read("src/app/(app)/dashboard/team/new/page.tsx");
+  // The form itself lives in the client component; the page resolves the default and passes it.
+  const page = read("src/app/(app)/dashboard/team/new/page.tsx");
+  const hire = read("src/app/(app)/dashboard/team/new/HireEmployeeForm.tsx") + page;
 
   const helper = read("src/lib/org/getWorkspaceDefaultLanguage.ts");
 
@@ -42,7 +44,9 @@ describe("the workspace default language is real", () => {
 });
 
 describe("the hire form is not a fourth list of languages", () => {
-  const hire = read("src/app/(app)/dashboard/team/new/page.tsx");
+  // The form itself lives in the client component; the page resolves the default and passes it.
+  const page = read("src/app/(app)/dashboard/team/new/page.tsx");
+  const hire = read("src/app/(app)/dashboard/team/new/HireEmployeeForm.tsx") + page;
 
   it("offers exactly what the registry can speak", () => {
     expect(hire).toMatch(/LANGUAGE_CODES\.map/);
@@ -61,7 +65,10 @@ describe("the hire form is not a fourth list of languages", () => {
 
   it("stores a normalized language code", () => {
     const action = read("src/app/(app)/dashboard/agents/new/actions.ts");
-    expect(action).toMatch(/resolveLanguage\(mustString\(formData\.get\("language"\)/);
+    // `mustString` threw on a missing field, which reached the error boundary as "Something
+    // went wrong". The read is explicit now, but it is still normalised through the registry.
+    expect(action).toMatch(/readString\(formData\.get\("language"\)\)/);
+    expect(action).toMatch(/resolveLanguage\(languageRaw\)/);
   });
 
   it("every code the registry has is offerable", () => {
