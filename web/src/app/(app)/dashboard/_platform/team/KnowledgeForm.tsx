@@ -11,6 +11,7 @@ import {
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import { draftKnowledgeAction } from "./_actions/draftKnowledge";
+import { examplesForTimezone } from "./knowledgeExamples";
 import {
   BUSINESS_CONTEXT_FIELDS,
   toSetupFormState,
@@ -47,6 +48,21 @@ export default function KnowledgeForm({
    */
   const [justSaved, setJustSaved] = React.useState(false);
   const [drafting, setDrafting] = React.useState(false);
+  /**
+   * Placeholder examples for wherever the reader actually is.
+   *
+   * Resolved after mount so the server and the first client render agree; until then the
+   * employee's own saved timezone stands, which is usually already right.
+   */
+  const [zone, setZone] = React.useState<string | null>(employee.timezone ?? null);
+  React.useEffect(() => {
+    try {
+      setZone(Intl.DateTimeFormat().resolvedOptions().timeZone || employee.timezone || null);
+    } catch {
+      // Keep the employee's saved zone.
+    }
+  }, [employee.timezone]);
+  const examples = React.useMemo(() => examplesForTimezone(zone), [zone]);
   /** True once a draft has been loaded, so the form can say these words are not saved yet. */
   const [draftLoaded, setDraftLoaded] = React.useState(false);
 
@@ -197,7 +213,7 @@ export default function KnowledgeForm({
                   onChange={(e) => setContext((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   disabled={paused}
                   rows={4}
-                  placeholder={field.placeholder}
+                  placeholder={examples[field.key]}
                   className={`${CONTROL_CLASS} h-auto w-full py-2`}
                 />
               ) : (
@@ -207,7 +223,7 @@ export default function KnowledgeForm({
                   value={context[field.key]}
                   onChange={(e) => setContext((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   disabled={paused}
-                  placeholder={field.placeholder}
+                  placeholder={examples[field.key]}
                   className={`${CONTROL_CLASS} w-full`}
                 />
               )}
