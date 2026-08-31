@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripeClient } from "../create-draft-invoice-helpers";
 import { logEvent } from "@/lib/observability/logEvent";
+import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
  * POST /api/billing/stripe/sync-checkout
@@ -152,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 9) Validate plan_code
-    if (!["starter", "growth", "scale"].includes(planCode)) {
+    if (!isActivatablePlanCode(planCode)) {
       logEvent({
         tag: "[BILLING][SYNC_CHECKOUT][INVALID_PLAN]",
         ts: Date.now(),
@@ -201,6 +203,26 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "Failed to activate plan" },
         { status: 500 }
       );
+    }
+
+    // 10b) A chat-only purchase bought a chat TIER, not the $0 base plan. The webhook does the
+    //      same thing; this is the path a refreshed success page takes when the webhook is slow,
+    //      and the two must agree — otherwise whether chat works would depend on which arrived
+    //      first. Idempotent on (org_id, addon_key), so both running is harmless.
+    const chatAddonKey = session.metadata?.chat_addon_key;
+    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+      const recorded = await recordChatPurchase(org_id, chatAddonKey);
+      logEvent({
+        tag: recorded.ok
+          ? "[BILLING][SYNC_CHECKOUT][CHAT_ADDON_RECORDED]"
+          : "[BILLING][SYNC_CHECKOUT][CHAT_ADDON_FAILED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: org_id,
+        severity: recorded.ok ? "info" : "error",
+        details: { session_id: session_id, addon_key: chatAddonKey, error: recorded.error },
+      });
     }
 
     // 11) Update billing_stripe_customers if subscription exists

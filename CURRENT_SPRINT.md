@@ -168,12 +168,19 @@ resolves the name rather than printing a raw code. Both server routes (`/api/bil
 and `/api/billing/stripe/checkout`) already hardcode `starter | growth | scale`, so the API was
 never exposed — the hole was the UI card alone.
 
-**Still not reachable: buying chat WITHOUT voice.** Those same two server allowlists are why. The
-`chat_only` plan exists as the foundation, but no flow assigns it: `/chat` sends people to
-`/signup`, and onboarding offers only the three voice plans. So today chat is an add-on a voice
-customer can buy, and a chat-only signup is **not yet a path**. Building it means letting
-onboarding land on `chat_only` and letting the checkout create a $0 subscription for it — real
-work in the onboarding step machine, deliberately not bolted on here.
+~~**Still not reachable: buying chat WITHOUT voice.**~~ **BUILT 2026-08-31.** The plan step now
+offers the two chat tiers under the voice plans, the phone step offers "I don't need a phone
+line", and activation skips Vapi entirely for `chat_only` — otherwise it would have bought a US
+phone line every month for a customer who bought chat. Reasoning in
+[docs/LANDING_V3_DESIGN_PLAN.md](docs/LANDING_V3_DESIGN_PLAN.md) §9.10.
+
+⚠️ **Not yet exercised end to end.** It is verified by types, build and unit tests, not by a real
+signup: that needs an account going through Stripe checkout on a deployed environment. Worth
+walking once before it is advertised — the specific things to watch are that the webhook writes
+`billing_org_addons` (log `[BILLING][WEBHOOK][CHAT_ADDON_RECORDED]`), that activation logs
+`[ONBOARDING][ACTIVATION][CHAT_ONLY_SKIPPED]` and provisions **no** phone number, and that the
+first Telegram or email message gets an answer — the paid slot claims itself on that first
+message (`[CHAT][SLOT][CLAIMED]`).
 
 **A gap found while wiring this up, and closed:** the billing settings page filters its add-on
 grid down to `extra_concurrency` and `extra_phone`, so the chat tiers would never have appeared —

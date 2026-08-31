@@ -3,9 +3,12 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { VOICE_PLAN_CODES } from "@/lib/billing/chatPlanKeys";
 
 const RequestSchema = z.object({
-  plan_code: z.enum(["starter", "growth", "scale"]),
+  // Voice plans only, on purpose: moving an existing workspace onto `chat_only` would
+  // strand the phone number it is already paying for. That is a migration, not a switch.
+  plan_code: z.enum(VOICE_PLAN_CODES),
 });
 
 /**

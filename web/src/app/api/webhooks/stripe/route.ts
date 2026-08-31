@@ -3,6 +3,8 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { pauseOrgBilling, resumeOrgBilling } from "@/lib/billing/pause";
+import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
  * Verify Stripe webhook signature.
@@ -250,7 +252,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Validate plan_code
-      if (!["starter", "growth", "scale"].includes(planCode)) {
+      if (!isActivatablePlanCode(planCode)) {
         logEvent({
           tag: "[BILLING][WEBHOOK][CHECKOUT_INVALID_PLAN]",
           ts: Date.now(),
@@ -297,6 +299,27 @@ export async function POST(req: NextRequest) {
         });
         // Still return 200 - we'll retry on next webhook if needed
         return NextResponse.json({ received: true });
+      }
+
+
+      // A chat-only purchase bought a chat TIER, not the $0 base plan. Record it, so the
+      // workspace lands with the capacity it just paid for rather than an empty entitlement.
+      // Idempotent, and never throws: this webhook is for a payment Stripe has already taken,
+      // so a failure here must be logged and repaired, not turned into a retry loop.
+      const chatAddonKey = session.metadata?.chat_addon_key;
+      if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+        const recorded = await recordChatPurchase(orgId, chatAddonKey);
+        logEvent({
+          tag: recorded.ok
+            ? "[BILLING][WEBHOOK][CHAT_ADDON_RECORDED]"
+            : "[BILLING][WEBHOOK][CHAT_ADDON_FAILED]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: orgId,
+          severity: recorded.ok ? "info" : "error",
+          details: { session_id: session.id, addon_key: chatAddonKey, error: recorded.error },
+        });
       }
 
       // Hard logging for plan activation

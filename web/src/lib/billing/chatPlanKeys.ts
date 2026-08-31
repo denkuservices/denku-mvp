@@ -36,6 +36,36 @@ export function isChatAddonKey(key: string): boolean {
 export const CHAT_ONLY_PLAN_CODE = "chat_only";
 
 /**
+ * The three plans that come with a phone line.
+ *
+ * `["starter", "growth", "scale"]` was written out by hand in five places — the plan-change
+ * route, the two checkout entry points, the Stripe webhook and the redirect-fallback sync.
+ * Four of those had to learn about `chat_only` and one deliberately must not, which is exactly
+ * the situation where five copies drift apart and a purchase completes on one path but is
+ * refused on another. They read from here now.
+ */
+export const VOICE_PLAN_CODES = ["starter", "growth", "scale"] as const;
+
+export type VoicePlanCode = (typeof VOICE_PLAN_CODES)[number];
+
+/** A plan that provisions a phone number. The only kind a customer picks from the plan grid. */
+export function isVoicePlanCode(planCode: string): planCode is VoicePlanCode {
+  return (VOICE_PLAN_CODES as readonly string[]).includes(planCode);
+}
+
+/**
+ * A plan code a completed checkout may activate.
+ *
+ * Wider than `isVoicePlanCode` by exactly one: a chat-only purchase lands the workspace on
+ * `chat_only`. Deliberately NOT used by the plan-change route — moving an existing workspace
+ * onto `chat_only` would strand the phone number it is already paying for, and that is a
+ * migration, not a plan switch.
+ */
+export function isActivatablePlanCode(planCode: string): boolean {
+  return isVoicePlanCode(planCode) || planCode === CHAT_ONLY_PLAN_CODE;
+}
+
+/**
  * Whether a plan may be OFFERED in the plan grid.
  *
  * `chat_only` must not be: it is a foundation a chat-only signup lands on, not a plan a

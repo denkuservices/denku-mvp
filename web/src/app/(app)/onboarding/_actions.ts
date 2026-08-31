@@ -11,6 +11,12 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import Stripe from "stripe";
+import {
+  isVoicePlanCode,
+  isChatAddonKey,
+  CHAT_ONLY_PLAN_CODE,
+  CHAT_ADDON_SLOTS,
+} from "@/lib/billing/chatPlanKeys";
 
 /**
  * Form action: Bootstrap workspace (Step 0)
@@ -168,6 +174,7 @@ export async function getOnboardingState() {
       planCode: null,
       isPlanActive: false,
       plans: [],
+      chatPlans: [],
       hasPhoneNumber: false,
       phoneNumber: null,
       needsOrgSetup: true,
@@ -278,6 +285,27 @@ export async function getOnboardingState() {
 
   const plans = plansData || [];
 
+  // 11b) The chat tiers, for a customer who wants an AI that answers messages and no phone line.
+  //
+  // `stripe_price_id IS NOT NULL` is a deliberate part of the query, not an afterthought: a tier
+  // whose Stripe price is unconfigured cannot be charged for, so it must not be offered. That is
+  // the same fail-closed rule the add-on route and `startChatCheckout` apply — enforced here too,
+  // so the customer never sees a button that would refuse them.
+  const { data: chatPlansData } = await supabaseAdmin
+    .from("billing_addon_catalog")
+    .select("addon_key, label, price_usd_month")
+    .in("addon_key", Object.keys(CHAT_ADDON_SLOTS))
+    .eq("is_active", true)
+    .not("stripe_price_id", "is", null)
+    .order("price_usd_month");
+
+  const chatPlans = (chatPlansData || []).map((row) => ({
+    addon_key: row.addon_key as string,
+    label: row.label as string,
+    price_usd_month: Number(row.price_usd_month),
+    channels: CHAT_ADDON_SLOTS[row.addon_key as string] ?? 1,
+  }));
+
   // 12) Get saved onboarding preferences (goal, language, country, area_code, selected_number_type)
   const onboardingGoal = (settings as any)?.onboarding_goal || null;
   const onboardingLanguage = (settings as any)?.onboarding_language || null;
@@ -330,6 +358,7 @@ export async function getOnboardingState() {
       concurrency_limit: p.concurrency_limit,
       included_phone_numbers: p.included_phone_numbers,
     })),
+    chatPlans,
     hasPhoneNumber,
     phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
     phoneNumberE164, // Also include as separate field for clarity
@@ -875,7 +904,16 @@ type VapiPhoneNumberDetails = { id: string; number?: string; phoneNumber?: strin
  * Called automatically when user reaches Step 4 (Activating).
  */
 export async function runActivation(): Promise<
-  { ok: true; phoneNumberE164: string | null; phoneNumberSipUri: string | null; vapiPhoneNumberId: string; vapiAssistantId: string } | { ok: false; error: string }
+  | {
+      ok: true;
+      phoneNumberE164: string | null;
+      phoneNumberSipUri: string | null;
+      // Null for a chat-only workspace: there is no line to provision and no assistant to
+      // answer it. Every other plan still returns both.
+      vapiPhoneNumberId: string | null;
+      vapiAssistantId: string | null;
+    }
+  | { ok: false; error: string }
 > {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -905,6 +943,46 @@ export async function runActivation(): Promise<
 
   if (!planLimits?.plan_code) {
     return { ok: false, error: "Plan not active yet. Please wait for payment confirmation." };
+  }
+
+  /**
+   * A chat-only workspace has nothing to activate.
+   *
+   * Activation exists to create a Vapi assistant and provision a phone number. `chat_only`
+   * carries zero minutes, zero concurrency and zero numbers — running any of that would buy a
+   * US phone line, every month, for a customer who bought chat. So this path skips straight to
+   * Live.
+   *
+   * The wizard needs no special handling for it: the phone-status poll on the Live step is
+   * guarded on `vapiPhoneNumberId`, which stays null here, so it never starts and never waits
+   * for an E164 that will never arrive.
+   *
+   * Idempotent like the rest of activation — `completeOnboarding` writes step 6, and steps only
+   * ever move forward.
+   */
+  if (planLimits.plan_code === CHAT_ONLY_PLAN_CODE) {
+    const completed = await completeOnboarding(orgId);
+    if (!completed.ok) {
+      return { ok: false, error: completed.error || "Could not finish setup. Please try again." };
+    }
+
+    logEvent({
+      tag: "[ONBOARDING][ACTIVATION][CHAT_ONLY_SKIPPED]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "info",
+      details: { reason: "chat_only plan has no phone line to provision" },
+    });
+
+    return {
+      ok: true,
+      phoneNumberE164: null,
+      phoneNumberSipUri: null,
+      vapiPhoneNumberId: null,
+      vapiAssistantId: null,
+    };
   }
 
   // Check workspace status and check for existing activation artifacts (idempotency)
@@ -1492,7 +1570,7 @@ export async function startPlanCheckout(planCode: "starter" | "growth" | "scale"
     }
 
     // 3) Validate plan_code
-    if (!["starter", "growth", "scale"].includes(planCode)) {
+    if (!isVoicePlanCode(planCode)) {
       return { ok: false, error: "Invalid plan_code" };
     }
 
@@ -1674,6 +1752,179 @@ export async function startPlanCheckout(planCode: "starter" | "growth" | "scale"
         planCode: planCode,
         error: errorMsg,
       },
+    });
+    return { ok: false, error: errorMsg };
+  }
+}
+
+/**
+ * Start checkout for a workspace that wants chat and no phone line.
+ *
+ * Deliberately NOT `startPlanCheckout("chat_only")`. That action builds a price from
+ * `billing_plan_catalog.monthly_fee_usd`, and `chat_only` is $0 — it would create a
+ * subscription that charges nothing, and the chat tier would then have to be sold a second
+ * time from the billing page. A customer who came to buy chat would have paid for nothing
+ * and still not have chat.
+ *
+ * So the thing being bought here IS the chat tier: the session's line item is the tier's real
+ * Stripe price. `chat_only` is only the base plan the workspace lands on, recording that it
+ * has no voice — zero minutes, zero concurrency, zero numbers, which is also how the existing
+ * lease check keeps voice off for these workspaces without a line of new code.
+ *
+ * That shape also keeps the later upgrade path working: the subscription now carries an item
+ * priced at the chat tier, which is exactly what `/api/billing/addons/update` looks for when
+ * it changes or removes a tier.
+ *
+ * Fails CLOSED on a missing `stripe_price_id` — the same rule as the add-on route. An offer we
+ * cannot charge for must not reach a checkout page.
+ */
+export async function startChatCheckout(addonKey: string) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { ok: false, error: "UNAUTH" };
+    }
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("org_id")
+      .eq("auth_user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    const orgId = profiles && profiles.length > 0 ? profiles[0].org_id : null;
+    if (!orgId) {
+      return { ok: false, error: "NO_ORG" };
+    }
+
+    if (!isChatAddonKey(addonKey)) {
+      return { ok: false, error: "Invalid chat plan" };
+    }
+
+    // Same pause rule as the voice checkout: never take money from a workspace already in
+    // billing trouble.
+    const { data: orgSettings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("workspace_status, paused_reason")
+      .eq("org_id", orgId)
+      .maybeSingle<{
+        workspace_status: "active" | "paused" | null;
+        paused_reason: string | null;
+      }>();
+
+    if (
+      orgSettings?.workspace_status === "paused" &&
+      (orgSettings.paused_reason === "hard_cap" || orgSettings.paused_reason === "past_due")
+    ) {
+      return { ok: false, error: "BILLING_PAUSED", reason: orgSettings.paused_reason };
+    }
+
+    // The tier's real price. Null here means an operator has not finished the Stripe setup,
+    // and the honest response is to refuse rather than open a checkout that cannot complete.
+    const { data: addonCatalog } = await supabaseAdmin
+      .from("billing_addon_catalog")
+      .select("stripe_price_id, label, price_usd_month")
+      .eq("addon_key", addonKey)
+      .eq("is_active", true)
+      .maybeSingle<{
+        stripe_price_id: string | null;
+        label: string;
+        price_usd_month: number;
+      }>();
+
+    if (!addonCatalog?.stripe_price_id) {
+      logEvent({
+        tag: "[ONBOARDING][CHAT_CHECKOUT][CONFIG_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "error",
+        details: { addon_key: addonKey, error: "stripe_price_id not configured" },
+      });
+      return { ok: false, error: "Chat plans are not available yet. Please contact support." };
+    }
+
+    let stripe: Stripe;
+    try {
+      stripe = getStripeClient();
+    } catch {
+      return { ok: false, error: "Payment service unavailable" };
+    }
+
+    let stripeCustomerId: string;
+    try {
+      stripeCustomerId = await ensureStripeCustomer(stripe, orgId);
+    } catch {
+      return { ok: false, error: "Failed to setup customer account" };
+    }
+
+    const appUrl = getBaseUrl();
+
+    let checkoutSession: Stripe.Checkout.Session;
+    try {
+      checkoutSession = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        payment_method_types: ["card"],
+        mode: "subscription",
+        line_items: [{ price: addonCatalog.stripe_price_id, quantity: 1 }],
+        success_url: `${appUrl}/onboarding?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/onboarding?checkout=cancel`,
+        metadata: {
+          org_id: orgId,
+          // The base plan the workspace lands on — read by the webhook and the redirect fallback.
+          plan_code: CHAT_ONLY_PLAN_CODE,
+          // What was actually bought. Both completion paths write this into billing_org_addons.
+          chat_addon_key: addonKey,
+          kind: "onboarding_chat_purchase",
+        },
+        allow_promotion_codes: true,
+      });
+    } catch (checkoutErr) {
+      const errorMsg =
+        checkoutErr instanceof Error ? checkoutErr.message : "Checkout session creation failed";
+      logEvent({
+        tag: "[ONBOARDING][CHAT_CHECKOUT][SESSION_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "error",
+        details: { addon_key: addonKey, error: errorMsg },
+      });
+      return { ok: false, error: "Failed to create checkout session" };
+    }
+
+    logEvent({
+      tag: "[ONBOARDING][CHAT_CHECKOUT][CREATED]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "info",
+      details: {
+        addon_key: addonKey,
+        checkout_session_id: checkoutSession.id,
+        amount: addonCatalog.price_usd_month,
+      },
+    });
+
+    if (!checkoutSession.url) {
+      return { ok: false, error: "Checkout session created but no URL returned" };
+    }
+
+    return { ok: true, url: checkoutSession.url };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    logEvent({
+      tag: "[ONBOARDING][CHAT_CHECKOUT][ERROR]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      severity: "error",
+      details: { addon_key: addonKey, error: errorMsg },
     });
     return { ok: false, error: errorMsg };
   }

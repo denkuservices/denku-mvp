@@ -585,6 +585,52 @@ previous behaviour; studio passes "Ask for a quote" and an in-page jump to the p
 href renders a plain anchor rather than a locale-prefixed router link, and the section carries
 `scroll-mt-24` so the heading does not land under the fixed navbar.
 
+### 9.10 Buying chat without voice (2026-08-31)
+
+Chat was sellable as an add-on to a voice customer, but a chat-only signup was **not a path**:
+`/chat` sends people to `/signup`, and onboarding offered only the three voice plans. The
+`chat_only` plan existed as a foundation with nothing standing on it. This closes that.
+
+**The purchase is the chat tier, not the $0 plan.** The obvious implementation —
+`startPlanCheckout("chat_only")` — builds its price from `billing_plan_catalog.monthly_fee_usd`,
+which is $0. It would create a subscription that charges nothing, and the tier would then have to
+be sold a second time from the billing page: a customer who came to buy chat would have paid for
+nothing and still not have chat. So `startChatCheckout` puts the tier's **real** Stripe price on
+the session, and `chat_only` is only the base plan the workspace lands on, recording that it has
+no voice. That also keeps the upgrade path intact — the subscription now carries an item priced at
+the chat tier, which is exactly what `/api/billing/addons/update` looks for when changing tiers.
+
+**Five copies of one allowlist.** `["starter", "growth", "scale"]` was written out by hand in the
+plan-change route, both checkout entry points, the Stripe webhook and the redirect-fallback sync.
+Four had to learn about `chat_only` and **one deliberately must not** — moving an existing
+workspace onto `chat_only` would strand the phone number it is already paying for, which is a
+migration, not a plan switch. Five hand-written copies with four-fifths of a rule change is how a
+purchase completes on one path and is refused on another, so they now read `isVoicePlanCode` /
+`isActivatablePlanCode` from one module.
+
+**Both completion paths write the same row.** The webhook and the success-page fallback both call
+`recordChatPurchase`. If only one did, whether a customer's chat worked would depend on which
+arrived first. It is idempotent on `(org_id, addon_key)`, clears the other tier so nobody holds
+both, and **never throws** — both run after Stripe has already taken the money, so a failure has
+to be reportable rather than fatal.
+
+**Activation has nothing to do.** `runActivation` exists to create a Vapi assistant and provision
+a US phone number. For `chat_only` it now short-circuits to Live. Without that it would have
+bought a phone line, every month, for a customer who bought chat. The wizard needed no new
+plumbing for it: the Live step's phone poll is already guarded on `vapiPhoneNumberId`, which stays
+null, so it never waits for an E164 that will never arrive.
+
+**Three places the wizard would otherwise have lied.** The phone step now offers "I don't need a
+phone line"; the activation step no longer says it is claiming a number; and the Live step has a
+chat-only variant, because the voice one reserves a number, counts down while a carrier switches
+it on, and invites you to call it — leaving a chat customer watching a card promising a number
+that never comes.
+
+**Unconfigured tiers are invisible.** `getOnboardingState` filters on `stripe_price_id IS NOT
+NULL`, so a tier nobody can be charged for never reaches a button — the same fail-closed rule the
+add-on route and `startChatCheckout` apply, enforced one step earlier so the customer never meets
+it as an error.
+
 ## 10. Buy vs build
 
 - **ThemeForest: no** — and §0 is the reason. The admired reference *is* a ThemeForest theme; buying

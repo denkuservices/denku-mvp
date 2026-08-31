@@ -15,6 +15,7 @@ import {
   Settings2,
   ShieldCheck,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ import {
   advanceToPlanAction,
   runActivation,
   startPlanCheckout,
+  startChatCheckout,
   getOnboardingState,
   checkPhoneStatus,
   savePhonePreferences,
@@ -55,6 +57,14 @@ type OnboardingState = {
     overage_rate_usd_per_min: number;
     concurrency_limit: number;
     included_phone_numbers: number;
+  }>;
+  /** Chat tiers, for a workspace that wants messages answered and no phone line. Empty
+   *  when no tier has a configured Stripe price — an offer we cannot charge for is not shown. */
+  chatPlans: Array<{
+    addon_key: string;
+    label: string;
+    price_usd_month: number;
+    channels: number;
   }>;
   hasPhoneNumber: boolean;
   phoneNumber: string | null;
@@ -177,6 +187,14 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false); // true when starting checkout
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
+  // Whether this workspace bought chat and no phone line. Read from the plan the DB actually
+  // holds, not from what was clicked, so a refreshed page or a resumed session is still right.
+  const isChatOnly = state.planCode === "chat_only";
+
+  // A chat tier, chosen INSTEAD of a voice plan. The two are mutually exclusive — one buys a
+  // phone line, the other buys channels and no phone line at all — so selecting either clears
+  // the other rather than letting a customer think they are buying both.
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false); // true when polling for plan activation
   const [paramsCleared, setParamsCleared] = useState(false); // track if query params have been cleared
 
@@ -967,6 +985,29 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         <SubmitButton disabled={!!areaCodeError}>Continue</SubmitButton>
                       </div>
                     </form>
+
+                    {/*
+                      A chat-only customer has no use for an area code, and asking anyway makes
+                      the product look like it only does phones. This skips straight to the plan
+                      step, where the chat tiers live.
+
+                      It is its own form because the one above saves the phone preferences; this
+                      must save nothing. `advanceToPlanAction` only moves the step forward, and
+                      steps never move back, so a customer who changes their mind and buys voice
+                      loses nothing — activation falls back to area code 321 exactly as it does
+                      for anyone who leaves the field blank.
+                    */}
+                    <form action={formAction} className="flex justify-center border-t border-[#0A1A2F]/10 pt-5">
+                      <input type="hidden" name="_action" value="advanceToPlan" />
+                      <input type="hidden" name="orgId" value={state.orgId || ""} />
+                      <button
+                        type="submit"
+                        disabled={isPending}
+                        className="text-sm text-[#6B7888] underline underline-offset-4 transition-colors hover:text-[#1B6E6E] disabled:opacity-60"
+                      >
+                        I don&apos;t need a phone line — I want chat
+                      </button>
+                    </form>
                   </>
                 )}
               </div>
@@ -1064,6 +1105,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                                   disabled={isPending}
                                   onClick={() => {
                                     setSelectedPlan(plan.plan_code);
+                                    setSelectedChat(null);
                                     setError(null);
                                     setCheckoutMessage(null);
                                   }}
@@ -1076,8 +1118,106 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         })}
                     </div>
 
+                    {/*
+                      Chat instead of voice.
+
+                      Placed under the voice plans rather than beside them because it is a
+                      different shape of purchase, not a fourth size: it buys channels the AI
+                      answers on and NO phone line. Selecting one clears the voice selection, so
+                      the checkout button can only ever mean one thing.
+
+                      Renders only when a tier has a configured Stripe price — `getOnboardingState`
+                      filters on that, so an offer we cannot charge for never reaches a button.
+                    */}
+                    {state.chatPlans.length > 0 && (
+                      <div className="space-y-4 border-t border-[#0A1A2F]/10 pt-7">
+                        <div>
+                          <h3 className="font-display text-[19px] font-normal text-[#0A1A2F]">
+                            Or skip the phone line entirely
+                          </h3>
+                          <p className="mt-2 text-[14px] leading-relaxed text-[#2C3E54]">
+                            An AI that answers messages instead of calls. Sold by channel, not by
+                            message — there is no counter to run out of.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          {state.chatPlans.map((tier) => {
+                            const isSelected = selectedChat === tier.addon_key;
+                            return (
+                              <div
+                                key={tier.addon_key}
+                                className={`flex flex-col rounded-[16px] border p-5 transition-all ${
+                                  isSelected
+                                    ? "border-[#1B6E6E] bg-[#E3EEED] brand-shadow-md"
+                                    : "border-[#0A1A2F]/10 bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                                }`}
+                              >
+                                <h4 className="font-display text-[16px] font-medium text-[#0A1A2F]">
+                                  {tier.channels === 1 ? "1 chat channel" : `${tier.channels} chat channels`}
+                                </h4>
+                                <div className="mt-1.5">
+                                  <span className="font-display text-[26px] font-medium text-[#0A1A2F]">
+                                    {formatUsd(tier.price_usd_month)}
+                                  </span>
+                                  <span className="text-sm text-[#6B7888]">/month</span>
+                                </div>
+                                <div className="mt-3 flex-1 space-y-1.5 text-sm text-[#2C3E54]">
+                                  <p>Telegram or email, your choice</p>
+                                  <p>No phone number, no call minutes</p>
+                                  <p>Same inbox, tickets and appointments</p>
+                                </div>
+                                <Button
+                                  className={`mt-4 w-full ${isSelected ? tealBtn : outlineBtn}`}
+                                  disabled={isPending}
+                                  onClick={() => {
+                                    setSelectedChat(tier.addon_key);
+                                    setSelectedPlan(null);
+                                    setError(null);
+                                    setCheckoutMessage(null);
+                                  }}
+                                >
+                                  {isSelected ? "Selected" : "Select"}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Action buttons */}
                     <div className="flex flex-col items-center gap-3 pt-2">
+                      {selectedChat && (
+                        <Button
+                          className={`min-w-[220px] ${primaryBtn}`}
+                          disabled={checkoutLoading || isPending || isConfirming}
+                          onClick={() => {
+                            if (!selectedChat) return;
+                            setCheckoutLoading(true);
+                            setError(null);
+                            setCheckoutMessage(null);
+                            startTransition(async () => {
+                              const result = await startChatCheckout(selectedChat);
+                              if (result.ok && result.url) {
+                                window.location.href = result.url;
+                              } else {
+                                setCheckoutLoading(false);
+                                if (result.error === "UNAUTH") {
+                                  setError("Authentication error. Please refresh the page and try again.");
+                                } else if (result.error === "BILLING_PAUSED") {
+                                  setError("BILLING_PAUSED");
+                                } else {
+                                  setError(result.error || "Failed to start checkout");
+                                }
+                              }
+                            });
+                          }}
+                        >
+                          {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                        </Button>
+                      )}
+
                       {selectedPlan && (
                         <Button
                           className={`min-w-[220px] ${primaryBtn}`}
@@ -1159,8 +1299,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   </h2>
                   <p className="mt-3 text-[15px] text-[#2C3E54]">
                     {isActivating
-                      ? "Claiming your number and teaching your AI how to answer for your business."
-                      : "Everything is set up. Next, it starts taking calls."}
+                      ? isChatOnly
+                        ? "Teaching your AI how to answer for your business."
+                        : "Claiming your number and teaching your AI how to answer for your business."
+                      : isChatOnly
+                        ? "Everything is set up. Next, connect a channel."
+                        : "Everything is set up. Next, it starts taking calls."}
                   </p>
                 </div>
 
@@ -1171,11 +1315,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   be a progress bar we cannot actually back.
                 */}
                 <div className="mx-auto max-w-md space-y-3">
-                  {[
-                    "Claiming your phone number",
-                    "Creating your AI employee",
-                    "Connecting the two together",
-                  ].map((label) => (
+                  {(isChatOnly
+                    ? [
+                        // No line is claimed for a chat-only workspace, so the list must not
+                        // claim one — this step is over in a moment, but it must not lie while
+                        // it is on screen.
+                        "Creating your AI employee",
+                        "Getting your inbox ready",
+                      ]
+                    : [
+                        "Claiming your phone number",
+                        "Creating your AI employee",
+                        "Connecting the two together",
+                      ]
+                  ).map((label) => (
                     <div
                       key={label}
                       className="flex items-center gap-3 rounded-[12px] border border-[#0A1A2F]/[0.06] bg-[#FBFAF8] p-4"
@@ -1205,7 +1358,63 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             )}
 
             {/* Step 5: You're Live */}
-            {currentStep === 5 && (
+            {/*
+              The last step, for a workspace that bought chat and no phone line.
+
+              The voice version below is written entirely around a number: it reserves one,
+              counts down while a carrier switches it on, and invites you to call it. None of
+              that is true here and none of it ever becomes true, so a chat-only customer would
+              have been left watching a card promising a number that will never arrive.
+
+              What replaces it is the one thing they actually still have to do: connect a channel.
+            */}
+            {currentStep === 5 && isChatOnly && (
+              <div className="space-y-7 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
+                  <CheckCircle2 className="h-8 w-8 text-white" />
+                </div>
+
+                <div>
+                  <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Your AI is ready to answer
+                  </h2>
+                  <p className="mt-3 text-[15px] text-[#2C3E54]">
+                    One thing left: connect the channel you want it to answer on. Messages start
+                    arriving in your inbox as soon as it is connected.
+                  </p>
+                </div>
+
+                <div className="rounded-[16px] border border-[#0A1A2F]/[0.08] bg-[#FBFAF8] p-6">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                    <span className="text-[15px] font-medium text-[#0A1A2F]">
+                      Telegram or email — your choice
+                    </span>
+                    <p className="text-sm text-[#6B7888]">
+                      Your AI answers on the first channel you connect. You can set the rest up too
+                      and watch the messages arrive, whether or not your plan answers on them yet.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  <Button
+                    className={tealBtn}
+                    onClick={() => router.push("/dashboard/settings/integrations")}
+                  >
+                    Connect a channel
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Button className={outlineBtn} onClick={handleComplete} disabled={isPending}>
+                    Go to dashboard
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && !isChatOnly && (
               <div className="space-y-7 text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
                   <CheckCircle2 className={`h-8 w-8 text-white transition-all duration-300 ${showActiveAnimation ? "scale-110 animate-pulse" : ""}`} />

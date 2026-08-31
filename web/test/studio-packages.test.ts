@@ -17,6 +17,9 @@ import {
   otherChatAddonKey,
   refuseChatPurchase,
   isOfferablePlanCode,
+  isVoicePlanCode,
+  isActivatablePlanCode,
+  VOICE_PLAN_CODES,
   CHAT_ONLY_PLAN_CODE,
 } from "@/lib/billing/chatPlanKeys";
 
@@ -183,6 +186,23 @@ describe("chat plan keys", () => {
   it("pairs each tier with the other one", () => {
     expect(otherChatAddonKey("chat_basic")).toBe("chat_standard");
     expect(otherChatAddonKey("chat_standard")).toBe("chat_basic");
+  });
+
+  it("knows which plans come with a phone line", () => {
+    expect([...VOICE_PLAN_CODES]).toEqual(["starter", "growth", "scale"]);
+    for (const code of VOICE_PLAN_CODES) expect(isVoicePlanCode(code)).toBe(true);
+    expect(isVoicePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    expect(isVoicePlanCode("enterprise")).toBe(false);
+  });
+
+  it("lets a completed checkout activate chat-only, but never a plan switch", () => {
+    // The webhook and the redirect fallback must accept `chat_only` — that is how a chat
+    // purchase lands. The plan-change route must not: moving an existing workspace onto it
+    // would strand the phone number it is already paying for.
+    expect(isActivatablePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(true);
+    expect(isVoicePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    for (const code of VOICE_PLAN_CODES) expect(isActivatablePlanCode(code)).toBe(true);
+    expect(isActivatablePlanCode("nonsense")).toBe(false);
   });
 
   it("never offers the chat-only base plan in the plan grid", () => {

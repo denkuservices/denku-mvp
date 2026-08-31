@@ -158,3 +158,74 @@ async function claimSlot(orgId: string, channel: Channel): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Record a completed chat purchase.
+ *
+ * Both completion paths call this — the Stripe webhook and the redirect fallback the success
+ * page uses when the webhook is slow. They must agree: if only one wrote the add-on row, a
+ * customer's experience of whether chat works would depend on which arrived first.
+ *
+ * Idempotent on `(org_id, addon_key)`, because users refresh the success URL and Stripe retries
+ * webhooks. `qty` is fixed at 1 — a tier is a choice, not a quantity, the same rule
+ * `refuseChatPurchase` enforces on the add-on route.
+ *
+ * A workspace can only hold one tier, so any OTHER chat tier is cleared first. Without that, a
+ * customer who bought the one-channel tier and later re-ran checkout for two would end up
+ * holding both: billed twice, and granted three slots against two answerable channels.
+ *
+ * Never throws. A completion path that threw here would fail a webhook Stripe has already
+ * charged for; the error is logged and the caller carries on, leaving the row to be repaired
+ * rather than the payment lost.
+ */
+export async function recordChatPurchase(
+  orgId: string,
+  addonKey: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!orgId || !(addonKey in CHAT_ADDON_SLOTS)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  try {
+    const others = Object.keys(CHAT_ADDON_SLOTS).filter((k) => k !== addonKey);
+    if (others.length > 0) {
+      const { error: clearError } = await supabaseAdmin
+        .from("billing_org_addons")
+        .update({ qty: 0, status: "inactive", updated_at: new Date().toISOString() })
+        .eq("org_id", orgId)
+        .in("addon_key", others);
+
+      // Not fatal: the purchase itself matters more than tidying the tier it replaces, and
+      // the surplus is visible on the billing page rather than silent.
+      if (clearError) {
+        console.error("[CHAT][PURCHASE][CLEAR_OTHER_TIER_FAILED]", {
+          org_id: orgId,
+          error: clearError.message,
+        });
+      }
+    }
+
+    const { error } = await supabaseAdmin.from("billing_org_addons").upsert(
+      {
+        org_id: orgId,
+        addon_key: addonKey,
+        qty: 1,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "org_id,addon_key" }
+    );
+
+    if (error) {
+      console.error("[CHAT][PURCHASE][RECORD_FAILED]", { org_id: orgId, addon_key: addonKey, error: error.message });
+      return { ok: false, error: error.message };
+    }
+
+    console.info("[CHAT][PURCHASE][RECORDED]", { org_id: orgId, addon_key: addonKey });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown";
+    console.error("[CHAT][PURCHASE][RECORD_THREW]", { org_id: orgId, addon_key: addonKey, error: message });
+    return { ok: false, error: message };
+  }
+}

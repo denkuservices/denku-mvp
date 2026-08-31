@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { getStripeClient, ensureStripeCustomer } from "../create-draft-invoice-helpers";
+import { isVoicePlanCode } from "@/lib/billing/chatPlanKeys";
 
 /**
  * Get APP_URL for checkout return URLs.
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { plan_code, return_to } = body;
-    if (!plan_code || !["starter", "growth", "scale"].includes(plan_code)) {
+    if (!plan_code || !isVoicePlanCode(plan_code)) {
       return NextResponse.json(
         { ok: false, error: "Invalid plan_code. Must be starter, growth, or scale" },
         { status: 400 }
