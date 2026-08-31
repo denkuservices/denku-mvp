@@ -19,7 +19,7 @@ export function makeChain(result: unknown, log: ChainCall[] = []) {
   const chain: Record<string, unknown> = {};
   const chainMethods = [
     "select", "insert", "update", "upsert", "delete",
-    "eq", "neq", "is", "gt", "gte", "lt", "lte", "in", "match", "or",
+    "eq", "neq", "is", "not", "gt", "gte", "lt", "lte", "in", "match", "or",
     "order", "limit", "range",
   ];
   for (const m of chainMethods) {
