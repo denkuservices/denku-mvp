@@ -18,6 +18,12 @@
 -- from the purchase route and from `runActivation`. This migration repairs rows created before
 -- that landed. See docs/BYO_PHONE_NUMBERS_PLAN.md §3.
 --
+-- ⚠ FILENAME DATE: this was applied on **2026-08-31**, not the 08-29 its version implies. The
+-- Supabase MCP stamps the version from the LOCAL clock, and that clock was two days behind at
+-- the time. The filename matches what prod actually recorded, which is what matters for
+-- repo↔prod sync — do NOT "correct" it. It still sorts before 20260831081251, and it really was
+-- applied before that one, so the ordering is honest.
+--
 -- SAFETY: `agents_vapi_phone_number_id_uq` is a partial UNIQUE index on
 -- (vapi_phone_number_id) WHERE NOT NULL. Both statements therefore refuse to write a number id
 -- that another agent row already holds, so the backfill can never fail on a duplicate: it

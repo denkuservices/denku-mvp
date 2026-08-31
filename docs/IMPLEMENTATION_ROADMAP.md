@@ -143,7 +143,7 @@
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
 > scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-141
 > *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch, R-139 contact recall — filed 2026-08-27.)*
-> *(R-140 workspace pause missed purchased phone lines — filed AND fixed 2026-08-29; its backfill
+> *(R-140 workspace pause missed purchased phone lines — filed AND fixed 2026-08-31; its backfill
 > migration still needs an operator to apply it.)*
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
 > reused. R-134 was used in `CLAUDE.md` before it was filed here; retro-filed 2026-08-25. R-135 filed
@@ -849,7 +849,7 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
   live test call.
 
 ### R-140 — Workspace pause does not stop purchased phone lines (agent↔number link never written)
-**Priority:** Critical · **Status:** Completed (2026-08-29; backfill **applied to prod** the same day) · **Effort:** S · **Related audit:** found 2026-08-29 while planning BYO SIP numbers (`docs/BYO_PHONE_NUMBERS_PLAN.md` §3)
+**Priority:** Critical · **Status:** Completed (2026-08-31; backfill **applied to prod** the same day) · **Effort:** S · **Related audit:** found 2026-08-31 while planning BYO SIP numbers (`docs/BYO_PHONE_NUMBERS_PLAN.md` §3)
 - **Business impact:** Pausing a workspace is the enforcement behind hard-cap and past-due — it is
   supposed to make inbound calls stop. It did not for **any purchased extra line**: those numbers
   kept answering, kept consuming Vapi minutes, and kept billing an org that had already been cut
@@ -866,7 +866,7 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
 - **Recommended solution:** one shared, org-scoped, never-throwing helper called by every path that
   binds a number to a backing agent; a backfill for rows created before it; a regression test that
   asserts pause unbinds *every* line rather than the first.
-- **Completed 2026-08-29.** Added `lib/vapi/agentPhoneLink.ts#linkAgentToPhoneNumber` (org-scoped,
+- **Completed 2026-08-31.** Added `lib/vapi/agentPhoneLink.ts#linkAgentToPhoneNumber` (org-scoped,
   idempotent, never throws — a purchase that already took the customer's money must not roll back
   over this write; failures log `[VAPI][BINDING][AGENT_NUMBER_LINK][FAILED]` with the consequence
   spelled out). Called from `api/phone-lines/purchase` (new step 10b) and from `runActivation`
@@ -877,8 +877,9 @@ them blind (that's why R-057 + R-060's remainder are P1-but-blocked).
   `test/workspace-pause-unbind.test.ts` (6 tests): the link write is org-scoped and never throws,
   and the pause sweep unbinds every line, still throws when one fails, and skips unlinked rows.
   Full suite 844 passing; build green.
-- **Applied to prod 2026-08-29** (project `kebqwsdguxxjsijahrox`, recorded as migration
-  `20260829125306`) at the user's explicit instruction, via the Supabase MCP — the one documented
+- **Applied to prod 2026-08-31** (project `kebqwsdguxxjsijahrox`, recorded as migration
+  `20260829125306` — the version reads 08-29 because the MCP stamps it from the local clock,
+  which was two days behind; the repo filename matches prod on purpose) at the user's explicit instruction, via the Supabase MCP — the one documented
   exception to the read-only-MCP rule in `CLAUDE.md` landmine #10. Result: linked agents 1 → 2
   (the org `18a6c65b…` Main Line, from `organization_settings`), nothing left fixable from either
   source. **The warning fired with a count of 1**, and that row needs a human:

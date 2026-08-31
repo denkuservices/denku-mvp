@@ -1,6 +1,6 @@
 # Implementation Plan — Bring Your Own Phone Number (BYO SIP trunk)
 
-> Status: **PLAN ONLY — nothing built.** Drafted 2026-08-29.
+> Status: **PLAN ONLY — nothing built.** Drafted 2026-08-31.
 > Goal: let a tenant connect a phone number they already own, via their own SIP trunk,
 > instead of renting a new US number from Vapi.
 > Scope decision owner: product. Engineering sequencing owner: this document.
@@ -47,7 +47,7 @@ an operator, not code:
   `VAPI_BASE_URL = 'https://api.vapi.ai'` — if EU is ever needed this becomes an env var, not an
   inline edit.
 
-## 3. Prerequisite bug — ✅ DONE 2026-08-29 (filed as R-140)
+## 3. Prerequisite bug — ✅ DONE 2026-08-31 (filed as R-140)
 
 > **Implemented.** `lib/vapi/agentPhoneLink.ts#linkAgentToPhoneNumber` is now called by
 > `api/phone-lines/purchase` (step 10b) and by `runActivation`; the backfill lives in

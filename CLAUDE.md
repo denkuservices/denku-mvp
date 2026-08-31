@@ -208,7 +208,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     default — always pass `project_id: "kebqwsdguxxjsijahrox"` for Denku. Access is **read-only by
     policy** (inspection/verification only — never modify prod data or schema via MCP; write migration
     FILES for an operator to apply). Confirmed 2026-07-23: it reaches Denku prod (used for R-075/R-060).
-    **The policy stands. One documented exception exists:** on 2026-08-29 the user explicitly
+    **The policy stands. One documented exception exists:** on 2026-08-31 the user explicitly
     instructed applying the R-140 backfill (`20260829125306_backfill_agent_phone_number_link`) via
     MCP, so prod records it under that version and the repo filename was renamed to match. Treat
     that as a one-off authorization, not a precedent — still default to writing migration files and
