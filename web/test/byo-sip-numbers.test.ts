@@ -200,6 +200,38 @@ describe("a connected line is born speaking what the business speaks", () => {
     expect(d.timezone).toBe("Europe/Madrid");
   });
 
+  it("refuses to label a line with a language Denku cannot speak (R-135 again, one row at a time)", async () => {
+    // A workspace left over from when Turkish was offered with no voice behind it.
+    from.mockReturnValueOnce(
+      makeChain({ data: { main_agent_id: null, onboarding_language: "tr", default_timezone: null } })
+    );
+
+    const d = await resolveWorkspaceLineDefaults("org-1");
+    // English, not "tr": storing tr would create a line that claims a language it answers in
+    // English. The registry is the boundary, and it is honest on purpose.
+    expect(d.language).toBe("en");
+  });
+
+  it("drops extra languages with no ear and no mouth, and never repeats the primary", async () => {
+    from
+      .mockReturnValueOnce(makeChain({ data: { main_agent_id: "agent-main", default_timezone: null } }))
+      .mockReturnValueOnce(
+        makeChain({
+          data: {
+            language: "Spanish",
+            additional_languages: ["en", "tr", "es"],
+            timezone: "Europe/Madrid",
+            voice: "nova",
+          },
+        })
+      );
+
+    const d = await resolveWorkspaceLineDefaults("org-1");
+    // "Spanish" is the NAME form the Setup editor persists; it resolves to the code.
+    expect(d.language).toBe("es");
+    expect(d.additionalLanguages).toEqual(["en"]);
+  });
+
   it("never throws — a lookup failure just means English defaults, not a failed connect", async () => {
     from.mockImplementation(() => {
       throw new Error("db down");

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
+import { resolveLanguage } from "@/lib/vapi/assistantConfig";
+import { toLanguageCode } from "@/lib/language/registry";
 import { logEvent } from "@/lib/observability/logEvent";
 import {
   createSipTrunkCredential,
@@ -71,6 +73,48 @@ export interface ConnectByoResult {
 export const VAPI_INBOUND_IPS = ["44.229.228.186", "44.238.177.138"];
 
 /**
+ * Store a language the AI can actually speak, or store English.
+ *
+ * A workspace can hold a language string from before the registry existed — Turkish sat in two
+ * pickers with no voice behind it, which is what R-135 was. Writing that value onto a new agent
+ * would recreate the same lie one row at a time: a line labelled Turkish that answers in English.
+ * So the value is normalized to a supported code before it is persisted, and the substitution is
+ * logged rather than made silently — someone should be able to see that a workspace asked for a
+ * language Denku cannot speak yet.
+ */
+function normalizeLanguage(raw: string | null | undefined, orgId: string): string {
+  const resolved = resolveLanguage(raw);
+  const asked = (raw ?? "").trim();
+  if (asked && toLanguageCode(asked) === null) {
+    logEvent({
+      tag: "[PHONE_LINES][CONNECT][LANGUAGE_UNSUPPORTED]",
+      ts: Date.now(),
+      stage: "CALL",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: {
+        requested: asked,
+        used: resolved,
+        why: "no transcriber/voice for this language in lib/language/registry.ts (R-135)",
+      },
+    });
+  }
+  return resolved;
+}
+
+/** Extra languages, kept only where Denku has an ear and a mouth, and never repeating the primary. */
+function normalizeExtras(extras: string[] | null | undefined, primary: string | null | undefined): string[] {
+  const primaryCode = resolveLanguage(primary);
+  const out: string[] = [];
+  for (const e of extras ?? []) {
+    const code = toLanguageCode(e);
+    if (code && code !== primaryCode && !out.includes(code)) out.push(code);
+  }
+  return out;
+}
+
+/**
  * What language, voice and timezone should a newly connected line be born with?
  *
  * Hardcoding English here was wrong in an obvious way: a workspace whose employee already speaks
@@ -128,17 +172,17 @@ export async function resolveWorkspaceLineDefaults(orgId: string): Promise<{
 
       if (main?.language) {
         return {
-          language: main.language,
-          additionalLanguages: main.additional_languages ?? [],
+          language: normalizeLanguage(main.language, orgId),
+          additionalLanguages: normalizeExtras(main.additional_languages, main.language),
           timezone: main.timezone || settings.default_timezone || fallback.timezone,
           voice: main.voice || fallback.voice,
         };
       }
     }
 
-    const language = settings?.default_language || settings?.onboarding_language || fallback.language;
+    const raw = settings?.default_language || settings?.onboarding_language || fallback.language;
     return {
-      language,
+      language: normalizeLanguage(raw, orgId),
       additionalLanguages: [],
       timezone: settings?.default_timezone || fallback.timezone,
       voice: fallback.voice,
