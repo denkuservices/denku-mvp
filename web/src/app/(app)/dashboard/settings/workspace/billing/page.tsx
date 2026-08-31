@@ -31,7 +31,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatUsd } from "@/lib/utils";
-import { isChatAddonKey } from "@/lib/billing/chatPlanKeys";
+import { isChatAddonKey, isOfferablePlanCode } from "@/lib/billing/chatPlanKeys";
 import {
   Dialog,
   DialogContent,
@@ -636,8 +636,12 @@ export default function WorkspaceBillingPage() {
   const invoiceRun = summary?.invoice_run;
   const plansRaw = summary?.plans || [];
 
-  // Sort plans client-side as safety net: starter, growth, scale
-  const plans = [...plansRaw].sort((a, b) => {
+  // Sort plans client-side as safety net: starter, growth, scale.
+  // `chat_only` is filtered out: it is the $0 foundation a chat-only workspace sits on, not
+  // something to offer. Shown here it would be a card with zero minutes and zero numbers that
+  // a voice customer could click to downgrade themselves out of their phone service. It stays
+  // in `plansRaw` so the header can still resolve its display name.
+  const plans = [...plansRaw].filter((p) => isOfferablePlanCode(p.plan_code)).sort((a, b) => {
     const orderA = PLAN_ORDER[a.plan_code] || 999;
     const orderB = PLAN_ORDER[b.plan_code] || 999;
     return orderA - orderB;

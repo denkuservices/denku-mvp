@@ -16,6 +16,8 @@ import {
   isChatAddonKey,
   otherChatAddonKey,
   refuseChatPurchase,
+  isOfferablePlanCode,
+  CHAT_ONLY_PLAN_CODE,
 } from "@/lib/billing/chatPlanKeys";
 
 /**
@@ -181,6 +183,16 @@ describe("chat plan keys", () => {
   it("pairs each tier with the other one", () => {
     expect(otherChatAddonKey("chat_basic")).toBe("chat_standard");
     expect(otherChatAddonKey("chat_standard")).toBe("chat_basic");
+  });
+
+  it("never offers the chat-only base plan in the plan grid", () => {
+    // It carries zero minutes, zero concurrency and zero numbers. Offered beside the voice
+    // plans it is a $0 card a paying customer could click to downgrade themselves out of
+    // their phone service.
+    expect(isOfferablePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    for (const code of ["starter", "growth", "scale"]) {
+      expect(isOfferablePlanCode(code), code).toBe(true);
+    }
   });
 });
 

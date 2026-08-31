@@ -149,6 +149,23 @@ are built; three operator steps stand between them and a sale:
   to sign up for a plan whose `stripe_price_id` is still NULL, so the purchase refuses. Either
   finish the Stripe step, or set the flag back to `false` until it is done.
 
+**A regression the migration itself introduced, and closed:** `billing_plan_catalog` gained a
+`chat_only` row, and `/api/billing/summary` returns every row in that table with no filter — so
+the billing page's plan grid would have shown a fourth card, **"Chat only — $0, 0 minutes, 0
+concurrency, 0 numbers"**, with a switch-to-this-plan button. A paying voice customer could have
+clicked it and downgraded themselves out of their phone service. The grid now filters on
+`isOfferablePlanCode`; the plan stays in the payload so a chat-only workspace's header still
+resolves the name rather than printing a raw code. Both server routes (`/api/billing/plan/change`
+and `/api/billing/stripe/checkout`) already hardcode `starter | growth | scale`, so the API was
+never exposed — the hole was the UI card alone.
+
+**Still not reachable: buying chat WITHOUT voice.** Those same two server allowlists are why. The
+`chat_only` plan exists as the foundation, but no flow assigns it: `/chat` sends people to
+`/signup`, and onboarding offers only the three voice plans. So today chat is an add-on a voice
+customer can buy, and a chat-only signup is **not yet a path**. Building it means letting
+onboarding land on `chat_only` and letting the checkout create a $0 subscription for it — real
+work in the onboarding step machine, deliberately not bolted on here.
+
 **A gap found while wiring this up, and closed:** the billing settings page filters its add-on
 grid down to `extra_concurrency` and `extra_phone`, so the chat tiers would never have appeared —
 there was no way to buy chat anywhere in the product. Chat now has its **own section** on

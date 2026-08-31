@@ -25,6 +25,32 @@ export function isChatAddonKey(key: string): boolean {
   return key in CHAT_ADDON_SLOTS;
 }
 
+/**
+ * The $0 base plan a chat-only workspace sits on.
+ *
+ * `org_plan_limits` holds exactly one `plan_code` per org, so buying chat without voice
+ * still needs a base plan to point at. It carries zero minutes, zero concurrency and zero
+ * phone numbers — which is also how voice stays off for these workspaces with no new code,
+ * since the existing lease check rejects every call at a concurrency limit of 0.
+ */
+export const CHAT_ONLY_PLAN_CODE = "chat_only";
+
+/**
+ * Whether a plan may be OFFERED in the plan grid.
+ *
+ * `chat_only` must not be: it is a foundation a chat-only signup lands on, not a plan a
+ * customer picks. Left offerable, it would render beside Starter/Growth/Scale as a $0 card
+ * with zero minutes and zero numbers, and a voice customer clicking it would downgrade
+ * themselves out of the phone service they are paying for.
+ *
+ * It stays in the plans PAYLOAD so a chat-only workspace's header still resolves the name
+ * "Chat only" rather than printing a raw plan code. Offerable and known are different
+ * questions.
+ */
+export function isOfferablePlanCode(planCode: string): boolean {
+  return planCode !== CHAT_ONLY_PLAN_CODE;
+}
+
 /** The other chat tier, for the one-plan-at-a-time rule. */
 export function otherChatAddonKey(key: string): string | null {
   const others = Object.keys(CHAT_ADDON_SLOTS).filter((k) => k !== key);
