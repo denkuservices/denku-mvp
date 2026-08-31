@@ -262,7 +262,15 @@ describe("adding a language is obviously a thing you can do", () => {
   });
 
   it("describes the off state too, so an empty section reads as a choice", () => {
-    expect(form).toMatch(/Right now it only speaks \$\{primaryLanguageLabel\}/);
+    expect(form).toMatch(/On calls it only speaks \$\{primaryLanguageLabel\}/);
+  });
+
+  it("scopes the limit to CALLS, and says chat has no such limit", () => {
+    // These checkboxes are a voice constraint: a language needs an ear that transcribes it and a
+    // mouth that speaks it. Chat has neither, and its prompt already tells the AI to follow the
+    // customer's language. Stating only the voice half read as "your AI cannot understand
+    // Turkish", which is false and loses the customer a channel they already have.
+    expect(form).toMatch(/In chat it replies in whichever language the customer writes in/);
   });
 
   it("still cannot offer the primary language as an extra", () => {

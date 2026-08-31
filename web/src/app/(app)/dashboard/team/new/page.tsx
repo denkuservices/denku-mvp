@@ -9,6 +9,7 @@ import { LANGUAGES, LANGUAGE_CODES } from "@/lib/language/registry";
 import { createAgentAction } from "../../agents/new/actions";
 import PageHeader from "../../_platform/PageHeader";
 import { Surface, CONTROL_CLASS } from "../../_platform/ui";
+import TimezoneField from "../../_platform/TimezoneField";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export default async function HireEmployeePage() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="language" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-                  Language
+                  Primary language
                 </label>
                 {/*
                   Options come from the language registry, so this picker cannot offer what the
@@ -101,28 +102,30 @@ export default async function HireEmployeePage() {
                     </option>
                   ))}
                 </select>
+                {/*
+                  Deliberately says something different about each channel, because the truth is
+                  different. In chat the system prompt instructs the AI to answer in whatever
+                  language the customer wrote in, with nothing to configure. On a call it is bound
+                  by the language registry — an ear that transcribes it and a mouth that speaks
+                  it — which is why the picker is short. Writing one reassuring sentence covering
+                  both would be false for voice, and false in the direction that loses a caller.
+                */}
                 <p className="mt-1 text-xs text-gray-500">
-                  Your workspace default. It can also understand other languages — set that under
+                  What it speaks on calls, and its default everywhere. <strong>In chat it replies
+                  in whichever language the customer writes in</strong> — Turkish, German, anything —
+                  no setup needed. Calls are limited to the languages listed here; add more under
                   Setup once it is hired.
                 </p>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="timezone" className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-                Timezone
-              </label>
-              <input
-                id="timezone"
-                name="timezone"
-                required
-                defaultValue="UTC"
-                className={`${CONTROL_CLASS} w-full`}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Used when it talks about your opening hours.
-              </p>
-            </div>
+            {/*
+              Was a free-text box defaulting to "UTC". Almost nobody edited it, so employees were
+              created believing they worked in UTC — and this is the value the AI uses to decide
+              what "tomorrow" means when it books. A business in İstanbul books three hours off
+              and nothing looks broken while it happens.
+            */}
+            <TimezoneField />
 
             <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
               <button

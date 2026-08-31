@@ -13,6 +13,7 @@ import {
 import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
+import TimezoneField from "../TimezoneField";
 import {
   ADDITIONAL_LANGUAGE_OPTIONS,
   AGENT_TYPES,
@@ -244,20 +245,25 @@ export default function SetupForm({
                 ? `It starts every call in ${primaryLanguageLabel} and switches if the caller speaks ${form.additionalLanguages
                     .map((c) => LANGUAGES[c as keyof typeof LANGUAGES]?.label ?? c)
                     .join(" or ")}.`
-                : `Right now it only speaks ${primaryLanguageLabel}.`}
+                : `On calls it only speaks ${primaryLanguageLabel}.`}{" "}
+              {/*
+                These checkboxes are a VOICE limit — a language needs an ear that transcribes it
+                and a mouth that speaks it. Chat has neither constraint and the prompt already
+                tells the AI to follow the customer's language, so saying only the voice half
+                left owners thinking their AI could not read a message in Turkish.
+              */}
+              In chat it replies in whichever language the customer writes in.
             </p>
           </Field>
 
-          <Field label="Timezone" hint="Used when it talks about your hours.">
-            <input
-              type="text"
-              value={form.timezone}
-              onChange={(e) => set("timezone", e.target.value)}
-              disabled={paused}
-              placeholder="UTC"
-              className={`${CONTROL_CLASS} w-full`}
-            />
-          </Field>
+          {/* A real list rather than a free-text box: this value decides what "tomorrow" means
+              when the AI books, and a typo here is a mis-booked appointment nobody can see. */}
+          <TimezoneField
+            id="setup-timezone"
+            value={form.timezone}
+            onChange={(z) => set("timezone", z)}
+            disabled={paused}
+          />
 
           <Field label="Role">
             <select
