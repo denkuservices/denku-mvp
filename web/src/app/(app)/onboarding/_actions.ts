@@ -179,6 +179,8 @@ export async function getOnboardingState() {
       plans: [],
       chatPlans: [],
       chatChannelOptions: [],
+      connectedChatChannels: [],
+      emailInboundAddress: null,
       hasPhoneNumber: false,
       phoneNumber: null,
       needsOrgSetup: true,
@@ -311,6 +313,33 @@ export async function getOnboardingState() {
     (c) => CHANNELS[c].kind === "chat" && canReplyOn(c)
   ).map((c) => ({ id: c as string, label: CHANNELS[c].label }));
 
+  // Which channels this workspace has already connected, so the last step can show what is
+  // done rather than asking again. `status = 'connected'` is the value both connection
+  // libraries write; an errored or revoked connection reads as not connected, which is the
+  // honest answer — the AI cannot answer through it.
+  const [telegramConns, emailConns] = await Promise.all([
+    supabaseAdmin
+      .from("telegram_connections")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("status", "connected")
+      .limit(1),
+    supabaseAdmin
+      .from("email_connections")
+      .select("id, inbound_address")
+      .eq("org_id", orgId)
+      .eq("status", "connected")
+      .limit(1),
+  ]);
+
+  const connectedChatChannels: string[] = [];
+  if ((telegramConns.data || []).length > 0) connectedChatChannels.push("telegram");
+  if ((emailConns.data || []).length > 0) connectedChatChannels.push("email");
+  // The address Denku issued for them to forward to — the one thing the email card must show
+  // after connecting, because the customer has to go and set the forward up themselves.
+  const emailInboundAddress =
+    (emailConns.data?.[0] as { inbound_address?: string } | undefined)?.inbound_address ?? null;
+
   const chatPlans = (chatPlansData || []).map((row) => ({
     addon_key: row.addon_key as string,
     label: row.label as string,
@@ -372,6 +401,8 @@ export async function getOnboardingState() {
     })),
     chatPlans,
     chatChannelOptions,
+    connectedChatChannels,
+    emailInboundAddress,
     hasPhoneNumber,
     phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
     phoneNumberE164, // Also include as separate field for clarity

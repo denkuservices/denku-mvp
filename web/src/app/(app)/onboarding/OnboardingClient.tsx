@@ -38,6 +38,7 @@ import {
 import { formatUsd } from "@/lib/utils";
 import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
+import { ConnectChannelStep } from "./_components/ConnectChannelStep";
 
 
 type OnboardingState = {
@@ -62,6 +63,10 @@ type OnboardingState = {
     concurrency_limit: number;
     included_phone_numbers: number;
   }>;
+  /** Chat channels already connected, so the last step shows what is done. */
+  connectedChatChannels: string[];
+  /** The address Denku issued for forwarding, once email is connected. */
+  emailInboundAddress: string | null;
   /** The channels a chat slot can actually be spent on — measured by whether the AI can
    *  reply there, not by what the registry declares. */
   chatChannelOptions: Array<{ id: string; label: string }>;
@@ -1403,60 +1408,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
               What replaces it is the one thing they actually still have to do: connect a channel.
             */}
             {currentStep === 5 && isChatOnly && (
-              <div className="space-y-7 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
-                  <CheckCircle2 className="h-8 w-8 text-white" />
-                </div>
-
-                <div>
-                  <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Your AI is ready to answer
-                  </h2>
-                  <p className="mt-3 text-[15px] text-[#2C3E54]">
-                    One thing left: connect the channel you want it to answer on. Messages start
-                    arriving in your inbox as soon as it is connected.
-                  </p>
-                </div>
-
-                <div className="rounded-[16px] border border-[#0A1A2F]/[0.08] bg-[#FBFAF8] p-6">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
-                      <MessageSquare className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-1.5">
-                      {state.chatChannelOptions.map((ch) => {
-                        const Icon = CHANNEL_ICONS[ch.id] ?? MessageSquare;
-                        return (
-                          <span
-                            key={ch.id}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-[#1B6E6E]/25 bg-[#E3EEED] px-3 py-1.5 text-sm font-medium text-[#134F4F]"
-                          >
-                            <Icon className="h-4 w-4" />
-                            {ch.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    <p className="text-sm text-[#6B7888]">
-                      Your AI answers on the first channel you connect. You can set the rest up too
-                      and watch the messages arrive, whether or not your plan answers on them yet.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                  <Button
-                    className={tealBtn}
-                    onClick={() => router.push("/dashboard/settings/integrations")}
-                  >
-                    Connect a channel
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  <Button className={outlineBtn} onClick={handleComplete} disabled={isPending}>
-                    Go to dashboard
-                  </Button>
-                </div>
-              </div>
+              <ConnectChannelStep
+                connected={state.connectedChatChannels}
+                emailInboundAddress={state.emailInboundAddress}
+                onConnected={() => {
+                  // Re-read from the DB rather than trusting the click: the connection is only
+                  // real once the server says so, and Telegram's webhook registration can fail
+                  // after the token validates.
+                  getOnboardingState()
+                    .then(setState)
+                    .catch(() => {});
+                }}
+                onFinish={handleComplete}
+                finishing={isPending}
+              />
             )}
 
             {currentStep === 5 && !isChatOnly && (
