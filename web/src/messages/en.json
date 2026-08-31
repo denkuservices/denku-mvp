@@ -73,7 +73,17 @@
       "ready": "Ready",
       "connecting": "Connecting",
       "listening": "Listening",
-      "tryAgain": "Try again"
+      "tryAgain": "Try again",
+      "cta": "Talk to Denku now",
+      "endCall": "End call",
+      "connectingCta": "Connecting…",
+      "noSignup": "No signup · Takes 30 seconds",
+      "endingSoon": "This session will end shortly.",
+      "cooldown": "Please try again in a few minutes.",
+      "errUnavailable": "Voice agent is not available.",
+      "errRefresh": "Unable to connect. Please refresh the page.",
+      "errConnection": "Connection error. Please try again.",
+      "errAgentDown": "Agent is unavailable. Please try again later."
     },
     "how": {
       "eyebrow": "How hiring works",
@@ -165,6 +175,13 @@
     "finalCta": {
       "headline": "Your next employee",
       "headlineEmphasis": "starts today"
+    },
+    "hero": {
+      "ticker": [
+        "Booked a 9:30am estimate",
+        "Texted back a missed call",
+        "Logged a new contact"
+      ]
     }
   },
   "channels": {

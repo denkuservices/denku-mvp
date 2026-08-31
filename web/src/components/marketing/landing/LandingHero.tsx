@@ -86,11 +86,9 @@ export function LandingHero() {
             name="Ava"
             role="Receptionist · Voice"
             glyph="◍"
-            ticker={[
-              "Booked a 9:30am estimate",
-              "Texted back a missed call",
-              "Logged a new contact",
-            ]}
+            /* The roster cards further down already read from the message files; this one was
+               the last English island on an otherwise translated page. */
+            ticker={t.raw("hero.ticker") as string[]}
           />
         </div>
       </div>
