@@ -70,6 +70,84 @@ export interface ConnectByoResult {
 /** Vapi's inbound signalling IPs — some carriers require an explicit allowlist. */
 export const VAPI_INBOUND_IPS = ["44.229.228.186", "44.238.177.138"];
 
+/**
+ * What language, voice and timezone should a newly connected line be born with?
+ *
+ * Hardcoding English here was wrong in an obvious way: a workspace whose employee already speaks
+ * Spanish would connect its own number and get an AI that answers in English. A line is another
+ * mouth for the SAME business, so it inherits the business's settings rather than inventing its
+ * own.
+ *
+ * Order of truth: the workspace's main employee first (it is the one an owner has actually
+ * configured — language, extra languages, timezone), then the workspace defaults recorded during
+ * onboarding, then English. Never throws; a lookup failure just means the caller gets defaults.
+ *
+ * NOTE ON THE LIMIT: `resolveLanguage` only knows the languages in `lib/language/registry.ts`,
+ * and that registry is deliberately the honest boundary — a language with no ear and no mouth
+ * behind it must not be offered (R-135). A workspace holding an unsupported language therefore
+ * still resolves to English here, on purpose. The fix for that is adding the language to the
+ * registry with a verified transcriber and voice, not widening this function.
+ */
+export async function resolveWorkspaceLineDefaults(orgId: string): Promise<{
+  language: string;
+  additionalLanguages: string[];
+  timezone: string;
+  voice: string;
+}> {
+  const fallback = {
+    language: "en",
+    additionalLanguages: [] as string[],
+    timezone: "America/New_York",
+    voice: "jennifer",
+  };
+
+  try {
+    const { data: settings } = await supabaseAdmin
+      .from("organization_settings")
+      .select("main_agent_id, default_language, onboarding_language, default_timezone")
+      .eq("org_id", orgId)
+      .maybeSingle<{
+        main_agent_id: string | null;
+        default_language: string | null;
+        onboarding_language: string | null;
+        default_timezone: string | null;
+      }>();
+
+    if (settings?.main_agent_id) {
+      const { data: main } = await supabaseAdmin
+        .from("agents")
+        .select("language, additional_languages, timezone, voice")
+        .eq("org_id", orgId)
+        .eq("id", settings.main_agent_id)
+        .maybeSingle<{
+          language: string | null;
+          additional_languages: string[] | null;
+          timezone: string | null;
+          voice: string | null;
+        }>();
+
+      if (main?.language) {
+        return {
+          language: main.language,
+          additionalLanguages: main.additional_languages ?? [],
+          timezone: main.timezone || settings.default_timezone || fallback.timezone,
+          voice: main.voice || fallback.voice,
+        };
+      }
+    }
+
+    const language = settings?.default_language || settings?.onboarding_language || fallback.language;
+    return {
+      language,
+      additionalLanguages: [],
+      timezone: settings?.default_timezone || fallback.timezone,
+      voice: fallback.voice,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectByoResult> {
   const { orgId, userId, numberE164 } = input;
   const lineType = input.lineType ?? "support";
@@ -170,8 +248,10 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
       createdTrunkRow = true;
     }
 
-    // 2) Backing assistant. Same shape as the purchase path — tools and the canonical webhook
-    //    server.url are attached afterwards, because Vapi rejects a top-level `tools` on create.
+    // 2) Backing assistant, born speaking whatever the business already speaks.
+    //    Tools and the canonical webhook server.url are attached afterwards, because Vapi rejects
+    //    a top-level `tools` on create.
+    const defaults = await resolveWorkspaceLineDefaults(orgId);
     const assistantName = `BYO ${orgId.slice(0, 4)} ${Date.now().toString().slice(-6)}`;
     const assistant = await vapiFetch<{ id: string }>("/assistant", {
       method: "POST",
@@ -198,7 +278,14 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
     }
     assistantId = assistant.id;
 
-    const config = await ensureAssistantConfig({ assistantId: assistant.id });
+    // Language belongs in the shared helper, not in the create call: it is what decides the
+    // transcriber model and the voice, and `buildAssistantConfigPatch` is the one place that
+    // knows how those two follow from a language.
+    const config = await ensureAssistantConfig({
+      assistantId: assistant.id,
+      language: defaults.language,
+      additionalLanguages: defaults.additionalLanguages,
+    });
     if (!config.ok) {
       // Non-fatal, exactly as in the purchase path: the deterministic post-call fallback still
       // produces an artifact, and the reconcile endpoint can re-apply the config.
@@ -212,9 +299,10 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
         org_id: orgId,
         name: input.displayName?.trim() || "Connected Line AI",
         created_by: userId,
-        language: "en",
-        voice: "jennifer",
-        timezone: "America/New_York",
+        language: defaults.language,
+        additional_languages: defaults.additionalLanguages,
+        timezone: defaults.timezone,
+        voice: defaults.voice,
         vapi_assistant_id: assistant.id,
         behavior_preset: "friendly-support",
         agent_type: "phone_line_backing",

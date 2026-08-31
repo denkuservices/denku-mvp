@@ -25,6 +25,7 @@ import {
 } from "@/lib/vapi/sipTrunk";
 import { markPhoneLineVerified } from "@/lib/vapi/phoneLineVerification";
 import { byoNumbersEnabled } from "@/lib/platform/flags";
+import { resolveWorkspaceLineDefaults } from "@/lib/phone-lines/connectByo";
 
 const from = supabaseAdmin.from as unknown as Mock;
 
@@ -162,5 +163,49 @@ describe("feature flag", () => {
     expect(byoNumbersEnabled({})).toBe(false);
     expect(byoNumbersEnabled({ BYO_NUMBERS_ENABLED: "false" })).toBe(false);
     expect(byoNumbersEnabled({ BYO_NUMBERS_ENABLED: "TRUE" })).toBe(true);
+  });
+});
+
+describe("a connected line is born speaking what the business speaks", () => {
+  it("inherits language, extra languages, timezone and voice from the workspace's main employee", async () => {
+    from
+      .mockReturnValueOnce(makeChain({ data: { main_agent_id: "agent-main", default_timezone: "Europe/Madrid" } }))
+      .mockReturnValueOnce(
+        makeChain({
+          data: {
+            language: "es",
+            additional_languages: ["en"],
+            timezone: "Europe/Madrid",
+            voice: "nova",
+          },
+        })
+      );
+
+    const d = await resolveWorkspaceLineDefaults("org-1");
+    expect(d).toEqual({
+      language: "es",
+      additionalLanguages: ["en"],
+      timezone: "Europe/Madrid",
+      voice: "nova",
+    });
+  });
+
+  it("falls back to the workspace default when there is no main employee yet", async () => {
+    from.mockReturnValueOnce(
+      makeChain({ data: { main_agent_id: null, default_language: "es", default_timezone: "Europe/Madrid" } })
+    );
+
+    const d = await resolveWorkspaceLineDefaults("org-1");
+    expect(d.language).toBe("es");
+    expect(d.timezone).toBe("Europe/Madrid");
+  });
+
+  it("never throws — a lookup failure just means English defaults, not a failed connect", async () => {
+    from.mockImplementation(() => {
+      throw new Error("db down");
+    });
+    const d = await resolveWorkspaceLineDefaults("org-1");
+    expect(d.language).toBe("en");
+    expect(d.timezone).toBe("America/New_York");
   });
 });
