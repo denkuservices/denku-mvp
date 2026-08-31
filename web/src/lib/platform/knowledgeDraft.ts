@@ -70,15 +70,71 @@ const SYSTEM_PROMPT = [
   "The one exception is `tone`: you may suggest a manner of speaking that suits this business,",
   "because that is a style choice the owner will recognise, not a claim about the world.",
   "",
-  "For `faqs`, use only questions customers actually asked, and only give an answer where the",
-  "material states it. If you know the question but not the answer, write the question followed",
-  'by " — " and nothing else, so the owner can see what to fill in.',
+  "For `faqs`, write four to six question-and-answer pairs, one per line, as `Question — Answer`.",
+  "- Start from real customer questions if you were given any. Ignore greetings, one-word",
+  "  messages and bot commands like /start — those are not questions.",
+  "- If there are few or none, PROPOSE the questions this kind of business is usually asked.",
+  "  Proposing a question is safe: a question is a prompt for the owner, not a claim about them.",
+  "- Answers are NOT safe to invent. Answer only where the material you were given says so.",
+  '- Where you know the question but not the answer, write `Question — ` and stop, so the owner',
+  "  sees exactly what is left to fill in.",
   "",
   "Write in the same language the business used to describe itself.",
   "",
   'Return JSON with exactly these keys, all strings, empty string where unknown: "businessName",',
   '"services", "openingHours", "serviceArea", "faqs", "bookingPolicy", "cancellationPolicy", "tone".',
 ].join("\n");
+
+/**
+ * Bot commands and bare greetings, in the languages this product actually meets.
+ *
+ * The first version fed every inbound message to the model as "a real question customers asked",
+ * so a fresh Telegram bot whose entire history was "/start" and "merhaba" produced an FAQ section
+ * reading "/start —" and "merhaba —". Those are not questions; they are the noise every chat
+ * channel opens with.
+ */
+const GREETINGS = new Set([
+  "merhaba", "selam", "selamlar", "günaydın", "iyi günler", "iyi akşamlar", "sa", "slm",
+  "hi", "hii", "hey", "hello", "helo", "yo", "good morning", "good evening", "good afternoon",
+  "hola", "buenas", "buenos días", "hallo", "guten tag", "bonjour", "salut",
+  "test", "deneme", "ok", "okay", "tamam", "teşekkürler", "teşekkür ederim", "thanks", "thank you",
+]);
+
+/** Words that make a sentence a question even with no question mark. */
+const QUESTION_WORDS = new Set([
+  "mi", "mı", "mu", "mü", "misin", "mısın", "musun", "müsün", "miyim", "mıyım", "miyiz",
+  "ne", "neden", "nasıl", "kaç", "nerede", "nereye", "nereden", "kim", "hangi", "ücret", "fiyat",
+  "what", "when", "where", "how", "why", "which", "who", "can", "do", "does", "is", "are", "price",
+  "qué", "cuándo", "dónde", "cómo", "cuánto", "precio",
+]);
+
+/** Whether an inbound message is plausibly a question worth putting in an FAQ. */
+function looksLikeQuestion(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  // Telegram and Slack style commands are addressed to the software, not to the business.
+  if (t.startsWith("/")) return false;
+
+  const normalized = t.toLowerCase().replace(/[!.,…]+$/g, "").trim();
+  if (GREETINGS.has(normalized)) return false;
+
+  // A question mark is the strongest signal in every language here.
+  if (t.includes("?")) return true;
+
+  /*
+   * Turkish asks plenty of questions without one ("fiyat ne kadar", "randevu alabilir miyim").
+   *
+   * Matched as whole WORDS by splitting, rather than with a word-boundary regex: JavaScript's
+   * word boundary is ASCII and mishandles the very letters this has to read, while a plain
+   * substring match would find "ne" inside half the language — putting the noise straight back
+   * into the FAQ this filter exists to keep out.
+   */
+  const words = normalized.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (words.some((w) => QUESTION_WORDS.has(w))) return true;
+
+  // Otherwise only treat it as a question if there is enough of it to be one.
+  return t.length >= 25;
+}
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim().slice(0, 2000) : "";
@@ -144,7 +200,7 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
 
     const questions = (inbound ?? [])
       .map((m) => str((m as { content?: unknown }).content))
-      .filter((q) => q.length > 2 && q.length < 300)
+      .filter((q) => q.length < 300 && looksLikeQuestion(q))
       .slice(0, 25);
 
     const material = [
