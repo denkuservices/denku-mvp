@@ -187,9 +187,18 @@ export default function SetupForm({
             switch, because the two answers could then disagree. The primary is filtered out: it
             is already spoken, and "also English" under a dropdown reading English is nonsense.
           */}
+          {/*
+            The hint names the one trade-off that is real, and stays quiet about the one that is
+            not. Ticking the FIRST extra language moves the transcriber off the model pinned to
+            the primary language and onto code-switching, which costs a little accuracy in the
+            primary — that is a decision an owner should get to make knowingly. Ticking a second
+            or third changes nothing further: the config is identical from one extra onwards. So
+            there is no "each language costs you more" warning here, because that would not be
+            true.
+          */}
           <Field
             label="Also understands"
-            hint={`Tick any language it should answer in besides ${primaryLanguageLabel}.`}
+            hint={`Tick any language it should answer in besides ${primaryLanguageLabel}. The first tick switches listening from ${primaryLanguageLabel} alone to code-switching, which is slightly less accurate for ${primaryLanguageLabel}. Ticking more after that costs nothing extra.`}
           >
             {/*
               Checkboxes, not toggle pills.

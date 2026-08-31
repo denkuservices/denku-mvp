@@ -201,13 +201,13 @@ describe("a connected line is born speaking what the business speaks", () => {
   });
 
   it("refuses to label a line with a language Denku cannot speak (R-135 again, one row at a time)", async () => {
-    // A workspace left over from when Turkish was offered with no voice behind it.
+    // French has no transcriber and no voice behind it, so it must never reach an agent row.
     from.mockReturnValueOnce(
-      makeChain({ data: { main_agent_id: null, onboarding_language: "tr", default_timezone: null } })
+      makeChain({ data: { main_agent_id: null, onboarding_language: "fr", default_timezone: null } })
     );
 
     const d = await resolveWorkspaceLineDefaults("org-1");
-    // English, not "tr": storing tr would create a line that claims a language it answers in
+    // English, not "fr": storing fr would create a line that claims a language it answers in
     // English. The registry is the boundary, and it is honest on purpose.
     expect(d.language).toBe("en");
   });
@@ -219,7 +219,7 @@ describe("a connected line is born speaking what the business speaks", () => {
         makeChain({
           data: {
             language: "Spanish",
-            additional_languages: ["en", "tr", "es"],
+            additional_languages: ["en", "fr", "es"],
             timezone: "Europe/Madrid",
             voice: "nova",
           },

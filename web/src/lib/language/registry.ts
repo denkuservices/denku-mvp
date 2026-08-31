@@ -15,7 +15,7 @@
  * Pure and client-safe: the Setup form imports it too.
  */
 
-export type LanguageCode = "en" | "es";
+export type LanguageCode = "en" | "es" | "tr";
 
 export interface LanguageCapability {
   code: LanguageCode;
@@ -59,6 +59,29 @@ export const LANGUAGES: Readonly<Record<LanguageCode, LanguageCapability>> = {
     voice: { provider: "openai", voiceId: "nova" },
     voiceFollowsCaller: false,
     codeSwitch: true,
+  },
+  tr: {
+    code: "tr",
+    label: "Turkish",
+    aliases: ["tr", "tur", "turkish", "türkçe", "turkce", "türkce", "turkçe"],
+    // Deepgram added Turkish to Nova-3 (batch AND streaming) — verified against Deepgram's own
+    // announcement, not inferred. This is the ear.
+    transcriberModel: "nova-3",
+    // The mouth: OpenAI TTS, the same choice Spanish makes. It reads whatever language the text
+    // is in, which is what a Turkish-primary employee needs.
+    //
+    // ⚠ PENDING FIRST REAL CALL. Turkish was removed from the pickers in R-135 precisely because
+    // it was offered with nothing behind it. It is back because an operator asked for it and is
+    // about to place a real Turkish call on a connected line — the transcript and the recording
+    // from that call are the verification. If it does not hold up, this entry comes out again
+    // rather than being quietly tolerated.
+    voice: { provider: "openai", voiceId: "nova" },
+    voiceFollowsCaller: false,
+    // Deepgram documents Turkish for Nova-3, but does NOT state that Turkish takes part in
+    // multilingual code-switching. Unverified means false here: an employee that claims to
+    // understand Turkish *alongside* another language, while the ear silently cannot switch to
+    // it, is the exact failure R-135 was. Flip this only with evidence.
+    codeSwitch: false,
   },
 } as const;
 
@@ -111,7 +134,14 @@ export function resolveLanguageSet(
   const out: LanguageCode[] = [head];
   for (const raw of additional ?? []) {
     const code = toLanguageCode(raw);
-    if (code && !out.includes(code)) out.push(code);
+    if (!code || out.includes(code)) continue;
+    // `codeSwitch` used to be metadata nobody read. It is enforced here because this is the one
+    // function the voice stack is configured from: adding a second language switches the ear to
+    // code-switching, and a language the switching model cannot handle would be transcribed as
+    // noise while three screens claimed the employee understood it. Dropping it is the honest
+    // outcome — the employee does not understand what we cannot hear.
+    if (!LANGUAGES[code].codeSwitch) continue;
+    out.push(code);
   }
   return out;
 }

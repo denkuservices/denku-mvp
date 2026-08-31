@@ -1939,6 +1939,20 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   the defect class is "the editor's option list and the resolver disagree," which only a parity test
   prevents from recurring.
 
+- **Turkish re-added 2026-08-31, at an operator's request, with the missing halves supplied.**
+  R-135 removed French, German and Turkish because the pickers offered languages the voice stack
+  could not speak. Turkish is back in `lib/language/registry.ts` with a verified ear (Deepgram
+  documents Turkish for Nova-3, batch and streaming) and a mouth (OpenAI TTS `nova`, the same
+  choice Spanish makes) — so it appears in the AI Team setup and workspace pickers automatically,
+  because both derive from the registry. **It is a PRIMARY language only:** Deepgram does not
+  state that Turkish takes part in multilingual code-switching, so it is not offered as an "also
+  understands" option. That restriction is now real rather than documented — `codeSwitch` was
+  metadata nobody read, and is enforced in three places: the picker, `resolveLanguageSet` (which
+  the voice stack is configured from), and the write boundary in `toUpdateAgentConfigPayload`.
+  **Still pending: the first real Turkish call.** The voice has not been heard yet; if it does not
+  hold up, the entry comes out again rather than being quietly tolerated. French and German remain
+  out.
+
 ### R-137 — Telegram channel + the channel-agnostic reply engine
 **Priority:** High · **Status:** 🟡 **Code-complete 2026-08-27, awaiting live verification** · **Effort:** L · **Related:** [skills/telegram-integration.md](../skills/telegram-integration.md), `CURRENT_SPRINT.md` P4
 > The first channel Denku **answers on itself**. Voice replies through Vapi inside the call;

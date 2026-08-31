@@ -87,7 +87,12 @@ export const SETUP_LANGUAGES: readonly string[] = LANGUAGE_CODES.map((c) => LANG
  * is the entire multilingual decision: the transcriber switches itself to code-switching, because
  * asking the owner a second, more technical question could only produce two answers that disagree.
  */
-export const ADDITIONAL_LANGUAGE_OPTIONS = LANGUAGE_CODES.map((code) => ({
+export const ADDITIONAL_LANGUAGE_OPTIONS = LANGUAGE_CODES.filter(
+  // Only languages the ear can code-switch INTO. A language Denku can hear perfectly well on its
+  // own may still be unusable as a second one, and offering it here would let an owner tick a box
+  // that quietly does nothing (R-135 in a new costume). It stays available as a PRIMARY language.
+  (code) => LANGUAGES[code].codeSwitch
+).map((code) => ({
   code,
   label: LANGUAGES[code].label,
 }));
@@ -257,12 +262,15 @@ export function toUpdateAgentConfigPayload(agentId: string, state: SetupFormStat
     agentId,
     language: state.language === DEFAULT_LANGUAGE ? null : state.language,
     // The primary can never also be an "additional" one — the form hides it, and this makes
-    // that true of anything that reaches the action, whatever the form did.
+    // that true of anything that reaches the action, whatever the form did. The same goes for a
+    // language the ear cannot code-switch into: the picker does not offer it, and this makes that
+    // true of anything that reaches the action. A stored extra nothing can hear is a claim the
+    // product cannot keep.
     additional_languages: (() => {
       const primary = toLanguageCode(state.language);
       return state.additionalLanguages
         .map((l) => toLanguageCode(l))
-        .filter((c): c is LanguageCode => c !== null && c !== primary);
+        .filter((c): c is LanguageCode => c !== null && c !== primary && LANGUAGES[c].codeSwitch);
     })(),
     timezone: state.timezone === DEFAULT_TIMEZONE ? null : state.timezone,
     behavior_preset: state.behaviorPresetId || null,
