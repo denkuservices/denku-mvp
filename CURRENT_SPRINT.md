@@ -137,17 +137,26 @@ are built; three operator steps stand between them and a sale:
   both existing add-ons are bought by the piece. A chat tier is not — $499 buys *two* channels,
   so the billing page's "{price} per {unit}" pill would have read "$499 per channel" and
   misstated the price. The constraint now also accepts `'month'`, which is true for both tiers.
-- **Create the two Stripe products** — Chat 1 channel at $299/mo, Chat 2 channels at $499/mo —
-  the same way the existing add-ons were created, then write their price ids into
-  `billing_addon_catalog.stripe_price_id` for `chat_basic` and `chat_standard`. Until those are
-  filled, `/api/billing/addons/update` refuses with "stripe_price_id not configured for addon",
-  which is the correct fail-closed behaviour.
-- ~~**Set `NEXT_PUBLIC_CHAT_PLANS_PURCHASABLE=true`**~~ **DONE by the owner 2026-08-31** — the
-  marketing CTAs now point at signup rather than the enquiry form.
+- ~~**Create the two Stripe products**~~ **DONE 2026-08-31.** The owner created "AI Chat Starter"
+  (`prod_VAmVfZ0C5jXfOW`) and "AI Chat Growth" (`prod_VAmZQUABSOj1bY`); their prices were resolved
+  from Stripe and written into `billing_addon_catalog`, matched on **amount** rather than name so a
+  mispairing would have updated zero rows instead of quietly attaching the $499 price to the $299
+  tier. Both verified as monthly / `licensed` / `per_unit`, which is what the route needs — it adds
+  them as subscription items with a `quantity`, so a metered or tiered price would have failed.
 
-  ⚠️ **That flag is now ahead of the Stripe step above.** With it on, `/chat` invites a customer
-  to sign up for a plan whose `stripe_price_id` is still NULL, so the purchase refuses. Either
-  finish the Stripe step, or set the flag back to `false` until it is done.
+  ⚠️ **All Stripe pricing on this project is TEST MODE**, the two new chat prices and the two
+  pre-existing add-ons alike (`livemode: false` on all four). Nothing charges real money yet.
+  Going live is a separate switch: live-mode products, live keys in Vercel, and a re-check that
+  `billing_addon_catalog.stripe_price_id` points at the live prices — test price ids do not
+  resolve under a live key, so a half-flipped configuration fails closed rather than mischarging.
+
+  Minor, cosmetic: the Stripe product names ("AI Chat **Starter**" / "**Growth**") reuse two
+  words that already name VOICE plans, and appear on the customer's invoice, where the site only
+  ever says "1 channel" and "2 channels". Renaming them in Stripe is free and changes no id.
+- ~~**Set `NEXT_PUBLIC_CHAT_PLANS_PURCHASABLE=true`**~~ **DONE by the owner 2026-08-31**, and
+  verified on production: `/chat` renders "Get chat" → `/signup`, and the "not self-serve" notice
+  is gone. It briefly ran ahead of the Stripe step; with the price ids now written, the chain is
+  complete for a voice customer adding chat.
 
 **A regression the migration itself introduced, and closed:** `billing_plan_catalog` gained a
 `chat_only` row, and `/api/billing/summary` returns every row in that table with no filter — so
