@@ -395,7 +395,7 @@
           "Revisiones hasta que quede bien"
         ],
         "delivery": "Se entrega de forma individual, no desde un panel. Tú das el brief, nosotros producimos, tú revisas.",
-        "pricing": "Presupuesto por proyecto — lo definen el alcance y el volumen. Pregunta y lo valoramos.",
+        "pricing": "Paquetes desde 349 $ en visuales y 399 $ en vídeo. El volumen y la complejidad mueven la cifra — presupuestamos antes de cobrar nada.",
         "cta": "Pedir presupuesto"
       },
       "custom-ai": {
@@ -967,6 +967,144 @@
         "2 canales a tu elección",
         "Soporte prioritario"
       ]
+    }
+  },
+  "studio": {
+    "makes": {
+      "eyebrow": "Qué producimos",
+      "headline": "Doce tipos de pieza, un solo briefing.",
+      "items": {
+        "product": "Fotografía de producto",
+        "campaign": "Imágenes de campaña",
+        "social": "Creatividades para redes",
+        "ads": "Variantes de creatividad publicitaria",
+        "tryon": "Prueba virtual de producto",
+        "variants": "Series de variantes de producto",
+        "ecommerce": "Fichas de e-commerce",
+        "lifestyle": "Escenas de estilo de vida",
+        "banners": "Banners y promociones",
+        "shorts": "Vídeo de formato corto",
+        "mockups": "Mock-ups 3D",
+        "concept": "Concepto y storyboard"
+      }
+    },
+    "plans": {
+      "eyebrow": "Paquetes de estudio",
+      "headline": "Cuánto cuesta un paquete.",
+      "sub": "Dos tipos de trabajo, tres tamaños cada uno. El precio impreso es donde empieza el presupuesto — el volumen y la complejidad lo mueven.",
+      "from": "desde",
+      "cta": "Pedir presupuesto",
+      "noteTitle": "Por qué no hay botón de compra",
+      "note": "Un paquete de estudio compra tiempo de producción: un briefing, una ronda de concepto, un número concreto de revisiones, una fecha de entrega. Nada de eso se puede poner a precio antes de ver tu producto — así que primero presupuestamos y luego facturamos. Cualquier otro precio de esta web compra algo que se activa solo. Este no.",
+      "seePackages": "Ver los paquetes"
+    },
+    "process": {
+      "eyebrow": "Cómo funciona la producción",
+      "headline": "Cuatro pasos del briefing a la entrega.",
+      "steps": {
+        "brief": {
+          "name": "Tú nos cuentas",
+          "body": "Tu producto, tus referencias, para qué es la pieza. Una llamada o un formulario — lo que sea más rápido."
+        },
+        "concept": {
+          "name": "Planteamos el concepto",
+          "body": "Dirección y una muestra antes de producir en volumen, para no hacer nada dos veces."
+        },
+        "produce": {
+          "name": "Producimos",
+          "body": "El set completo, en los formatos que necesitas, con las revisiones que incluye tu paquete."
+        },
+        "deliver": {
+          "name": "Tú revisas",
+          "body": "Se entrega como archivos que son tuyos, y se revisa hasta que encaja con el briefing."
+        }
+      }
+    },
+    "groups": {
+      "visuals": {
+        "name": "IA Visual",
+        "tiers": {
+          "basic": {
+            "name": "Básico",
+            "volume": "10 visuales IA",
+            "who": "Pequeños negocios y tiendas online boutique.",
+            "features": [
+              "10 visuales IA producidos",
+              "Medidas para todos los formatos sociales",
+              "1 ronda de revisiones",
+              "Entrega en 7 días hábiles"
+            ]
+          },
+          "standard": {
+            "name": "Estándar",
+            "volume": "30 visuales IA",
+            "who": "Tiendas online y equipos de contenido social.",
+            "features": [
+              "30 visuales IA producidos",
+              "Todo lo del plan Básico",
+              "Prueba virtual de ropa y accesorios",
+              "Banners de campaña y visuales promocionales",
+              "3 rondas de revisiones",
+              "Entrega en 5 días hábiles"
+            ]
+          },
+          "advanced": {
+            "name": "Avanzado",
+            "volume": "60 visuales IA",
+            "who": "Marcas medianas y grandes, y agencias.",
+            "features": [
+              "60 visuales IA producidos",
+              "Todo lo del plan Estándar",
+              "Mock-ups 3D y diseño de concepto",
+              "Producción en serie para variantes de producto",
+              "4 rondas de revisiones",
+              "Entrega en 7 días hábiles"
+            ]
+          }
+        }
+      },
+      "video": {
+        "name": "IA Vídeo",
+        "tiers": {
+          "basic": {
+            "name": "Básico",
+            "volume": "3–5 vídeos IA",
+            "who": "Pequeños negocios y tiendas online boutique.",
+            "features": [
+              "3 vídeos de 15 s, o 5 cortes sociales de 8 s",
+              "Montaje con IA",
+              "Transiciones modernas",
+              "1 ronda de revisiones",
+              "Entrega en 5 días hábiles"
+            ]
+          },
+          "standard": {
+            "name": "Estándar",
+            "volume": "5–8 vídeos IA",
+            "who": "Tiendas online y equipos de contenido social.",
+            "features": [
+              "5 vídeos de 20 s, o 8 cortes cortos de 10 s",
+              "Efectos y animación IA avanzados",
+              "Música con licencia y diseño de sonido",
+              "2 rondas de revisiones",
+              "Entrega en 4 días hábiles"
+            ]
+          },
+          "advanced": {
+            "name": "Avanzado",
+            "volume": "8–12 vídeos IA",
+            "who": "Marcas medianas y grandes, y agencias.",
+            "features": [
+              "8 vídeos premium de 30 s, o 12 cortes publicitarios de 15 s",
+              "Storyboard y concepto a medida",
+              "Locución o música premium",
+              "Exportaciones para Reels, TikTok y YouTube",
+              "3 rondas de revisiones",
+              "Entrega en 5 días hábiles"
+            ]
+          }
+        }
+      }
     }
   }
 }

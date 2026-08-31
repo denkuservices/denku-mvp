@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CHANNELS, type Channel } from "@/lib/platform/channels";
+import { CHAT_ADDON_SLOTS } from "./chatPlanKeys";
 
 /**
  * Chat entitlement — how many chat channels a workspace may run, and which ones are on.
@@ -29,13 +30,9 @@ import { CHANNELS, type Channel } from "@/lib/platform/channels";
  * fail closed on money.
  */
 
-/** Add-on keys that grant chat slots, and how many each grants. */
-export const CHAT_ADDON_SLOTS: Record<string, number> = {
-  chat_basic: 1,
-  // Two while only Telegram and email are sellable. Becomes 3 when a third chat channel ships —
-  // selling three slots against two available channels would be selling a number, not a product.
-  chat_standard: 2,
-};
+// The slot table lives in `chatPlanKeys.ts` — pure data, no `server-only` — so the billing
+// settings page (a client component) can read the same numbers this gate enforces.
+export { CHAT_ADDON_SLOTS } from "./chatPlanKeys";
 
 export type ChatEntitlement = {
   /** How many chat channels this workspace may run. 0 means chat was not purchased. */

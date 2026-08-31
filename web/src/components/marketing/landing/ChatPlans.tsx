@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { CHAT_ADDON_SLOTS } from "@/lib/billing/chatEntitlement";
+import { CHAT_ADDON_SLOTS } from "@/lib/billing/chatPlanKeys";
 import { LIVE_CHANNELS } from "@/lib/marketing/content/channels";
 import { Reveal } from "./primitives";
 

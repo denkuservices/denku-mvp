@@ -395,7 +395,7 @@
           "Korrekturen, bis es stimmt"
         ],
         "delivery": "Wird einzeln geliefert, nicht aus einem Dashboard. Sie briefen, wir produzieren, Sie prüfen.",
-        "pricing": "Angebot pro Projekt — Umfang und Menge entscheiden. Fragen Sie, wir kalkulieren.",
+        "pricing": "Pakete ab 349 $ für Visuals und 399 $ für Video. Menge und Komplexität verschieben die Zahl — wir machen ein Angebot, bevor etwas berechnet wird.",
         "cta": "Angebot anfragen"
       },
       "custom-ai": {
@@ -967,6 +967,144 @@
         "2 Kanäle Ihrer Wahl",
         "Priorisierter Support"
       ]
+    }
+  },
+  "studio": {
+    "makes": {
+      "eyebrow": "Was wir produzieren",
+      "headline": "Zwölf Arten von Assets, ein Briefing.",
+      "items": {
+        "product": "Produktfotografie",
+        "campaign": "Kampagnenmotive",
+        "social": "Social-Media-Creatives",
+        "ads": "Varianten für Werbemittel",
+        "tryon": "Virtuelle Anprobe",
+        "variants": "Serien für Produktvarianten",
+        "ecommerce": "E-Commerce-Produktbilder",
+        "lifestyle": "Lifestyle-Szenen",
+        "banners": "Banner und Promo-Motive",
+        "shorts": "Kurzvideo",
+        "mockups": "3D-Mock-ups",
+        "concept": "Konzept und Storyboard"
+      }
+    },
+    "plans": {
+      "eyebrow": "Studio-Pakete",
+      "headline": "Was ein Paket kostet.",
+      "sub": "Zwei Arten von Arbeit, je drei Größen. Der genannte Preis ist der Startpunkt des Angebots — Menge und Komplexität verschieben ihn.",
+      "from": "ab",
+      "cta": "Angebot anfragen",
+      "noteTitle": "Warum es keinen Kaufen-Button gibt",
+      "note": "Ein Studio-Paket kauft Produktionszeit: ein Briefing, eine Konzeptrunde, eine feste Zahl an Korrekturschleifen, einen Liefertermin. Nichts davon lässt sich beziffern, bevor wir Ihr Produkt gesehen haben — deshalb machen wir erst ein Angebot und stellen dann in Rechnung. Jeder andere Preis auf dieser Seite kauft etwas, das sich selbst einschaltet. Dieser nicht.",
+      "seePackages": "Pakete ansehen"
+    },
+    "process": {
+      "eyebrow": "Wie die Produktion läuft",
+      "headline": "Vier Schritte vom Briefing zur Lieferung.",
+      "steps": {
+        "brief": {
+          "name": "Sie briefen uns",
+          "body": "Ihr Produkt, Ihre Referenzen, wofür das Asset gedacht ist. Ein Gespräch oder ein Formular — was schneller geht."
+        },
+        "concept": {
+          "name": "Wir entwickeln das Konzept",
+          "body": "Richtung und ein Muster vor der Serienproduktion, damit nichts zweimal entsteht."
+        },
+        "produce": {
+          "name": "Wir produzieren",
+          "body": "Das komplette Set, in den Formaten, die Sie brauchen, mit den Korrekturschleifen Ihres Pakets."
+        },
+        "deliver": {
+          "name": "Sie prüfen",
+          "body": "Geliefert als Dateien, die Ihnen gehören — und überarbeitet, bis sie zum Briefing passen."
+        }
+      }
+    },
+    "groups": {
+      "visuals": {
+        "name": "KI-Visuals",
+        "tiers": {
+          "basic": {
+            "name": "Basis",
+            "volume": "10 KI-Visuals",
+            "who": "Kleine Unternehmen und Boutique-Onlineshops.",
+            "features": [
+              "10 KI-Visuals produziert",
+              "Maße für alle Social-Formate",
+              "1 Korrekturschleife",
+              "Lieferung in 7 Werktagen"
+            ]
+          },
+          "standard": {
+            "name": "Standard",
+            "volume": "30 KI-Visuals",
+            "who": "Onlineshops und Social-Content-Teams.",
+            "features": [
+              "30 KI-Visuals produziert",
+              "Alles aus dem Basis-Paket",
+              "Virtuelle Anprobe für Kleidung und Accessoires",
+              "Kampagnenbanner und Promo-Motive",
+              "3 Korrekturschleifen",
+              "Lieferung in 5 Werktagen"
+            ]
+          },
+          "advanced": {
+            "name": "Erweitert",
+            "volume": "60 KI-Visuals",
+            "who": "Mittlere und große Marken sowie Agenturen.",
+            "features": [
+              "60 KI-Visuals produziert",
+              "Alles aus dem Standard-Paket",
+              "3D-Mock-ups und Konzeptdesign",
+              "Serienproduktion für Produktvarianten",
+              "4 Korrekturschleifen",
+              "Lieferung in 7 Werktagen"
+            ]
+          }
+        }
+      },
+      "video": {
+        "name": "KI-Video",
+        "tiers": {
+          "basic": {
+            "name": "Basis",
+            "volume": "3–5 KI-Videos",
+            "who": "Kleine Unternehmen und Boutique-Onlineshops.",
+            "features": [
+              "3 × 15-Sekunden-Videos oder 5 × 8-Sekunden-Social-Cuts",
+              "KI-Schnitt",
+              "Moderne Übergänge",
+              "1 Korrekturschleife",
+              "Lieferung in 5 Werktagen"
+            ]
+          },
+          "standard": {
+            "name": "Standard",
+            "volume": "5–8 KI-Videos",
+            "who": "Onlineshops und Social-Content-Teams.",
+            "features": [
+              "5 × 20-Sekunden-Videos oder 8 × 10-Sekunden-Kurzcuts",
+              "Fortgeschrittene KI-Effekte und Animation",
+              "Lizenzierte Musik und Sounddesign",
+              "2 Korrekturschleifen",
+              "Lieferung in 4 Werktagen"
+            ]
+          },
+          "advanced": {
+            "name": "Erweitert",
+            "volume": "8–12 KI-Videos",
+            "who": "Mittlere und große Marken sowie Agenturen.",
+            "features": [
+              "8 × 30-Sekunden-Premiumvideos oder 12 × 15-Sekunden-Werbecuts",
+              "Individuelles Storyboard und Konzeptdesign",
+              "Voice-over oder Premium-Musik",
+              "Exporte für Reels, TikTok und YouTube",
+              "3 Korrekturschleifen",
+              "Lieferung in 5 Werktagen"
+            ]
+          }
+        }
+      }
     }
   }
 }

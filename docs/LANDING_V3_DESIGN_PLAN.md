@@ -543,6 +543,48 @@ then, and nothing shipped here has promised a number it cannot count.
 
 ---
 
+### 9.9 AI Studio gets a price list (2026-08-31)
+
+`/services/ai-studio` said "quoted per project" because no numbers existed. The owner supplied
+them by pointing at the benchmark, so the packages are now printed.
+
+**The numbers, read from the benchmark's own markup rather than a summary of it.** A first pass
+reported the tiers as `$3,490`–`$8,990`; the rendered markup shows a `<span>` of `349` beside a
+superscript `0`, i.e. **$349**, and the sprint doc had already recorded the same figures from
+`docs/denku-2.0/04`. Visuals ship at **$349 / $499 / $649** (10 / 30 / 60 assets) and video at
+**$399 / $599 / $899** (3–5 / 5–8 / 8–12 videos), each with the revision count and delivery
+window the tier actually carries.
+
+**Prices live in code, words live in messages.** `lib/marketing/content/studio.ts` holds the
+tiers, prices and featured flag; every visible string is in `messages/*.json` under `studio.*`.
+A test asserts no message file contains a dollar figure, so a price can never say $349 in
+English and $449 in German — the exact drift this split exists to prevent. Another asserts every
+tier has a name, a volume, an audience line and a **multi-item** features array in all four
+languages, because a `features` value written as one long sentence renders as a single bullet
+and silently loses the package contents.
+
+**Nothing is purchasable, and that is the design, not an omission.** Every other price on this
+site buys something that provisions itself — a plan, a number, a channel slot. A studio package
+buys production time: a brief, a concept round, a fixed number of revisions, a delivery date.
+None of that can be scoped before the conversation, so a checkout button would take money for
+work nobody has agreed on. The benchmark reaches the same conclusion from the other direction:
+all six of its tiers say "contact sales". **So AI Studio needs no Stripe products at all.**
+
+**What the page could not get, and why it was not faked.** The benchmark carries this page on
+photographs of finished client work — fashion, product, lifestyle. Denku has none. Generating
+sample images and presenting them as a portfolio would be a fabricated body of work, so the page
+carries itself on the landing system's own visual language: the glass panels, the copper/teal
+gradients, a twelve-item "what we make" grid and a four-step production section. **Real sample
+work is the one asset this page is still missing**, and it is recorded as an asset request rather
+than quietly designed around.
+
+**One shared component had to bend.** `SubpageHero` hardcoded "Hear it now" → the voice demo and
+"See pricing" → the homepage plans. On a page selling images and video that prints its own
+prices, both are untrue. The hero now takes optional CTA overrides, defaulting to exactly its
+previous behaviour; studio passes "Ask for a quote" and an in-page jump to the packages. A `#`
+href renders a plain anchor rather than a locale-prefixed router link, and the section carries
+`scroll-mt-24` so the heading does not land under the fixed navbar.
+
 ## 10. Buy vs build
 
 - **ThemeForest: no** — and §0 is the reason. The admired reference *is* a ThemeForest theme; buying

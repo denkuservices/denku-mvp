@@ -8,6 +8,11 @@ import { Reveal } from "@/components/marketing/landing/primitives";
 import { ChannelGrid } from "@/components/marketing/landing/ChannelGrid";
 import { SubpageCta, SubpageHero } from "@/components/marketing/landing/SubpageShell";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
+import {
+  StudioMakes,
+  StudioPlans,
+  StudioProcess,
+} from "@/components/marketing/landing/StudioPlans";
 
 /**
  * Service detail.
@@ -52,12 +57,29 @@ export default async function ServicePage({
 
   const t = await getTranslations(`services.items.${slug}`);
   const ts = await getTranslations("subpage");
+  const tStudio = await getTranslations("studio");
   const te = await getTranslations("employees.items.receptionist");
   const includes = t.raw("includes") as string[];
 
   return (
     <>
-      <SubpageHero eyebrow={t("name")} title={t("headline")} sub={t("sub")}>
+      <SubpageHero
+        eyebrow={t("name")}
+        title={t("headline")}
+        sub={t("sub")}
+        // Studio sells images and video and prints its own prices, so the shared hero's
+        // "hear the demo" and "see the homepage plans" would both be untrue here.
+        primaryCta={
+          service.slug === "ai-studio"
+            ? { label: t("cta"), href: "/request?service=ai-studio" }
+            : undefined
+        }
+        secondaryCta={
+          service.slug === "ai-studio"
+            ? { label: tStudio("plans.seePackages"), href: "#studio-plans" }
+            : undefined
+        }
+      >
         {service.slug === "ai-employees" ? (
           <EmployeeCard
             name="Ava"
@@ -145,6 +167,17 @@ export default async function ServicePage({
       </section>
 
       {service.slug === "ai-employees" && <ChannelGrid />}
+
+      {/* Studio is the one service with a printed price list, so it gets the sections
+          that make a price list mean something: what we make, what each package holds,
+          and what happens between the brief and the delivery. */}
+      {service.slug === "ai-studio" && (
+        <>
+          <StudioMakes />
+          <StudioPlans />
+          <StudioProcess />
+        </>
+      )}
 
       <SubpageCta />
     </>

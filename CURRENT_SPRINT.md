@@ -98,11 +98,22 @@ changes product gating (`productionReadyChannels()`), and that should be a delib
 change with a verification behind it, not a side effect of a copy decision. **Either flip it and
 record the verification, or correct the website.** The two must not stay in disagreement.
 
-**3. Provide AI Studio price points, or confirm it stays quote-only.**
-`/services/ai-studio` currently says "Quoted per project" because no price list exists. The
-benchmark prints packs ($349/$499/$649 images, $399/$599/$899 video — `docs/denku-2.0/04`). If
-Denku wants printed packs, supply the numbers and they go on the page; otherwise the quote-only
-framing stands and is fine.
+**3. ~~Provide AI Studio price points~~ — ANSWERED 2026-08-31, and built.**
+The owner chose the benchmark's numbers. `/services/ai-studio` now prints six packages —
+visuals $349/$499/$649, video $399/$599/$899 — from `web/src/lib/marketing/content/studio.ts`,
+with copy in all four languages, a "what we make" grid and a four-step production section.
+
+**Nothing on that page is purchasable, on purpose, and no Stripe products are needed for it.**
+A studio package buys production time: a brief, a concept round, a fixed number of revisions, a
+delivery date. None of it can be scoped before the conversation, so every tier says "ask for a
+quote" — which is also what the benchmark does on all six of its own tiers. The printed price is
+the starting point of a quote, not a charge.
+
+Still missing, and it is an asset rather than a decision: **real sample work**. The benchmark
+carries this page on photographs of finished client projects. Generating sample images and
+presenting them as a portfolio would be a fabricated body of work, so the page carries itself on
+the landing system's own visual language instead. The gallery goes in when there is real work to
+show.
 
 **4. Verify geo language detection on a deployed environment.**
 First-visit language is picked from the visitor's country in `web/src/middleware.ts`, reading
@@ -114,18 +125,39 @@ Spain and Germany that the first visit lands on `/tr`, `/es`, `/de`, that an unl
 **5. Turn on the chat plans (added 2026-08-31).** The code, the gate and the pricing pages
 are built; three operator steps stand between them and a sale:
 
-- **Apply the migration** `supabase/migrations/20260831100000_chat_plans_and_channel_activation.sql`.
-  It adds the `chat_only` $0 base plan (so chat can be bought without voice), the two add-on
-  catalogue rows, and `org_active_channels`. Additive and inert until applied — before it,
-  `getChatEntitlement` returns zero slots, which reads as "chat not purchased".
+- ~~**Apply the migration.**~~ **DONE 2026-08-31** (owner granted a one-off write to prod).
+  Applied as `20260831081251_chat_plans_and_channel_activation`; the repo file was renamed to
+  match so history stays synchronised. Verified in prod: `chat_only` plan present,
+  `org_active_channels` created with RLS enabled and zero policies (service-role only), and both
+  add-on catalogue rows present with `stripe_price_id` **NULL**, which is what keeps the purchase
+  fail-closed until Stripe is configured.
+
+  One thing the migration had to do that was not in the original plan: widen
+  `billing_addon_catalog_unit_check`. The column was constrained to `'seat' | 'number'` because
+  both existing add-ons are bought by the piece. A chat tier is not — $499 buys *two* channels,
+  so the billing page's "{price} per {unit}" pill would have read "$499 per channel" and
+  misstated the price. The constraint now also accepts `'month'`, which is true for both tiers.
 - **Create the two Stripe products** — Chat 1 channel at $299/mo, Chat 2 channels at $499/mo —
   the same way the existing add-ons were created, then write their price ids into
   `billing_addon_catalog.stripe_price_id` for `chat_basic` and `chat_standard`. Until those are
   filled, `/api/billing/addons/update` refuses with "stripe_price_id not configured for addon",
   which is the correct fail-closed behaviour.
-- **Set `NEXT_PUBLIC_CHAT_PLANS_PURCHASABLE=true`** in Vercel once the above is done. Until then
-  the pricing pages show the tiers with a "talk to us" CTA rather than a checkout that would
-  fail.
+- ~~**Set `NEXT_PUBLIC_CHAT_PLANS_PURCHASABLE=true`**~~ **DONE by the owner 2026-08-31** — the
+  marketing CTAs now point at signup rather than the enquiry form.
+
+  ⚠️ **That flag is now ahead of the Stripe step above.** With it on, `/chat` invites a customer
+  to sign up for a plan whose `stripe_price_id` is still NULL, so the purchase refuses. Either
+  finish the Stripe step, or set the flag back to `false` until it is done.
+
+**A gap found while wiring this up, and closed:** the billing settings page filters its add-on
+grid down to `extra_concurrency` and `extra_phone`, so the chat tiers would never have appeared —
+there was no way to buy chat anywhere in the product. Chat now has its **own section** on
+`/dashboard/settings/workspace/billing`, drawn as two alternatives rather than a quantity
+stepper, because a stepper would let someone buy five copies of a plan whose entire meaning is
+"how many channels may answer". Switching tiers is deliberately remove-then-add: one click would
+need two Stripe writes with no transaction around them, and a failure between them would leave a
+customer either paying twice or answering nowhere. The same two rules are enforced server-side in
+`refuseChatPurchase` (`web/src/lib/billing/chatPlanKeys.ts`), since the API is callable directly.
 
 Note the deliberate MVP shape: chat is sold by **channel capacity**, never by message volume.
 There is no message metering anywhere in the codebase and none was added — a quota nobody can

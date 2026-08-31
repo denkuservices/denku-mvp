@@ -395,7 +395,7 @@
           "Revisions until it is right"
         ],
         "delivery": "Delivered individually, not from a dashboard. You brief us, we produce, you review.",
-        "pricing": "Quoted per project — scope and volume decide it. Ask and we'll price it.",
+        "pricing": "Packages from $349 for visuals and $399 for video. Volume and complexity move the number — we quote before anything is charged.",
         "cta": "Ask for a quote"
       },
       "custom-ai": {
@@ -967,6 +967,144 @@
         "2 channels of your choice",
         "Priority support"
       ]
+    }
+  },
+  "studio": {
+    "makes": {
+      "eyebrow": "What we make",
+      "headline": "Twelve kinds of asset, one brief.",
+      "items": {
+        "product": "Product photography",
+        "campaign": "Campaign imagery",
+        "social": "Social media creative",
+        "ads": "Ad creative variants",
+        "tryon": "Virtual try-on",
+        "variants": "Product variant series",
+        "ecommerce": "E-commerce listings",
+        "lifestyle": "Lifestyle scenes",
+        "banners": "Banners and promos",
+        "shorts": "Short-form video",
+        "mockups": "3D mock-ups",
+        "concept": "Concept and storyboard"
+      }
+    },
+    "plans": {
+      "eyebrow": "Studio packages",
+      "headline": "What a package costs.",
+      "sub": "Two kinds of work, three sizes each. The printed price is where the quote starts — volume and complexity move it.",
+      "from": "from",
+      "cta": "Ask for a quote",
+      "noteTitle": "Why there is no buy button",
+      "note": "A studio package buys production time: a brief, a round of concepts, named revisions, a delivery date. None of that can be priced before we have seen your product — so we quote it, then invoice it. Every other price on this site buys something that switches itself on. This one does not.",
+      "seePackages": "See the packages"
+    },
+    "process": {
+      "eyebrow": "How production works",
+      "headline": "Four steps from brief to delivery.",
+      "steps": {
+        "brief": {
+          "name": "You brief us",
+          "body": "Your product, your references, what the asset is for. A call or a form — whichever is faster."
+        },
+        "concept": {
+          "name": "We concept",
+          "body": "Direction and one sample before volume production, so nothing gets made twice."
+        },
+        "produce": {
+          "name": "We produce",
+          "body": "The full set, in the formats you need, with the revisions your package includes."
+        },
+        "deliver": {
+          "name": "You review",
+          "body": "Delivered as files you own, and revised until they match the brief."
+        }
+      }
+    },
+    "groups": {
+      "visuals": {
+        "name": "AI Visuals",
+        "tiers": {
+          "basic": {
+            "name": "Basic",
+            "volume": "10 AI visuals",
+            "who": "Small businesses and boutique online stores.",
+            "features": [
+              "10 AI visuals produced",
+              "Sized for every social format",
+              "1 round of revisions",
+              "Delivered in 7 business days"
+            ]
+          },
+          "standard": {
+            "name": "Standard",
+            "volume": "30 AI visuals",
+            "who": "Online stores and social content teams.",
+            "features": [
+              "30 AI visuals produced",
+              "Everything in Basic",
+              "Virtual try-on for clothing and accessories",
+              "Campaign banners and promotional visuals",
+              "3 rounds of revisions",
+              "Delivered in 5 business days"
+            ]
+          },
+          "advanced": {
+            "name": "Advanced",
+            "volume": "60 AI visuals",
+            "who": "Mid-size and large brands, and agencies.",
+            "features": [
+              "60 AI visuals produced",
+              "Everything in Standard",
+              "3D mock-ups and concept design",
+              "Series production for product variants",
+              "4 rounds of revisions",
+              "Delivered in 7 business days"
+            ]
+          }
+        }
+      },
+      "video": {
+        "name": "AI Video",
+        "tiers": {
+          "basic": {
+            "name": "Basic",
+            "volume": "3–5 AI videos",
+            "who": "Small businesses and boutique online stores.",
+            "features": [
+              "3 × 15-second videos, or 5 × 8-second social cuts",
+              "AI editing",
+              "Modern transitions",
+              "1 round of revisions",
+              "Delivered in 5 business days"
+            ]
+          },
+          "standard": {
+            "name": "Standard",
+            "volume": "5–8 AI videos",
+            "who": "Online stores and social content teams.",
+            "features": [
+              "5 × 20-second videos, or 8 × 10-second short cuts",
+              "Advanced AI effects and animation",
+              "Licensed music and sound design",
+              "2 rounds of revisions",
+              "Delivered in 4 business days"
+            ]
+          },
+          "advanced": {
+            "name": "Advanced",
+            "volume": "8–12 AI videos",
+            "who": "Mid-size and large brands, and agencies.",
+            "features": [
+              "8 × 30-second premium videos, or 12 × 15-second ad cuts",
+              "Custom storyboard and concept design",
+              "Voice-over or premium music",
+              "Exports for Reels, TikTok and YouTube",
+              "3 rounds of revisions",
+              "Delivered in 5 business days"
+            ]
+          }
+        }
+      }
     }
   }
 }

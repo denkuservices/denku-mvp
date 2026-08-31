@@ -46,10 +46,13 @@ export const SERVICES: Service[] = [
     cta: { href: "/request?service=ai-audit" },
   },
   {
+    // Prices ARE printed (see `content/studio.ts`) but nothing is purchasable: a studio
+    // package buys production time, which cannot be scoped before the conversation. The
+    // printed number is where the quote starts, which is what makes the enquiry worth sending.
     slug: "ai-studio",
     kind: "service",
     glyph: "◈",
-    pricePrinted: false,
+    pricePrinted: true,
     cta: { href: "/request?service=ai-studio" },
   },
   {

@@ -14,20 +14,32 @@ import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
  * site are visibly different products.
  */
 
+/** One of the hero's two buttons. A `#hash` href renders a plain anchor, since a
+ *  same-page jump must not be run through the locale-prefixing router. */
+type HeroCta = { label: string; href: string };
+
 export function SubpageHero({
   eyebrow,
   title,
   sub,
   emphasis,
   children,
+  primaryCta,
+  secondaryCta,
 }: {
   eyebrow: string;
   title: string;
   sub: string;
   emphasis?: string[];
   children?: React.ReactNode;
+  /** Defaults to the voice demo. Override on pages where there is nothing to hear. */
+  primaryCta?: HeroCta;
+  /** Defaults to the homepage plans. Override where the page carries its own prices. */
+  secondaryCta?: HeroCta;
 }) {
   const tc = useTranslations("common");
+  const primary = primaryCta ?? { label: tc("hearItNow"), href: "/#demo" };
+  const secondary = secondaryCta ?? { label: tc("seePricing"), href: "/#pricing" };
 
   return (
     <section className="relative w-full overflow-hidden px-6 pb-16 pt-28 md:px-8 md:pt-32">
@@ -54,20 +66,39 @@ export function SubpageHero({
           </p>
           <div className="mt-9 flex flex-wrap gap-3.5">
             <Magnetic>
-              <Link
-                href="/#demo"
-                className="inline-flex items-center gap-2.5 rounded-full bg-[var(--d-copper)] px-7 py-3.5 text-[15px] font-medium text-[#0A1414] transition-colors hover:bg-[#D9A87C]"
-              >
-                {tc("hearItNow")}
-                <span aria-hidden="true">→</span>
-              </Link>
+              {primary.href.startsWith("#") ? (
+                <a
+                  href={primary.href}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-[var(--d-copper)] px-7 py-3.5 text-[15px] font-medium text-[#0A1414] transition-colors hover:bg-[#D9A87C]"
+                >
+                  {primary.label}
+                  <span aria-hidden="true">→</span>
+                </a>
+              ) : (
+                <Link
+                  href={primary.href}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-[var(--d-copper)] px-7 py-3.5 text-[15px] font-medium text-[#0A1414] transition-colors hover:bg-[#D9A87C]"
+                >
+                  {primary.label}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              )}
             </Magnetic>
-            <Link
-              href="/#pricing"
-              className="inline-flex items-center rounded-full border border-[var(--d-border)] px-6 py-3.5 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
-            >
-              {tc("seePricing")}
-            </Link>
+            {secondary.href.startsWith("#") ? (
+              <a
+                href={secondary.href}
+                className="inline-flex items-center rounded-full border border-[var(--d-border)] px-6 py-3.5 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
+              >
+                {secondary.label}
+              </a>
+            ) : (
+              <Link
+                href={secondary.href}
+                className="inline-flex items-center rounded-full border border-[var(--d-border)] px-6 py-3.5 text-[15px] font-medium text-[var(--d-ink-soft)] transition-colors hover:border-[rgba(200,148,104,.4)] hover:text-[var(--d-ink)]"
+              >
+                {secondary.label}
+              </Link>
+            )}
           </div>
         </div>
         <div className="flex justify-center lg:justify-end">{children}</div>

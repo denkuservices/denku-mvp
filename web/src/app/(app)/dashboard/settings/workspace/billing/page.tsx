@@ -17,6 +17,7 @@ import {
   Hash,
   Layers,
   Loader2,
+  MessagesSquare,
   Minus,
   Phone,
   PhoneCall,
@@ -30,6 +31,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatUsd } from "@/lib/utils";
+import { isChatAddonKey } from "@/lib/billing/chatPlanKeys";
 import {
   Dialog,
   DialogContent,
@@ -118,10 +120,9 @@ type BillingSummary = {
       price_usd_month: number;
       step: number;
     }>;
-    active: {
-      extra_concurrency: number;
-      extra_phone: number;
-    };
+    /** Every key in `billing_addon_catalog`, not just the two voice ones — the summary
+     *  route fills a quantity for all of them, including the chat tiers. */
+    active: Record<string, number>;
     effective_limits: {
       max_concurrent_calls: number;
       included_phones: number;
@@ -532,6 +533,11 @@ export default function WorkspaceBillingPage() {
 
   // Derive plan state
   const hasPlan = Boolean(currentPlanCode);
+
+  // The chat tiers, straight from the catalogue. They are alternatives, not quantities, so
+  // they are drawn as their own section rather than as steppers in the add-ons grid — which
+  // is also why the grid above filters itself down to the two per-piece add-ons.
+  const chatTiers = (summary?.addons?.available ?? []).filter((a) => isChatAddonKey(a.key));
 
   // Find current plan object from summary.plans (only if plan exists)
   const currentPlan = hasPlan
@@ -1085,6 +1091,102 @@ export default function WorkspaceBillingPage() {
                 ) : null}
               </Panel>
             ) : null}
+          </div>
+        </SettingsSection>
+      ) : null}
+
+      {/* ---------------------------------------------------- chat channels */}
+      {/* Chat is capacity, not quantity: $299 buys one channel and $499 buys two, so the
+          two tiers are alternatives rather than a number to step up and down. That is why
+          this is its own section instead of another stepper in the add-ons grid above —
+          a stepper here would let someone buy five copies of a plan whose whole meaning
+          is "how many channels may answer".
+
+          Switching tiers is deliberately two explicit steps (remove, then add). Doing it
+          in one click would need two Stripe writes with no transaction around them, and a
+          failure between them would leave a customer either paying twice or answering
+          nowhere. Two clicks that each either happen or don't is the honest trade. */}
+      {summary?.addons && chatTiers.length > 0 ? (
+        <SettingsSection
+          icon={MessagesSquare}
+          title="Chat channels"
+          hint="How many channels your AI may answer on. Messages always arrive; only answering is what a plan buys."
+        >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {chatTiers.map((tier) => {
+              const isActive = (summary.addons?.active[tier.key] || 0) > 0;
+              const blockedBy = chatTiers.find(
+                (other) => other.key !== tier.key && (summary.addons?.active[other.key] || 0) > 0
+              );
+              const isBillingPaused = summary.billing_status !== "active";
+              const isUpdating = updatingAddon === tier.key;
+
+              return (
+                <Panel key={tier.key}>
+                  <PanelHeader
+                    icon={MessagesSquare}
+                    tone={isActive ? "brand" : "neutral"}
+                    title={tier.label}
+                    description={`${formatUsd(tier.price_usd_month)} per month.`}
+                  />
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {isActive ? (
+                      <StatusPill tone="brand" icon={Check}>
+                        Active
+                      </StatusPill>
+                    ) : (
+                      <StatusPill tone="neutral" icon={Wallet}>
+                        Not in use
+                      </StatusPill>
+                    )}
+                    {!hasPlan ? (
+                      <StatusPill tone="warn" icon={AlertTriangle}>
+                        Requires an active plan
+                      </StatusPill>
+                    ) : null}
+                  </div>
+
+                  {!isActive && blockedBy ? (
+                    <p className="mt-4 text-xs text-gray-500">
+                      Remove &ldquo;{blockedBy.label}&rdquo; first — one chat plan at a time.
+                    </p>
+                  ) : null}
+
+                  <SettingsButton
+                    type="button"
+                    variant={isActive ? "secondary" : "primary"}
+                    className="mt-5 w-full"
+                    disabled={
+                      isUpdating ||
+                      !hasPlan ||
+                      (!isActive && (Boolean(blockedBy) || isBillingPaused))
+                    }
+                    onClick={() => handleAddonUpdate(tier.key, isActive ? 0 : 1)}
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isActive ? (
+                      "Remove"
+                    ) : (
+                      "Add"
+                    )}
+                  </SettingsButton>
+                </Panel>
+              );
+            })}
+
+            <Panel className="h-fit">
+              <PanelHeader
+                icon={Sparkles}
+                title="What a channel means"
+                description="Telegram and email are live today. Connect any channel now and watch messages arrive — a plan decides which ones your AI answers on."
+              />
+              <p className="mt-4 text-xs text-gray-500">
+                There is no message counter. A plan is a number of channels, not a number of
+                replies.
+              </p>
+            </Panel>
           </div>
         </SettingsSection>
       ) : null}

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import {
+  isChatAddonKey,
+  otherChatAddonKey,
+  refuseChatPurchase,
+} from "@/lib/billing/chatPlanKeys";
 import { z } from "zod";
 import Stripe from "stripe";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
@@ -113,6 +118,41 @@ export async function POST(req: NextRequest) {
 
     const currentQty = currentAddon?.qty ? Number(currentAddon.qty) : 0;
     const isIncreasing = qty > currentQty;
+
+    // A chat tier is a choice, not a quantity, and only one may be held at a time. Both rules
+    // live in `chatPlanKeys.refuseChatPurchase` so they are testable without auth, Stripe and
+    // Supabase standing behind them; the reasoning is documented there.
+    if (isChatAddonKey(addon_key)) {
+      const otherKey = otherChatAddonKey(addon_key);
+      let otherChatQty = 0;
+
+      if (otherKey && isIncreasing) {
+        const { data: otherAddon } = await supabaseAdmin
+          .from("billing_org_addons")
+          .select("qty, status")
+          .eq("org_id", org_id)
+          .eq("addon_key", otherKey)
+          .maybeSingle<{ qty: number; status: string | null }>();
+
+        if (otherAddon?.status === "active") {
+          otherChatQty = Number(otherAddon.qty ?? 0);
+        }
+      }
+
+      const refusal = refuseChatPurchase({
+        addonKey: addon_key,
+        qty,
+        isIncreasing,
+        otherChatQty,
+      });
+
+      if (refusal) {
+        return NextResponse.json(
+          { ok: false, error: refusal.error },
+          { status: refusal.status }
+        );
+      }
+    }
 
     // 6) Block increases if billing-paused (but allow decreases to 0)
     if (isBillingPaused && isIncreasing) {

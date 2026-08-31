@@ -395,8 +395,8 @@
           "Doğru olana kadar revizyon"
         ],
         "delivery": "Panelden değil, tek tek teslim edilir. Siz brief verirsiniz, biz üretiriz, siz onaylarsınız.",
-        "pricing": "Projeye göre teklif — kapsam ve hacim belirler. Sorun, fiyatlayalım.",
-        "cta": "Teklif iste"
+        "pricing": "Görselde $349, videoda $399'dan başlayan paketler. Adet ve karmaşıklık rakamı değiştirir — hiçbir şey tahsil edilmeden önce teklif veririz.",
+        "cta": "Teklif isteyin"
       },
       "custom-ai": {
         "name": "Özel AI",
@@ -967,6 +967,144 @@
         "Seçeceğiniz 2 kanal",
         "Öncelikli destek"
       ]
+    }
+  },
+  "studio": {
+    "makes": {
+      "eyebrow": "Ne üretiyoruz",
+      "headline": "Tek brief, on iki tür içerik.",
+      "items": {
+        "product": "Ürün fotoğrafı",
+        "campaign": "Kampanya görselleri",
+        "social": "Sosyal medya kreatifi",
+        "ads": "Reklam kreatif varyantları",
+        "tryon": "Dijital ürün giydirme",
+        "variants": "Ürün varyant serileri",
+        "ecommerce": "E-ticaret ürün görselleri",
+        "lifestyle": "Yaşam tarzı sahneleri",
+        "banners": "Banner ve promosyon",
+        "shorts": "Kısa video",
+        "mockups": "3D mock-up",
+        "concept": "Konsept ve storyboard"
+      }
+    },
+    "plans": {
+      "eyebrow": "Stüdyo paketleri",
+      "headline": "Bir paket ne tutar.",
+      "sub": "İki tür iş, her birinde üç boyut. Yazan fiyat teklifin başladığı yerdir — adet ve karmaşıklık onu değiştirir.",
+      "from": "başlangıç",
+      "cta": "Teklif isteyin",
+      "noteTitle": "Neden satın alma butonu yok",
+      "note": "Stüdyo paketi prodüksiyon zamanı satın alır: bir brief, bir konsept turu, sayısı belli revizyonlar, bir teslim tarihi. Bunların hiçbiri ürününüzü görmeden fiyatlanamaz — bu yüzden önce teklif veriyor, sonra faturalandırıyoruz. Bu sitedeki diğer her fiyat kendini açan bir şey satın alır. Bu almaz.",
+      "seePackages": "Paketleri görün"
+    },
+    "process": {
+      "eyebrow": "Prodüksiyon nasıl işler",
+      "headline": "Brief'ten teslime dört adım.",
+      "steps": {
+        "brief": {
+          "name": "Siz anlatırsınız",
+          "body": "Ürününüz, referanslarınız, içeriğin nerede kullanılacağı. Görüşme ya da form — hangisi hızlıysa."
+        },
+        "concept": {
+          "name": "Konsept çıkarırız",
+          "body": "Seri üretimden önce yön ve tek bir örnek, böylece hiçbir şey iki kez üretilmez."
+        },
+        "produce": {
+          "name": "Üretiriz",
+          "body": "İhtiyacınız olan formatlarda tüm set, paketinizin içerdiği revizyonlarla."
+        },
+        "deliver": {
+          "name": "Siz onaylarsınız",
+          "body": "Mülkiyeti sizde olan dosyalar olarak teslim edilir ve brief'e uyana kadar revize edilir."
+        }
+      }
+    },
+    "groups": {
+      "visuals": {
+        "name": "AI Görsel",
+        "tiers": {
+          "basic": {
+            "name": "Temel",
+            "volume": "10 AI görsel",
+            "who": "Küçük işletmeler ve butik online mağazalar.",
+            "features": [
+              "10 adet AI görsel üretimi",
+              "Tüm sosyal medya formatlarına uygun ölçüler",
+              "1 revizyon turu",
+              "7 iş gününde teslim"
+            ]
+          },
+          "standard": {
+            "name": "Standart",
+            "volume": "30 AI görsel",
+            "who": "Online mağazalar ve sosyal medya içerik ekipleri.",
+            "features": [
+              "30 adet AI görsel üretimi",
+              "Temel paketteki her şey",
+              "Kıyafet ve aksesuar için dijital giydirme",
+              "Kampanya banner'ları ve promosyon görselleri",
+              "3 revizyon turu",
+              "5 iş gününde teslim"
+            ]
+          },
+          "advanced": {
+            "name": "Gelişmiş",
+            "volume": "60 AI görsel",
+            "who": "Orta ve büyük ölçekli markalar ve ajanslar.",
+            "features": [
+              "60 adet AI görsel üretimi",
+              "Standart paketteki her şey",
+              "3D mock-up ve konsept tasarımı",
+              "Ürün varyantları için seri üretim",
+              "4 revizyon turu",
+              "7 iş gününde teslim"
+            ]
+          }
+        }
+      },
+      "video": {
+        "name": "AI Video",
+        "tiers": {
+          "basic": {
+            "name": "Temel",
+            "volume": "3–5 AI video",
+            "who": "Küçük işletmeler ve butik online mağazalar.",
+            "features": [
+              "3 × 15 saniyelik video ya da 5 × 8 saniyelik sosyal medya kurgusu",
+              "AI kurgu",
+              "Modern geçiş efektleri",
+              "1 revizyon turu",
+              "5 iş gününde teslim"
+            ]
+          },
+          "standard": {
+            "name": "Standart",
+            "volume": "5–8 AI video",
+            "who": "Online mağazalar ve sosyal medya içerik ekipleri.",
+            "features": [
+              "5 × 20 saniyelik video ya da 8 × 10 saniyelik kısa kurgu",
+              "Gelişmiş AI efektleri ve animasyon",
+              "Lisanslı müzik ve ses tasarımı",
+              "2 revizyon turu",
+              "4 iş gününde teslim"
+            ]
+          },
+          "advanced": {
+            "name": "Gelişmiş",
+            "volume": "8–12 AI video",
+            "who": "Orta ve büyük ölçekli markalar ve ajanslar.",
+            "features": [
+              "8 × 30 saniyelik premium video ya da 12 × 15 saniyelik reklam kurgusu",
+              "Özel storyboard ve konsept tasarımı",
+              "Seslendirme ya da premium müzik",
+              "Reels, TikTok ve YouTube için format çıkışları",
+              "3 revizyon turu",
+              "5 iş gününde teslim"
+            ]
+          }
+        }
+      }
     }
   }
 }
