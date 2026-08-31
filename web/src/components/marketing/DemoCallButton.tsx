@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Mic, PhoneOff, Loader2 } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 /**
  * Premium Call Button Component
@@ -76,6 +76,10 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
   // The language the visitor is reading the page in. Safe here: every consumer of this button
   // lives under the marketing `[locale]` tree, inside NextIntlClientProvider.
   const locale = useLocale();
+  // Every visible string on this button comes from the message files. It used to be English
+  // hardcoded here, which meant a German visitor read a fully German page with an English call
+  // button on it — the one control the page exists to get pressed.
+  const t = useTranslations('home.demo');
   const [callState, setCallState] = useState<CallState>('idle');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,7 +219,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
     const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
     if (!publicKey) {
       setCallState('error');
-      setError('Voice agent is not available.');
+      setError(t('errUnavailable'));
       return;
     }
 
@@ -225,7 +229,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
         const module = await import('@vapi-ai/web');
         Vapi = module.default;
       } catch (e) {
-        setError('Unable to connect. Please refresh the page.');
+        setError(t('errRefresh'));
         setCallState('error');
         return;
       }
@@ -238,7 +242,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
     const session = await fetchDemoSession(locale);
     if (!session) {
       setCallState('error');
-      setError('Voice agent is not available.');
+      setError(t('errUnavailable'));
       return;
     }
 
@@ -462,7 +466,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
         isEndingRef.current = false;
         
         console.error('Vapi error:', e);
-        setError('Connection error. Please try again.');
+        setError(t('errConnection'));
         setCallState('error');
         setShowWarning(false);
         if (durationTimerRef.current) {
@@ -494,7 +498,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
       vapiRef.current = vapi;
     } catch (err: any) {
       console.error('Start error:', err);
-      setError('Agent is unavailable. Please try again later.');
+      setError(t('errAgentDown'));
       setCallState('error');
     }
   };
@@ -595,27 +599,27 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
             <Mic className="h-4 w-4" />
           )}
         </span>
-        {callState === 'connecting' ? 'Connecting…' : isLive ? 'End call' : 'Talk to Denku now'}
+        {callState === 'connecting' ? t('connectingCta') : isLive ? t('endCall') : t('cta')}
       </button>
 
       {/* Minimal supporting text - only shown when idle */}
       {callState === 'idle' && !rateLimitCooldown && (
         <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
-          No signup · Takes 30 seconds
+          {t('noSignup')}
         </p>
       )}
 
       {/* Rate limit message - shown when cooldown is active */}
       {rateLimitCooldown && (
         <p className="font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)]">
-          Please try again in a few minutes.
+          {t('cooldown')}
         </p>
       )}
 
       {/* Soft warning - only shown in last 1 minute */}
       {showWarning && isLive && (
         <p className="animate-in fade-in font-brand-mono text-xs tracking-wide text-[var(--s-ink-faint)] duration-200">
-          This session will end shortly.
+          {t('endingSoon')}
         </p>
       )}
 

@@ -73,7 +73,17 @@
       "ready": "Listo",
       "connecting": "Conectando",
       "listening": "Escuchando",
-      "tryAgain": "Reintentar"
+      "tryAgain": "Reintentar",
+      "cta": "Habla con Denku",
+      "endCall": "Finalizar llamada",
+      "connectingCta": "Conectando…",
+      "noSignup": "Sin registro · Tarda 30 segundos",
+      "endingSoon": "Esta sesión terminará en breve.",
+      "cooldown": "Vuelve a intentarlo en unos minutos.",
+      "errUnavailable": "El asistente de voz no está disponible.",
+      "errRefresh": "No se pudo conectar. Recarga la página.",
+      "errConnection": "Error de conexión. Inténtalo de nuevo.",
+      "errAgentDown": "El asistente no está disponible. Inténtalo más tarde."
     },
     "how": {
       "eyebrow": "Cómo se contrata",
@@ -165,6 +175,13 @@
     "finalCta": {
       "headline": "Tu próximo empleado",
       "headlineEmphasis": "empieza hoy"
+    },
+    "hero": {
+      "ticker": [
+        "Agendó una visita a las 9:30",
+        "Respondió una llamada perdida",
+        "Registró un contacto nuevo"
+      ]
     }
   },
   "channels": {
