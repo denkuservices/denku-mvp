@@ -42,7 +42,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-slate-900 mb-1.5">Email address</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Email address</label>
         <input
           type="email"
           value={email}
@@ -53,7 +53,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
           disabled={isPending}
           required
           autoComplete="email"
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
           placeholder="you@company.com"
         />
       </div>
@@ -74,7 +74,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
 
       <div className="text-center">
         <Link
-          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
+          className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline transition-colors"
           href="/signup"
         >
           Go to signup

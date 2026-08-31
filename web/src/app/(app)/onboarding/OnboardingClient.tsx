@@ -16,6 +16,10 @@ import {
   ShieldCheck,
   HelpCircle,
   MessageSquare,
+  Send,
+  Mail,
+  MessageCircle,
+  Instagram,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +62,9 @@ type OnboardingState = {
     concurrency_limit: number;
     included_phone_numbers: number;
   }>;
+  /** The channels a chat slot can actually be spent on — measured by whether the AI can
+   *  reply there, not by what the registry declares. */
+  chatChannelOptions: Array<{ id: string; label: string }>;
   /** Chat tiers, for a workspace that wants messages answered and no phone line. Empty
    *  when no tier has a configured Stripe price — an offer we cannot charge for is not shown. */
   chatPlans: Array<{
@@ -88,6 +95,15 @@ type OnboardingClientProps = {
 // machine, its forward-only writes, the `step >= 6` dashboard gate, the dual-path checkout
 // activation and resume-from-partial provisioning are all untouched. Renaming a label is safe;
 // renumbering a step is not.
+/** A glyph per chat channel, so the cards are scannable rather than three lines of prose.
+ *  Falls back to a generic message icon, so a channel shipping later still renders. */
+const CHANNEL_ICONS: Record<string, typeof MessageSquare> = {
+  telegram: Send,
+  email: Mail,
+  whatsapp: MessageCircle,
+  instagram: Instagram,
+};
+
 const STEPS = [
   { id: 0, label: "Your business", desc: "Who your AI works for" },
   { id: 1, label: "The role", desc: "What it handles for you" },
@@ -1162,8 +1178,26 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                                   </span>
                                   <span className="text-sm text-[#6B7888]">/month</span>
                                 </div>
-                                <div className="mt-3 flex-1 space-y-1.5 text-sm text-[#2C3E54]">
-                                  <p>Telegram or email, your choice</p>
+                                <div className="mt-3 flex-1 space-y-2.5 text-sm text-[#2C3E54]">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {state.chatChannelOptions.map((ch) => {
+                                      const Icon = CHANNEL_ICONS[ch.id] ?? MessageSquare;
+                                      return (
+                                        <span
+                                          key={ch.id}
+                                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1B6E6E]/25 bg-[#E3EEED] px-2.5 py-1 text-xs font-medium text-[#134F4F]"
+                                        >
+                                          <Icon className="h-3.5 w-3.5" />
+                                          {ch.label}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                  <p>
+                                    {tier.channels === 1
+                                      ? "Pick any one of these"
+                                      : `Pick any ${tier.channels} of these`}
+                                  </p>
                                   <p>No phone number, no call minutes</p>
                                   <p>Same inbox, tickets and appointments</p>
                                 </div>
@@ -1389,9 +1423,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
                       <MessageSquare className="h-5 w-5" />
                     </div>
-                    <span className="text-[15px] font-medium text-[#0A1A2F]">
-                      Telegram or email — your choice
-                    </span>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      {state.chatChannelOptions.map((ch) => {
+                        const Icon = CHANNEL_ICONS[ch.id] ?? MessageSquare;
+                        return (
+                          <span
+                            key={ch.id}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-[#1B6E6E]/25 bg-[#E3EEED] px-3 py-1.5 text-sm font-medium text-[#134F4F]"
+                          >
+                            <Icon className="h-4 w-4" />
+                            {ch.label}
+                          </span>
+                        );
+                      })}
+                    </div>
                     <p className="text-sm text-[#6B7888]">
                       Your AI answers on the first channel you connect. You can set the rest up too
                       and watch the messages arrive, whether or not your plan answers on them yet.

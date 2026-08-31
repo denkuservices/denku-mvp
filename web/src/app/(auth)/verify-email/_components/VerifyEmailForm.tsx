@@ -67,7 +67,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-slate-900 mb-1.5">Verification code</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Verification code</label>
         <input
           type="text"
           inputMode="numeric"
@@ -81,11 +81,11 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
             setError(null);
           }}
           disabled={isPending}
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] px-4 py-3 text-center text-2xl tracking-widest text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-center text-2xl tracking-widest text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
           placeholder="00000000"
           autoFocus
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[var(--s-ink-faint)]">
           Enter the 8-digit code sent to {email}
         </p>
       </div>
@@ -109,7 +109,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
           type="button"
           onClick={handleResend}
           disabled={resendCooldown > 0 || isPending}
-          className="text-sm text-slate-600 hover:text-slate-900 underline disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {resendCooldown > 0
             ? `Resend code in ${resendCooldown}s`

@@ -55,12 +55,12 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-[var(--s-ink-soft)]">
         Create a password for your account.
       </p>
 
       <div>
-        <label className="block text-sm font-medium text-slate-900 mb-1.5">Password</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Password</label>
         <input
           type="password"
           value={password}
@@ -72,13 +72,13 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           minLength={8}
           required
           autoComplete="new-password"
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
           placeholder="Minimum 8 characters"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-900 mb-1.5">Confirm password</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Confirm password</label>
         <input
           type="password"
           value={confirmPassword}
@@ -90,7 +90,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           minLength={8}
           required
           autoComplete="new-password"
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
           placeholder="Confirm your password"
         />
       </div>

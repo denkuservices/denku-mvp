@@ -96,7 +96,7 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
           type="button"
           onClick={handleCheckConfirmed}
           disabled={isCheckingConfirmed || isPending}
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] text-[var(--s-ink-soft)] py-3.5 px-4 font-medium hover:bg-[var(--s-hover-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {isCheckingConfirmed ? "Checking..." : "I already confirmed"}
         </button>
@@ -108,22 +108,22 @@ export function VerifyEmailHoldingPage({ email }: VerifyEmailHoldingPageProps) {
             setError(null);
             window.location.href = "/verify-email";
           }}
-          className="w-full rounded-xl border border-slate-200 bg-[var(--s-panel)] text-slate-700 py-3.5 px-4 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] text-[var(--s-ink-soft)] py-3.5 px-4 font-medium hover:bg-[var(--s-hover-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           Change email
         </button>
       </div>
 
-      <div className="pt-4 border-t border-slate-200 flex gap-3 justify-center">
+      <div className="pt-4 border-t border-[var(--s-border)] flex gap-3 justify-center">
         <Link
-          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
+          className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline transition-colors"
           href="/login"
         >
           Go to login
         </Link>
-        <span className="text-sm text-slate-400">•</span>
+        <span className="text-sm text-[var(--s-ink-faint)]">•</span>
         <Link
-          className="text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
+          className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline transition-colors"
           href="/signup"
         >
           Use a different email

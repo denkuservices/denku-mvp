@@ -11,6 +11,8 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import Stripe from "stripe";
+import { CHANNELS, CHANNEL_ORDER } from "@/lib/platform/channels";
+import { canReplyOn } from "@/lib/platform/transports/registry";
 import {
   isVoicePlanCode,
   isChatAddonKey,
@@ -176,6 +178,7 @@ export async function getOnboardingState() {
       isPlanActive: false,
       plans: [],
       chatPlans: [],
+      chatChannelOptions: [],
       hasPhoneNumber: false,
       phoneNumber: null,
       needsOrgSetup: true,
@@ -300,6 +303,14 @@ export async function getOnboardingState() {
     .not("stripe_price_id", "is", null)
     .order("price_usd_month");
 
+  // Which channels a chat slot can actually be spent on. `canReplyOn` — not the registry's
+  // `capabilities.outbound` — is the honest measure: messenger, WhatsApp, SMS and web chat all
+  // declare outbound while having no transport behind them, so listing those would offer a
+  // customer a channel their AI cannot answer on.
+  const chatChannelOptions = CHANNEL_ORDER.filter(
+    (c) => CHANNELS[c].kind === "chat" && canReplyOn(c)
+  ).map((c) => ({ id: c as string, label: CHANNELS[c].label }));
+
   const chatPlans = (chatPlansData || []).map((row) => ({
     addon_key: row.addon_key as string,
     label: row.label as string,
@@ -360,6 +371,7 @@ export async function getOnboardingState() {
       included_phone_numbers: p.included_phone_numbers,
     })),
     chatPlans,
+    chatChannelOptions,
     hasPhoneNumber,
     phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
     phoneNumberE164, // Also include as separate field for clarity
