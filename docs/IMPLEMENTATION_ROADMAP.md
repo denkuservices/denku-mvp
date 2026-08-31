@@ -1950,8 +1950,16 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   metadata nobody read, and is enforced in three places: the picker, `resolveLanguageSet` (which
   the voice stack is configured from), and the write boundary in `toUpdateAgentConfigPayload`.
   **Still pending: the first real Turkish call.** The voice has not been heard yet; if it does not
-  hold up, the entry comes out again rather than being quietly tolerated. French and German remain
-  out.
+  hold up, the entry comes out again rather than being quietly tolerated. French remains out.
+- **German added 2026-08-31, and the marketing demo now answers in the page's language.** The site
+  already picked a locale from the visitor's country (en/es/de/tr, middleware `geoRedirect`), but
+  the demo call answered in English underneath it — the product contradicting itself on the one
+  screen meant to prove it works. `/api/vapi/start` now returns per-call `assistantOverrides`
+  (transcriber, voice, greeting) built from the registry; the shared demo assistant is never
+  PATCHed, because it also answers a live phone number. German's `codeSwitch: true` is evidence-
+  based: Deepgram's `multi` set is exactly en, es, fr, de, hi, ru, pt, ja, it, nl — which also
+  confirms Turkish's `false`. A contract test now fails if a marketing locale is added without a
+  language the voice stack can speak.
 
 ### R-137 — Telegram channel + the channel-agnostic reply engine
 **Priority:** High · **Status:** 🟡 **Code-complete 2026-08-27, awaiting live verification** · **Effort:** L · **Related:** [skills/telegram-integration.md](../skills/telegram-integration.md), `CURRENT_SPRINT.md` P4

@@ -295,12 +295,12 @@ describe("Turkish: a primary language, not yet a second one (added 2026-08-31)",
     expect(SETUP_LANGUAGES).toContain("Turkish");
   });
 
-  it("is NOT offered as an extra, because code-switching into it is unverified", () => {
-    // Deepgram documents Turkish for Nova-3 but does not say it takes part in multilingual
-    // code-switching. Offering it here would let an owner tick a box that quietly does nothing —
-    // R-135 in a new costume. It comes back the moment there is evidence.
+  it("is NOT offered as an extra: Deepgram's code-switching set does not include it", () => {
+    // `multi` covers exactly ten languages — en, es, fr, de, hi, ru, pt, ja, it, nl. Turkish is a
+    // fully supported language on its own but cannot be the SECOND one, so offering it here would
+    // let an owner tick a box that quietly does nothing. German, which IS in that set, is offered.
     expect(ADDITIONAL_LANGUAGE_OPTIONS.map((o) => o.code)).not.toContain("tr");
-    expect(ADDITIONAL_LANGUAGE_OPTIONS.map((o) => o.code)).toEqual(["en", "es"]);
+    expect(ADDITIONAL_LANGUAGE_OPTIONS.map((o) => o.code)).toEqual(["en", "es", "de"]);
   });
 
   it("is dropped from a stored language set rather than silently mistranscribed", () => {
