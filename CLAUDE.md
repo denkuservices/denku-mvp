@@ -95,7 +95,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 
 | Rule | Source of truth |
 |---|---|
-| Plans: starter $149/400min/conc 1/1 num · growth $399/1200/4/2 · scale $899/3600/10/5; overage 0.22/0.18/0.13 $/min | `billing_plan_catalog` table (seeded in `supabase/migrations/20250127…`) |
+| Plans: starter $149/400min/conc 1 · growth $399/1200/4 · scale $899/3600/10 — **1 included number on every voice plan** (corrected 2026-08-31; the catalogue said 1/2/5 while the site said 1 everywhere, extras are the `extra_phone` add-on); overage 0.22/0.18/0.13 $/min | `billing_plan_catalog` table (seeded in `supabase/migrations/20250127…`) |
 | Preview mode (no plan) = `org_plan_limits.plan_code IS NULL` → gate destructive/paid features, CTA to billing | `web/src/lib/billing/isPreviewMode.ts` |
 | Dashboard access requires `organization_settings.onboarding_step >= 6` (plan alone is NOT enough) | middleware + `lib/auth/checkOnboarding.ts` |
 | Onboarding DB steps: 0 init · 1 Goal · 2 Language · 3 Phone intent · 4 Plan · 5 Activating · 6 Live. **UI step = DB step − 1** (UI 5 = Live) — do not mix them | `skills/onboarding-flow.md` |

@@ -69,12 +69,24 @@ export function TelegramConnectionCard({
     });
   }
 
+  /** Shown briefly beside the employee picker, so a silent save stops looking like a dead control. */
+  const [assignSaved, setAssignSaved] = React.useState(false);
+  React.useEffect(() => {
+    if (!assignSaved) return;
+    const t = setTimeout(() => setAssignSaved(false), 2500);
+    return () => clearTimeout(t);
+  }, [assignSaved]);
+
   function onAssign(agentId: string) {
     if (!connection) return;
     setError(null);
+    setAssignSaved(false);
     startTransition(async () => {
       const res = await assignTelegramEmployeeAction(connection.id, agentId || null);
       if (!res.ok) setError(res.error ?? "Could not assign.");
+      // Choosing from a dropdown that then does nothing visible reads as a broken control: the
+      // save already happened, silently, and the only way to find out was to reload.
+      else setAssignSaved(true);
     });
   }
 
@@ -142,6 +154,12 @@ export function TelegramConnectionCard({
                   </option>
                 ))}
               </select>
+              {assignSaved ? (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Saved
+                </p>
+              ) : null}
             </div>
           ) : null}
 

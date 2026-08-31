@@ -23,6 +23,7 @@ import EmployeeTabs from "../../_platform/team/EmployeeTabs";
 import SetupForm from "../../_platform/team/SetupForm";
 import KnowledgeForm from "../../_platform/team/KnowledgeForm";
 import { EMPLOYEE_TAB_META, resolveEmployeeTab } from "../../_platform/team/tabs";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,24 @@ export default async function EmployeeDetailPage({
   const [config, workspaceStatus] = isEditorTab
     ? await Promise.all([getEmployeeConfig(orgId, employee.id), getWorkspaceStatus(orgId)])
     : [null, "active" as const];
-  const conversations =
+
+
+  /*
+   * What the business's own website said, read in the background during onboarding.
+   *
+   * Shown as PLACEHOLDER text, never written in: a real page can be years out of date, and the
+   * owner confirming it is the whole safeguard. Falls back to the regional examples when there is
+   * no site or nothing was found.
+   */
+  let websiteFacts: Record<string, string> | null = null;
+  if (orgId) {
+    const { data: ws } = await supabaseAdmin
+      .from("organization_settings")
+      .select("website_facts")
+      .eq("org_id", orgId)
+      .maybeSingle<{ website_facts: Record<string, string> | null }>();
+    websiteFacts = ws?.website_facts ?? null;
+  }  const conversations =
     tab === "activity" || tab === "overview"
       ? (await listConversationViews(orgId, { limit: 200 }))
           .filter((c) => c.employeeId === employee.id)
@@ -216,7 +234,11 @@ export default async function EmployeeDetailPage({
 
       {tab === "knowledge" ? (
         config ? (
-          <KnowledgeForm employee={config} workspaceStatus={workspaceStatus} />
+          <KnowledgeForm
+            employee={config}
+            workspaceStatus={workspaceStatus}
+            websiteFacts={websiteFacts}
+          />
         ) : (
           <Card>
             <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s knowledge.</p>

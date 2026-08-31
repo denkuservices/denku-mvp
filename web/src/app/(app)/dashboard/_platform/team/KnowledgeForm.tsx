@@ -32,9 +32,20 @@ import {
 export default function KnowledgeForm({
   employee,
   workspaceStatus,
+  websiteFacts,
 }: {
   employee: EmployeeConfig;
   workspaceStatus: "active" | "paused";
+  /**
+   * What the business's own website said, read during onboarding.
+   *
+   * Used as placeholder text where it has something for a field, so the owner sees THEIR hours
+   * and THEIR services rather than a worked example from another country. Placeholders only:
+   * nothing here is ever saved without being typed or drafted and confirmed, because a real page
+   * can be years out of date and "we read it off your website" is no defence for telling a
+   * customer the wrong opening time.
+   */
+  websiteFacts?: Record<string, string> | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -62,7 +73,18 @@ export default function KnowledgeForm({
       // Keep the employee's saved zone.
     }
   }, [employee.timezone]);
-  const examples = React.useMemo(() => examplesForTimezone(zone), [zone]);
+  const regional = React.useMemo(() => examplesForTimezone(zone), [zone]);
+  /** The business's own site wins over a regional example, field by field. */
+  const examples = React.useMemo(() => {
+    if (!websiteFacts) return regional;
+    const merged = { ...regional };
+    for (const [key, value] of Object.entries(websiteFacts)) {
+      if (key in merged && typeof value === "string" && value.trim()) {
+        merged[key as keyof typeof merged] = value.trim();
+      }
+    }
+    return merged;
+  }, [regional, websiteFacts]);
   /** True once a draft has been loaded, so the form can say these words are not saved yet. */
   const [draftLoaded, setDraftLoaded] = React.useState(false);
 

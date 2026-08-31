@@ -39,6 +39,7 @@ import { formatUsd } from "@/lib/utils";
 import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
 import { ConnectChannelStep } from "./_components/ConnectChannelStep";
+import { researchWebsiteAction } from "./_actions/researchWebsite";
 
 
 type OnboardingState = {
@@ -49,6 +50,8 @@ type OnboardingState = {
   onboardingGoal: string | null;
   /** One sentence about the business, seeded into the employee's knowledge at activation. */
   businessDescription: string | null;
+  /** The business's own site, optional, read in the background to seed Knowledge. */
+  websiteUrl: string | null;
   onboardingLanguage: string | null;
   profileFullName: string | null;
   profilePhone: string | null;
@@ -343,6 +346,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [businessDescription, setBusinessDescription] = useState(
     initialState.businessDescription ?? ""
   );
+  const [website, setWebsite] = useState(initialState.websiteUrl ?? "");
 
   // Step 2: Phone number (AI line)
   const [country, setCountry] = useState("US");
@@ -380,6 +384,22 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
     if (!result.ok) {
       return { ok: false, error: result.error || "Something went wrong." };
+    }
+
+    /*
+     * Read the website in the background, if one was given.
+     *
+     * Fired from the browser and deliberately NOT awaited: reading a site costs up to eight
+     * seconds between the fetch and the model, and an optional field must never hold up the
+     * Continue button. The customer carries on to the next step while it runs, and by the time
+     * they reach Knowledge it has already landed.
+     *
+     * Fire-and-forget is safe here precisely because it is the BROWSER making the request — a
+     * serverless function that returns before its own background work finishes may simply be
+     * frozen. Failures are swallowed: nothing about this step depends on it.
+     */
+    if (action === "saveWorkspace" && website.trim()) {
+      void researchWebsiteAction().catch(() => {});
     }
 
     // Always refresh from DB (authoritative source of truth)
@@ -826,6 +846,36 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   ) : (
                     <p className="mt-1.5 text-xs text-[#6B7888]">For recovery and notifications. You can add this later.</p>
                   )}
+                </div>
+
+                {/*
+                  Optional, and the highest-value thing on this page.
+
+                  A business's own site usually states its hours, its address and the questions it
+                  already answers — every one of which the AI would otherwise have to hand to a
+                  human. It is read in the BACKGROUND after this step, never during it: an optional
+                  field must not put a network timeout in front of the Continue button.
+                */}
+                <div>
+                  <label htmlFor="website" className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                    Website <span className="text-xs text-[#6B7888]">(optional)</span>
+                  </label>
+                  <input
+                    id="website"
+                    name="website"
+                    type="text"
+                    inputMode="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    autoComplete="url"
+                    className={inputClass}
+                    placeholder="yourcompany.com"
+                  />
+                  <p className="mt-1.5 text-xs text-[#6B7888]">
+                    We&apos;ll read it to learn your hours, services and common questions, so your AI
+                    can answer them instead of passing them on. You review everything before it is
+                    saved.
+                  </p>
                 </div>
 
                 <div className="flex justify-end pt-2">

@@ -1,5 +1,7 @@
 -- The business's own website, and what we read from it.
 --
+-- APPLIED TO PRODUCTION 2026-08-31 as version 20260831152332.
+--
 -- WHY: onboarding already asks for a workspace name and a phone number. A website is one more
 -- optional line for the owner and by far the richest thing they can give us — opening hours, an
 -- address, services, the questions they already answer on their own FAQ page. Every one of those
@@ -11,6 +13,13 @@
 -- a page and silently spoken to a customer as the business's own word is the same failure as an
 -- invented one — the source being real does not make the claim current, and an opening time from
 -- a stale page is wrong in exactly the way that loses a customer.
+--
+-- SECURITY: reading this column means the server fetches a URL a user supplied, which is a
+-- server-side request forgery hole unless it is guarded. The guard lives in
+-- `lib/platform/websiteResearch.ts` (`safeWebsiteUrl`): HTTP/HTTPS only, no credentials, private
+-- and link-local ranges refused — including 169.254.169.254, the cloud metadata endpoint that
+-- answers with credentials — redirects followed by hand and re-checked at every hop, with a
+-- timeout and a size cap. `test/website-research.test.ts` pins those addresses.
 --
 -- `website_checked_at` is set whether or not the fetch succeeded, so a site that cannot be read
 -- is not retried on every page load. A null value means never attempted.

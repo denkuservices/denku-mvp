@@ -160,12 +160,14 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
         supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
         supabaseAdmin
           .from("organization_settings")
-          .select("business_description, onboarding_goal, onboarding_language")
+          .select("business_description, onboarding_goal, onboarding_language, website_url, website_facts")
           .eq("org_id", orgId)
           .maybeSingle<{
             business_description: string | null;
             onboarding_goal: string | null;
             onboarding_language: string | null;
+            website_url: string | null;
+            website_facts: Record<string, unknown> | null;
           }>(),
         supabaseAdmin
           .from("agents")
@@ -186,11 +188,17 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
       ]);
 
     const description = str(settings?.business_description);
+    const site = (settings?.website_facts ?? null) as Record<string, unknown> | null;
+    const siteLines = site
+      ? Object.entries(site)
+          .map(([k, v]) => (str(v) ? `${k}: ${str(v)}` : ""))
+          .filter(Boolean)
+      : [];
     const existing = (agent?.business_context ?? {}) as Record<string, unknown>;
     const existingServices = str(existing.services);
 
     // Nothing to work from. Drafting out of thin air is precisely what must not happen.
-    if (!description && !existingServices) {
+    if (!description && !existingServices && siteLines.length === 0) {
       return {
         ok: false,
         error:
@@ -205,6 +213,14 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
 
     const material = [
       org?.name ? `Workspace name (may be an internal label, not the customer-facing name): ${org.name}` : "",
+      // Read from the business's own site. Still material to rephrase, not licence to embellish:
+      // a real page can be years out of date, and "we read it off your website" is no defence for
+      // telling a customer the wrong opening time.
+      siteLines.length
+        ? `Read from the business's own website${
+            settings?.website_url ? ` (${settings.website_url})` : ""
+          }:\n${siteLines.join("\n")}`
+        : "",
       description ? `The business describes itself as: ${description}` : "",
       existingServices ? `Services already recorded: ${existingServices}` : "",
       settings?.onboarding_goal ? `It uses its AI mainly for: ${settings.onboarding_goal}` : "",

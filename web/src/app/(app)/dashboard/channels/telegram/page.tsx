@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listConnections } from "@/lib/telegram/connections";
@@ -53,6 +55,12 @@ export default async function TelegramPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+      <Link
+        href="/dashboard/channels"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
+      >
+        <ArrowLeft className="h-4 w-4" /> Channels
+      </Link>
       <PageHeader
         title="Telegram"
         subtitle="Your AI Employee answers Telegram messages on a bot you own. Customers message the bot; the AI books appointments and passes anything else to your team."

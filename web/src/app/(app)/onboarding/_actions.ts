@@ -47,7 +47,8 @@ export async function saveWorkspaceAction(formData: FormData) {
   const workspaceName = formData.get("workspaceName")?.toString() || "";
   const fullName = formData.get("fullName")?.toString() || "";
   const phone = formData.get("phone")?.toString() || null;
-  
+  const website = formData.get("website")?.toString().trim() || null;
+
   console.log("[onboarding submit] step 0 (workspace save)");
   
   if (!orgId || !workspaceName.trim() || !fullName.trim()) {
@@ -55,6 +56,21 @@ export async function saveWorkspaceAction(formData: FormData) {
   }
   
   const result = await saveWorkspaceAndProfile(orgId, workspaceName.trim(), fullName.trim(), phone?.trim() || null);
+
+  /*
+   * The website is stored here and READ later, in the background.
+   *
+   * Fetching it inline would put an eight-second timeout in front of the Continue button for a
+   * field that is optional — so the value is recorded now and `researchWebsiteAction` is fired
+   * from the browser once the customer has moved on.
+   */
+  if (result.ok && website) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .update({ website_url: website })
+      .eq("org_id", orgId);
+  }
+
   return result;
 }
 
@@ -182,6 +198,7 @@ export async function getOnboardingState() {
       isPlanActive: false,
       plans: [],
       businessDescription: null,
+      websiteUrl: null,
       chatPlans: [],
       chatChannelOptions: [],
       connectedChatChannels: [],
@@ -355,6 +372,7 @@ export async function getOnboardingState() {
   // 12) Get saved onboarding preferences (goal, language, country, area_code, selected_number_type)
   const onboardingGoal = (settings as any)?.onboarding_goal || null;
   const businessDescription = (settings as any)?.business_description || null;
+  const websiteUrl = (settings as any)?.website_url || null;
   const onboardingLanguage = (settings as any)?.onboarding_language || null;
   const onboardingCountry = (settings as any)?.onboarding_country || null;
   const onboardingAreaCode = (settings as any)?.onboarding_area_code || null;
@@ -387,6 +405,7 @@ export async function getOnboardingState() {
     onboardingStep: uiStep as number, // Return UI step, not DB step
     onboardingGoal: onboardingGoal as string | null,
     businessDescription: businessDescription as string | null,
+    websiteUrl: websiteUrl as string | null,
     onboardingLanguage: onboardingLanguage as string | null,
     onboardingCountry: onboardingCountry as string | null,
     onboardingAreaCode: onboardingAreaCode as string | null,

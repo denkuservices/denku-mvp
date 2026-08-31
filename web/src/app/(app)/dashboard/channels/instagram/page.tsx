@@ -1,3 +1,5 @@
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getConnectionByOrg, type PublicConnection } from "@/lib/instagram/connections";
 import { isInstagramOAuthConfigured } from "@/lib/instagram/config";
@@ -39,6 +41,12 @@ export default async function InstagramPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+      <Link
+        href="/dashboard/channels"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition hover:text-zinc-800"
+      >
+        <ArrowLeft className="h-4 w-4" /> Channels
+      </Link>
       <header className="mb-6">
         <h1 className="text-2xl font-semibold text-zinc-900">Instagram</h1>
         <p className="mt-1 text-sm text-zinc-600">
