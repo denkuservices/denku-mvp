@@ -127,6 +127,26 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
 }
 
 export async function middleware(request: NextRequest) {
+  /*
+   * An auth code that landed somewhere other than the callback.
+   *
+   * Supabase decides where a confirmation email points from the project's Site URL when the call
+   * that sent it did not name a redirect. That put `?code=…` on the site ROOT, where nothing
+   * consumes it — the customer clicked their link, arrived at the homepage, and was still signed
+   * out with no clue why.
+   *
+   * `sendCodeAction` names the redirect now, but this stays for two reasons: links already sent
+   * still point at the root, and the sending side is configuration that can drift again. A code
+   * is only ever meaningful to `/auth/callback`, so forwarding it there is always the right
+   * answer and never changes anything else.
+   */
+  const authCode = request.nextUrl.searchParams.get("code");
+  if (authCode && request.nextUrl.pathname !== "/auth/callback") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   // Auth lives OUTSIDE the [locale] tree, so /tr/login has no route. Links no
   // longer generate one, but a typed URL or an old bookmark still could — strip
   // the prefix rather than 404. The language survives in the NEXT_LOCALE cookie,

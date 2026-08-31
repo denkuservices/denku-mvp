@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/utils/url";
 
 export type ResendSignupEmailResult =
   | { ok: true; message: string }
@@ -24,10 +25,14 @@ export async function resendSignupEmailAction(
     const supabase = await createSupabaseServerClient();
 
     // Resend OTP code via Supabase
+    // Names the callback for the same reason `sendCodeAction` does: whether the customer gets a
+    // code or a link is the email template's decision, and an unnamed link falls back to the
+    // marketing homepage, where nothing consumes it.
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
         shouldCreateUser: true,
+        emailRedirectTo: `${getBaseUrl()}/auth/callback`,
       },
     });
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/utils/url";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -18,10 +19,24 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
     const supabase = await createSupabaseServerClient();
 
     // Send OTP code via Supabase
+    /*
+     * `emailRedirectTo` matters even though this flow expects a CODE.
+     *
+     * Which of the two a customer receives is decided by the Supabase email template, not by
+     * this call: a template containing `{{ .Token }}` sends six digits, one containing
+     * `{{ .ConfirmationURL }}` sends a link. Supabase also picks a DIFFERENT template depending
+     * on whether the address is new ("Confirm signup") or already exists ("Magic Link") — so the
+     * same button can send a code to one person and a link to another.
+     *
+     * Without this option a link falls back to the project's Site URL, which is the marketing
+     * homepage: the customer clicks, lands on `/?code=…`, and nothing consumes it. Naming the
+     * callback costs nothing when a code arrives and rescues the flow when a link does.
+     */
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
+        emailRedirectTo: `${getBaseUrl()}/auth/callback`,
       },
     });
 
