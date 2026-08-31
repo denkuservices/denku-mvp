@@ -57,6 +57,19 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
+  /**
+   * Client-side Router Cache tuning (perf, 2026-08-31).
+   *
+   * Almost every dashboard page is `force-dynamic`, and Next 16's default `staleTime` for a
+   * dynamic segment is 0 — so a page (or an Inbox conversation) you already opened is refetched
+   * from the server every time you navigate back to it, and the middleware auth chain is paid
+   * again. Holding a visited dynamic route in the client cache for 30s makes back-navigation and
+   * re-opening a menu item feel instant without changing what a first visit sees. `static` covers
+   * the few cached routes (e.g. the home overview, revalidate=60).
+   */
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
