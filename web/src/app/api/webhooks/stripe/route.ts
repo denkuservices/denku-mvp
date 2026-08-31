@@ -383,8 +383,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Validate plan_code
-      if (!["starter", "growth", "scale"].includes(planCode)) {
+      // Validate plan_code. Kept in step with the other activation paths. No chat write here:
+      // this handler reads metadata off the SUBSCRIPTION, and the chat checkout sets metadata
+      // on the session, so there is no `chat_addon_key` to act on — a write would be code that
+      // cannot run.
+      if (!isActivatablePlanCode(planCode)) {
         logEvent({
           tag: "[BILLING][WEBHOOK][SUBSCRIPTION_INVALID_PLAN]",
           ts: Date.now(),

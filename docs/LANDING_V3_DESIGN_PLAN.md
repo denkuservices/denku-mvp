@@ -600,17 +600,23 @@ the session, and `chat_only` is only the base plan the workspace lands on, recor
 no voice. That also keeps the upgrade path intact — the subscription now carries an item priced at
 the chat tier, which is exactly what `/api/billing/addons/update` looks for when changing tiers.
 
-**Five copies of one allowlist.** `["starter", "growth", "scale"]` was written out by hand in the
-plan-change route, both checkout entry points, the Stripe webhook and the redirect-fallback sync.
-Four had to learn about `chat_only` and **one deliberately must not** — moving an existing
-workspace onto `chat_only` would strand the phone number it is already paying for, which is a
-migration, not a plan switch. Five hand-written copies with four-fifths of a rule change is how a
-purchase completes on one path and is refused on another, so they now read `isVoicePlanCode` /
-`isActivatablePlanCode` from one module.
+**Six copies of one allowlist, and four paths that activate a checkout.**
+`["starter", "growth", "scale"]` was written out by hand in the plan-change route, both checkout
+entry points, two places in the Stripe webhook, the redirect-fallback sync, the onboarding success
+page and an uncalled-but-reachable `/api/billing/checkout/complete`. A first pass through this
+found five of them and missed the success page — which is the one the customer actually lands on,
+so a chat purchase would have been charged by Stripe and then refused by the page in front of
+them, until the webhook happened to win the race.
 
-**Both completion paths write the same row.** The webhook and the success-page fallback both call
-`recordChatPurchase`. If only one did, whether a customer's chat worked would depend on which
-arrived first. It is idempotent on `(org_id, addon_key)`, clears the other tier so nobody holds
+Most had to learn about `chat_only`; **one deliberately must not** — moving an existing workspace
+onto `chat_only` would strand the phone number it is already paying for, which is a migration, not
+a plan switch. Hand-written copies with a rule change applied to most of them is exactly how a
+purchase completes on one path and is refused on another, so they all read `isVoicePlanCode` /
+`isActivatablePlanCode` from one module now.
+
+**Every completion path writes the same row.** The webhook, the onboarding success page, the
+sync-checkout fallback and `checkout/complete` all call `recordChatPurchase`. If only some did,
+whether a customer's chat worked would depend on which arrived first. It is idempotent on `(org_id, addon_key)`, clears the other tier so nobody holds
 both, and **never throws** — both run after Stripe has already taken the money, so a failure has
 to be reportable rather than fatal.
 

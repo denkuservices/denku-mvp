@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "../../stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
  * POST /api/billing/checkout/complete
@@ -62,8 +64,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate plan_code
-    if (!["starter", "growth", "scale"].includes(planCode)) {
+    // Validate plan_code. One of FOUR paths that activate a completed checkout (the webhook,
+    // the onboarding success page and /api/billing/stripe/sync-checkout are the others). They
+    // must accept the same set — a purchase that completes on one and is refused on another
+    // is a customer charged for something they did not receive.
+    if (!isActivatablePlanCode(planCode)) {
       logEvent({
         tag: "[BILLING][CHECKOUT_COMPLETE][INVALID_PLAN]",
         ts: Date.now(),
@@ -80,6 +85,13 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "Invalid plan_code" },
         { status: 400 }
       );
+    }
+
+    // A chat-only purchase bought a chat TIER, not the $0 base plan. Same write the other
+    // three paths do, idempotent on (org_id, addon_key).
+    const chatAddonKey = session.metadata?.chat_addon_key;
+    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+      await recordChatPurchase(orgId, chatAddonKey);
     }
 
     // Upsert org_plan_overrides (idempotent - safe to run multiple times)

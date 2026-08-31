@@ -5,6 +5,8 @@ import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
+import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 import Stripe from "stripe";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
 
@@ -47,8 +49,10 @@ async function handleCheckoutSuccess(sessionId: string) {
       return;
     }
 
-    // Validate plan_code
-    if (!["starter", "growth", "scale"].includes(planCode)) {
+    // Validate plan_code. This is the THIRD path that activates a completed checkout — the
+    // webhook and /api/billing/stripe/sync-checkout are the other two — and all three must
+    // accept the same set, or a purchase completes on one and is silently refused on another.
+    if (!isActivatablePlanCode(planCode)) {
       console.warn("[onboarding/page] Invalid plan_code in checkout session", {
         session_id: sessionId,
         org_id: orgId,
@@ -77,6 +81,22 @@ async function handleCheckoutSuccess(sessionId: string) {
         error: overrideError.message,
       });
       return;
+    }
+
+    // A chat-only purchase bought a chat TIER, not the $0 base plan. Same write the webhook
+    // does, and idempotent on (org_id, addon_key) so both running is harmless — this page is
+    // the one the customer actually lands on, so it must not depend on the webhook winning.
+    const chatAddonKey = session.metadata?.chat_addon_key;
+    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+      const recorded = await recordChatPurchase(orgId, chatAddonKey);
+      if (!recorded.ok) {
+        console.error("[onboarding/page] Could not record chat purchase", {
+          session_id: sessionId,
+          org_id: orgId,
+          addon_key: chatAddonKey,
+          error: recorded.error,
+        });
+      }
     }
 
     // Verify plan is now active by checking org_plan_limits

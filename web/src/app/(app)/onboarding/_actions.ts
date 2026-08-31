@@ -16,6 +16,7 @@ import {
   isChatAddonKey,
   CHAT_ONLY_PLAN_CODE,
   CHAT_ADDON_SLOTS,
+  VOICE_PLAN_CODES,
 } from "@/lib/billing/chatPlanKeys";
 
 /**
@@ -280,7 +281,7 @@ export async function getOnboardingState() {
   const { data: plansData } = await supabaseAdmin
     .from("billing_plan_catalog")
     .select("plan_code, display_name, monthly_fee_usd, included_minutes, overage_rate_usd_per_min, concurrency_limit, included_phone_numbers")
-    .in("plan_code", ["starter", "growth", "scale"])
+    .in("plan_code", [...VOICE_PLAN_CODES])
     .order("plan_code");
 
   const plans = plansData || [];
