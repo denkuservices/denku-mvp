@@ -15,7 +15,7 @@
  * Pure and client-safe: the Setup form imports it too.
  */
 
-export type LanguageCode = "en" | "es" | "tr";
+export type LanguageCode = "en" | "es" | "de" | "tr";
 
 export interface LanguageCapability {
   code: LanguageCode;
@@ -60,6 +60,21 @@ export const LANGUAGES: Readonly<Record<LanguageCode, LanguageCapability>> = {
     voiceFollowsCaller: false,
     codeSwitch: true,
   },
+  de: {
+    code: "de",
+    label: "German",
+    aliases: ["de", "deu", "ger", "german", "deutsch"],
+    // Deepgram documents German for Nova-3, AND `de` is one of the ten languages in the `multi`
+    // code-switching set (en, es, fr, de, hi, ru, pt, ja, it, nl) — checked against Deepgram's
+    // models-languages overview, not assumed. So unlike Turkish, German can be a second language.
+    transcriberModel: "nova-3",
+    // OpenAI TTS, the same mouth Spanish uses. ⚠ Pending the first real German call, like Turkish:
+    // added because the marketing site now serves German visitors a German page and the demo has
+    // to answer in the language it is being read in.
+    voice: { provider: "openai", voiceId: "nova" },
+    voiceFollowsCaller: false,
+    codeSwitch: true,
+  },
   tr: {
     code: "tr",
     label: "Turkish",
@@ -77,10 +92,10 @@ export const LANGUAGES: Readonly<Record<LanguageCode, LanguageCapability>> = {
     // rather than being quietly tolerated.
     voice: { provider: "openai", voiceId: "nova" },
     voiceFollowsCaller: false,
-    // Deepgram documents Turkish for Nova-3, but does NOT state that Turkish takes part in
-    // multilingual code-switching. Unverified means false here: an employee that claims to
-    // understand Turkish *alongside* another language, while the ear silently cannot switch to
-    // it, is the exact failure R-135 was. Flip this only with evidence.
+    // VERIFIED FALSE (2026-08-31): Deepgram's `multi` code-switching option covers exactly ten
+    // languages — en, es, fr, de, hi, ru, pt, ja, it, nl — and Turkish is not among them. It is a
+    // fully supported language on its own; it simply cannot be the SECOND one. This is no longer
+    // caution about a gap in the docs, it is what the docs say.
     codeSwitch: false,
   },
 } as const;

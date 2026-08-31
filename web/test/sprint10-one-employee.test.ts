@@ -129,10 +129,11 @@ describe("field parity · the editor writes exactly what the action accepts", ()
    * `vapi-assistant-config.test.ts`.
    */
   it("offers only the languages the voice stack can actually speak (R-135)", () => {
-    // Turkish joined on 2026-08-31 with a verified Nova-3 transcriber and an OpenAI voice, at an
-    // operator's request and pending the first real Turkish call. French and German are still out
+    // Turkish and German joined on 2026-08-31, each with a Nova-3 transcriber checked against
+    // Deepgram's own language list and an OpenAI voice; German because the marketing site now
+    // serves German visitors a German page and the demo has to answer in it. French is still out
     // — re-adding one stays a decision, which is what this assertion protects.
-    expect([...SETUP_LANGUAGES]).toEqual(["English", "Spanish", "Turkish"]);
+    expect([...SETUP_LANGUAGES]).toEqual(["English", "Spanish", "German", "Turkish"]);
   });
 });
 

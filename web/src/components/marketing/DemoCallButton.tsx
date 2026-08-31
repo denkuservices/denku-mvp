@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Mic, PhoneOff, Loader2 } from 'lucide-react';
+import { useLocale } from 'next-intl';
 
 /**
  * Premium Call Button Component
@@ -26,12 +27,33 @@ let Vapi: any = null;
  * accounts would leave this button rendering normally and failing silently on every click.
  * Now the server owns it, so `VAPI_AGENT_ID` alone is enough to repoint the demo.
  */
-async function fetchDemoAssistantId(): Promise<string | null> {
+type DemoSession = { assistantId: string; assistantOverrides?: Record<string, unknown> };
+
+/**
+ * The server also decides what language the demo answers in.
+ *
+ * The locale travels with the request because the page knows it and the API route does not: a
+ * visitor from Germany is reading `/de`, and a demo that greets them in English under a German
+ * page is the product contradicting itself. The overrides come back built from the language
+ * registry — the browser never gets to choose a voice or a transcriber.
+ */
+async function fetchDemoSession(locale: string): Promise<DemoSession | null> {
   try {
-    const res = await fetch('/api/vapi/start', { method: 'POST' });
+    const res = await fetch('/api/vapi/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale }),
+    });
     if (!res.ok) return null;
-    const data = (await res.json()) as { assistantId?: unknown };
-    return typeof data.assistantId === 'string' && data.assistantId ? data.assistantId : null;
+    const data = (await res.json()) as { assistantId?: unknown; assistantOverrides?: unknown };
+    if (typeof data.assistantId !== 'string' || !data.assistantId) return null;
+    return {
+      assistantId: data.assistantId,
+      assistantOverrides:
+        data.assistantOverrides && typeof data.assistantOverrides === 'object'
+          ? (data.assistantOverrides as Record<string, unknown>)
+          : undefined,
+    };
   } catch {
     return null;
   }
@@ -51,6 +73,9 @@ export type DemoCallButtonProps = {
 };
 
 export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
+  // The language the visitor is reading the page in. Safe here: every consumer of this button
+  // lives under the marketing `[locale]` tree, inside NextIntlClientProvider.
+  const locale = useLocale();
   const [callState, setCallState] = useState<CallState>('idle');
   const [showWarning, setShowWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,8 +235,8 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
     setError(null);
     setShowWarning(false);
 
-    const assistantId = await fetchDemoAssistantId();
-    if (!assistantId) {
+    const session = await fetchDemoSession(locale);
+    if (!session) {
       setCallState('error');
       setError('Voice agent is not available.');
       return;
@@ -227,8 +252,10 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
       // Reset ending flag when starting new call
       isEndingRef.current = false;
 
-      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID)
-      vapi.start(assistantId);
+      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID) and the
+      // per-call language overrides. Overrides are passed as the second argument so the shared
+      // demo assistant — which also answers a real phone number — is never modified.
+      vapi.start(session.assistantId, session.assistantOverrides);
 
       // Set up event handlers
       vapi.on('call-start', (data: any) => {
