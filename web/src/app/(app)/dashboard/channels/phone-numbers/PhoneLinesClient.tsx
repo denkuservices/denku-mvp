@@ -13,6 +13,7 @@ import { AddPhoneNumberButton } from "./_components/AddPhoneNumberButton";
 interface PhoneLinesClientProps {
   phoneLines: PhoneLineRow[];
   isPreviewMode?: boolean;
+  byoEnabled?: boolean;
 }
 
 /**
@@ -254,7 +255,7 @@ function PhoneLineActionsMenu({
   );
 }
 
-export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPreviewMode = false }: PhoneLinesClientProps) {
+export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPreviewMode = false, byoEnabled = false }: PhoneLinesClientProps) {
   const router = useRouter();
   const [phoneLines, setPhoneLines] = useState(initialPhoneLines);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -380,7 +381,7 @@ export default function PhoneLinesClient({ phoneLines: initialPhoneLines, isPrev
             Add a phone number to start receiving calls.
           </p>
           <div className="flex flex-col items-center gap-3">
-            <AddPhoneNumberButton isPreviewMode={false} />
+            <AddPhoneNumberButton isPreviewMode={false} byoEnabled={byoEnabled} />
           </div>
         </div>
       </div>

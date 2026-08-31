@@ -1,16 +1,28 @@
 # Implementation Plan — Bring Your Own Phone Number (BYO SIP trunk)
 
-> Status: **BACKEND BUILT (2026-08-31), behind `BYO_NUMBERS_ENABLED` (default OFF). UI not built.
-> No real carrier trunk has been connected yet.**
+> Status: **SHIPPABLE (2026-08-31) behind `BYO_NUMBERS_ENABLED` (default OFF). Migration applied
+> to prod. No real carrier trunk has been connected yet — that is Phase 0 and it needs an
+> operator with carrier credentials.**
 > Goal: let a tenant connect a phone number they already own, via their own SIP trunk,
 > instead of renting a new US number from Vapi.
 > Scope decision owner: product. Engineering sequencing owner: this document.
 >
-> Built: `sip_trunks` + `phone_lines` columns (`20260831140000_byo_phone_numbers.sql`),
-> `lib/vapi/sipTrunk.ts`, `lib/phone-lines/connectByo.ts`, `POST /api/phone-lines/connect`,
-> `markPhoneLineVerified` wired into the Vapi webhook, `byoNumbersEnabled`,
-> `test/byo-sip-numbers.test.ts`. **Not built:** the connect UI (§7) and the delete-path trunk
-> refcount (§6.2) — a BYO line can be created and verified today, but only via the API.
+> Built: `sip_trunks` + `phone_lines` columns (`20260831140306_byo_phone_numbers.sql`, applied to
+> prod), `lib/vapi/sipTrunk.ts`, `lib/phone-lines/connectByo.ts`, `POST /api/phone-lines/connect`,
+> `GET /api/phone-lines/[lineId]/status`, refcounted trunk release on delete,
+> `markPhoneLineVerified` in the Vapi webhook, `byoNumbersEnabled`, `test/byo-sip-numbers.test.ts`,
+> and the dashboard flow: a mode chooser in `AddPhoneNumberModal`, `ConnectOwnNumberFlow`
+> (details → carrier instructions → waiting for the first call), and `ByoConnectionCard` on the
+> line detail page so the settings can be read again after the wizard is closed.
+>
+> **Deliberately NOT built: the onboarding entry point.** Adding BYO to `runActivation` means
+> changing the activation state machine so it can finish without provisioning a number — the most
+> fragile path in the product, and one another workstream is actively editing (`chat_only` landed
+> there the same day). A new workspace still gets a Denku number during onboarding and can connect
+> its own from the dashboard immediately afterwards. Doing it properly in onboarding is its own
+> change, with its own review.
+>
+> **To turn it on:** set `BYO_NUMBERS_ENABLED=true` in the environment. Nothing else is gated.
 
 ## 0. The carrier this was built against — Netgsm (verified 2026-08-31)
 

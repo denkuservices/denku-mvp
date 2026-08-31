@@ -11,12 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Lock, Check, X } from "lucide-react";
+import { Copy, Lock, Check, X, Phone, Link2 } from "lucide-react";
+import { ConnectOwnNumberFlow } from "./ConnectOwnNumberFlow";
 
 interface AddPhoneNumberModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  /**
+   * Whether this workspace may connect a number it already owns (BYO SIP). When false the modal
+   * behaves exactly as it always did — straight into the purchase wizard, no extra choice.
+   */
+  byoEnabled?: boolean;
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -34,9 +40,11 @@ function formatPhoneNumber(e164: string | null): string {
   return e164;
 }
 
-export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneNumberModalProps) {
+export function AddPhoneNumberModal({ open, onOpenChange, onSuccess, byoEnabled = false }: AddPhoneNumberModalProps) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
+  // null = the customer has not chosen yet. With BYO off there is nothing to choose.
+  const [mode, setMode] = useState<"buy" | "byo" | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -61,6 +69,7 @@ export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneN
   useEffect(() => {
     if (!open) {
       setStep(1);
+      setMode(null);
       setError(null);
       setSelectedCountry("US");
       setAreaCode("");
@@ -216,6 +225,8 @@ export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneN
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const effectiveMode: "buy" | "byo" | null = byoEnabled ? mode : "buy";
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogPortal>
@@ -232,13 +243,70 @@ export function AddPhoneNumberModal({ open, onOpenChange, onSuccess }: AddPhoneN
               <span className="sr-only">Close</span>
             </button>
 
-            {/* Step indicator */}
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              Step {step} of 4
-            </p>
+            {/* Step indicator — only the purchase wizard is a numbered flow. */}
+            {effectiveMode === "buy" && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Step {step} of 4
+              </p>
+            )}
+
+            {/* Which kind of number? Shown only when connecting your own is available. */}
+            {effectiveMode === null && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Add a phone number</DialogTitle>
+                  <DialogDescription>
+                    Get a new number from us, or connect one your business already uses.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3 pt-4">
+                  <button
+                    onClick={() => setMode("buy")}
+                    className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-left transition-colors hover:border-brand-500 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                  >
+                    <Phone className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
+                    <span>
+                      <span className="block text-sm font-medium text-navy-700 dark:text-white">
+                        Get a new number
+                      </span>
+                      <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
+                        We provision it and it works within minutes. $10/month.
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setMode("byo")}
+                    className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-left transition-colors hover:border-brand-500 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                  >
+                    <Link2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
+                    <span>
+                      <span className="block text-sm font-medium text-navy-700 dark:text-white">
+                        Connect my own number
+                      </span>
+                      <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
+                        Keep the number your customers already know. Needs your provider&apos;s SIP
+                        details, and one setting changed at their end.
+                      </span>
+                    </span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
+                  <button
+                    onClick={handleClose}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/20 dark:bg-navy-700 dark:text-white dark:hover:bg-navy-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+
+            {effectiveMode === "byo" && (
+              <ConnectOwnNumberFlow onCancel={handleClose} onConnected={onSuccess} />
+            )}
 
             {/* Step 1: Pricing Confirmation */}
-            {step === 1 && (
+            {effectiveMode === "buy" && step === 1 && (
               <>
                 <DialogHeader>
               <DialogTitle>Add a phone number</DialogTitle>
