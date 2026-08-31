@@ -1,9 +1,55 @@
 # Implementation Plan — Bring Your Own Phone Number (BYO SIP trunk)
 
-> Status: **PLAN ONLY — nothing built.** Drafted 2026-08-31.
+> Status: **SHIPPABLE (2026-08-31) behind `BYO_NUMBERS_ENABLED` (default OFF). Migration applied
+> to prod. No real carrier trunk has been connected yet — that is Phase 0 and it needs an
+> operator with carrier credentials.**
 > Goal: let a tenant connect a phone number they already own, via their own SIP trunk,
 > instead of renting a new US number from Vapi.
 > Scope decision owner: product. Engineering sequencing owner: this document.
+>
+> Built: `sip_trunks` + `phone_lines` columns (`20260831140306_byo_phone_numbers.sql`, applied to
+> prod), `lib/vapi/sipTrunk.ts`, `lib/phone-lines/connectByo.ts`, `POST /api/phone-lines/connect`,
+> `GET /api/phone-lines/[lineId]/status`, refcounted trunk release on delete,
+> `markPhoneLineVerified` in the Vapi webhook, `byoNumbersEnabled`, `test/byo-sip-numbers.test.ts`,
+> and the dashboard flow: a mode chooser in `AddPhoneNumberModal`, `ConnectOwnNumberFlow`
+> (details → carrier instructions → waiting for the first call), and `ByoConnectionCard` on the
+> line detail page so the settings can be read again after the wizard is closed.
+>
+> **Deliberately NOT built: the onboarding entry point.** Adding BYO to `runActivation` means
+> changing the activation state machine so it can finish without provisioning a number — the most
+> fragile path in the product, and one another workstream is actively editing (`chat_only` landed
+> there the same day). A new workspace still gets a Denku number during onboarding and can connect
+> its own from the dashboard immediately afterwards. Doing it properly in onboarding is its own
+> change, with its own review.
+>
+> **To turn it on:** set `BYO_NUMBERS_ENABLED=true` in the environment. Nothing else is gated.
+
+## 0. The carrier this was built against — Netgsm (verified 2026-08-31)
+
+Netgsm publishes its own Vapi integration guide, and it settles the question this plan left open.
+**Authentication is register-style (username + password), not a pure IP allowlist** — an earlier
+assumption here, and the one the operator started from, was wrong. What is IP/domain-based is the
+*delivery*: Netgsm's panel forwards inbound calls to a host you name, which is what makes Vapi
+reachable at all.
+
+| Where | Setting | Value |
+|---|---|---|
+| Vapi credential | `gateways[0].ip` | `sip.netgsm.com.tr` (or `185.88.7.189`) |
+| Vapi credential | `outboundAuthenticationPlan` | username + password from Netgsm's panel |
+| Vapi number | `numberE164CheckEnabled` | `false` — a `+90` number is refused otherwise |
+| Netgsm panel | Ses Hizmeti → Ayarlar → SIP Bilgileri → SIP Trunk | enable |
+| Netgsm panel | SIP Trunk adresi / Port | `sip.vapi.ai` / `5060` |
+| Netgsm panel | Aranan Prefix | `+90` — the called number MUST arrive as E.164 |
+| Netgsm panel | Arayan Prefix | `0` |
+
+**The single most likely silent failure:** the called number Netgsm sends must match the `number`
+on the Vapi phone-number object *exactly*. If the prefix is wrong the call reaches Vapi and maps
+to nothing — no error anywhere, the line simply never answers. `toE164` in `lib/vapi/sipTrunk.ts`
+exists for that reason on our side; the Aranan Prefix is the same guarantee on theirs.
+
+Still unanswered by Netgsm's public docs, so ask their support before relying on it: concurrent
+channel limits, codec (G.711 alaw is what we want), and whether they require Vapi's inbound IPs
+(`44.229.228.186`, `44.238.177.138`) to be allowlisted.
 
 ## 1. What this is, and what it is not
 

@@ -7,9 +7,11 @@ import { AddPhoneNumberModal } from "./AddPhoneNumberModal";
 
 interface AddPhoneNumberButtonProps {
   isPreviewMode?: boolean;
+  /** Passed down from the server page, which is where the feature flag can be read. */
+  byoEnabled?: boolean;
 }
 
-export function AddPhoneNumberButton({ isPreviewMode = false }: AddPhoneNumberButtonProps) {
+export function AddPhoneNumberButton({ isPreviewMode = false, byoEnabled = false }: AddPhoneNumberButtonProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
 
@@ -38,7 +40,12 @@ export function AddPhoneNumberButton({ isPreviewMode = false }: AddPhoneNumberBu
       >
         + Add phone number
       </button>
-      <AddPhoneNumberModal open={modalOpen} onOpenChange={setModalOpen} onSuccess={handleSuccess} />
+      <AddPhoneNumberModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSuccess={handleSuccess}
+        byoEnabled={byoEnabled}
+      />
     </>
   );
 }

@@ -32,3 +32,16 @@ export function platformModelEnabled(env: FlagEnv = process.env): boolean {
 export function platformUxEnabled(env: FlagEnv = process.env): boolean {
   return (env.PLATFORM_UX_ENABLED ?? "").toLowerCase().trim() === "true";
 }
+
+/**
+ * BYO phone numbers — a tenant connects a number they already own over their own SIP trunk,
+ * instead of renting a US number from Vapi. Default OFF.
+ *
+ * Gated because the connect path talks to a third party's telephony on the customer's behalf:
+ * a half-configured trunk means their published business number rings into nothing. Turn it on
+ * per environment only after a real carrier trunk has been proven end to end
+ * (docs/BYO_PHONE_NUMBERS_PLAN.md, Phase 0).
+ */
+export function byoNumbersEnabled(env: FlagEnv = process.env): boolean {
+  return (env.BYO_NUMBERS_ENABLED ?? "").toLowerCase().trim() === "true";
+}

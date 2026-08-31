@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
+import { markPhoneLineVerified } from "@/lib/vapi/phoneLineVerification";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isWorkspacePaused } from "@/lib/workspace-status";
@@ -1776,6 +1777,21 @@ export async function POST(req: NextRequest) {
 
       console.log("[WEBHOOK] Workspace paused - ignoring webhook", { orgId, vapiCallId, workspaceStatus, pausedReason });
       return NextResponse.json({ ok: true, ignored: "workspace_paused" });
+    }
+
+    // A BYO line proves itself by receiving a call. The tenant's carrier only delivers here if
+    // they really control the number, so this arrival IS the proof of control — no OTP needed.
+    // Conditional UPDATE inside, never throws, no-op for lines that are already verified or were
+    // provisioned by Denku. Runs after the pause check on purpose: a paused workspace should not
+    // be answering, so it should not be proving anything either.
+    try {
+      const inboundPhoneNumberId =
+        (body?.message?.call?.phoneNumberId ?? body?.message?.phoneNumberId ?? null) as string | null;
+      if (orgId && inboundPhoneNumberId) {
+        await markPhoneLineVerified(orgId, inboundPhoneNumberId);
+      }
+    } catch {
+      // Never let verification bookkeeping cost a call its artifact.
     }
 
     const { startedAt, endedAt } = extractStartedEnded(body);

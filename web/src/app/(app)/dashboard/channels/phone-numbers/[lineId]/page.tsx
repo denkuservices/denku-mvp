@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isPreviewMode } from "@/lib/billing/isPreviewMode";
 import { SuccessBanner } from "./SuccessBanner";
+import { ByoConnectionCard } from "./_components/ByoConnectionCard";
 import { PhoneLineDetailClient } from "./PhoneLineDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -303,6 +304,8 @@ export default async function PhoneLineDetailPage({
         lastCallFormatted={lastCallFormatted}
         capacityLabel={capacityLabel}
       />
+      {/* Renders itself only for a customer-connected line; a no-op for Denku-provisioned ones. */}
+      <ByoConnectionCard lineId={normalizedLine.id} />
     </>
   );
 }
