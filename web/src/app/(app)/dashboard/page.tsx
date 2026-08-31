@@ -4,6 +4,7 @@ import { platformUxEnabled } from '@/lib/platform/flags';
 import PlatformDashboard from './_platform/home/PlatformDashboard';
 import PlatformAnalytics from './_platform/analytics/PlatformAnalytics';
 import HomeTabs, { resolveHomeTab } from './_platform/home/HomeTabs';
+import SetupNudges from './_components/SetupNudges';
 import { resolveRange } from '@/lib/platform/readModel/aggregate';
 
 // Explicitly cache dashboard page to prevent automatic revalidation loops
@@ -38,6 +39,8 @@ export default async function DashboardPage({
     return (
       <div className="p-4 md:p-6">
         <h1 className="mb-4 text-2xl font-semibold tracking-tight text-navy-700 dark:text-white">Home</h1>
+        {/* Above both home variants, so what a customer is told does not depend on a flag. */}
+        <SetupNudges />
         <HomeTabs active={tab} />
         {tab === 'analytics' ? (
           <PlatformAnalytics range={resolveRange(Array.isArray(sp?.range) ? sp.range[0] : sp?.range)} bare />
@@ -50,5 +53,12 @@ export default async function DashboardPage({
 
   const data = await getDashboardOverview();
 
-  return <DashboardClient data={data} />;
+  return (
+    <>
+      <div className="px-4 pt-4 md:px-6 md:pt-6">
+        <SetupNudges />
+      </div>
+      <DashboardClient data={data} />
+    </>
+  );
 }

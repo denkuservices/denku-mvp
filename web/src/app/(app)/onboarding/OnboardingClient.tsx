@@ -47,6 +47,8 @@ type OnboardingState = {
   role: string | null;
   onboardingStep: number;
   onboardingGoal: string | null;
+  /** One sentence about the business, seeded into the employee's knowledge at activation. */
+  businessDescription: string | null;
   onboardingLanguage: string | null;
   profileFullName: string | null;
   profilePhone: string | null;
@@ -335,6 +337,11 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   // Step 1: Goal (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales" | "ops">(
     (state.onboardingGoal as "support" | "sales" | "ops") || "support"
+  );
+  // The one thing onboarding asks about the business itself. Optional — it makes the AI
+  // specific rather than generic, but skipping it still yields a working employee.
+  const [businessDescription, setBusinessDescription] = useState(
+    initialState.businessDescription ?? ""
   );
 
   // Step 2: Phone number (AI line)
@@ -890,6 +897,42 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <p className="mt-1 text-sm text-[#6B7888]">Run workflows and handle operational requests.</p>
                     </div>
                   </button>
+                </div>
+
+                {/*
+                  The single question onboarding asks about the business.
+
+                  Both system prompts refuse to state a fact that is not in the employee's
+                  knowledge block, which is the right rule and also means an employee with an
+                  empty one answers everything with "I'll pass that to the team". This is the
+                  field that changes that. The other seven live in Team → Knowledge, where they
+                  can be written after the owner has seen their AI answer someone — a guess typed
+                  here, before any of that, would be worse.
+                */}
+                <div className="rounded-[14px] border border-[#0A1A2F]/10 bg-[#FBFAF8] p-5">
+                  <label
+                    htmlFor="businessDescription"
+                    className="block font-display text-[16px] font-medium text-[#0A1A2F]"
+                  >
+                    What does your business do?
+                  </label>
+                  <p className="mt-1 text-sm text-[#2C3E54]">
+                    A sentence or two. Your AI uses this to answer questions instead of passing
+                    them on.
+                  </p>
+                  <textarea
+                    id="businessDescription"
+                    name="businessDescription"
+                    value={businessDescription}
+                    onChange={(e) => setBusinessDescription(e.target.value)}
+                    rows={3}
+                    maxLength={1000}
+                    placeholder="We're a dental clinic in Kadıköy. Cleanings, fillings, implants and whitening."
+                    className="mt-3 w-full resize-none rounded-[10px] border border-[#0A1A2F]/12 bg-white px-4 py-3 text-[15px] text-[#0A1A2F] placeholder:text-[#6B7888]/60 outline-none transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15"
+                  />
+                  <p className="mt-2 text-xs text-[#6B7888]">
+                    Optional — you can add this and more in Team → Knowledge later.
+                  </p>
                 </div>
 
                 <div className="flex justify-end pt-2">

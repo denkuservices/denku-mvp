@@ -64,14 +64,18 @@ export async function saveWorkspaceAction(formData: FormData) {
 export async function saveGoalAndLanguageAction(formData: FormData) {
   const orgId = formData.get("orgId")?.toString();
   const goal = formData.get("goal")?.toString() || "support";
-  
+  // Optional on purpose. It makes the AI specific to this business rather than generic, but a
+  // customer who skips it still gets a working employee — so it must never block the step.
+  const businessDescription =
+    formData.get("businessDescription")?.toString().trim().slice(0, 1000) || null;
+
   console.log("[onboarding submit] step 1 (goal)");
 
   if (!orgId) {
     return { ok: false, error: "Organization ID is missing." };
   }
 
-  const result = await saveOnboardingPreferences(orgId, { goal });
+  const result = await saveOnboardingPreferences(orgId, { goal, businessDescription });
   return result;
 }
 
@@ -177,6 +181,7 @@ export async function getOnboardingState() {
       planCode: null,
       isPlanActive: false,
       plans: [],
+      businessDescription: null,
       chatPlans: [],
       chatChannelOptions: [],
       connectedChatChannels: [],
@@ -349,6 +354,7 @@ export async function getOnboardingState() {
 
   // 12) Get saved onboarding preferences (goal, language, country, area_code, selected_number_type)
   const onboardingGoal = (settings as any)?.onboarding_goal || null;
+  const businessDescription = (settings as any)?.business_description || null;
   const onboardingLanguage = (settings as any)?.onboarding_language || null;
   const onboardingCountry = (settings as any)?.onboarding_country || null;
   const onboardingAreaCode = (settings as any)?.onboarding_area_code || null;
@@ -380,6 +386,7 @@ export async function getOnboardingState() {
     role,
     onboardingStep: uiStep as number, // Return UI step, not DB step
     onboardingGoal: onboardingGoal as string | null,
+    businessDescription: businessDescription as string | null,
     onboardingLanguage: onboardingLanguage as string | null,
     onboardingCountry: onboardingCountry as string | null,
     onboardingAreaCode: onboardingAreaCode as string | null,
@@ -475,7 +482,7 @@ export async function updateOnboardingStep(orgId: string, step: number) {
  */
 export async function saveOnboardingPreferences(
   orgId: string,
-  preferences: { goal: string }
+  preferences: { goal: string; businessDescription?: string | null }
 ) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -525,6 +532,11 @@ export async function saveOnboardingPreferences(
     .update({
       onboarding_step: 3, // Move to step 3 (Phone Intent) after Goal selection
       onboarding_goal: preferences.goal,
+      // Only overwrite when something was typed, so going Back and forward again does not
+      // erase a description the customer already gave.
+      ...(preferences.businessDescription
+        ? { business_description: preferences.businessDescription }
+        : {}),
     })
     .eq("org_id", orgId);
 
@@ -947,6 +959,47 @@ type VapiPhoneNumberDetails = { id: string; number?: string; phoneNumber?: strin
  * Server action that executes the full activation flow for onboarding.
  * Called automatically when user reaches Step 4 (Activating).
  */
+/**
+ * What a brand-new AI employee knows about the business on day one.
+ *
+ * Both activation paths call this — the voice one and the chat-only one — because the business's
+ * facts must be the same whichever channel a customer reaches. A second copy would drift, and
+ * the first symptom would be an AI quoting different services on the phone than in Telegram.
+ *
+ * It is deliberately thin: the workspace name and the one sentence onboarding asked for. The
+ * other seven Knowledge fields are left empty rather than guessed, because both system prompts
+ * refuse to state a fact that is not in this block — so a guessed opening time would not merely
+ * be wrong, it would be spoken to a customer as though the business had said it.
+ *
+ * Returns null when there is nothing to seed, so the employee is created exactly as it is
+ * today rather than carrying an empty object that reads as "context was configured".
+ */
+function seedBusinessContext(
+  orgName: string | null | undefined,
+  businessDescription: string | null | undefined
+): Record<string, string> | null {
+  const name = orgName?.trim();
+  const services = businessDescription?.trim();
+  if (!name && !services) return null;
+
+  const ctx: Record<string, string> = {};
+  if (name) ctx.businessName = name;
+  if (services) ctx.services = services;
+  return ctx;
+}
+
+/**
+ * The goal the customer picked at step 1, as the employee's type.
+ *
+ * `onboarding_goal` was written at signup and read by nothing — we asked what the AI was for and
+ * then threw the answer away. It maps straight onto `agents.agent_type`, which the prompt
+ * derivation already understands.
+ */
+function agentTypeForGoal(goal: string | null | undefined): string | null {
+  const g = (goal ?? "").trim().toLowerCase();
+  return g === "support" || g === "sales" || g === "ops" ? g : null;
+}
+
 export async function runActivation(): Promise<
   | {
       ok: true;
@@ -1033,10 +1086,16 @@ export async function runActivation(): Promise<
         supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
         supabaseAdmin
           .from("organization_settings")
-          .select("onboarding_language")
+          .select("onboarding_language, onboarding_goal, business_description")
           .eq("org_id", orgId)
-          .maybeSingle<{ onboarding_language: string | null }>(),
+          .maybeSingle<{
+            onboarding_language: string | null;
+            onboarding_goal: string | null;
+            business_description: string | null;
+          }>(),
       ]);
+
+      const chatContext = seedBusinessContext(org?.name, chatSettings?.business_description);
 
       const { data: newAgent, error: agentError } = await supabaseAdmin
         .from("agents")
@@ -1048,6 +1107,8 @@ export async function runActivation(): Promise<
           language: chatSettings?.onboarding_language ?? "en",
           timezone: "America/New_York",
           created_by: user.id,
+          agent_type: agentTypeForGoal(chatSettings?.onboarding_goal),
+          ...(chatContext ? { business_context: chatContext } : {}),
           // No vapi_assistant_id and no vapi_phone_number_id, on purpose: nothing was
           // provisioned, and writing ids for artifacts that do not exist would break the
           // reconcile paths that trust those columns.
@@ -1100,12 +1161,14 @@ export async function runActivation(): Promise<
   // Check workspace status and check for existing activation artifacts (idempotency)
   const { data: settings } = await supabaseAdmin
     .from("organization_settings")
-    .select("workspace_status, paused_reason, onboarding_language, vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164")
+    .select("workspace_status, paused_reason, onboarding_language, onboarding_goal, business_description, vapi_phone_number_id, vapi_assistant_id, main_agent_id, phone_number_e164")
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused" | null;
       paused_reason: "manual" | "hard_cap" | "past_due" | null;
       onboarding_language: string | null;
+      onboarding_goal?: string | null;
+      business_description?: string | null;
       vapi_phone_number_id?: string | null;
       vapi_assistant_id?: string | null;
       main_agent_id?: string | null;
@@ -1379,6 +1442,13 @@ Always confirm the caller's name, phone number, and a short summary before submi
     } else {
       // Try to create agent record, but don't fail if it errors (optional)
       try {
+        const { data: seedOrg } = await supabaseAdmin
+          .from("orgs")
+          .select("name")
+          .eq("id", orgId)
+          .maybeSingle<{ name: string | null }>();
+        const voiceContext = seedBusinessContext(seedOrg?.name, settings?.business_description);
+
         const { data: newAgent } = await supabaseAdmin
           .from("agents")
           .insert({
@@ -1390,6 +1460,11 @@ Always confirm the caller's name, phone number, and a short summary before submi
             created_by: user.id,
             vapi_assistant_id: assistant.id,
             vapi_phone_number_id: phone.id,
+            // Seeded from the same two answers as the chat employee. Voice shipped with an empty
+            // business context too, so every Denku AI has been starting out unable to state a
+            // single fact about the business it answers for.
+            agent_type: agentTypeForGoal(settings?.onboarding_goal),
+            ...(voiceContext ? { business_context: voiceContext } : {}),
           })
           .select("id")
           .single<{ id: string }>();
