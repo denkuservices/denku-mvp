@@ -50,7 +50,9 @@ export const CONNECTION_SOURCES: Partial<Record<Channel, ConnectionSource>> = {
     identifierColumn: "phone_number_e164",
     statusColumn: "status",
     ownerColumn: "assigned_agent_id",
-    metaColumns: ["line_type", "vapi_phone_number_id", "assigned_agent_id"],
+    // `provider` and `verification_status` let a surface tell a Denku-provisioned line from a
+    // customer-connected one, and show a BYO line that is still waiting for its first call.
+    metaColumns: ["line_type", "vapi_phone_number_id", "assigned_agent_id", "provider", "verification_status"],
   },
   instagram: {
     table: "instagram_connections",

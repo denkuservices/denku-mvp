@@ -1,9 +1,43 @@
 # Implementation Plan — Bring Your Own Phone Number (BYO SIP trunk)
 
-> Status: **PLAN ONLY — nothing built.** Drafted 2026-08-31.
+> Status: **BACKEND BUILT (2026-08-31), behind `BYO_NUMBERS_ENABLED` (default OFF). UI not built.
+> No real carrier trunk has been connected yet.**
 > Goal: let a tenant connect a phone number they already own, via their own SIP trunk,
 > instead of renting a new US number from Vapi.
 > Scope decision owner: product. Engineering sequencing owner: this document.
+>
+> Built: `sip_trunks` + `phone_lines` columns (`20260831140000_byo_phone_numbers.sql`),
+> `lib/vapi/sipTrunk.ts`, `lib/phone-lines/connectByo.ts`, `POST /api/phone-lines/connect`,
+> `markPhoneLineVerified` wired into the Vapi webhook, `byoNumbersEnabled`,
+> `test/byo-sip-numbers.test.ts`. **Not built:** the connect UI (§7) and the delete-path trunk
+> refcount (§6.2) — a BYO line can be created and verified today, but only via the API.
+
+## 0. The carrier this was built against — Netgsm (verified 2026-08-31)
+
+Netgsm publishes its own Vapi integration guide, and it settles the question this plan left open.
+**Authentication is register-style (username + password), not a pure IP allowlist** — an earlier
+assumption here, and the one the operator started from, was wrong. What is IP/domain-based is the
+*delivery*: Netgsm's panel forwards inbound calls to a host you name, which is what makes Vapi
+reachable at all.
+
+| Where | Setting | Value |
+|---|---|---|
+| Vapi credential | `gateways[0].ip` | `sip.netgsm.com.tr` (or `185.88.7.189`) |
+| Vapi credential | `outboundAuthenticationPlan` | username + password from Netgsm's panel |
+| Vapi number | `numberE164CheckEnabled` | `false` — a `+90` number is refused otherwise |
+| Netgsm panel | Ses Hizmeti → Ayarlar → SIP Bilgileri → SIP Trunk | enable |
+| Netgsm panel | SIP Trunk adresi / Port | `sip.vapi.ai` / `5060` |
+| Netgsm panel | Aranan Prefix | `+90` — the called number MUST arrive as E.164 |
+| Netgsm panel | Arayan Prefix | `0` |
+
+**The single most likely silent failure:** the called number Netgsm sends must match the `number`
+on the Vapi phone-number object *exactly*. If the prefix is wrong the call reaches Vapi and maps
+to nothing — no error anywhere, the line simply never answers. `toE164` in `lib/vapi/sipTrunk.ts`
+exists for that reason on our side; the Aranan Prefix is the same guarantee on theirs.
+
+Still unanswered by Netgsm's public docs, so ask their support before relying on it: concurrent
+channel limits, codec (G.711 alaw is what we want), and whether they require Vapi's inbound IPs
+(`44.229.228.186`, `44.238.177.138`) to be allowlisted.
 
 ## 1. What this is, and what it is not
 
