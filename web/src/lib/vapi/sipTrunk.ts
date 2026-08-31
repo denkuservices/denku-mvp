@@ -1,0 +1,189 @@
+import "server-only";
+import { vapiFetch } from "@/lib/vapi/server";
+
+/**
+ * BYO SIP trunk — the Vapi side of connecting a number the customer already owns.
+ *
+ * Shape follows `assistantConfig.ts`: the payload builders are PURE and unit-tested, and the
+ * network calls are thin wrappers around them. Nothing here touches the database.
+ *
+ * Two objects make a BYO line work:
+ *   1. a `byo-sip-trunk` **credential** — who the carrier is and how we authenticate to them;
+ *   2. a `byo-phone-number` — the customer's number, bound to that credential and to an assistant.
+ *
+ * **Direction matters and is easy to get backwards.** For inbound, the carrier sends the call to
+ * Vapi; Vapi does not dial the carrier. The `gateways[].ip` entry is therefore the carrier's SIP
+ * host (what Vapi will accept calls from), and the carrier's own panel must be pointed at
+ * `sip.vapi.ai`.
+ *
+ * Verified against Netgsm's own Vapi integration guide (2026-08-31), which is the first carrier
+ * Denku supports: gateway `sip.netgsm.com.tr`, register-style username/password, carrier
+ * forwards to `sip.vapi.ai:5060` with a called-number prefix of `+90` so the number arrives in
+ * E.164 — it must match `number` exactly or Vapi cannot map the call to this line.
+ */
+
+export interface SipTrunkInput {
+  /** Human name for the trunk, e.g. "Netgsm". */
+  name: string;
+  /** Carrier SIP host or IP — Netgsm: `sip.netgsm.com.tr`. */
+  gatewayHost: string;
+  /** Usually 5060; omitted when the carrier uses the default. */
+  gatewayPort?: number | null;
+  /** Carrier SIP username. Not a secret — it identifies the trunk. */
+  authUsername?: string | null;
+  /** Carrier SIP password. Passed through to Vapi and never persisted by Denku. */
+  authPassword?: string | null;
+}
+
+export interface ByoPhoneNumberInput {
+  /** E.164, including a non-US country code — e.g. `+908501234567`. */
+  number: string;
+  name: string;
+  credentialId: string;
+  assistantId: string;
+}
+
+/** Carriers Denku has actually verified. Used for defaults and support copy, never as a gate. */
+export const KNOWN_SIP_CARRIERS = {
+  netgsm: {
+    label: "Netgsm",
+    gatewayHost: "sip.netgsm.com.tr",
+    gatewayPort: 5060,
+    /** What the customer must enter in their carrier panel as the destination. */
+    forwardTo: "sip.vapi.ai",
+    /** Netgsm panel: "Aranan Prefix" — makes the called number arrive as +90XXXXXXXXXX. */
+    calledPrefix: "+90",
+    /** Netgsm panel: "Arayan Prefix". */
+    callerPrefix: "0",
+  },
+} as const;
+
+export type KnownCarrierKey = keyof typeof KNOWN_SIP_CARRIERS;
+
+/**
+ * Build the `POST /credential` body. Pure.
+ *
+ * `inboundEnabled: true` is the whole point — without it Vapi will not accept calls the carrier
+ * sends. `outboundAuthenticationPlan` is omitted entirely when no username is supplied, because
+ * an empty auth block is not the same as no auth block and carriers reject the difference.
+ */
+export function buildTrunkCredentialPayload(input: SipTrunkInput): Record<string, unknown> {
+  const gateway: Record<string, unknown> = {
+    ip: input.gatewayHost.trim(),
+    inboundEnabled: true,
+  };
+  if (input.gatewayPort) gateway.port = input.gatewayPort;
+
+  const payload: Record<string, unknown> = {
+    provider: "byo-sip-trunk",
+    name: input.name.trim().slice(0, 40),
+    gateways: [gateway],
+    // Turkish and European numbers are dialled with the leading +; without this the carrier
+    // sees a number it cannot route.
+    outboundLeadingPlusEnabled: true,
+  };
+
+  const user = (input.authUsername ?? "").trim();
+  const pass = input.authPassword ?? "";
+  if (user && pass) {
+    payload.outboundAuthenticationPlan = { authUsername: user, authPassword: pass };
+  }
+
+  return payload;
+}
+
+/**
+ * Build the `POST /phone-number` body. Pure.
+ *
+ * `numberE164CheckEnabled: false` is deliberate and load-bearing: Vapi's E.164 check is tuned
+ * for the numbers it sells (US), and a Turkish 0850 number is rejected by it. Turning it off is
+ * how a non-US number is accepted at all — so the caller MUST hand us a properly formatted E.164
+ * string, since nothing downstream will catch a malformed one.
+ *
+ * `assistantId` is set at create time on purpose (same reason as the purchase path): binding in
+ * a second PATCH leaves a window where the number answers with no assistant.
+ */
+export function buildByoPhoneNumberPayload(input: ByoPhoneNumberInput): Record<string, unknown> {
+  return {
+    provider: "byo-phone-number",
+    name: input.name.trim().slice(0, 40),
+    number: input.number.trim(),
+    numberE164CheckEnabled: false,
+    credentialId: input.credentialId,
+    assistantId: input.assistantId,
+  };
+}
+
+/**
+ * Normalize a user-typed number to E.164, or return null when it cannot be trusted.
+ *
+ * Deliberately conservative: this is the value Vapi matches inbound calls against, and a wrong
+ * one fails silently (the call simply never maps to a line). Accepts `+90…`, `0090…`, `090…` and
+ * bare national Turkish numbers; refuses anything else rather than guessing a country.
+ */
+export function toE164(raw: string, defaultCountryCode = "90"): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+
+  let digits = trimmed.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+")) {
+    digits = "+" + digits.slice(1).replace(/\D/g, "");
+    return /^\+[1-9]\d{7,14}$/.test(digits) ? digits : null;
+  }
+
+  digits = digits.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  else if (digits.startsWith("0")) digits = defaultCountryCode + digits.slice(1);
+  else if (!digits.startsWith(defaultCountryCode)) digits = defaultCountryCode + digits;
+
+  const e164 = "+" + digits;
+  return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
+}
+
+/**
+ * The address the customer must point their carrier at.
+ *
+ * Netgsm's guide says plain `sip.vapi.ai`; Vapi's own docs describe a per-credential host
+ * (`{number}@{credentialId}.sip.vapi.ai`). Both are produced here so the instructions screen can
+ * show the carrier-specific one first and the generic one as a fallback — a customer whose
+ * carrier rejects one needs the other, not a support ticket.
+ */
+export function sipDestinationForLine(number: string, credentialId: string) {
+  return {
+    host: "sip.vapi.ai",
+    perCredentialUri: `${number}@${credentialId}.sip.vapi.ai`,
+    port: 5060,
+  };
+}
+
+export interface VapiCredential {
+  id: string;
+}
+export interface VapiByoPhoneNumber {
+  id: string;
+  number?: string;
+  status?: string;
+}
+
+export async function createSipTrunkCredential(input: SipTrunkInput): Promise<VapiCredential> {
+  return vapiFetch<VapiCredential>("/credential", {
+    method: "POST",
+    body: JSON.stringify(buildTrunkCredentialPayload(input)),
+  });
+}
+
+export async function createByoPhoneNumber(input: ByoPhoneNumberInput): Promise<VapiByoPhoneNumber> {
+  return vapiFetch<VapiByoPhoneNumber>("/phone-number", {
+    method: "POST",
+    body: JSON.stringify(buildByoPhoneNumberPayload(input)),
+  });
+}
+
+/** Best-effort rollback helpers — callers log failures and carry on. */
+export async function deleteCredential(credentialId: string): Promise<void> {
+  await vapiFetch(`/credential/${credentialId}`, { method: "DELETE" });
+}
+
+export async function deleteByoPhoneNumber(phoneNumberId: string): Promise<void> {
+  await vapiFetch(`/phone-number/${phoneNumberId}`, { method: "DELETE" });
+}

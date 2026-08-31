@@ -68,7 +68,7 @@ export async function DELETE(
     // 3) Load phone line row
     const { data: phoneLine, error: lineError } = await supabaseAdmin
       .from("phone_lines")
-      .select("id, vapi_phone_number_id, phone_number_e164, assigned_agent_id, status, org_id")
+      .select("id, vapi_phone_number_id, phone_number_e164, assigned_agent_id, status, org_id, sip_trunk_id")
       .eq("id", lineId)
       .eq("org_id", org_id)
       .maybeSingle<{
@@ -78,6 +78,7 @@ export async function DELETE(
         assigned_agent_id: string | null;
         status: string | null;
         org_id: string;
+        sip_trunk_id?: string | null;
       }>();
 
     if (lineError || !phoneLine) {
@@ -234,6 +235,45 @@ export async function DELETE(
         { ok: false, error: "Failed to delete phone line" },
         { status: 500 }
       );
+    }
+
+    // 8b) Release the SIP trunk when nothing uses it any more.
+    //
+    // REFCOUNT, never a blind delete: one customer trunk can back several numbers, and deleting
+    // its Vapi credential while another line still points at that credential would silently kill
+    // that line. Best-effort — the row is already gone, and a leaked credential is a tidy-up job,
+    // not a customer-visible failure.
+    const trunkId = (phoneLine as { sip_trunk_id?: string | null }).sip_trunk_id ?? null;
+    if (trunkId) {
+      try {
+        const { count: remaining } = await supabaseAdmin
+          .from("phone_lines")
+          .select("*", { count: "exact", head: true })
+          .eq("org_id", org_id)
+          .eq("sip_trunk_id", trunkId);
+
+        if ((remaining ?? 0) === 0) {
+          const { data: trunk } = await supabaseAdmin
+            .from("sip_trunks")
+            .select("id, vapi_credential_id")
+            .eq("org_id", org_id)
+            .eq("id", trunkId)
+            .maybeSingle<{ id: string; vapi_credential_id: string | null }>();
+
+          if (trunk?.vapi_credential_id) {
+            await vapiFetch(`/credential/${trunk.vapi_credential_id}`, { method: "DELETE" }).catch(
+              (err) => console.warn("[PhoneLineDelete] Vapi credential delete failed:", err)
+            );
+          }
+          await supabaseAdmin
+            .from("sip_trunks")
+            .update({ status: "revoked" })
+            .eq("org_id", org_id)
+            .eq("id", trunkId);
+        }
+      } catch (trunkErr) {
+        console.warn("[PhoneLineDelete] SIP trunk cleanup failed:", trunkErr);
+      }
     }
 
     // 9) Success

@@ -4,6 +4,7 @@ import { getPhoneLinesWithTodayCounts } from "@/lib/phone-lines/queries";
 import { isPreviewMode } from "@/lib/billing/isPreviewMode";
 import PhoneLinesClient from "./PhoneLinesClient";
 import { AddPhoneNumberButton } from "./_components/AddPhoneNumberButton";
+import { byoNumbersEnabled } from "@/lib/platform/flags";
 
 export const metadata = {
   title: "Phone Lines",
@@ -69,7 +70,7 @@ export default async function PhoneLinesPage() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <AddPhoneNumberButton isPreviewMode={previewMode} />
+            <AddPhoneNumberButton isPreviewMode={previewMode} byoEnabled={byoNumbersEnabled()} />
             {!previewMode && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Additional phone numbers are $10/month each. Taxes calculated at checkout.
@@ -79,7 +80,7 @@ export default async function PhoneLinesPage() {
         </div>
       </div>
 
-      <PhoneLinesClient phoneLines={phoneLines} isPreviewMode={previewMode} />
+      <PhoneLinesClient phoneLines={phoneLines} isPreviewMode={previewMode} byoEnabled={byoNumbersEnabled()} />
     </div>
   );
 }

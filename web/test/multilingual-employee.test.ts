@@ -14,6 +14,7 @@ import {
 } from "@/lib/vapi/assistantConfig";
 import { deriveEffectivePrompt } from "@/app/(app)/dashboard/settings/_lib/prompt-derivation";
 import {
+  ADDITIONAL_LANGUAGE_OPTIONS,
   EMPTY_BUSINESS_CONTEXT,
   SETUP_LANGUAGES,
   toSetupFormState,
@@ -60,7 +61,9 @@ describe("the registry is the limit of what can be offered", () => {
   });
 
   it("a language that cannot be spoken is not a language", () => {
-    expect(toLanguageCode("Turkish")).toBeNull();
+    // French, like Turkish before 2026-08-31, sits in nobody's picker because there is no voice
+    // and no transcriber entry for it. Turkish moved into the registry with both; French did not.
+    expect(toLanguageCode("French")).toBeNull();
     expect(toLanguageCode("")).toBeNull();
     expect(toLanguageCode("es-MX")).toBe("es"); // locale forms still resolve
   });
@@ -208,7 +211,7 @@ describe("the primary language is never offered as an extra", () => {
   it("cannot be saved as an extra either, whatever the form sent", () => {
     const payload = toUpdateAgentConfigPayload("a", {
       language: "en",
-      additionalLanguages: ["English", "Spanish", "Turkish"],
+      additionalLanguages: ["English", "Spanish", "Turkish", "French"],
       timezone: "UTC",
       behaviorPresetId: null,
       agentType: "",
@@ -216,7 +219,10 @@ describe("the primary language is never offered as an extra", () => {
       emphasisPoints: [],
       businessContext: EMPTY_BUSINESS_CONTEXT,
     });
-    // "English" is the primary under another name; "Turkish" has no voice behind it.
+    // "English" is the primary under another name. "French" is not in the registry at all.
+    // "Turkish" IS in the registry — but only as a primary language: Deepgram documents it for
+    // Nova-3 without saying it takes part in code-switching, so it cannot be a second language
+    // until that is verified, and the write boundary enforces that rather than trusting the form.
     expect(payload.additional_languages).toEqual(["es"]);
   });
 
@@ -275,5 +281,40 @@ describe("adding a language is obviously a thing you can do", () => {
 
   it("still cannot offer the primary language as an extra", () => {
     expect(form).toMatch(/opt\.code !== toLanguageCode\(form\.language\)/);
+  });
+});
+
+describe("Turkish: a primary language, not yet a second one (added 2026-08-31)", () => {
+  it("resolves from every spelling an owner or an old row might hold", () => {
+    for (const spelling of ["tr", "Turkish", "türkçe", "TURKCE"]) {
+      expect(toLanguageCode(spelling)).toBe("tr");
+    }
+  });
+
+  it("is offered as a primary language", () => {
+    expect(SETUP_LANGUAGES).toContain("Turkish");
+  });
+
+  it("is NOT offered as an extra, because code-switching into it is unverified", () => {
+    // Deepgram documents Turkish for Nova-3 but does not say it takes part in multilingual
+    // code-switching. Offering it here would let an owner tick a box that quietly does nothing —
+    // R-135 in a new costume. It comes back the moment there is evidence.
+    expect(ADDITIONAL_LANGUAGE_OPTIONS.map((o) => o.code)).not.toContain("tr");
+    expect(ADDITIONAL_LANGUAGE_OPTIONS.map((o) => o.code)).toEqual(["en", "es"]);
+  });
+
+  it("is dropped from a stored language set rather than silently mistranscribed", () => {
+    // Legacy rows can already hold it. The voice stack is configured from this function, so the
+    // employee simply does not understand what the ear cannot switch to.
+    expect(resolveLanguageSet("en", ["tr", "es"])).toEqual(["en", "es"]);
+  });
+
+  it("keeps its own ear and mouth when it is the primary", () => {
+    expect(resolveTranscriberForLanguages(["tr"])).toEqual({
+      provider: "deepgram",
+      model: "nova-3",
+      language: "tr",
+    });
+    expect(resolveVoiceForLanguages(["tr"])).toEqual({ provider: "openai", voiceId: "nova" });
   });
 });

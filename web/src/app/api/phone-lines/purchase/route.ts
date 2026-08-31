@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
+import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 import { logEvent } from "@/lib/observability/logEvent";
 import { randomUUID } from "crypto";
@@ -493,8 +494,31 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // 10b) Link the backing agent to the number it now answers on.
+      //
+      // REQUIRED for billing enforcement, not bookkeeping: `unbindOrgPhoneNumbers` /
+      // `rebindOrgPhoneNumbers` select agents having BOTH vapi_assistant_id AND
+      // vapi_phone_number_id. Without this write the line is invisible to workspace pause
+      // and keeps answering on a paused workspace. Non-fatal on failure — the customer has
+      // already been charged, so we log loudly and let the backfill migration
+      // (20260829125306_backfill_agent_phone_number_link.sql) repair it.
+      const agentLink = await linkAgentToPhoneNumber({
+        orgId: org_id,
+        agentId: backingAgent.id,
+        vapiPhoneNumberId: vapiPhoneId,
+      });
+      if (!agentLink.ok) {
+        console.error("[purchase] Failed to link backing agent to phone number (non-fatal)", {
+          request_id: requestId,
+          org_id,
+          agent_id: backingAgent.id,
+          vapi_phone_number_id: vapiPhoneId,
+          error: agentLink.error,
+        });
+      }
+
       // 11) DB step: insert phone line row with backing agent reference
-      // 
+      //
       // SQL Schema Requirement:
       // The phone_lines table must have an assigned_agent_id column (UUID, nullable):
       //   ALTER TABLE public.phone_lines

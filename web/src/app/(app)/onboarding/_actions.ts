@@ -10,6 +10,7 @@ import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
+import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import Stripe from "stripe";
 import { CHANNELS, CHANNEL_ORDER } from "@/lib/platform/channels";
 import { canReplyOn } from "@/lib/platform/transports/registry";
@@ -1497,7 +1498,25 @@ Always confirm the caller's name, phone number, and a short summary before submi
         console.warn("[runActivation] Agent creation optional, continuing:", agentErr instanceof Error ? agentErr.message : String(agentErr));
       }
     }
-    
+
+    // Keep the main agent's number link current. The insert branch above already sets
+    // vapi_phone_number_id, but the resume branch reuses an existing main_agent_id that may
+    // predate the number (activation is resumable from a partial state). An agent without
+    // this column is invisible to workspace-pause unbinding — see lib/vapi/agentPhoneLink.ts.
+    if (agentId) {
+      const mainAgentLink = await linkAgentToPhoneNumber({
+        orgId,
+        agentId,
+        vapiPhoneNumberId: phone.id,
+      });
+      if (!mainAgentLink.ok) {
+        console.error(
+          "[runActivation] Failed to link main agent to phone number (non-fatal):",
+          mainAgentLink.error
+        );
+      }
+    }
+
     // 4) Proceed to LIVE when phone_number_e164 present (poll until active optional)
     if (!phoneNumberE164 || phoneNumberE164.trim() === "") {
       // Phone number E164 not available yet - keep at step 5 (Activating)
