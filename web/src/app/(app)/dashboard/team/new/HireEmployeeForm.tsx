@@ -89,7 +89,7 @@ export default function HireEmployeeForm({
           <p className="mt-1 text-xs text-gray-500">
             What it speaks on calls, and its default everywhere.{" "}
             <strong>In chat it replies in whichever language the customer writes in</strong> —
-            Turkish, German, anything — no setup needed. Calls are limited to the languages listed
+            German, French, anything — no setup needed. Calls are limited to the languages listed
             here; add more under Setup once it is hired.
           </p>
         </div>
