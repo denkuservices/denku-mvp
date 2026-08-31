@@ -1005,6 +1005,74 @@ export async function runActivation(): Promise<
    * ever move forward.
    */
   if (planLimits.plan_code === CHAT_ONLY_PLAN_CODE) {
+    /**
+     * A chat-only workspace still needs an AI EMPLOYEE — it just does not need a Vapi
+     * assistant or a phone number.
+     *
+     * The first version of this short-circuit cut both, and a real signup found the cost:
+     * `resolveReplyEmployee` returned null, so the reply engine went silent. Messages arrived,
+     * the paid slot claimed itself, the Inbox filled up — and the customer's AI never answered.
+     * Skipping the phone line was right; skipping the employee was not.
+     *
+     * Idempotent: an existing agent is reused, so a re-run cannot create a second one.
+     */
+    const { data: existingAgent } = await supabaseAdmin
+      .from("agents")
+      .select("id")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+
+    let chatAgentId = existingAgent?.id ?? null;
+
+    if (!chatAgentId) {
+      // Read both here rather than reusing `settings`, which is declared further down this
+      // function — the chat-only path returns before ever reaching it.
+      const [{ data: org }, { data: chatSettings }] = await Promise.all([
+        supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
+        supabaseAdmin
+          .from("organization_settings")
+          .select("onboarding_language")
+          .eq("org_id", orgId)
+          .maybeSingle<{ onboarding_language: string | null }>(),
+      ]);
+
+      const { data: newAgent, error: agentError } = await supabaseAdmin
+        .from("agents")
+        .insert({
+          org_id: orgId,
+          // Named for what it does here. "Main Line" is the voice employee's name and would
+          // read as a phone line to a customer who deliberately bought no phone line.
+          name: org?.name?.trim() ? `${org.name.trim()} Assistant` : "Assistant",
+          language: chatSettings?.onboarding_language ?? "en",
+          timezone: "America/New_York",
+          created_by: user.id,
+          // No vapi_assistant_id and no vapi_phone_number_id, on purpose: nothing was
+          // provisioned, and writing ids for artifacts that do not exist would break the
+          // reconcile paths that trust those columns.
+        })
+        .select("id")
+        .single<{ id: string }>();
+
+      if (agentError || !newAgent?.id) {
+        // Unlike the voice path, this is NOT optional. Without an employee the AI cannot
+        // answer on any channel, and a chat-only workspace has no other way to be useful —
+        // finishing setup here would hand the customer a product that stays silent.
+        console.error("[runActivation] chat-only agent creation failed", agentError?.message);
+        return {
+          ok: false,
+          error: "Could not finish setting up your AI. Please try again.",
+        };
+      }
+      chatAgentId = newAgent.id;
+    }
+
+    await supabaseAdmin
+      .from("organization_settings")
+      .update({ main_agent_id: chatAgentId })
+      .eq("org_id", orgId);
+
     const completed = await completeOnboarding(orgId);
     if (!completed.ok) {
       return { ok: false, error: completed.error || "Could not finish setup. Please try again." };
