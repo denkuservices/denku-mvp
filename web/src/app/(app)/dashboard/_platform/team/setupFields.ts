@@ -38,20 +38,73 @@ export const EMPTY_BUSINESS_CONTEXT: BusinessContext = {
   tone: "",
 };
 
+/**
+ * The eight things an AI employee can know about the business.
+ *
+ * `placeholder` carries a worked EXAMPLE, not a restatement of the hint. Eight empty boxes read
+ * as a form to endure; eight boxes showing the shape of a good answer read as a thing worth
+ * filling in. They are examples from a plausible small business rather than the customer's own
+ * industry — a placeholder that guesses wrong is worse than one that is obviously an example.
+ */
 export const BUSINESS_CONTEXT_FIELDS: Array<{
   key: keyof BusinessContext;
   label: string;
   hint: string;
+  placeholder: string;
   multiline?: boolean;
 }> = [
-  { key: "businessName", label: "Business name", hint: "How the AI refers to the business." },
-  { key: "services", label: "Services / offerings", hint: "What you do — the AI uses this to answer.", multiline: true },
-  { key: "openingHours", label: "Opening hours", hint: "e.g. Mon–Fri 8–6, closed weekends." },
-  { key: "serviceArea", label: "Service area", hint: "Where you operate / which locations." },
-  { key: "faqs", label: "FAQs", hint: "Common caller questions and their answers.", multiline: true },
-  { key: "bookingPolicy", label: "Booking policy", hint: "How appointments are booked / lead times." },
-  { key: "cancellationPolicy", label: "Cancellation policy", hint: "Notice required, fees, etc." },
-  { key: "tone", label: "Preferred tone / personality", hint: "e.g. Warm and local; brisk and professional." },
+  {
+    key: "businessName",
+    label: "Business name",
+    hint: "How the AI refers to the business.",
+    placeholder: "Kadıköy Dental",
+  },
+  {
+    key: "services",
+    label: "Services / offerings",
+    hint: "What you do — the AI uses this to answer.",
+    placeholder:
+      "Cleanings, fillings, root canals, implants and whitening. Free first consultation.",
+    multiline: true,
+  },
+  {
+    key: "openingHours",
+    label: "Opening hours",
+    hint: "e.g. Mon–Fri 8–6, closed weekends.",
+    placeholder: "Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday",
+  },
+  {
+    key: "serviceArea",
+    label: "Service area",
+    hint: "Where you operate / which locations.",
+    placeholder: "One clinic in Kadıköy, İstanbul",
+  },
+  {
+    key: "faqs",
+    label: "FAQs",
+    hint: "Common caller questions and their answers.",
+    placeholder:
+      "Do you take insurance? — Yes, most private plans.\nIs parking available? — Yes, free for patients.",
+    multiline: true,
+  },
+  {
+    key: "bookingPolicy",
+    label: "Booking policy",
+    hint: "How appointments are booked / lead times.",
+    placeholder: "Book at least a day ahead. Same-day slots depend on cancellations.",
+  },
+  {
+    key: "cancellationPolicy",
+    label: "Cancellation policy",
+    hint: "Notice required, fees, etc.",
+    placeholder: "24 hours' notice, otherwise half the visit fee is charged.",
+  },
+  {
+    key: "tone",
+    label: "Preferred tone / personality",
+    hint: "e.g. Warm and local; brisk and professional.",
+    placeholder: "Warm and reassuring — many callers are nervous about dentists.",
+  },
 ];
 
 /**

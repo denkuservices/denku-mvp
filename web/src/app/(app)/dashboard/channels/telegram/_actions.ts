@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connectBot, disconnectBot, assignEmployee } from "@/lib/telegram/connections";
+import { defaultEmployeeIdForOrg } from "@/lib/platform/defaultEmployee";
 
 /**
  * Telegram connect/disconnect actions.
@@ -40,7 +41,12 @@ export async function connectTelegramAction(formData: FormData): Promise<{ ok: b
   if (!auth.ok) return { ok: false, error: auth.error };
 
   const token = String(formData.get("token") ?? "");
-  const agentId = String(formData.get("agent_id") ?? "").trim() || null;
+  const rawAgentId = String(formData.get("agent_id") ?? "").trim() || null;
+  // An explicit choice wins; otherwise the workspace's employee is assigned automatically.
+  // An unassigned channel receives messages and answers none of them, and for the vast
+  // majority of workspaces — which have exactly one employee — the dropdown was a question
+  // with one possible answer.
+  const agentId = rawAgentId ?? (await defaultEmployeeIdForOrg(auth.orgId));
 
   const result = await connectBot({
     orgId: auth.orgId,

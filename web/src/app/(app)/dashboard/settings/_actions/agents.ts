@@ -159,6 +159,30 @@ export async function updateAgentConfiguration(
   // R-013: only overwrite business_context when the caller sent it (avoid wiping on partial saves).
   if (validated.business_context !== undefined) {
     updatePayload.business_context = validated.business_context;
+
+    /**
+     * Adopt the business name, but only while the employee is still called what WE named it.
+     *
+     * An employee is created as "Main Line" (voice) or "<workspace> Assistant" (chat), because
+     * at that moment nothing better is known. The workspace name is what the owner typed for
+     * themselves at signup — "Deneme workspace" — so an AI introducing itself with it is reading
+     * the filing cabinet out loud. The business name they later write in Knowledge is the one
+     * they chose for customers to hear.
+     *
+     * The match is EXACT against the three names this codebase generates. Anything else is a
+     * name the customer chose, and a name a person chose is never overwritten by a rule.
+     */
+    const businessName =
+      typeof (validated.business_context as { businessName?: unknown } | null)?.businessName === "string"
+        ? ((validated.business_context as { businessName: string }).businessName).trim()
+        : "";
+
+    const currentName = (existingAgent.name ?? "").trim();
+    const generatedNames = ["Main Line", "Assistant", `${orgName} Assistant`];
+
+    if (businessName && currentName !== businessName && generatedNames.includes(currentName)) {
+      updatePayload.name = businessName;
+    }
   }
 
   // 9) Compute diff for audit log

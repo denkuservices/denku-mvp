@@ -22,6 +22,13 @@ const AGENT_COLUMNS =
  * refusing to reply: a workspace with one AI Employee (which is every workspace today) would
  * otherwise stay silent for the entirely internal reason that a column is null.
  */
+/** The customer-facing business name, when the owner has written one. */
+function businessNameFromContext(context: Record<string, unknown> | null): string | null {
+  if (!context || typeof context !== "object") return null;
+  const name = (context as { businessName?: unknown }).businessName;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
 export async function resolveReplyEmployee(
   orgId: string,
   preferredAgentId: string | null,
@@ -61,7 +68,17 @@ export async function resolveReplyEmployee(
       id: data.id,
       orgId,
       name: data.name?.trim() || "Assistant",
-      orgName: org?.name?.trim() || "the business",
+      /**
+       * What the AI calls the business to a customer.
+       *
+       * `business_context.businessName` wins over `orgs.name`, because the workspace name is
+       * something the owner typed for themselves during signup — "Deneme workspace", "Test",
+       * their own initials — while the business name is the one they wrote down for customers
+       * to hear. Greeting a customer with a workspace label is the AI reading the filing
+       * cabinet out loud.
+       */
+      orgName:
+        businessNameFromContext(data.business_context) ?? org?.name?.trim() ?? "the business",
       language: data.language,
       timezone: data.timezone,
       systemPromptOverride: data.system_prompt_override,

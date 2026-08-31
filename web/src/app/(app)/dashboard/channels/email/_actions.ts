@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { startDomainVerification, refreshDomainStatus } from "@/lib/email/channel/domains";
+import { defaultEmployeeIdForOrg } from "@/lib/platform/defaultEmployee";
 import {
   createConnection,
   getConnectionById,
@@ -52,7 +53,12 @@ export async function connectEmailAction(formData: FormData): Promise<{ ok: bool
   if (!auth.ok) return { ok: false, error: auth.error };
 
   const forwardFromAddress = String(formData.get("forward_from_address") ?? "").trim();
-  const agentId = String(formData.get("agent_id") ?? "").trim() || null;
+  const rawAgentId = String(formData.get("agent_id") ?? "").trim() || null;
+  // An explicit choice wins; otherwise the workspace's employee is assigned automatically.
+  // An unassigned channel receives messages and answers none of them, and for the vast
+  // majority of workspaces — which have exactly one employee — the dropdown was a question
+  // with one possible answer.
+  const agentId = rawAgentId ?? (await defaultEmployeeIdForOrg(auth.orgId));
 
   // The workspace name only shapes the readable half of the issued address, so a missing name
   // degrades to a generic slug rather than blocking the connection.
