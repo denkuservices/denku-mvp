@@ -3,6 +3,7 @@ import { channelMeta } from "@/lib/platform/channels";
 import type { ReplyTransport } from "@/lib/platform/reply/types";
 import { telegramTransport } from "@/lib/platform/transports/telegram";
 import { emailTransport } from "@/lib/platform/transports/email";
+import { webChatTransport } from "@/lib/platform/transports/webchat";
 
 /**
  * Outbound transport registry — the mirror image of the adapter registry.
@@ -25,6 +26,13 @@ const TRANSPORTS: Partial<Record<Channel, ReplyTransport>> = {
    * for email while a specific unverified org still gets a clear reason instead of silence.
    */
   email: emailTransport,
+  /**
+   * Web Chat has no provider to send through — its "transport" mints the id the reply is
+   * stored under, and the visitor's own browser fetches it. Registered here anyway, because
+   * `canReplyOn` is what enables the Inbox composer, and a person taking over a website chat
+   * must be able to answer exactly like they answer Telegram.
+   */
+  web: webChatTransport,
 };
 
 export function getTransport(channel: Channel): ReplyTransport | undefined {

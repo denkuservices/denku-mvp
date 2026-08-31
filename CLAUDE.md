@@ -274,6 +274,25 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     customer never received; approving a draft must NOT flip handling to `"human"`, or every
     approval silently costs the business its automation. See `skills/email-integration.md`.
 
+14. **Web Chat runs in a stranger's browser, so the site key is an ADDRESS, not a password.**
+    Built 2026-09-01 (`adopted: true`, `productionReady: false` — migration not yet applied, no
+    widget embedded on a real site yet). The customer pastes a public key into their page source;
+    access control is their **origin allowlist**, and it can only be enforced where the browser
+    tells the truth — the `Referer` on the iframe document request at `/embed/chat`. The widget's
+    own `fetch` calls are same-origin (`Origin: https://denku.io`), so checking the allowlist there
+    would refuse every legitimate request. The embed route therefore checks `Referer` once and mints
+    an HMAC-signed **frame token**, exchanged at `/api/webchat/session` for a **session token** that
+    names the org; no request body is ever believed about identity. Four rules: (a) **empty
+    `allowed_origins` refuses everywhere** — fail closed, and the install UI asks for the domain in
+    the same breath as the snippet; (b) `/embed/*` is **excluded** from the app-wide
+    `X-Frame-Options`/CSP in `next.config.ts` and sets its own per-connection `frame-ancestors` —
+    two CSP headers would be intersected by the browser and silently block the widget; (c) a
+    non-browser client can forge `Referer` and reach the API, which is irreducible, so the volume
+    caps in `lib/webchat/sessions.ts` (DB-counted, because `lib/rateLimit.ts` is a no-op) and the
+    reply engine's spend guard are the real ceiling; (d) the transport **sends nothing** — the row
+    in `messages` IS the delivery, and the visitor's browser fetches it, which is why human takeover
+    from the Inbox works here with no channel-specific code. See `skills/webchat-integration.md`.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -325,6 +344,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
+- `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, and the transport that delivers by storing
 - `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path

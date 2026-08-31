@@ -84,6 +84,19 @@ export const CONNECTION_SOURCES: Partial<Record<Channel, ConnectionSource>> = {
     ownerColumn: "assigned_agent_id",
     metaColumns: ["inbound_address", "sending_domain", "sending_domain_status", "reply_mode", "last_inbound_at"],
   },
+  web: {
+    table: "web_chat_connections",
+    // The customer recognises this install by the site it is on, not by the key — which is why
+    // `site_name` is the identifier and the key is only ever shown on the install screen.
+    identifierColumn: "site_name",
+    statusColumn: "status",
+    // A site key does not expire; it is rotated deliberately. Nothing to warn about.
+    errorColumn: "last_error",
+    ownerColumn: "assigned_agent_id",
+    // `allowed_origins` travels with the view so a surface can tell an install that is live
+    // from one that is embedded nowhere yet — the difference between working and silent.
+    metaColumns: ["site_key", "allowed_origins", "last_inbound_at"],
+  },
 };
 
 /** Build the view for a channel that has no connection rows for this org. Pure. */

@@ -24,10 +24,12 @@ describe("platform channel registry", () => {
     expect(CHANNELS.instagram.productionReady).toBe(false);
     expect(CHANNELS.whatsapp.productionReady).toBe(false);
     expect(CHANNELS.email.productionReady).toBe(false);
+    // Built end to end, never yet embedded on a real customer site.
+    expect(CHANNELS.web.productionReady).toBe(false);
   });
 
   it("adopted channels are exactly the ones with an adapter", () => {
-    expect(new Set(adoptedChannels())).toEqual(new Set(["voice", "instagram", "telegram", "email"]));
+    expect(new Set(adoptedChannels())).toEqual(new Set(["voice", "instagram", "telegram", "email", "web"]));
   });
 
   it("every channel has coherent metadata", () => {

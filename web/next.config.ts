@@ -55,6 +55,15 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
 ];
 
+/**
+ * The Web Chat widget document is framed by customer websites on purpose, so it gets everything
+ * above EXCEPT the two headers that forbid framing and except the CSP — which the embed route
+ * sets itself, per connection, from the customer's own allowlist.
+ */
+const embedHeaders = securityHeaders.filter(
+  (h) => h.key !== "X-Frame-Options" && h.key !== cspHeaderKey
+);
+
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
   /**
@@ -71,7 +80,22 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30, static: 180 },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      /**
+       * Everything except the Web Chat widget document.
+       *
+       * `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'` are exactly right for the app
+       * and exactly wrong for `/embed/*`, whose entire job is to be framed by the customer's own
+       * website. Excluding it here rather than loosening the rule for everyone keeps the app
+       * un-framable, and lets the embed route set a `frame-ancestors` built from that specific
+       * install's allowlist — a per-customer policy this static list could never express.
+       * Next.js emits headers from every matching entry, so the exclusion is a negative lookahead
+       * rather than a second entry: two Content-Security-Policy headers would be intersected by
+       * the browser and the stricter one would win, silently.
+       */
+      { source: "/((?!embed/).*)", headers: securityHeaders },
+      { source: "/embed/:path*", headers: embedHeaders },
+    ];
   },
   async rewrites() {
     return [
