@@ -1,4 +1,5 @@
 import type { ChannelAdapter, NormalizedInbound, NormalizeContext } from "@/lib/platform/adapters/types";
+import type { InboundAttachment } from "@/lib/platform/media/types";
 
 /**
  * Web Chat channel adapter.
@@ -36,6 +37,15 @@ export interface WebChatInboundPayload {
   clientMessageId?: string | null;
   pageUrl?: string | null;
   locale?: string | null;
+  /**
+   * Files the visitor uploaded BEFORE sending, already validated and already in our bucket.
+   *
+   * The route builds these from the storage keys the upload endpoint issued, after checking each
+   * one belongs to this session — so by the time the adapter sees them, a reference to someone
+   * else's file has already been dropped. This adapter does no checking of its own precisely
+   * because it cannot: it is pure, and ownership is a database question.
+   */
+  attachments?: InboundAttachment[];
 }
 
 /** Guards against a client posting a novel into a public endpoint. */
@@ -52,7 +62,9 @@ export const webChatAdapter: ChannelAdapter = {
     if (!sessionId || !visitorId) return [];
 
     const text = typeof payload.text === "string" ? payload.text.trim() : "";
-    if (!text) return [];
+    const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+    // A photo with no caption is a message; an empty send is not.
+    if (!text && attachments.length === 0) return [];
 
     return [
       {
@@ -69,6 +81,7 @@ export const webChatAdapter: ChannelAdapter = {
           role: "user",
           direction: "inbound",
           content: text.slice(0, MAX_WEB_CHAT_MESSAGE_CHARS),
+          attachments,
           externalMessageId: payload.clientMessageId
             ? `${sessionId}:${String(payload.clientMessageId).slice(0, 64)}`
             : null,

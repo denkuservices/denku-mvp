@@ -56,6 +56,66 @@ function linkify(text: string): React.ReactNode {
   });
 }
 
+/**
+ * The original, under the words.
+ *
+ * The AI's description of a photo is already in the bubble text — that is how perception works,
+ * and it is what every other reader sees. This renders the file itself as well, because a
+ * description is a claim and the owner deciding whether to refund someone needs to be able to
+ * check it. An image shows; audio gets a player, since a voice note is short and listening is
+ * faster than reading a transcript aloud in your head.
+ *
+ * A file we could not keep renders as a plain chip rather than a broken image: saying "photo,
+ * unavailable" is honest, and an empty frame reads as a bug.
+ */
+function Attachments({ media }: { media: NonNullable<TurnRendererProps["turn"]["media"]> }) {
+  if (media.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      {media.map((file, i) => {
+        if (file.kind === "image" && file.url) {
+          return (
+            /* eslint-disable-next-line @next/next/no-img-element --
+               a signed, expiring Storage URL cannot go through next/image: the optimiser would
+               need the signature to still be valid when IT fetches, and would cache a customer's
+               private photo behind a public, unsigned URL. */
+            <img
+              key={i}
+              src={file.url}
+              alt={file.filename ?? "Attachment sent by the customer"}
+              className="max-h-64 w-auto max-w-full rounded-lg border border-black/5 object-contain"
+            />
+          );
+        }
+
+        if (file.kind === "audio" && file.url) {
+          return <audio key={i} src={file.url} controls preload="none" className="w-full max-w-[260px]" />;
+        }
+
+        if (file.kind === "video" && file.url) {
+          return <video key={i} src={file.url} controls preload="none" className="max-h-64 w-full rounded-lg" />;
+        }
+
+        return (
+          <a
+            key={i}
+            href={file.url ?? undefined}
+            target={file.url ? "_blank" : undefined}
+            rel="noopener noreferrer"
+            className={`inline-flex w-fit items-center gap-2 rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/15 ${
+              file.url ? "underline underline-offset-2" : "opacity-70"
+            }`}
+          >
+            {file.filename ?? file.kind}
+            {file.url ? null : <span>· unavailable</span>}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DefaultTurnRenderer({ turn, showTimestamp = true }: TurnRendererProps) {
   const isEmployee = turn.role === "assistant" || turn.direction === "outbound";
   const isSystem = turn.role === "system";
@@ -81,6 +141,7 @@ export default function DefaultTurnRenderer({ turn, showTimestamp = true }: Turn
         }`}
       >
         <p className="whitespace-pre-wrap break-words">{linkify(turn.content)}</p>
+        {turn.media && turn.media.length > 0 ? <Attachments media={turn.media} /> : null}
         {clock ? (
           <p
             className={`mt-1 text-[10px] tabular-nums ${

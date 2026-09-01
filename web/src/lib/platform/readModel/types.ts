@@ -38,6 +38,24 @@ export interface ArtifactRef {
 export type TurnRole = "user" | "assistant" | "system";
 export type TurnDirection = "inbound" | "outbound";
 
+/**
+ * One file a customer sent, ready to render.
+ *
+ * The description or transcript is NOT here — it is part of `content`, because that is what every
+ * reader already reads (see `lib/platform/media/understand.ts`). This carries only what the text
+ * cannot: the original, behind a short-lived signed URL, so the owner can look at the photo their
+ * AI described rather than take its word for it.
+ */
+export interface TurnAttachment {
+  kind: "image" | "audio" | "video" | "file";
+  filename: string | null;
+  mime: string | null;
+  /** How perception handled it — an unread file must not look like a read one. */
+  status: string;
+  /** Signed, expiring, and null when no copy was kept. */
+  url: string | null;
+}
+
 export interface ConversationTurn {
   id: string;
   channel: Channel;
@@ -45,6 +63,8 @@ export interface ConversationTurn {
   direction: TurnDirection | null;
   content: string;
   at: string | null; // ISO
+  /** Attachments on this message. Absent on every turn that had none. */
+  media?: TurnAttachment[];
 }
 
 export interface ConversationView {

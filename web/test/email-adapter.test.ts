@@ -267,14 +267,29 @@ describe("emailAdapter.normalizeInbound", () => {
     expect(out.message.content).toBe("Yarınki 15:00 randevumu iptal ediyorum");
   });
 
-  it("records attachment metadata without pretending to carry the file", () => {
+  /**
+   * The metadata is still recorded — but it is no longer the whole story.
+   *
+   * Perception (Sprint 8) fetches an attachment that has an `id` and folds what it found into the
+   * message body. `email_attachments` remains what the MAIL declared it was carrying, which is
+   * worth keeping beside what we made of it: the two disagreeing is how you find out a fetch
+   * failed. The assertion covers both halves.
+   */
+  it("records attachment metadata and offers the file for perception", () => {
     const [out] = emailAdapter.normalizeInbound(
-      { email: mail({ attachments: [{ filename: "fatura.pdf", contentType: "application/pdf", size: 1024 }] }) },
+      {
+        email: mail({
+          attachments: [{ id: "att_1", filename: "fatura.pdf", contentType: "application/pdf", size: 1024 }],
+        }),
+      },
       ctx
     );
     expect(out.meta?.email_had_attachments).toBe(true);
     expect(out.meta?.email_attachments).toEqual([
-      { filename: "fatura.pdf", contentType: "application/pdf", size: 1024 },
+      { id: "att_1", filename: "fatura.pdf", contentType: "application/pdf", size: 1024, inline: null },
+    ]);
+    expect(out.message.attachments).toEqual([
+      { kind: "file", mime: "application/pdf", filename: "fatura.pdf", size: 1024, ref: "att_1" },
     ]);
   });
 

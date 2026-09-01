@@ -52,6 +52,17 @@ export interface ChannelCapabilities {
   threaded: boolean;
   /** Media/attachments are meaningful on this channel. */
   attachments: boolean;
+  /**
+   * The AI can SEE what a customer photographs here.
+   *
+   * Separate from `attachments` because the two are genuinely different claims: a channel can
+   * carry a file we merely store (`attachments: true`) without anyone being able to read it. This
+   * flag is what a surface should check before telling a business "send us a photo of the part" —
+   * see `lib/platform/media/understand.ts` for what backs it.
+   */
+  imageUnderstanding: boolean;
+  /** The AI can HEAR a voice note here: it is transcribed and answered as if it had been typed. */
+  audioUnderstanding: boolean;
   /** Usage is metered in minutes (voice) rather than messages — billing dimension (R-086). */
   meteredByMinutes: boolean;
 }
@@ -88,6 +99,12 @@ const chat = (over: Partial<ChannelCapabilities> = {}): ChannelCapabilities => (
   outbound: false,
   threaded: true,
   attachments: true,
+  // Sight and hearing are shared platform stages, not per-channel features (Sprint 8): any chat
+  // channel whose webhook can hand over bytes gets both. So they default ON here for the same
+  // reason `attachments` does, and a channel that genuinely cannot carry media turns all three off
+  // together — SMS being the one that does.
+  imageUnderstanding: true,
+  audioUnderstanding: true,
   meteredByMinutes: false,
   ...over,
 });
@@ -101,7 +118,21 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     tone: "voice",
     kind: "voice",
     connection: "provisioned",
-    capabilities: { inbound: true, outbound: true, threaded: false, attachments: false, meteredByMinutes: true },
+    /**
+     * Voice perceives nothing here on purpose. A call IS audio, and it is already understood —
+     * live, by Vapi's own model inside the call, then transcribed into the conversation. Marking
+     * `audioUnderstanding` true would suggest this pipeline touches it, and nothing in
+     * `lib/platform/media` runs for a phone call.
+     */
+    capabilities: {
+      inbound: true,
+      outbound: true,
+      threaded: false,
+      attachments: false,
+      imageUnderstanding: false,
+      audioUnderstanding: false,
+      meteredByMinutes: true,
+    },
     productionReady: true,
     adopted: true,
   },
@@ -151,7 +182,7 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     kind: "chat",
     connection: "credentials",
     // The first channel that both receives AND replies through the shared reply engine.
-    // Attachments are received (a caption becomes the message) but never sent.
+    // Photos and voice notes are received and understood (Sprint 8); nothing is ever SENT as media.
     capabilities: chat({ outbound: true }),
     /**
      * Flipped 2026-08-27 on evidence, not on the code being finished.
@@ -203,7 +234,13 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     tone: "sms",
     kind: "chat",
     connection: "provisioned",
-    capabilities: chat({ outbound: true, attachments: false }),
+    // A text message is text. MMS is a different product with different carrier rules.
+    capabilities: chat({
+      outbound: true,
+      attachments: false,
+      imageUnderstanding: false,
+      audioUnderstanding: false,
+    }),
     productionReady: false,
     adopted: false,
   },
@@ -216,11 +253,13 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     kind: "chat",
     connection: "embed",
     /**
-     * Attachments are off: the widget sends and receives text only. Turning this on would mean
-     * accepting uploads from anonymous visitors on a public endpoint, which is a storage and
-     * abuse decision of its own, not a widget feature.
+     * Attachments are ON as of Sprint 8 — and the note that used to sit here was right that this
+     * is a decision rather than a feature. It was taken deliberately: the visitor uploads through
+     * a session-token endpoint with an allow-list of formats, a byte ceiling and a per-session
+     * count, all in `lib/webchat/uploads.ts`, because a shop's customer photographing the item
+     * they are asking about is the most valuable thing this channel could carry.
      */
-    capabilities: chat({ outbound: true, attachments: false }),
+    capabilities: chat({ outbound: true }),
     /**
      * Not production-ready yet: the channel is built end to end, but nobody has held a real
      * conversation through a widget on a real customer's site. Flipped only on live evidence,

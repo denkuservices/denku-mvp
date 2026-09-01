@@ -1,4 +1,5 @@
 import type { ChannelAdapter, NormalizedInbound, NormalizeContext } from "@/lib/platform/adapters/types";
+import { kindForMime, type InboundAttachment } from "@/lib/platform/media/types";
 
 /**
  * Email channel adapter.
@@ -45,7 +46,19 @@ export interface InboundEmail {
   /** Lower-cased header map, for the checks that decide whether this is a person. */
   headers?: Record<string, string | string[] | null | undefined> | null;
   receivedAt?: string | null;
-  attachments?: Array<{ filename?: string | null; contentType?: string | null; size?: number | null }> | null;
+  /**
+   * Attachment metadata. `id` is the provider's handle for fetching the bytes — without it an
+   * attachment can be listed but never read, which is exactly where this channel stood before
+   * perception existed.
+   */
+  attachments?: Array<{
+    id?: string | null;
+    filename?: string | null;
+    contentType?: string | null;
+    size?: number | null;
+    /** Inline images are usually a signature logo, not something the customer is showing us. */
+    inline?: boolean | null;
+  }> | null;
 }
 
 /**
@@ -338,10 +351,31 @@ export const emailAdapter: ChannelAdapter = {
     if (!body) return [];
 
     const attachments = (email.attachments ?? []).map((file) => ({
+      id: file.id ?? null,
       filename: file.filename ?? null,
       contentType: file.contentType ?? null,
       size: file.size ?? null,
+      inline: file.inline ?? null,
     }));
+
+    /**
+     * Which attachments are worth reading.
+     *
+     * Two filters, and the second is the one that matters. Anything without an `id` cannot be
+     * fetched at all. And **inline attachments are skipped**: every corporate signature carries a
+     * logo and two social icons as inline parts, so a mail from a company with a fancy footer
+     * would otherwise cost three vision calls and fill the Inbox with "a small blue square with
+     * the letter F". What a customer deliberately attaches is not inline.
+     */
+    const media: InboundAttachment[] = attachments
+      .filter((file) => file.id && !file.inline)
+      .map((file) => ({
+        kind: kindForMime(file.contentType),
+        mime: file.contentType,
+        filename: file.filename,
+        size: file.size,
+        ref: file.id as string,
+      }));
 
     return [
       {
@@ -360,6 +394,7 @@ export const emailAdapter: ChannelAdapter = {
           content: body,
           // The RFC Message-ID is globally unique by construction, which is exactly what
           // `messages_convo_extid_uidx` needs to make a redelivered webhook a no-op.
+          attachments: media,
           externalMessageId: cleanMessageId(email.messageId),
           createdAt: email.receivedAt ?? undefined,
         },
@@ -370,9 +405,8 @@ export const emailAdapter: ChannelAdapter = {
           email_message_id: cleanMessageId(email.messageId),
           email_in_reply_to: cleanMessageId(email.inReplyTo),
           email_references: parseReferences(email.references),
-          // Received but not rendered or sent — the same deliberate gap Telegram has with
-          // photos. Recording the metadata means the owner is not left wondering why a mail
-          // that clearly had an invoice on it looks bare.
+          // The metadata is kept alongside the perception records: `meta.media` says what the AI
+          // made of each file, this says what the mail declared it was carrying.
           email_attachments: attachments,
           email_had_attachments: attachments.length > 0,
         },

@@ -3,6 +3,7 @@ import { getConnectionById, markInbound } from "@/lib/telegram/connections";
 import { telegramAdapter } from "@/lib/platform/adapters/telegram";
 import { ingestInboundMessage } from "@/lib/platform/ingest";
 import { respondToInbound } from "@/lib/platform/reply/respond";
+import { telegramMediaResolver } from "@/lib/telegram/media";
 
 export const dynamic = "force-dynamic";
 
@@ -72,19 +73,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ connection
     });
 
     if (normalized.length === 0) {
-      // Stickers, joins, edits, bot echoes — received and deliberately ignored.
+      // Joins, pins, edits, bot echoes — received and deliberately ignored.
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     void markInbound(connection.id);
 
+    // One resolver per delivery: it memoizes the decrypted bot token, so a customer sending three
+    // photos costs one decryption rather than three.
+    const resolveMedia = telegramMediaResolver(connection.id);
+
     for (const message of normalized) {
-      const ingested = await ingestInboundMessage({
-        ...message,
-        // The transport needs to know which of the org's bots to answer through, and the
-        // conversation is where that survives past this request.
-        meta: { ...message.meta, telegram_connection_id: connection.id },
-      });
+      const ingested = await ingestInboundMessage(
+        {
+          ...message,
+          // The transport needs to know which of the org's bots to answer through, and the
+          // conversation is where that survives past this request.
+          meta: { ...message.meta, telegram_connection_id: connection.id },
+        },
+        { resolveMedia }
+      );
 
       if (!ingested.ok || !ingested.conversationId) {
         console.error("[TELEGRAM][WEBHOOK][INGEST][FAILED]", {
@@ -108,7 +116,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ connection
         threadId: message.externalThreadId,
         connectionId: connection.id,
         agentId: connection.assignedAgentId,
-        incoming: message.message.content,
+        // The body as STORED, not as it arrived: on a photo or a voice note this is where the
+        // description and the transcript are, and answering the raw payload would mean answering
+        // an empty message.
+        incoming: ingested.content ?? message.message.content,
       });
     }
   } catch (err) {

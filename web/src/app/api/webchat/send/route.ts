@@ -14,6 +14,7 @@ import {
   requestOrigin,
 } from "@/lib/webchat/http";
 import { webChatAdapter, MAX_WEB_CHAT_MESSAGE_CHARS } from "@/lib/platform/adapters/webchat";
+import { webChatAttachmentsFrom, webChatMediaResolver } from "@/lib/webchat/uploads";
 import { ingestInboundMessage } from "@/lib/platform/ingest";
 import { respondToInbound } from "@/lib/platform/reply/respond";
 
@@ -49,6 +50,8 @@ interface Body {
   pageUrl?: string;
   /** ISO timestamp of the newest message the widget already has. */
   after?: string;
+  /** Storage keys returned by `/api/webchat/upload`, for files sent with this message. */
+  attachments?: Array<{ ref?: string; mime?: string; filename?: string | null }>;
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -63,7 +66,10 @@ export async function POST(req: NextRequest) {
   if (!claims) return refuse("invalid_session", 401);
 
   const text = (body?.text ?? "").trim();
-  if (!text || text.length > MAX_WEB_CHAT_MESSAGE_CHARS) return refuse("bad_request", 400);
+  if (text.length > MAX_WEB_CHAT_MESSAGE_CHARS) return refuse("bad_request", 400);
+  const hasAttachments = Array.isArray(body?.attachments) && body.attachments.length > 0;
+  // A photo with no words is a perfectly ordinary thing to send; nothing at all is not.
+  if (!text && !hasAttachments) return refuse("bad_request", 400);
 
   const connection = await getConnectionById(claims.cid);
   const problem = connectionUsable(connection, origin);
@@ -89,6 +95,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    /**
+     * Attachment references are re-checked here, not trusted from the body.
+     *
+     * The widget sends back storage keys the upload endpoint issued it. `webChatAttachmentsFrom`
+     * keeps only the ones under THIS session's own prefix — so a visitor who guessed or captured
+     * another workspace's key gets it silently dropped rather than having our AI read a stranger's
+     * file back to them.
+     */
+    const attachments = webChatAttachmentsFrom(body?.attachments, session.orgId, session.id);
+
     const [normalized] = webChatAdapter.normalizeInbound(
       {
         sessionId: session.id,
@@ -96,18 +112,24 @@ export async function POST(req: NextRequest) {
         text,
         clientMessageId: body?.clientMessageId ?? null,
         pageUrl: body?.pageUrl ?? null,
+        attachments,
       },
       { orgId: session.orgId, agentId: connection.assignedAgentId }
     );
     if (!normalized) return refuse("bad_request", 400);
 
-    const ingested = await ingestInboundMessage({
-      ...normalized,
-      // `connection_id` is the generic key `resolveOutboundTarget` reads when a person replies
-      // from the Inbox — writing it here is what makes human takeover work on this channel with
-      // no channel-specific code in the Inbox.
-      meta: { ...normalized.meta, connection_id: connection.id },
-    });
+    const ingested = await ingestInboundMessage(
+      {
+        ...normalized,
+        // `connection_id` is the generic key `resolveOutboundTarget` reads when a person replies
+        // from the Inbox — writing it here is what makes human takeover work on this channel with
+        // no channel-specific code in the Inbox.
+        meta: { ...normalized.meta, connection_id: connection.id },
+      },
+      // The only resolver that never leaves our own storage: the visitor already uploaded the file
+      // to us, so perception reads it back rather than fetching someone else's link.
+      { resolveMedia: webChatMediaResolver(session.orgId, session.id) }
+    );
 
     if (!ingested.ok || !ingested.conversationId) {
       console.error("[WEBCHAT][SEND][INGEST][FAILED]", { org_id: session.orgId, session_id: session.id });
@@ -132,7 +154,8 @@ export async function POST(req: NextRequest) {
       threadId: session.id,
       connectionId: connection.id,
       agentId: connection.assignedAgentId,
-      incoming: text,
+      // The stored body, so a photo sent with no caption is still something to answer.
+      incoming: ingested.content ?? text,
     });
 
     // Everything since what the widget already had — the visitor's own message included, so the

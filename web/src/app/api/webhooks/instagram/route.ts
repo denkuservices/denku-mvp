@@ -6,6 +6,7 @@ import { getOrgIdByIgUserId } from "@/lib/instagram/connections";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { instagramAdapter } from "@/lib/platform/adapters/instagram";
 import { ingestInboundMessage } from "@/lib/platform/ingest";
+import { urlMediaResolver } from "@/lib/platform/media/store";
 
 export const dynamic = "force-dynamic";
 
@@ -138,7 +139,9 @@ export async function POST(req: NextRequest) {
       const normalized = instagramAdapter.normalizeInbound(entry, { orgId, agentId: null });
       for (const msg of normalized) {
         // Best-effort: ingest never throws; a failure here cannot break IG receive.
-        await ingestInboundMessage(msg);
+        // Meta's attachment URLs are public and short-lived, so no credential is needed to read
+        // them — but they die within the hour, which is why perception also keeps a copy.
+        await ingestInboundMessage(msg, { resolveMedia: urlMediaResolver() });
       }
     }
   }

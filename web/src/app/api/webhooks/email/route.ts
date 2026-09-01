@@ -10,6 +10,8 @@ import { parseGmailConfirmation, completeGmailForwarding } from "@/lib/email/cha
 import { recordForwardConfirmation } from "@/lib/email/channel/verification";
 import { ingestInboundMessage } from "@/lib/platform/ingest";
 import { respondToInbound } from "@/lib/platform/reply/respond";
+import { fetchMediaBytes } from "@/lib/platform/media/store";
+import { MEDIA_BYTE_LIMITS, type MediaResolver } from "@/lib/platform/media/types";
 
 export const dynamic = "force-dynamic";
 
@@ -131,9 +133,11 @@ export async function POST(req: NextRequest) {
       headers,
       receivedAt: data.created_at ?? full.created_at ?? undefined,
       attachments: (full.attachments ?? []).map((file) => ({
+        id: file.id ?? null,
         filename: file.filename ?? null,
         contentType: file.content_type ?? null,
         size: file.size ?? null,
+        inline: file.content_disposition === "inline",
       })),
     };
 
@@ -174,13 +178,49 @@ export async function POST(req: NextRequest) {
 
     void markInbound(connection.id);
 
+    /**
+     * Reading an attachment is a two-step fetch on this channel.
+     *
+     * The delivery carries only metadata; the bytes live behind Resend, which mints a
+     * short-lived `download_url` per attachment on request. So the resolver asks for that URL and
+     * then downloads it — and both steps are inside a `MediaResolver` so the shared pipeline
+     * never learns which provider we use.
+     */
+    const emailId = data.email_id;
+    const resolveMedia: MediaResolver = async (attachment) => {
+      try {
+        const { data: file, error: fileError } = await resend.emails.receiving.attachments.get({
+          emailId,
+          id: attachment.ref,
+        });
+        if (fileError || !file?.download_url) {
+          console.warn("[EMAIL][MEDIA][URL][FAILED]", { email_id: emailId, error: fileError?.message });
+          return null;
+        }
+        const limit = MEDIA_BYTE_LIMITS[attachment.kind] ?? MEDIA_BYTE_LIMITS.file;
+        const media = await fetchMediaBytes(file.download_url, limit);
+        if (!media) return null;
+        return {
+          ...media,
+          mime: attachment.mime || file.content_type || media.mime,
+          filename: attachment.filename ?? file.filename ?? null,
+        };
+      } catch (err) {
+        console.warn("[EMAIL][MEDIA][ERROR]", err instanceof Error ? err.message : String(err));
+        return null;
+      }
+    };
+
     for (const message of normalized) {
-      const ingested = await ingestInboundMessage({
-        ...message,
-        // `connection_id` is the generic key `resolveOutboundTarget` already reads, so a human
-        // replying from the Inbox works with no change to the reply path.
-        meta: { ...message.meta, connection_id: connection.id },
-      });
+      const ingested = await ingestInboundMessage(
+        {
+          ...message,
+          // `connection_id` is the generic key `resolveOutboundTarget` already reads, so a human
+          // replying from the Inbox works with no change to the reply path.
+          meta: { ...message.meta, connection_id: connection.id },
+        },
+        { resolveMedia }
+      );
 
       if (!ingested.ok || !ingested.conversationId) {
         console.error("[EMAIL][WEBHOOK][INGEST][FAILED]", {
@@ -211,7 +251,9 @@ export async function POST(req: NextRequest) {
         threadId: message.externalThreadId,
         connectionId: connection.id,
         agentId: connection.assignedAgentId,
-        incoming: message.message.content,
+        // The stored body — the invoice PDF's readable text and the photo's description are part
+        // of what the customer sent, and answering without them would answer half the mail.
+        incoming: ingested.content ?? message.message.content,
         replyMode: connection.replyMode,
         statedName: message.contact.displayName ?? null,
       });
