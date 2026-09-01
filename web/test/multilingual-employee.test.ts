@@ -315,11 +315,14 @@ describe("Turkish: a primary language, not yet a second one (added 2026-08-31)",
       model: "nova-3",
       language: "tr",
     });
-    // A native Turkish mouth, not an English one reading Turkish. `openai/nova` held this slot
-    // until the first real Turkish call (2026-09-01) showed it stressing the wrong syllables.
+    // Two real calls decided this. `openai/nova` read Turkish with English stress; Azure's
+    // tr-TR neural voice fixed the stress and stayed flat. The model is asserted alongside the
+    // provider on purpose: with ElevenLabs, `eleven_turbo_v2` is English-only and silently
+    // undoes the whole choice, and it is one character away from the multilingual one.
     expect(resolveVoiceForLanguages(["tr"])).toEqual({
-      provider: "azure",
-      voiceId: "tr-TR-EmelNeural",
+      provider: "11labs",
+      voiceId: "sarah",
+      model: "eleven_turbo_v2_5",
     });
   });
 });
