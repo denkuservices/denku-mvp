@@ -21,6 +21,7 @@ import {
   buildByoPhoneNumberPayload,
   sipDestinationForLine,
   toE164,
+  isIpv4,
   KNOWN_SIP_CARRIERS,
 } from "@/lib/vapi/sipTrunk";
 import { markPhoneLineVerified } from "@/lib/vapi/phoneLineVerification";
@@ -45,7 +46,7 @@ describe("trunk credential payload", () => {
 
     expect(p.provider).toBe("byo-sip-trunk");
     const gateways = p.gateways as Array<Record<string, unknown>>;
-    expect(gateways[0].ip).toBe("sip.netgsm.com.tr");
+    expect(gateways[0].ip).toBe("185.88.7.189");
     expect(gateways[0].inboundEnabled).toBe(true);
     expect(gateways[0].port).toBe(5060);
     // Turkish numbers are dialled with the leading +.
@@ -55,11 +56,30 @@ describe("trunk credential payload", () => {
   it("carries the carrier's username and password when both are given", () => {
     const p = buildTrunkCredentialPayload({
       name: "Netgsm",
-      gatewayHost: "sip.netgsm.com.tr",
+      gatewayHost: "185.88.7.189",
       authUsername: "user1",
       authPassword: "secret",
     });
     expect(p.outboundAuthenticationPlan).toEqual({ authUsername: "user1", authPassword: "secret" });
+  });
+
+  it("refuses a hostname, because Vapi will not take one on an inbound gateway", () => {
+    // The real 400, on the first live connect attempt (2026-09-01):
+    // "gateways.0.ip must be a numeric IPv4 address when inboundEnabled is true or omitted".
+    // Vapi's message is scrubbed by `safeErrorMessage` on the way back to the customer, so a
+    // hostname that reaches Vapi becomes an unexplained "could not connect". Refuse it here.
+    expect(() =>
+      buildTrunkCredentialPayload({ name: "Netgsm", gatewayHost: "sip.netgsm.com.tr" })
+    ).toThrow(/numeric IPv4/);
+  });
+
+  it("knows an address from a name", () => {
+    expect(isIpv4("185.88.7.189")).toBe(true);
+    expect(isIpv4("1.2.3.4")).toBe(true);
+    expect(isIpv4("sip.netgsm.com.tr")).toBe(false);
+    expect(isIpv4("185.88.7")).toBe(false);
+    expect(isIpv4("185.88.7.999")).toBe(false);
+    expect(isIpv4("")).toBe(false);
   });
 
   it("omits the auth block entirely when there are no credentials, rather than sending an empty one", () => {

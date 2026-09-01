@@ -47,18 +47,54 @@ export interface ByoPhoneNumberInput {
 export const KNOWN_SIP_CARRIERS = {
   netgsm: {
     label: "Netgsm",
-    gatewayHost: "sip.netgsm.com.tr",
+    /**
+     * Netgsm's SIP host as an ADDRESS, not a name — `185.88.7.189`, the A record of
+     * `sip.netgsm.com.tr`.
+     *
+     * Vapi refuses a hostname here whenever the gateway accepts inbound calls:
+     * `gateways.0.ip must be a numeric IPv4 address when inboundEnabled is true or omitted`
+     * (observed on the first real connect attempt, 2026-09-01). Since every Denku BYO trunk is
+     * inbound, the name is never a legal value — so the preset carries the address and keeps the
+     * hostname beside it for humans.
+     *
+     * The cost is real: this IP is pinned, and if Netgsm renumbers, inbound stops with no error
+     * on our side. It is also a HYPOTHESIS until proven — Vapi matches the SOURCE address of the
+     * carrier's INVITE, and a carrier may sign from a different host than the one it publishes.
+     * If the first call never reaches Vapi, ask Netgsm for their egress range and widen this.
+     */
+    gatewayHost: "185.88.7.189",
+    /** Human-facing name for the same host. Never sent to Vapi — see `gatewayHost`. */
+    gatewayHostname: "sip.netgsm.com.tr",
     gatewayPort: 5060,
     /** What the customer must enter in their carrier panel as the destination. */
     forwardTo: "sip.vapi.ai",
     /** Netgsm panel: "Aranan Prefix" — makes the called number arrive as +90XXXXXXXXXX. */
     calledPrefix: "+90",
-    /** Netgsm panel: "Arayan Prefix". */
-    callerPrefix: "0",
+    /**
+     * Netgsm panel: "Arayan Prefix".
+     *
+     * `+90`, NOT the `0` Netgsm's own guide suggests. The caller's number is what becomes a
+     * contact, and the Vapi webhook's `normalizePhone` does not turn a leading `0` into a country
+     * code — it stores what it is given. A `0` prefix therefore files the caller as `0532…`,
+     * which matches no other channel's identity for the same person and cannot be dialled back.
+     * Corrected 2026-09-01 while connecting the first real Netgsm line.
+     */
+    callerPrefix: "+90",
   },
 } as const;
 
 export type KnownCarrierKey = keyof typeof KNOWN_SIP_CARRIERS;
+
+/**
+ * Is this a bare IPv4 address? Deliberately strict — Vapi accepts nothing else on an inbound
+ * gateway, so anything a human might reasonably type (a hostname, a SIP URI, a v6 address) is a
+ * refusal, not a value to coerce.
+ */
+export function isIpv4(value: string): boolean {
+  const parts = (value ?? "").trim().split(".");
+  if (parts.length !== 4) return false;
+  return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+}
 
 /**
  * Build the `POST /credential` body. Pure.
@@ -68,8 +104,18 @@ export type KnownCarrierKey = keyof typeof KNOWN_SIP_CARRIERS;
  * an empty auth block is not the same as no auth block and carriers reject the difference.
  */
 export function buildTrunkCredentialPayload(input: SipTrunkInput): Record<string, unknown> {
+  const host = input.gatewayHost.trim();
+  if (!isIpv4(host)) {
+    // Caught here rather than at Vapi, whose 400 for this ("gateways.0.ip must be a numeric
+    // IPv4 address when inboundEnabled is true or omitted") reaches the customer as a generic
+    // "could not connect" once `safeErrorMessage` has scrubbed it.
+    throw new Error(
+      `SIP gateway must be a numeric IPv4 address for an inbound trunk, got "${host}"`
+    );
+  }
+
   const gateway: Record<string, unknown> = {
-    ip: input.gatewayHost.trim(),
+    ip: host,
     inboundEnabled: true,
   };
   if (input.gatewayPort) gateway.port = input.gatewayPort;

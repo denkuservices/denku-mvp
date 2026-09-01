@@ -40,7 +40,7 @@ reachable at all.
 | Netgsm panel | Ses Hizmeti → Ayarlar → SIP Bilgileri → SIP Trunk | enable |
 | Netgsm panel | SIP Trunk adresi / Port | `sip.vapi.ai` / `5060` |
 | Netgsm panel | Aranan Prefix | `+90` — the called number MUST arrive as E.164 |
-| Netgsm panel | Arayan Prefix | `0` |
+| Netgsm panel | Arayan Prefix | `+90` — the caller becomes a contact; a leading `0` is never normalized to E.164 |
 
 **The single most likely silent failure:** the called number Netgsm sends must match the `number`
 on the Vapi phone-number object *exactly*. If the prefix is wrong the call reaches Vapi and maps
