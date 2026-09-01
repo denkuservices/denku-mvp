@@ -52,6 +52,14 @@ export type CallSummary = {
   cost_usd: number | null;
   outcome: string | null;
   agent_id: string | null;
+  /**
+   * What was said on the call — the reason the ticket exists.
+   *
+   * Carried on the detail read only. A ticket page without it can state that a call happened, its
+   * cost and its length, and nothing at all about why anyone is looking at it; the list read
+   * deliberately does NOT select this, because a page of transcripts is a page of megabytes.
+   */
+  transcript?: string | null;
 };
 
 /**

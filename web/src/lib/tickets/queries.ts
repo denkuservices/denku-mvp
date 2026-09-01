@@ -241,7 +241,7 @@ export async function getTicketDetail(orgId: string, ticketId: string): Promise<
   if (ticketRow.call_id) {
     const { data: callData } = await supabase
       .from("calls")
-      .select("id,started_at,duration_seconds,cost_usd,outcome,agent_id")
+      .select("id,started_at,duration_seconds,cost_usd,outcome,agent_id,transcript")
       .eq("org_id", orgId)
       .eq("id", ticketRow.call_id)
       .maybeSingle();
@@ -254,6 +254,7 @@ export async function getTicketDetail(orgId: string, ticketId: string): Promise<
         cost_usd: callData.cost_usd,
         outcome: callData.outcome,
         agent_id: callData.agent_id,
+        transcript: (callData as { transcript?: string | null }).transcript ?? null,
       };
 
       // Fetch agent if exists

@@ -52,14 +52,20 @@ export function AdvancedTab({ line }: AdvancedTabProps) {
           <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       ) : (
-        // Honest about the gap rather than rendering a dead button.
+        /*
+         * Honest about the gap — and now pointing at the control that closes it.
+         *
+         * This used to send the reader to the AI Team page, where there was no assignment control
+         * either. The assignment lives one tab away, on this very page.
+         */
         <p className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
-          No AI employee is assigned to this line yet, so there is nothing to configure. Assign one
-          from the{" "}
-          <Link href="/dashboard/team" className="font-medium text-brand-600 hover:underline dark:text-brand-300">
-            AI Team
-          </Link>{" "}
-          page.
+          No AI employee is assigned to this line yet, so there is nothing to configure. Pick one in
+          the <span className="font-medium text-gray-900 dark:text-white">Assigned AI</span> tab
+          above, or{" "}
+          <Link href="/dashboard/team/new" className="font-medium text-brand-600 hover:underline dark:text-brand-300">
+            hire one first
+          </Link>
+          .
         </p>
       )}
     </div>

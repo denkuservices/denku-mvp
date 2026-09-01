@@ -33,6 +33,15 @@ export interface RequestView {
   /** The conversation that produced it, when linked. */
   callId: string | null;
   contactId: string | null;
+  /**
+   * Who the request is about, in words.
+   *
+   * A list of requests whose rows all read "Support Request" is a list nobody can scan: the row
+   * that matters is found by the customer's name or number, not by a subject the AI generated
+   * from a template. Resolved from the ticket's own requester fields first (what the AI actually
+   * captured on the call) and from the linked contact otherwise.
+   */
+  who: string | null;
   /** Where this request's detail lives (existing detail pages are preserved). */
   href: string;
 }
@@ -46,6 +55,8 @@ interface TicketRow {
   created_at: string;
   call_id: string | null;
   lead_id: string | null;
+  requester_name?: string | null;
+  requester_phone?: string | null;
 }
 
 interface AppointmentRow {
@@ -70,6 +81,7 @@ export function ticketToRequest(row: TicketRow): RequestView {
     createdAt: row.created_at,
     callId: row.call_id,
     contactId: row.lead_id,
+    who: row.requester_name?.trim() || row.requester_phone?.trim() || null,
     href: requestHref("ticket", row.id),
   };
 }
@@ -110,6 +122,9 @@ export function appointmentToRequest(row: AppointmentRow): RequestView {
     createdAt: row.created_at,
     callId: row.call_id,
     contactId: row.lead_id,
+    // Appointments carry no requester columns of their own — the name comes from the linked
+    // contact, resolved by `attachContactNames`.
+    who: null,
     href: appointmentHref(row.id),
   };
 }
@@ -159,6 +174,14 @@ export interface RequestsResult {
 export interface AppointmentDetailView extends RequestView {
   /** Appointment end time, when the booking recorded one. */
   endsAt: string | null;
+  /**
+   * What was said on the call that produced this booking.
+   *
+   * The detail page's whole job is to answer "what was actually agreed", and the answer lives in
+   * the conversation — not in `notes`, which the deterministic booking path fills with a raw dump
+   * and the tool path often leaves empty. Detail read only; the list never selects it.
+   */
+  transcript: string | null;
 }
 
 /**
@@ -183,13 +206,76 @@ export async function getAppointmentDetail(
       .maybeSingle<AppointmentRow & { end_at: string | null }>();
 
     if (error || !data) return null;
-    return { ...appointmentToRequest(data), endsAt: data.end_at ?? null };
+
+    /*
+     * The transcript is fetched separately rather than joined.
+     *
+     * A PostgREST embed would make the appointment read depend on the FK between `appointments`
+     * and `calls` being present and named as expected — and a missing relationship there would
+     * fail the whole read, turning "we could not load the transcript" into "this appointment does
+     * not exist". Two queries, and the second one is allowed to come back empty.
+     */
+    let transcript: string | null = null;
+    if (data.call_id) {
+      const { data: call } = await db
+        .from("calls")
+        .select("transcript")
+        .eq("org_id", orgId)
+        .eq("id", data.call_id)
+        .maybeSingle<{ transcript: string | null }>();
+      transcript = call?.transcript ?? null;
+    }
+
+    const base = await attachContactNames(orgId, [appointmentToRequest(data)], db);
+
+    return { ...base[0], endsAt: data.end_at ?? null, transcript };
   } catch (err) {
     console.error(
       "[PLATFORM][READMODEL][REQUESTS][DETAIL]",
       err instanceof Error ? err.message : String(err)
     );
     return null;
+  }
+}
+
+/**
+ * Fill in `who` from the linked contact wherever the request itself did not carry a name.
+ *
+ * One extra query for the whole page, not one per row: the ids are collected first and fetched
+ * with a single `in`. Fails soft — a request with no resolvable name is a row that reads a little
+ * thinner, never a page that fails to load.
+ */
+async function attachContactNames(
+  orgId: string,
+  rows: RequestView[],
+  db: SupabaseClient
+): Promise<RequestView[]> {
+  const missing = [...new Set(rows.filter((r) => !r.who && r.contactId).map((r) => r.contactId!))];
+  if (missing.length === 0) return rows;
+
+  try {
+    const { data } = await db
+      .from("leads")
+      .select("id, name, phone, email")
+      .eq("org_id", orgId)
+      .in("id", missing);
+
+    const byId = new Map<string, string>();
+    for (const lead of (data ?? []) as Array<{
+      id: string;
+      name: string | null;
+      phone: string | null;
+      email: string | null;
+    }>) {
+      const label = lead.name?.trim() || lead.phone?.trim() || lead.email?.trim();
+      if (label) byId.set(lead.id, label);
+    }
+
+    return rows.map((r) =>
+      r.who || !r.contactId ? r : { ...r, who: byId.get(r.contactId) ?? null }
+    );
+  } catch {
+    return rows;
   }
 }
 
@@ -205,7 +291,9 @@ export async function listRequestViews(
   try {
     let ticketQuery = db
       .from("tickets")
-      .select("id, subject, description, status, priority, created_at, call_id, lead_id")
+      .select(
+        "id, subject, description, status, priority, created_at, call_id, lead_id, requester_name, requester_phone"
+      )
       .eq("org_id", orgId);
     let appointmentQuery = db
       .from("appointments")
@@ -223,10 +311,14 @@ export async function listRequestViews(
       appointmentQuery.order("start_at", { ascending: false }).limit(limit),
     ]);
 
-    const all = [
-      ...((t.data ?? []) as TicketRow[]).map(ticketToRequest),
-      ...((a.data ?? []) as AppointmentRow[]).map(appointmentToRequest),
-    ];
+    const all = await attachContactNames(
+      orgId,
+      [
+        ...((t.data ?? []) as TicketRow[]).map(ticketToRequest),
+        ...((a.data ?? []) as AppointmentRow[]).map(appointmentToRequest),
+      ],
+      db
+    );
 
     // Counts reflect the unfiltered set, so the type tabs show real totals.
     const counts = {

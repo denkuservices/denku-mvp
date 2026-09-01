@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ArrowUpRight, Clock, DollarSign, Phone } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { resolveOrgId } from "@/lib/analytics/params";
-import { isAdminOrOwner } from "@/lib/analytics/params";
+import { resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
 import { getTicketDetail, getDistinctStatuses, getDistinctPriorities } from "@/lib/tickets/queries";
 import { formatDateInTZ, formatTimeAgo } from "@/lib/tickets/utils.client";
@@ -18,37 +16,46 @@ import { CopyButton } from "@/components/tickets/CopyButton";
 import { TicketRequester } from "@/components/tickets/TicketRequester";
 import { listTicketComments } from "@/lib/tickets/comments.queries";
 import { listTicketActivity } from "@/lib/tickets/activity.queries";
-import { Phone, DollarSign, Clock } from "lucide-react";
+import { Surface, Pill } from "../../../_platform/ui";
+import RequestIcon from "../../../_platform/crm/RequestIcon";
+import TranscriptPanel from "../../../_platform/crm/TranscriptPanel";
 
 /**
- * The ticket half of the unified Request detail (Sprint 13).
+ * The ticket half of the unified Request detail.
  *
- * Moved verbatim from `/dashboard/tickets/[ticketId]`, which is now a redirect. Keeping the body
- * intact was the point: it carries status and priority transitions, comments and the activity
- * log, and the sprint's own risk note is that those must not regress. Only the route shape and
- * the back-links changed.
+ * **Rebuilt in Sprint 14 for two reasons, and the second one is the real one.**
+ *
+ * *Theme.* It was moved here verbatim from the legacy `/dashboard/tickets/[ticketId]` page, which
+ * meant it also brought the legacy design system with it: raw shadcn `rounded-xl border bg-white`
+ * panels and `text-muted-foreground`, sitting inside a section built entirely from the platform's
+ * `Surface`/`Pill` primitives. One click from Requests changed the visual language of the product.
+ * It now renders through the same primitives as everything around it — dark mode included, which
+ * the hardcoded `bg-white` panels never supported.
+ *
+ * *Content.* It rendered the subject, two timestamps, a call cost and an id, and **never rendered
+ * `tickets.description` at all**. For a ticket the voice webhook raises deterministically — no
+ * tool call, a templated "Support Request" subject, an empty description — that left a page which
+ * proved a ticket existed and said nothing about why. The transcript of the call that caused it
+ * was one join away and is now the body of the page.
+ *
+ * Everything that could mutate the ticket — status and priority transitions, the subject editor,
+ * comments, the activity log — is unchanged and still owned by the same components.
  */
 export default async function TicketDetailBody({ ticketId }: { ticketId: string }) {
-
-  // Resolve org and user
   const orgId = await resolveOrgId();
   const supabase = await createSupabaseServerClient();
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth?.user?.id ?? "";
 
-  // Get user role and workspace status
   const canMutate = userId ? await isAdminOrOwner(orgId, userId) : false;
   const workspaceStatus = await getWorkspaceStatus(orgId);
   const isPaused = workspaceStatus === "paused";
-
-  // Get timezone for date formatting
   const timezone = await getOrgTimezone(orgId);
 
-  // Fetch ticket detail and filter options
   let ticketDetail;
   try {
     ticketDetail = await getTicketDetail(orgId, ticketId);
-  } catch (error) {
+  } catch {
     notFound();
   }
 
@@ -56,77 +63,93 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
     getDistinctStatuses(orgId),
     getDistinctPriorities(orgId),
     listTicketComments({ orgId, ticketId }),
-    listTicketActivity({ orgId, ticketId, limit: 50 }).catch(() => []), // Non-blocking error handling
+    listTicketActivity({ orgId, ticketId, limit: 50 }).catch(() => []),
   ]);
 
   const { ticket, lead, call, agent } = ticketDetail;
 
-  // Helper to format lead source (brand-safe: never show "vapi" in UI)
+  /** Brand-safe: the provider's name is never a thing a customer reads (CLAUDE.md). */
   const formatLeadSource = (source: string | null): string => {
-    if (!source) return "—";
-    const lower = source.toLowerCase();
-    switch (lower) {
+    switch ((source ?? "").toLowerCase()) {
       case "web":
         return "Web";
       case "inbound_call":
-        return "Inbound call";
       case "vapi":
-        return "Phone call"; // Map vapi to Phone call (brand-safe)
+        return "Phone call";
       case "referral":
         return "Referral";
       case "import":
         return "Import";
       default:
-        return "Other"; // Unknown sources show as "Other" (brand-safe)
+        return source ? "Other" : "—";
     }
   };
 
-  // Helper to format lead status
-  const formatLeadStatus = (status: string | null): string => {
-    if (!status) return "—";
-    const lower = status.toLowerCase();
-    switch (lower) {
-      case "new":
-        return "New";
-      case "contacted":
-        return "Contacted";
-      case "qualified":
-        return "Qualified";
-      case "unqualified":
-        return "Unqualified";
-      default:
-        return status;
-    }
-  };
+  const statusTone =
+    ["closed", "resolved", "completed"].includes((ticket.status ?? "").toLowerCase())
+      ? "ok"
+      : ["open", "new"].includes((ticket.status ?? "").toLowerCase())
+        ? "info"
+        : "neutral";
+
+  /*
+   * WHO the request is from, as the page's title.
+   *
+   * The subject stays — it is editable and sometimes meaningful — but it is not the headline when
+   * every AI-raised ticket shares the same one. A page called "Support Request" is a page you
+   * cannot tell from the last four you opened.
+   */
+  const headline =
+    ticket.requester_name?.trim() ||
+    lead?.name?.trim() ||
+    ticket.requester_phone?.trim() ||
+    lead?.phone?.trim() ||
+    ticket.subject;
+
+  const durationLabel =
+    call?.duration_seconds == null
+      ? null
+      : call.duration_seconds < 60
+        ? `${call.duration_seconds}s`
+        : `${Math.floor(call.duration_seconds / 60)}m ${call.duration_seconds % 60}s`;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Back Button */}
-      <Link href="/dashboard/crm/requests?type=ticket">
-        <Button variant="ghost" size="sm">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+    <div className="p-4 md:p-6">
+      <Link
+        href="/dashboard/crm/requests?type=ticket"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
+      >
+        <ArrowLeft className="h-4 w-4" /> Requests
       </Link>
 
-      {/* Workspace Paused Banner */}
       {isPaused && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-medium text-amber-900">Workspace is paused. Changes are disabled.</p>
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+            Workspace is paused. Changes are disabled.
+          </p>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2 flex-1">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/crm/requests?type=ticket" className="text-sm text-muted-foreground hover:underline">
-              Requests
-            </Link>
-            <span className="text-sm text-muted-foreground">/</span>
-            <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
+      {/* ── Header ───────────────────────────────────────────────────────────────────── */}
+      <div className="mb-5 flex flex-wrap items-start gap-4">
+        <RequestIcon type="ticket" size="lg" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight text-navy-700 dark:text-white md:text-2xl">
+            {headline}
+          </h1>
+          <p className="mt-0.5 truncate text-sm text-gray-500">
+            {ticket.subject}
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span title={formatDateInTZ(ticket.updated_at, timezone)}>
+              updated {formatTimeAgo(ticket.updated_at)}
+            </span>
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {ticket.status ? (
+              <Pill tone={statusTone} dot>
+                {ticket.status}
+              </Pill>
+            ) : null}
             <TicketDetailQuickActions
               ticketId={ticket.id}
               orgId={orgId}
@@ -138,9 +161,6 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
               canMutate={canMutate}
               isPaused={isPaused}
             />
-            <div className="text-xs text-muted-foreground" title={formatDateInTZ(ticket.updated_at, timezone)}>
-              Last updated {formatTimeAgo(ticket.updated_at)}
-            </div>
           </div>
         </div>
         <TicketPrimaryAction
@@ -153,44 +173,53 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
         />
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left Column: Summary + Activity + Notes */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Summary Card */}
-          <div className="rounded-xl border bg-white p-4 space-y-4">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Subject</p>
-              {canMutate && !isPaused ? (
-                <TicketDetailForm
-                  ticketId={ticket.id}
-                  orgId={orgId}
-                  userId={userId}
-                  field="subject"
-                  value={ticket.subject}
-                  label="Subject"
-                />
-              ) : (
-                <p className="text-sm font-medium">{ticket.subject}</p>
-              )}
-            </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* ── Left: why it exists, then what happened to it ─────────────────────────── */}
+        <div className="space-y-4 lg:col-span-2">
+          <Surface>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Why this was raised
+            </p>
+            <TranscriptPanel
+              notes={ticket.description}
+              transcript={call?.transcript ?? null}
+              conversationHref={call?.id ? `/dashboard/calls/${call.id}` : null}
+              emptyLabel="Nothing was recorded about this request. It was created without a conversation attached — most likely by hand."
+            />
+          </Surface>
 
-            <div className="grid grid-cols-2 gap-4">
+          <Surface>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Subject</p>
+            {canMutate && !isPaused ? (
+              <TicketDetailForm
+                ticketId={ticket.id}
+                orgId={orgId}
+                userId={userId}
+                field="subject"
+                value={ticket.subject}
+                label="Subject"
+              />
+            ) : (
+              <p className="text-sm font-medium text-navy-700 dark:text-white">{ticket.subject}</p>
+            )}
+            <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4 dark:border-white/10">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Created</p>
-                <p className="text-sm text-muted-foreground">{formatDateInTZ(ticket.created_at, timezone)}</p>
+                <dt className="text-xs uppercase tracking-wide text-gray-400">Created</dt>
+                <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
+                  {formatDateInTZ(ticket.created_at, timezone)}
+                </dd>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Last updated</p>
-                <p className="text-sm text-muted-foreground">{formatDateInTZ(ticket.updated_at, timezone)}</p>
+                <dt className="text-xs uppercase tracking-wide text-gray-400">Last updated</dt>
+                <dd className="mt-0.5 text-sm text-navy-700 dark:text-white">
+                  {formatDateInTZ(ticket.updated_at, timezone)}
+                </dd>
               </div>
-            </div>
-          </div>
+            </dl>
+          </Surface>
 
-          {/* Activity Timeline */}
           <TicketActivity activities={activities} timezone={timezone} />
 
-          {/* Notes Section (formerly Comments) */}
           <TicketComments
             ticketId={ticket.id}
             orgId={orgId}
@@ -202,9 +231,8 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
           />
         </div>
 
-        {/* Right Column: Related Data */}
-        <div className="space-y-6">
-          {/* Requester Card */}
+        {/* ── Right: who, and where it came from ────────────────────────────────────── */}
+        <aside className="space-y-4">
           <TicketRequester
             ticketId={ticket.id}
             orgId={orgId}
@@ -217,130 +245,87 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
             isPaused={isPaused}
           />
 
-          {/* Linked Lead Card */}
           {lead && (
-            <div className="rounded-xl border bg-white p-4 space-y-3">
-              <p className="text-sm font-medium">Linked Lead</p>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Name</p>
-                  <p className="text-sm font-medium">{lead.name || "—"}</p>
-                </div>
-                {lead.phone && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Phone</p>
-                    <Link
-                      href={`/dashboard/leads/${lead.id}`}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      {lead.phone}
-                    </Link>
-                  </div>
-                )}
-                {lead.email && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
-                    <Link
-                      href={`/dashboard/leads/${lead.id}`}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      {lead.email}
-                    </Link>
-                  </div>
-                )}
-                <div className="flex items-center gap-4 pt-1">
-                  {lead.source && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Source</p>
-                      <p className="text-xs">{formatLeadSource(lead.source)}</p>
-                    </div>
-                  )}
-                  {lead.status && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="text-xs">{formatLeadStatus(lead.status)}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="pt-2 border-t">
-                  <Link
-                    href={`/dashboard/leads/${lead.id}`}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    View lead →
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <Surface>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Contact
+              </p>
+              <p className="text-sm font-medium text-navy-700 dark:text-white">{lead.name || "—"}</p>
+              {lead.phone ? <p className="mt-0.5 text-sm text-gray-500">{lead.phone}</p> : null}
+              {lead.email ? <p className="mt-0.5 text-sm text-gray-500">{lead.email}</p> : null}
+              {lead.source ? (
+                <p className="mt-2 text-xs text-gray-400">
+                  First reached you by {formatLeadSource(lead.source).toLowerCase()}
+                </p>
+              ) : null}
+              <Link
+                href={`/dashboard/crm/contacts/${lead.id}`}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 transition hover:underline dark:text-brand-300"
+              >
+                View full history <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </Surface>
           )}
 
-          {/* Linked Call Card */}
           {call && (
-            <div className="rounded-xl border bg-white p-4 space-y-3">
-              <p className="text-sm font-medium">Linked Call</p>
-              <div className="space-y-2">
-                {call.started_at && (
+            <Surface>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                The call behind it
+              </p>
+              <dl className="space-y-2.5 text-sm">
+                {call.started_at ? (
                   <div>
-                    <p className="text-xs text-muted-foreground">Started</p>
-                    <p className="text-sm">{formatDateInTZ(call.started_at, timezone)}</p>
+                    <dt className="text-xs uppercase tracking-wide text-gray-400">Started</dt>
+                    <dd className="mt-0.5 text-navy-700 dark:text-white">
+                      {formatDateInTZ(call.started_at, timezone)}
+                    </dd>
                   </div>
-                )}
-                {call.duration_seconds !== null && (
+                ) : null}
+                {durationLabel ? (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Duration</p>
-                      <p className="text-sm">
-                        {call.duration_seconds < 60
-                          ? `${call.duration_seconds}s`
-                          : `${Math.floor(call.duration_seconds / 60)}m ${call.duration_seconds % 60}s`}
-                      </p>
-                    </div>
+                    <Clock className="h-4 w-4 shrink-0 text-gray-400" />
+                    <span className="text-navy-700 dark:text-white">{durationLabel}</span>
                   </div>
-                )}
-                {call.cost_usd !== null && (
+                ) : null}
+                {call.cost_usd !== null ? (
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Cost</p>
-                      <p className="text-sm">${call.cost_usd.toFixed(4)}</p>
-                    </div>
+                    <DollarSign className="h-4 w-4 shrink-0 text-gray-400" />
+                    <span className="text-navy-700 dark:text-white">
+                      ${call.cost_usd.toFixed(4)}
+                    </span>
                   </div>
-                )}
-                {call.outcome && (
+                ) : null}
+                {agent?.name ? (
                   <div>
-                    <p className="text-xs text-muted-foreground">Outcome</p>
-                    <p className="text-sm">{call.outcome}</p>
+                    <dt className="text-xs uppercase tracking-wide text-gray-400">Answered by</dt>
+                    <dd className="mt-0.5 text-navy-700 dark:text-white">{agent.name}</dd>
                   </div>
-                )}
-                {agent && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">AI</p>
-                    <p className="text-sm">{agent.name ?? "—"}</p>
-                  </div>
-                )}
-                <div className="pt-2 border-t">
-                  <Link
-                    href={`/dashboard/calls/${call.id}`}
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    <Phone className="h-3 w-3" />
-                    View call →
-                  </Link>
-                </div>
-              </div>
-            </div>
+                ) : null}
+              </dl>
+              <Link
+                href={`/dashboard/calls/${call.id}`}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 transition hover:underline dark:text-brand-300"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Open the call
+              </Link>
+            </Surface>
           )}
 
-          {/* Metadata Card (Reduced Prominence) */}
-          <div className="rounded-xl border bg-white p-4 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Metadata</p>
+          {/*
+            The id is support-desk plumbing, not information — kept because it is genuinely needed
+            when someone writes in, and kept quiet for the same reason.
+          */}
+          <Surface>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Reference
+            </p>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-mono text-muted-foreground truncate">{ticket.id}</p>
+              <p className="truncate font-mono text-xs text-gray-400">{ticket.id}</p>
               <CopyButton text={ticket.id} />
             </div>
-          </div>
-        </div>
+          </Surface>
+        </aside>
       </div>
     </div>
   );

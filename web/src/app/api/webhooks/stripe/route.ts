@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { pauseOrgBilling, resumeOrgBilling } from "@/lib/billing/pause";
-import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
@@ -302,12 +302,17 @@ export async function POST(req: NextRequest) {
       }
 
 
-      // A chat-only purchase bought a chat TIER, not the $0 base plan. Record it, so the
-      // workspace lands with the capacity it just paid for rather than an empty entitlement.
+      // A session carrying `chat_addon_key` bought a chat TIER. Record it, so the workspace
+      // lands with the capacity it just paid for rather than an empty entitlement.
+      //
+      // Deliberately NOT conditional on the base plan being `chat_only` any more: onboarding can
+      // now sell a voice plan and a chat tier in one session, and the tier was paid for in both
+      // cases. Gating on the base plan would have taken the money and granted nothing.
+      //
       // Idempotent, and never throws: this webhook is for a payment Stripe has already taken,
       // so a failure here must be logged and repaired, not turned into a retry loop.
       const chatAddonKey = session.metadata?.chat_addon_key;
-      if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+      if (chatAddonKey) {
         const recorded = await recordChatPurchase(orgId, chatAddonKey);
         logEvent({
           tag: recorded.ok

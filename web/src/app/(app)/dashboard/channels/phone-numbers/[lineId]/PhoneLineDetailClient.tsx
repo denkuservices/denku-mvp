@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LineConfigurationTab } from "./_tabs/LineConfigurationTab";
-import { AssignedAITab } from "./_tabs/AssignedAITab";
+import { AssignedAITab, type AssignableEmployee } from "./_tabs/AssignedAITab";
 import { AdvancedTab } from "./_tabs/AdvancedTab";
 import { DeletePhoneLineDialog } from "../_components/DeletePhoneLineDialog";
 import { PhoneLineSummaryBar } from "./_components/PhoneLineSummaryBar";
@@ -35,6 +35,8 @@ interface PhoneLineDetailClientProps {
   todayInboundCalls?: number;
   lastCallFormatted?: string;
   capacityLabel?: string;
+  /** Every AI employee in the workspace, for the Assigned AI picker. */
+  employees?: AssignableEmployee[];
 }
 
 type Tab = "configuration" | "assigned-ai" | "advanced";
@@ -45,6 +47,7 @@ export function PhoneLineDetailClient({
   todayInboundCalls = 0,
   lastCallFormatted = "—",
   capacityLabel = "Preview",
+  employees = [],
 }: PhoneLineDetailClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("configuration");
@@ -219,6 +222,7 @@ export function PhoneLineDetailClient({
           {activeTab === "assigned-ai" && (
             <AssignedAITab
               line={line}
+              employees={employees}
               onUpdate={(updates) => {
                 setLine((prev) => ({ ...prev, ...updates }));
                 setSaveToast("Saved");

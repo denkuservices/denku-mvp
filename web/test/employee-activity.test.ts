@@ -37,6 +37,7 @@ function channel(over: Partial<ChannelView> = {}): ChannelView {
     status: "connected",
     connectionId: "conn-1",
     identifier: "+13215550100",
+    assignedTo: null,
     meta: {},
     ...over,
   };

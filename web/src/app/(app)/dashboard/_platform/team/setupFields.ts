@@ -41,9 +41,10 @@ export const EMPTY_BUSINESS_CONTEXT: BusinessContext = {
 /**
  * The eight things an AI employee can know about the business.
  *
- * The worked EXAMPLE for each one lives in `knowledgeExamples.ts`, chosen by the reader's own
- * timezone — an owner in Ohio being shown a clinic in Kadıköy learns nothing about the shape of a
- * good answer, because they are busy noticing the product was built for somewhere else.
+ * The placeholder EXAMPLE for each one lives in `knowledgeExamples.ts`. They are deliberately
+ * generic and written in the interface's own language: an example specific enough to read as a
+ * real answer gets mistaken for one that is already filled in, and one written in another
+ * language teaches the reader that the product was built for somewhere else.
  */
 export const BUSINESS_CONTEXT_FIELDS: Array<{
   key: keyof BusinessContext;

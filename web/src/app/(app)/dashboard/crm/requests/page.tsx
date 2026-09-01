@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Inbox, Ticket, Calendar, Search, Plus } from "lucide-react";
+import { CalendarDays, Inbox, Search, Plus } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listRequestViews, type RequestType } from "@/lib/platform/readModel/requests";
 import PageHeader from "../../_platform/PageHeader";
+import RequestIcon, { requestTypeLabel } from "../../_platform/crm/RequestIcon";
+import RequestCalendar from "../../_platform/crm/RequestCalendar";
 import { formatWhen, titleCase } from "../../_platform/format";
 import {
   Surface,
@@ -55,6 +57,22 @@ export default async function RequestsPage({
   const status = one(sp?.status);
   const search = one(sp?.q);
 
+  /*
+   * List or calendar.
+   *
+   * Only offered for appointments, and that is a deliberate limit rather than an unfinished one:
+   * a ticket has no time it happens at, so a calendar of tickets would be a calendar of the
+   * moments they were logged — which is a chart of our own inbox, not of the customer's week.
+   */
+  const view = one(sp?.view) === "calendar" && type === "appointment" ? "calendar" : "list";
+
+  const now = new Date();
+  const monthParam = one(sp?.month); // `YYYY-MM`
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthParam);
+  const year = monthMatch ? Number(monthMatch[1]) : now.getUTCFullYear();
+  const month = monthMatch ? Number(monthMatch[2]) - 1 : now.getUTCMonth();
+  const validMonth = year >= 1970 && year <= 2999 && month >= 0 && month <= 11;
+
   const orgId = await resolveActiveOrgId();
   const { items, counts } = orgId
     ? await listRequestViews(orgId, { type, status, search })
@@ -64,11 +82,21 @@ export default async function RequestsPage({
 
   const hrefWith = (patch: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    const merged = { type: typeParam, status, q: search, ...patch };
+    const merged = {
+      type: typeParam,
+      status,
+      q: search,
+      view: view === "calendar" ? "calendar" : undefined,
+      month: monthMatch && validMonth ? monthParam : undefined,
+      ...patch,
+    };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v);
     const qs = params.toString();
     return `/dashboard/crm/requests${qs ? `?${qs}` : ""}`;
   };
+
+  const hrefForMonth = (y: number, m: number) =>
+    hrefWith({ view: "calendar", month: `${y}-${String(m + 1).padStart(2, "0")}` });
 
   const tabs: Array<{ label: string; value?: RequestType; count: number }> = [
     { label: "All", value: undefined, count: counts.all },
@@ -110,6 +138,36 @@ export default async function RequestsPage({
             </Link>
           );
         })}
+
+        {/*
+          The calendar switch appears only on the Appointments tab — where a calendar means
+          something — rather than sitting greyed out on the other two.
+        */}
+        {type === "appointment" ? (
+          <div className="ml-auto inline-flex overflow-hidden rounded-full border border-gray-200 dark:border-white/10">
+            <Link
+              href={hrefWith({ view: undefined, month: undefined })}
+              className={`px-3 py-1.5 text-sm font-medium transition ${
+                view === "list"
+                  ? "bg-brand-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-navy-800 dark:text-gray-300"
+              }`}
+            >
+              List
+            </Link>
+            <Link
+              href={hrefWith({ view: "calendar" })}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition ${
+                view === "calendar"
+                  ? "bg-brand-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-navy-800 dark:text-gray-300"
+              }`}
+            >
+              <CalendarDays className="h-4 w-4" />
+              Calendar
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <form method="get" className="mb-4 flex flex-wrap gap-2">
@@ -148,6 +206,16 @@ export default async function RequestsPage({
         ) : null}
       </form>
 
+      {view === "calendar" ? (
+        <Surface>
+          <RequestCalendar
+            year={validMonth ? year : now.getUTCFullYear()}
+            month={validMonth ? month : now.getUTCMonth()}
+            items={items}
+            hrefForMonth={hrefForMonth}
+          />
+        </Surface>
+      ) : (
       <Surface padded={false}>
         <ListHeader>
           <p className="text-sm font-medium text-navy-700 dark:text-white">
@@ -174,17 +242,28 @@ export default async function RequestsPage({
         ) : (
           <ListContainer>
             {items.map((r) => {
-              const Icon = r.type === "appointment" ? Calendar : Ticket;
+              /*
+               * The row leads with WHO, not with the subject.
+               *
+               * Every deterministic ticket the voice webhook creates is titled "Support Request",
+               * so a list keyed on the title was a column of one repeated phrase — nothing to
+               * scan, nothing to recognise, no way to find the caller you remember. The person is
+               * the headline; what kind of request it is, is the badge; the subject falls to the
+               * second line where it belongs beside the time it is happening.
+               */
+              const headline = r.who || r.title;
+              const detail = r.occursAt
+                ? `${requestTypeLabel(r.type)} · ${formatWhen(r.occursAt)}`
+                : r.body?.trim() || r.title;
+
               return (
                 <ListRow key={`${r.type}:${r.id}`} href={r.href}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10">
-                    <Icon className="h-4 w-4 text-gray-500 dark:text-gray-300" />
-                  </span>
+                  <RequestIcon type={r.type} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">{r.title}</p>
-                    <p className="truncate text-xs text-gray-500">
-                      {r.occursAt ? `Scheduled ${formatWhen(r.occursAt)}` : r.body || "—"}
+                    <p className="truncate text-sm font-medium text-navy-700 dark:text-white">
+                      {headline}
                     </p>
+                    <p className="truncate text-xs text-gray-500">{detail}</p>
                   </div>
                   {r.priority && r.priority !== "normal" ? (
                     <Pill tone="warn" className="hidden md:inline-flex">
@@ -192,7 +271,7 @@ export default async function RequestsPage({
                     </Pill>
                   ) : null}
                   {r.status ? (
-                    <Pill tone={statusTone(r.status)} className="hidden md:inline-flex">
+                    <Pill tone={statusTone(r.status)} dot className="hidden sm:inline-flex">
                       {titleCase(r.status)}
                     </Pill>
                   ) : null}
@@ -203,6 +282,7 @@ export default async function RequestsPage({
           </ListContainer>
         )}
       </Surface>
+      )}
     </div>
   );
 }

@@ -111,6 +111,7 @@ export function emptyChannelView(channel: Channel): ChannelView {
     status: meta.adopted ? "disconnected" : "coming_soon",
     connectionId: null,
     identifier: null,
+    assignedTo: null,
     meta: { description: meta.description, connection: meta.connection, health },
   };
 }
@@ -151,6 +152,7 @@ export function rowToChannelView(
     status: health.state === "connected" || health.state === "degraded" ? "connected" : health.state === "coming_soon" ? "coming_soon" : "disconnected",
     connectionId: (row.id as string) ?? null,
     identifier: (row[source.identifierColumn] as string | null) ?? null,
+    assignedTo,
     meta: { ...extra, description: meta.description, connection: meta.connection, health },
   };
 }

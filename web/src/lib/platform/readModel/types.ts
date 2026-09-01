@@ -84,6 +84,16 @@ export interface ChannelView {
   connectionId: string | null;
   /** human identifier (phone number / IG username). */
   identifier: string | null;
+  /**
+   * The AI Employee that owns this connection, when the channel supports assignment.
+   *
+   * Lifted out of `meta` because it is not decoration: it is the difference between a channel
+   * that answers customers and one that only exists. It used to be reachable only for `voice`,
+   * which happened to list its owner column in `metaColumns` — so a surface offering to assign
+   * an employee worked on phone lines and silently did nothing on Telegram, email or web chat.
+   * The registry already names the column for all four; this makes the value travel with the view.
+   */
+  assignedTo: string | null;
   meta: Record<string, unknown>;
 }
 

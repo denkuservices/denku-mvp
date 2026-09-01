@@ -269,6 +269,55 @@ export default async function PhoneLineDetailPage({
     }
   }
 
+  /*
+   * Every AI employee in the workspace, for the Assigned AI picker.
+   *
+   * Read here rather than in the client so the tab renders with the list already in hand — the
+   * whole point of the tab is the one decision it makes, and a spinner in front of it would be a
+   * second thing standing between a customer and getting their number answered.
+   */
+  const { data: agentRows } = await supabaseAdmin
+    .from("agents")
+    .select("id, name, agent_type")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: true });
+
+  /*
+   * What else each employee already answers, so two of them are told apart by their job rather
+   * than by a name the customer may never have chosen. Derived from the same `assigned_agent_id`
+   * column this page writes — there is no second source of truth for ownership.
+   */
+  const { data: ownedLines } = await supabaseAdmin
+    .from("phone_lines")
+    .select("assigned_agent_id, phone_number_e164")
+    .eq("org_id", orgId)
+    .not("assigned_agent_id", "is", null);
+
+  const linesByAgent = new Map<string, string[]>();
+  for (const row of (ownedLines ?? []) as Array<{ assigned_agent_id: string | null; phone_number_e164: string | null }>) {
+    if (!row.assigned_agent_id) continue;
+    const list = linesByAgent.get(row.assigned_agent_id) ?? [];
+    if (row.phone_number_e164) list.push(row.phone_number_e164);
+    linesByAgent.set(row.assigned_agent_id, list);
+  }
+
+  const employees = ((agentRows ?? []) as Array<{ id: string; name: string | null; agent_type: string | null }>).map(
+    (a) => {
+      const numbers = linesByAgent.get(a.id) ?? [];
+      const others = numbers.filter((n) => n !== line.phone_number_e164);
+      return {
+        id: a.id,
+        name: a.name?.trim() || "Unnamed AI employee",
+        channelSummary:
+          others.length > 0
+            ? `Also answers ${others.slice(0, 2).join(", ")}${others.length > 2 ? ` +${others.length - 2}` : ""}`
+            : numbers.length > 0
+              ? null
+              : "Not on any phone line yet",
+      };
+    }
+  );
+
   const { data: planLimits } = await supabaseAdmin
     .from("org_plan_limits")
     .select("plan_code, concurrency_limit")
@@ -303,6 +352,7 @@ export default async function PhoneLineDetailPage({
         todayInboundCalls={todayInboundCalls ?? 0}
         lastCallFormatted={lastCallFormatted}
         capacityLabel={capacityLabel}
+        employees={employees}
       />
       {/* Renders itself only for a customer-connected line; a no-op for Denku-provisioned ones. */}
       <ByoConnectionCard lineId={normalizedLine.id} />

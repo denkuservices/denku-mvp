@@ -132,6 +132,129 @@ async function usageItem(orgId: string, db: SupabaseClient): Promise<AttentionIt
   }
 }
 
+/**
+ * How far back a request still counts as something that needs looking at.
+ *
+ * There is no "seen" state on a ticket, so the honest signal is a recent one that is still open.
+ * A week is long enough that a Friday booking is still in the bell on Monday, and short enough
+ * that a permanently-open ticket from March does not sit in the bell forever, training the reader
+ * to ignore it.
+ */
+const REQUEST_WINDOW_DAYS = 7;
+
+/** How many requests are named individually before they collapse into a count. */
+const REQUEST_ROWS = 3;
+
+/**
+ * Tickets and appointments the AI has produced that nobody has closed.
+ *
+ * **The gap this fills.** The bell already covered billing and the Inbox, but not the artifacts —
+ * so the two things the product exists to produce, a booking and a request for help, were the two
+ * things it would not tell you about. A customer's appointment could sit unseen until someone
+ * happened to open the Requests page.
+ *
+ * Still derived, not a log, like everything else here: the row disappears when the ticket is
+ * closed or the appointment is completed, because at that point it genuinely no longer needs
+ * anyone. Never throws — a dead source contributes nothing rather than emptying the feed.
+ */
+async function requestItems(orgId: string, db: SupabaseClient): Promise<AttentionItem[]> {
+  const since = new Date(Date.now() - REQUEST_WINDOW_DAYS * 86_400_000).toISOString();
+
+  try {
+    const [tickets, appointments] = await Promise.all([
+      db
+        .from("tickets")
+        .select("id, subject, requester_name, requester_phone, status, created_at")
+        .eq("org_id", orgId)
+        .in("status", ["open", "new"])
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      db
+        .from("appointments")
+        .select("id, status, start_at, created_at")
+        .eq("org_id", orgId)
+        .in("status", ["requested", "scheduled"])
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    type Row = { id: string; title: string; body: string | null; at: string; href: string };
+    const rows: Row[] = [];
+
+    for (const t of (tickets.data ?? []) as Array<{
+      id: string;
+      subject: string | null;
+      requester_name: string | null;
+      requester_phone: string | null;
+      created_at: string;
+    }>) {
+      const who = t.requester_name?.trim() || t.requester_phone?.trim();
+      rows.push({
+        id: `request_ticket_${t.id}`,
+        title: who ? `New request from ${who}` : "New request",
+        body: t.subject?.trim() || null,
+        at: t.created_at,
+        href: `/dashboard/crm/requests/${t.id}?type=ticket`,
+      });
+    }
+
+    for (const a of (appointments.data ?? []) as Array<{
+      id: string;
+      start_at: string | null;
+      created_at: string;
+    }>) {
+      const when = a.start_at ? new Date(a.start_at) : null;
+      rows.push({
+        id: `request_appointment_${a.id}`,
+        title: "New appointment booked",
+        body:
+          when && !Number.isNaN(when.getTime())
+            ? when.toLocaleString(undefined, {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "No time recorded yet",
+        at: a.created_at,
+        href: `/dashboard/crm/requests/${a.id}?type=appointment`,
+      });
+    }
+
+    rows.sort((x, y) => Date.parse(y.at) - Date.parse(x.at));
+
+    const items: AttentionItem[] = rows.slice(0, REQUEST_ROWS).map((r) => ({
+      id: r.id,
+      kind: "new_request",
+      severity: "info",
+      title: r.title,
+      body: r.body,
+      href: r.href,
+      at: r.at,
+    }));
+
+    const rest = rows.length - REQUEST_ROWS;
+    if (rest > 0) {
+      items.push({
+        id: "new_request_more",
+        kind: "new_request",
+        severity: "info",
+        title: `${rest} more open request${rest === 1 ? "" : "s"}`,
+        body: null,
+        href: "/dashboard/crm/requests",
+        at: null,
+      });
+    }
+
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 export async function loadAttentionFeed(
   orgId: string,
   userId: string,
@@ -139,15 +262,25 @@ export async function loadAttentionFeed(
 ): Promise<AttentionFeed> {
   if (!orgId) return EMPTY_ATTENTION_FEED;
 
-  const [paused, usage, inbox] = await Promise.all([
+  const [paused, usage, inbox, requests] = await Promise.all([
     pausedItem(orgId, db),
     usageItem(orgId, db),
     listInboxPage(orgId, userId ?? "", { limit: INBOX_SCAN }, db).catch(() => null),
+    requestItems(orgId, db),
   ]);
 
   const items: AttentionItem[] = [];
   if (paused) items.push(paused);
   if (usage) items.push(usage);
+
+  /*
+   * Requests sit above the Inbox rows.
+   *
+   * An unread conversation is something to read; a booking or an open request is something to
+   * DO, and it has a customer waiting on the other end of it. Ordering the bell by what it costs
+   * to ignore puts them here.
+   */
+  items.push(...requests);
 
   /**
    * "Needs a person" stays ONE row carrying the count, not one row per conversation: it is a
