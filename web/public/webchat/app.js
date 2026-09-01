@@ -40,9 +40,33 @@
    */
   var POLL_MS = 5000;
 
-  if (boot.accentColor) {
-    document.documentElement.style.setProperty("--denku-accent", boot.accentColor);
+  /**
+   * Colours, validated a second time on the way to the DOM.
+   *
+   * The server already sanitised these. Doing it again here is not distrust of the server — it is
+   * the rule that whatever ends up in a CSS custom property was checked by the code that puts it
+   * there, so a future caller (a live preview posting a colour as the owner types, say) cannot
+   * become the one path that skipped the check. A rejected value simply does not get set, and the
+   * stylesheet's own default shows through.
+   */
+  var THEME_VARS = {
+    accent: "--denku-accent",
+    surface: "--denku-ground",
+    headerBg: "--denku-header-bg",
+    headerText: "--denku-header-text",
+  };
+
+  function applyTheme(theme) {
+    if (!theme || typeof theme !== "object") return;
+    for (var key in THEME_VARS) {
+      if (!Object.prototype.hasOwnProperty.call(THEME_VARS, key)) continue;
+      var value = theme[key];
+      if (typeof value !== "string" || !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value.trim())) continue;
+      document.documentElement.style.setProperty(THEME_VARS[key], value.trim());
+    }
   }
+
+  applyTheme(boot.theme);
 
   // ---------------------------------------------------------------- rendering
 
@@ -300,6 +324,16 @@
       return;
     }
     if (data.type === "open" && input) input.focus();
+
+    /**
+     * Live theming from the dashboard preview.
+     *
+     * Only ever changes colours — there is no message that can make this widget say something,
+     * send something, or reveal a session. The preview is the real widget precisely so that what
+     * the owner sees while picking a colour is what their customers will get, and repainting it
+     * as they drag a colour picker is the whole reason this is not a static mock.
+     */
+    if (data.type === "theme") applyTheme(data.theme);
   });
 
   var started = false;

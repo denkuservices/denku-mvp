@@ -3,6 +3,7 @@ import { getConnectionBySiteKey } from "@/lib/webchat/connections";
 import { isOriginAllowed, normalizeOrigin } from "@/lib/webchat/origins";
 import { issueFrameToken, isTokenSigningConfigured } from "@/lib/webchat/token";
 import { isSelfOrigin, selfOrigins } from "@/lib/webchat/http";
+import { resolveTheme } from "@/lib/webchat/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,10 @@ export async function GET(req: NextRequest) {
   const boot = JSON.stringify({
     frameToken,
     parentOrigin,
-    accentColor: connection.accentColor,
+    // Resolved server-side, defaults already filled in, so the widget never has to decide what a
+    // missing colour means — and an install themed before the colour picker existed keeps the
+    // accent it was given.
+    theme: resolveTheme(connection.theme, connection.accentColor),
     displayName: connection.displayName,
     greeting: connection.greeting,
   });

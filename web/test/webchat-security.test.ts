@@ -148,6 +148,49 @@ describe("the customer's domain list", () => {
   });
 });
 
+describe("widget colours", () => {
+  it("accepts hex and nothing else, because these become CSS", async () => {
+    const { normalizeColor, sanitizeTheme } = await import("@/lib/webchat/theme");
+    expect(normalizeColor("#1b6e6e")).toBe("#1B6E6E");
+    expect(normalizeColor("#FFF")).toBe("#FFF");
+    expect(normalizeColor("  #1B6E6E  ")).toBe("#1B6E6E");
+
+    // Everything a colour picker cannot produce and an author of one might.
+    expect(normalizeColor("red")).toBeNull();
+    expect(normalizeColor("rgb(0,0,0)")).toBeNull();
+    expect(normalizeColor("url(https://evil.io/x)")).toBeNull();
+    expect(normalizeColor("#fff; background: url(https://evil.io/x)")).toBeNull();
+    expect(normalizeColor("var(--x)")).toBeNull();
+    expect(normalizeColor(42)).toBeNull();
+    expect(normalizeColor(null)).toBeNull();
+  });
+
+  it("keeps only the keys we designed", async () => {
+    const { sanitizeTheme } = await import("@/lib/webchat/theme");
+    expect(
+      sanitizeTheme({ accent: "#000000", nonsense: "#ffffff", surface: "not-a-colour" })
+    ).toEqual({ accent: "#000000" });
+    expect(sanitizeTheme(null)).toEqual({});
+    expect(sanitizeTheme("#fff")).toEqual({});
+  });
+
+  it("a business that picks one colour gets a coherent widget", async () => {
+    const { resolveTheme, DEFAULT_THEME } = await import("@/lib/webchat/theme");
+    // The header follows the brand colour rather than asking for the same hex twice.
+    const one = resolveTheme({ accent: "#123456" }, null);
+    expect(one.accent).toBe("#123456");
+    expect(one.headerBg).toBe("#123456");
+    expect(one.surface).toBe(DEFAULT_THEME.surface);
+
+    // An explicit header still wins.
+    expect(resolveTheme({ accent: "#123456", headerBg: "#ABCDEF" }, null).headerBg).toBe("#ABCDEF");
+
+    // An install themed before the picker existed keeps the accent it was given.
+    expect(resolveTheme({}, "#00FF00").accent).toBe("#00FF00");
+    expect(resolveTheme({}, "javascript:alert(1)").accent).toBe(DEFAULT_THEME.accent);
+  });
+});
+
 describe("web chat signed tokens", () => {
   // A fixed key so the module can sign; the real one comes from the deployment.
   beforeAll(() => {

@@ -109,6 +109,7 @@ export default async function WebChatPage() {
                 displayName: connection.displayName,
                 accentColor: connection.accentColor,
                 greeting: connection.greeting,
+                theme: connection.theme,
                 status: connection.status,
                 lastError: connection.lastError,
                 lastInboundAt: connection.lastInboundAt,
