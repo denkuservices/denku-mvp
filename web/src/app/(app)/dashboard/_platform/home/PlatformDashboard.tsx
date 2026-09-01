@@ -240,7 +240,6 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
                 href="/dashboard/crm/requests?type=ticket"
               />
             </div>
-
             {/* The outcome translated into money. An estimate, and labelled as one. */}
             {savings && savings.minutes > 0 ? (
               <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 dark:border-emerald-500/15 dark:bg-emerald-500/5">
