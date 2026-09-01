@@ -54,7 +54,14 @@ export const CALL_SILENCE_TIMEOUT_SECONDS = 30;
 // and a mouth behind it (R-135). These functions stay as the Vapi-shaped view of that registry.
 export type SupportedLanguage = LanguageCode;
 
-type VoiceConfig = { provider: string; voiceId: string; version?: number; language?: string };
+type VoiceConfig = {
+  provider: string;
+  voiceId: string;
+  /** TTS model, where the provider has one that decides which languages are intelligible. */
+  model?: string;
+  version?: number;
+  language?: string;
+};
 
 /**
  * Normalize any stored language string to a supported code. Pure.

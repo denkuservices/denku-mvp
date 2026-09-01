@@ -25,8 +25,21 @@ export interface LanguageCapability {
   aliases: readonly string[];
   /** Deepgram model when this is the only language — pinned is the most accurate the ear gets. */
   transcriberModel: string;
-  /** The Vapi `voice` object for this language. */
-  voice: Readonly<{ provider: string; voiceId: string; version?: number; language?: string }>;
+  /**
+   * The Vapi `voice` object for this language.
+   *
+   * `model` matters for providers whose voices are language-agnostic and whose MODEL decides
+   * which languages come out intelligible — ElevenLabs above all, where the English-only
+   * `eleven_turbo_v2` and the multilingual `eleven_turbo_v2_5` differ by two characters and by
+   * whether Turkish works at all.
+   */
+  voice: Readonly<{
+    provider: string;
+    voiceId: string;
+    model?: string;
+    version?: number;
+    language?: string;
+  }>;
   /**
    * Can this voice follow whichever language the brain answered in?
    *
@@ -82,23 +95,23 @@ export const LANGUAGES: Readonly<Record<LanguageCode, LanguageCapability>> = {
     // Deepgram added Turkish to Nova-3 (batch AND streaming) — verified against Deepgram's own
     // announcement, not inferred. This is the ear.
     transcriberModel: "nova-3",
-    // The mouth: a NATIVE Turkish voice, not an English one reading Turkish text.
+    // The mouth, third attempt. This slot has now been wrong twice, on two real calls.
     //
-    // The first real Turkish call was placed on 2026-09-01 (a connected Netgsm 0850 line) and it
-    // settled the question the previous note left open. The ear passed — Deepgram nova-3
-    // transcribed the caller accurately. The mouth failed: `openai/nova` is built around English
-    // prosody, so it stressed the wrong syllables and paused in the wrong places. Understandable,
-    // but plainly not a person. That is not a defect worth tolerating on a line a business puts
-    // its name on.
+    // `openai/nova` (until 2026-09-01) read Turkish with English prosody. Azure's
+    // `tr-TR-EmelNeural` replaced it and was verified on a real call the same evening: it is
+    // genuinely Turkish, and still flat — correct stress, no life. Native is necessary and not
+    // sufficient; concatenative-sounding neural TTS reads a sentence, it does not mean one.
     //
-    // Azure's tr-TR neural voices are trained on Turkish, so the prosody comes from the language
-    // rather than being imposed on it, and Azure's TTS is faster than OpenAI's — which also
-    // takes a bite out of the turn latency the same call exposed. Emel is female, matching the
-    // employee persona these lines are given; `tr-TR-AhmetNeural` is the male counterpart.
+    // ElevenLabs is a different class of model and is what the complaint actually asks for. The
+    // MODEL is the load-bearing half: `eleven_turbo_v2_5` is the multilingual, low-latency one,
+    // and it is chosen over `eleven_multilingual_v2` because the same calls exposed turn latency
+    // as the second complaint — there is no point fixing the tone and lengthening the silence.
+    // `eleven_turbo_v2` (no `_5`) is English-only and would put us back where we started.
     //
-    // ⚠ PENDING ITS OWN REAL CALL, exactly as the last choice was. This entry has now been
-    // wrong once; it is not proven until someone hears it.
-    voice: { provider: "azure", voiceId: "tr-TR-EmelNeural" },
+    // ⚠ PENDING ITS OWN REAL CALL, like both before it. If a Vapi-bundled voice still sounds
+    // foreign, the next step is a native Turkish voice from the ElevenLabs library added to the
+    // account — a voice-id change here, not a redesign.
+    voice: { provider: "11labs", voiceId: "sarah", model: "eleven_turbo_v2_5" },
     voiceFollowsCaller: false,
     // VERIFIED FALSE (2026-08-31): Deepgram's `multi` code-switching option covers exactly ten
     // languages — en, es, fr, de, hi, ru, pt, ja, it, nl — and Turkish is not among them. It is a
