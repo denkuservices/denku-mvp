@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { validatePasswordChange } from "@/lib/auth/passwordPolicy";
+import { notifyPasswordChanged } from "@/lib/notifications/securityNotifications";
 
 export type UpdatePasswordResult =
   | { ok: true }
@@ -52,6 +53,14 @@ export async function updatePasswordAction(
   if (updateErr) {
     console.error("[updatePassword] Update failed:", updateErr.message);
     return { ok: false, error: "Could not update your password. Please try again." };
+  }
+
+  // 4) Confirm the change by email. This is the notification that tells someone their
+  // account was taken over, so it goes out on every successful change and is not behind
+  // a feature flag. It never throws: the password IS changed at this point, and failing
+  // the action would tell the user the opposite of the truth.
+  if (user.email) {
+    await notifyPasswordChanged({ userId: user.id, email: user.email });
   }
 
   return { ok: true };

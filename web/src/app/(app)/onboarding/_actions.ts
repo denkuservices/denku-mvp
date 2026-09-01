@@ -22,6 +22,7 @@ import {
   CHAT_ADDON_SLOTS,
   VOICE_PLAN_CODES,
 } from "@/lib/billing/chatPlanKeys";
+import { notifyAiLive } from "@/lib/notifications/activationNotifications";
 
 /**
  * Form action: Bootstrap workspace (Step 0)
@@ -1745,6 +1746,14 @@ Always confirm the caller's name, phone number, and a short summary before submi
 
     if (currentStep < 6) {
       console.log("[runActivation] Updated onboarding_step to 6 (Live) via upsert");
+
+      // The workspace just went live. Tell the owner, and tell them the number — this is
+      // the one moment the product delivers what was bought, and it happened on a screen
+      // they may never look at again. Deduped on the org id (activation resumes from
+      // partial and can run more than once) and never throws.
+      if (phoneNumberE164) {
+        await notifyAiLive(orgId, phoneNumberE164);
+      }
     } else {
       console.log("[runActivation] onboarding_step already >= 6, skipped in upsert (idempotent)");
     }

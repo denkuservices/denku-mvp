@@ -2,18 +2,15 @@
  * Workspace-paused alert email (R-009) — sent to the owner when billing pauses the
  * workspace (hard_cap or past_due), so a business phone never goes dead silently.
  * Pure; caller resolves recipient + sends.
+ *
+ * This is the most consequential mail Denku sends: while it sits unread, the customer's
+ * calls are going unanswered. So it says what stopped, why, and the single thing that
+ * restarts it — and nothing else.
  */
 
-export type PauseReason = "hard_cap" | "past_due";
+import { renderEmail, notice, steps } from "../layout";
 
-function esc(v: string): string {
-  return v
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+export type PauseReason = "hard_cap" | "past_due";
 
 export function workspacePausedTemplate(params: {
   reason: PauseReason;
@@ -24,49 +21,50 @@ export function workspacePausedTemplate(params: {
 
   const isHardCap = reason === "hard_cap";
   const subject = isHardCap
-    ? "⚠️ Your Denku phone line is paused — usage cap reached"
-    : "⚠️ Your Denku phone line is paused — payment needed";
-
-  const headline = isHardCap
-    ? "Your AI line has been paused"
-    : "Your AI line has been paused";
+    ? "Your Denku AI line is paused — usage cap reached"
+    : "Your Denku AI line is paused — payment needed";
 
   const reasonLine = isHardCap
-    ? "You've used all of your plan's included minutes this month, so we paused your AI line to avoid surprise overage charges. Your AI isn't answering calls right now."
-    : "A recent payment didn't go through, so we paused your AI line. Your AI is not answering calls right now.";
+    ? "You've used all of your plan's included minutes this month, so we paused the line rather than let overage charges build up unannounced."
+    : "A recent payment didn't go through, so we paused the line while the account is past due.";
 
   const action = isHardCap
-    ? "Upgrade your plan or raise your usage limit to resume answering calls."
-    : "Update your payment method to resume answering calls.";
+    ? "Upgrade your plan or raise your usage limit to start answering again."
+    : "Update your payment method to start answering again.";
 
-  const greeting = orgName ? `Hi ${esc(orgName)},` : "Hi,";
-
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(subject)}</title></head>
-<body style="margin:0;padding:0;">
-<div style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f9fafb;padding:48px 20px;">
-  <div style="max-width:480px;margin:0 auto;background-color:#ffffff;border-radius:20px;padding:40px;border:1px solid #fee2e2;box-shadow:0 4px 24px rgba(0,0,0,0.06);text-align:left;">
-    <p style="font-size:14px;color:#64748b;margin:0 0 8px 0;">${greeting}</p>
-    <h1 style="font-size:22px;font-weight:700;color:#b91c1c;margin:0 0 12px 0;letter-spacing:-0.02em;">
-      ${esc(headline)}
-    </h1>
-    <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 8px 0;">${esc(reasonLine)}</p>
-    <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 20px 0;font-weight:600;">${esc(action)}</p>
-    <div style="margin:8px 0 8px 0;">
-      <a href="${esc(billingUrl)}" style="background-color:#b91c1c;color:#ffffff;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
-        Manage billing
-      </a>
-    </div>
-    <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin-top:32px;">
-      You're receiving this because your Denku phone line was paused. This is a service alert, not marketing.
-    </p>
-  </div>
-</div>
-</body>
-</html>
-`.trim();
+  const html = renderEmail({
+    title: subject,
+    preheader: isHardCap
+      ? "Your included minutes are used up and your AI is not answering calls right now."
+      : "A payment failed and your AI is not answering calls right now.",
+    eyebrow: "Service paused",
+    heading: "Your AI line has been paused",
+    greeting: orgName ? `Hi ${orgName},` : "Hi,",
+    tone: "critical",
+    intro: reasonLine,
+    blocks: [
+      notice(
+        "**Your AI is not answering calls right now.** Callers hear your carrier's unavailable message until the line resumes.",
+        "critical"
+      ),
+      steps(
+        isHardCap
+          ? [
+              "Open billing and upgrade your plan, or raise the usage limit.",
+              "The line resumes automatically — usually within a minute.",
+            ]
+          : [
+              "Open billing and update your payment method.",
+              "Once the payment clears, the line resumes automatically.",
+            ],
+        "critical"
+      ),
+    ],
+    cta: { label: "Manage billing", url: billingUrl },
+    signoff: action,
+    reason:
+      "You're receiving this because your Denku phone line was paused. This is a service alert, not marketing.",
+  });
 
   return { subject, html };
 }

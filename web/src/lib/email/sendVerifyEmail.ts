@@ -1,6 +1,7 @@
 import { resend } from "./resend";
 import { resolveSender } from "./senders";
 import { getBaseUrl } from "@/lib/utils/url";
+import { getVerificationEmailHtml } from "./templates";
 
 /**
  * Verification links must point at the canonical site, not a build host.
@@ -28,7 +29,8 @@ export async function sendVerifyEmail(email: string, token: string) {
     }
   }
 
-  const verifyUrl = `${appUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+  // Mirrors the link the template builds, so the log and the inbox agree.
+  const verifyUrl = `${appUrl()}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
 
   console.log("[Resend] sendVerifyEmail ->", { email, verifyUrl });
 
@@ -37,20 +39,7 @@ export async function sendVerifyEmail(email: string, token: string) {
       from: resolveSender("auth"),
       to: email,
       subject: "Verify your email – Denku",
-      html: `
-        <h2>Verify your email</h2>
-        <p>Welcome to Denku.</p>
-        <p>Please confirm your email to activate your workspace.</p>
-        <a href="${verifyUrl}"
-           style="display:inline-block;padding:12px 18px;
-                  background:#4f46e5;color:white;
-                  border-radius:8px;text-decoration:none">
-          Verify email
-        </a>
-        <p style="margin-top:24px;font-size:12px;color:#666">
-          If you didn't create this account, you can safely ignore this email.
-        </p>
-      `,
+      html: getVerificationEmailHtml({ email, token }),
     });
 
     console.log("[Resend] sendVerifyEmail OK ->", result);

@@ -1,10 +1,23 @@
 /**
- * Email templates for Denku auth flow.
- * Sender addresses are centralized in `./senders` (R-080) — resolved per stream
- * at send time, not hardcoded here.
+ * Auth email templates (verification, one-time code, password reset).
+ *
+ * These render through the shared `renderEmail()` chrome — the first mails a customer
+ * ever receives are the ones most likely to decide whether the product looks real, and
+ * they used to be the least brand-carrying thing we sent (an indigo `#4f46e5` button on
+ * a white box that could have come from any starter template).
+ *
+ * NOTE ON WHAT ACTUALLY SENDS: Supabase Auth owns the live signup-confirmation, OTP and
+ * password-recovery mails (`signInWithOtp` / `resetPasswordForEmail`), and Supabase
+ * renders those from templates stored in its own dashboard, not from this file. The
+ * matching HTML lives in `docs/email/supabase-auth/` and has to be pasted there by an
+ * operator. These functions cover the Resend-side paths and keep one source of copy.
+ *
+ * Sender addresses are centralized in `./senders` (R-080) — resolved per stream at send
+ * time, not hardcoded here.
  */
 
 import { getBaseUrl } from "@/lib/utils/url";
+import { renderEmail, codeBlock, linkFallback, notice } from "./layout";
 
 /**
  * Canonical site URL, resolved per render.
@@ -40,67 +53,37 @@ export function getVerificationEmailHtml({ email, token, redirectTo }: Verificat
     ? redirectTo // Supabase callback URL - Supabase will add the token
     : `${baseUrl()}/verify-email?email=${encodeURIComponent(email)}`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify your email - Denku</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">Verify your email</h1>
-    <p style="color: #64748b; font-size: 16px;">Thanks for signing up for Denku! Please verify your email address to get started.</p>
-    
-    <div style="margin: 30px 0;">
-      <a href="${verifyUrl}" style="display: inline-block; background: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">Verify Email</a>
-    </div>
-    
-    <p style="color: #64748b; font-size: 14px; margin-top: 30px;">Or copy and paste this link into your browser:</p>
-    <p style="color: #4f46e5; font-size: 12px; word-break: break-all; background: #f1f5f9; padding: 12px; border-radius: 4px;">${verifyUrl}</p>
-    
-    <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-      If you didn't create an account with Denku, you can safely ignore this email.
-    </p>
-  </div>
-</body>
-</html>
-  `.trim();
+  return renderEmail({
+    title: "Verify your email — Denku",
+    preheader: "One click and your Denku workspace is ready to set up.",
+    eyebrow: "Confirm your account",
+    heading: "Verify your email address",
+    intro:
+      "Welcome to Denku. Confirm this address and we'll take you straight to setting up the AI that answers for your business.",
+    cta: { label: "Verify email", url: verifyUrl },
+    postCta: [linkFallback(verifyUrl)],
+    reason:
+      "You're receiving this because this address was used to create a Denku account. If that wasn't you, ignore this email — nothing is activated until it's verified.",
+  });
 }
 
 /**
  * OTP code email template (for resend verification code)
  */
-export function getOtpEmailHtml({ email, token }: VerificationEmailParams): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your verification code - Denku</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">Your verification code</h1>
-    <p style="color: #64748b; font-size: 16px;">Use this code to verify your email address:</p>
-    
-    <div style="margin: 30px 0; text-align: center;">
-      <div style="display: inline-block; background: #f1f5f9; border: 2px solid #4f46e5; border-radius: 8px; padding: 20px 40px;">
-        <div style="font-size: 32px; font-weight: 700; color: #4f46e5; letter-spacing: 4px; font-family: monospace;">${token}</div>
-      </div>
-    </div>
-    
-    <p style="color: #64748b; font-size: 14px;">This code will expire in 1 hour.</p>
-    
-    <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-      If you didn't request this code, you can safely ignore this email.
-    </p>
-  </div>
-</body>
-</html>
-  `.trim();
+export function getOtpEmailHtml({ token }: VerificationEmailParams): string {
+  return renderEmail({
+    title: "Your verification code — Denku",
+    preheader: `Your Denku verification code is ${token}. It expires in 1 hour.`,
+    eyebrow: "Verification code",
+    heading: "Your sign-in code",
+    intro: "Enter this code to confirm your email address:",
+    blocks: [
+      codeBlock(token),
+      notice("This code expires in **1 hour** and can be used once.", "neutral"),
+    ],
+    reason:
+      "You're receiving this because someone requested a verification code for this address on Denku. If it wasn't you, no action is needed — the code alone gives no access to an existing account.",
+  });
 }
 
 /**
@@ -109,31 +92,17 @@ export function getOtpEmailHtml({ email, token }: VerificationEmailParams): stri
 export function getPasswordResetEmailHtml({ email, token }: PasswordResetEmailParams): string {
   const resetUrl = `${baseUrl()}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset your password - Denku</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">Reset your password</h1>
-    <p style="color: #64748b; font-size: 16px;">We received a request to reset your password for your Denku account.</p>
-    
-    <div style="margin: 30px 0;">
-      <a href="${resetUrl}" style="display: inline-block; background: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">Reset Password</a>
-    </div>
-    
-    <p style="color: #64748b; font-size: 14px; margin-top: 30px;">Or copy and paste this link into your browser:</p>
-    <p style="color: #4f46e5; font-size: 12px; word-break: break-all; background: #f1f5f9; padding: 12px; border-radius: 4px;">${resetUrl}</p>
-    
-    <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-      This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
-    </p>
-  </div>
-</body>
-</html>
-  `.trim();
+  return renderEmail({
+    title: "Reset your password — Denku",
+    preheader: "Choose a new password for your Denku account. The link expires in 1 hour.",
+    eyebrow: "Account security",
+    heading: "Reset your password",
+    intro: "We received a request to reset the password for your Denku account.",
+    cta: { label: "Choose a new password", url: resetUrl },
+    postCta: [linkFallback(resetUrl)],
+    signoff:
+      "This link expires in **1 hour**. If you didn't ask for it, you can ignore this email — your current password stays active.",
+    reason:
+      "You're receiving this because a password reset was requested for this address. This is a security email, not marketing.",
+  });
 }
