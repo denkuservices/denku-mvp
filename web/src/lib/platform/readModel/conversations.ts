@@ -7,9 +7,39 @@ import type {
   ConversationView,
   ConversationDetailView,
   ConversationTurn,
+  TurnAttachment,
   ArtifactRef,
 } from "@/lib/platform/readModel/types";
 import type { Channel } from "@/lib/platform/channels";
+import { signedMediaUrl } from "@/lib/platform/media/store";
+import type { AttachmentRecord } from "@/lib/platform/media/types";
+
+/**
+ * The attachments on one message, with a link the owner's browser can actually load.
+ *
+ * `meta.media` is written by the perception stage and is the only source — a message with none is
+ * every message that existed before this feature, which is why the result is `undefined` rather
+ * than an empty array (nothing downstream should have to distinguish "no files" from "old row").
+ */
+async function turnAttachments(
+  meta: Record<string, unknown> | null,
+  orgId: string
+): Promise<TurnAttachment[] | undefined> {
+  const raw = meta?.media;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+
+  const records = raw as AttachmentRecord[];
+  return Promise.all(
+    records.map(async (record) => ({
+      kind: record.kind,
+      filename: record.filename ?? null,
+      mime: record.mime ?? null,
+      status: record.status,
+      url: await signedMediaUrl(record.storagePath, orgId),
+    }))
+  );
+}
+
 
 /**
  * Conversations read model (Sprint 5, P0).
@@ -512,24 +542,38 @@ export async function getConversationView(
       // Messages are the one read that genuinely depends on knowing which store answered.
       const { data: msgs } = await db
         .from("messages")
-        .select("id, role, content, direction, created_at")
+        .select("id, role, content, direction, created_at, meta")
         .eq("org_id", orgId)
         .eq("conversation_id", conv.id)
         .order("created_at", { ascending: true });
-      const turns: ConversationTurn[] = ((msgs ?? []) as Array<{
+      const rows = ((msgs ?? []) as Array<{
         id: string;
         role: string;
         content: string;
         direction: string | null;
         created_at: string;
-      }>).map((m) => ({
-        id: m.id,
-        channel: base.channel,
-        role: (m.role as ConversationTurn["role"]) ?? "user",
-        direction: (m.direction as ConversationTurn["direction"]) ?? null,
-        content: m.content,
-        at: m.created_at,
-      }));
+        meta: Record<string, unknown> | null;
+      }>);
+
+      /**
+       * Sign every stored attachment at once.
+       *
+       * One round trip per file, run in parallel: a thread with three photos should not take three
+       * times as long to open as a thread with one. Signing here rather than storing a URL is the
+       * whole point — the link expires, and a link that never expires to a customer's photo is a
+       * link that leaks.
+       */
+      const turns: ConversationTurn[] = await Promise.all(
+        rows.map(async (m) => ({
+          id: m.id,
+          channel: base.channel,
+          role: (m.role as ConversationTurn["role"]) ?? "user",
+          direction: (m.direction as ConversationTurn["direction"]) ?? null,
+          content: m.content,
+          at: m.created_at,
+          media: await turnAttachments(m.meta, orgId),
+        }))
+      );
       return { ...base, turns, artifacts: withReadableTimes(artifactsByConversation, employees.timeZone) };
     }
   } catch (err) {

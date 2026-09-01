@@ -1,5 +1,6 @@
 import type { Channel } from "@/lib/platform/channels";
 import type { MessageRole, MessageDirection } from "@/lib/platform/conversations";
+import type { InboundAttachment } from "@/lib/platform/media/types";
 
 /**
  * Channel adapter contract (Sprint 4.5 — Phase 3: shared architecture).
@@ -36,6 +37,15 @@ export interface NormalizedInbound {
     /** Channel-native id → idempotent append. Omit for synthetic/derived messages. */
     externalMessageId?: string | null;
     createdAt?: string;
+    /**
+     * Non-text the customer sent: a photo, a voice note, a document.
+     *
+     * The adapter only DESCRIBES them (kind, mime, and a `ref` its own channel understands) —
+     * fetching bytes needs credentials and would break the purity rule above. The shared ingest
+     * pipeline resolves them through the `resolveMedia` callback the channel's webhook supplies,
+     * reads them, and folds what it found into `content`. See `lib/platform/media/understand.ts`.
+     */
+    attachments?: InboundAttachment[];
   };
   /**
    * Text handed to the intent classifier when the pipeline runs an Intent stage

@@ -27,6 +27,15 @@
   var context = { pageUrl: null, referrer: null, locale: null };
   var lastAt = null;
   var sending = false;
+  /**
+   * Files the visitor has attached but not yet sent.
+   *
+   * Uploaded the moment they pick one, so that pressing Send is instant rather than a wait — and
+   * so a file that is too big is refused while they are still looking at the picker, not after
+   * they have written a paragraph to go with it.
+   */
+  var pendingFiles = [];
+  var uploading = 0;
   var pollTimer = null;
   var seen = {};
 
@@ -70,7 +79,7 @@
 
   // ---------------------------------------------------------------- rendering
 
-  var log, input, sendButton, typing;
+  var log, input, sendButton, typing, fileInput, attachmentBar;
 
   function build() {
     document.body.innerHTML =
@@ -81,7 +90,12 @@
       '<button class="denku-close" type="button" aria-label="Close chat">&times;</button>' +
       "</div>" +
       '<div class="denku-log" id="denku-log" role="log" aria-live="polite"></div>' +
+      '<div class="denku-attachments" id="denku-attachments"></div>' +
       '<form class="denku-form" id="denku-form">' +
+      '<input type="file" id="denku-file" class="denku-file" tabindex="-1" ' +
+      'accept="image/jpeg,image/png,image/webp,image/gif,image/heic,audio/*">' +
+      '<button class="denku-attach" id="denku-attach" type="button" aria-label="Attach a photo or voice note">' +
+      "&#128206;</button>" +
       '<textarea class="denku-input" id="denku-input" rows="1" placeholder="Write a message…" ' +
       'aria-label="Write a message"></textarea>' +
       '<button class="denku-send" id="denku-send" type="submit">Send</button>' +
@@ -90,6 +104,19 @@
     log = document.getElementById("denku-log");
     input = document.getElementById("denku-input");
     sendButton = document.getElementById("denku-send");
+    fileInput = document.getElementById("denku-file");
+    attachmentBar = document.getElementById("denku-attachments");
+
+    document.getElementById("denku-attach").addEventListener("click", function () {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      // Cleared immediately so picking the SAME file twice still fires a change event.
+      fileInput.value = "";
+      if (file) upload(file);
+    });
 
     document.querySelector(".denku-close").addEventListener("click", function () {
       tell({ type: "close" });
@@ -195,6 +222,106 @@
     });
   }
 
+  /**
+   * Send one file to the upload endpoint and remember what came back.
+   *
+   * The visitor sees a chip the moment they pick the file, and it says "sending…" until the
+   * server has it — because a photo that silently does nothing for four seconds on a phone
+   * connection reads as a broken widget.
+   */
+  function upload(file) {
+    if (pendingFiles.length + uploading >= 4) {
+      addNote("You can attach up to four files at a time.");
+      return;
+    }
+
+    var chip = addChip(file.name || "attachment", true);
+    uploading += 1;
+    updateSendState();
+
+    var form = new FormData();
+    form.append("token", token || "");
+    form.append("file", file);
+
+    fetch("/api/webchat/upload", { method: "POST", body: form })
+      .then(function (res) {
+        return res.json().then(
+          function (data) {
+            return { status: res.status, data: data };
+          },
+          function () {
+            return { status: res.status, data: { ok: false, error: "server_error" } };
+          }
+        );
+      })
+      .then(function (result) {
+        uploading -= 1;
+        if (!result.data || !result.data.ok || !result.data.attachment) {
+          removeChip(chip);
+          addNote(messageForError(result.data && result.data.error));
+          updateSendState();
+          return;
+        }
+        var attachment = result.data.attachment;
+        pendingFiles.push(attachment);
+        chip.classList.remove("uploading");
+        chip.dataset.ref = attachment.ref;
+        updateSendState();
+      })
+      .catch(function () {
+        uploading -= 1;
+        removeChip(chip);
+        addNote("That file did not upload. Check your connection and try again.");
+        updateSendState();
+      });
+  }
+
+  function addChip(name, busy) {
+    var chip = document.createElement("span");
+    chip.className = "denku-chip" + (busy ? " uploading" : "");
+
+    var label = document.createElement("span");
+    // The name came from the visitor's own filesystem, so it goes in as text like everything else.
+    label.textContent = name;
+    chip.appendChild(label);
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "denku-chip-x";
+    remove.setAttribute("aria-label", "Remove attachment");
+    remove.textContent = "×";
+    remove.addEventListener("click", function () {
+      // The uploaded copy is left in storage: it expires with the session's own cleanup, and
+      // deleting from an anonymous browser request is a capability this endpoint should not have.
+      if (chip.dataset.ref) {
+        pendingFiles = pendingFiles.filter(function (f) {
+          return f.ref !== chip.dataset.ref;
+        });
+      }
+      removeChip(chip);
+      updateSendState();
+    });
+    chip.appendChild(remove);
+
+    attachmentBar.appendChild(chip);
+    return chip;
+  }
+
+  function removeChip(chip) {
+    if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
+  }
+
+  function clearChips() {
+    attachmentBar.innerHTML = "";
+    pendingFiles = [];
+  }
+
+  /** Send is available when there is something to send and nothing still on its way up. */
+  function updateSendState() {
+    if (!sendButton) return;
+    sendButton.disabled = sending || uploading > 0;
+  }
+
   function openSession() {
     return api("session", {
       frameToken: boot.frameToken,
@@ -220,36 +347,54 @@
 
   function submit() {
     var text = (input.value || "").trim();
-    if (!text || sending) return;
+    // A photo on its own is a message. Nothing at all, or an upload still in flight, is not.
+    if ((!text && pendingFiles.length === 0) || sending || uploading > 0) return;
 
     sending = true;
     sendButton.disabled = true;
     input.value = "";
     input.style.height = "auto";
 
+    var attachments = pendingFiles.slice();
+    clearChips();
+
     var clientMessageId = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    addMessage("user", text, null, true);
+    addMessage(
+      "user",
+      text || attachmentSummary(attachments),
+      null,
+      true
+    );
     showTyping(true);
 
     // The same clientMessageId on a retry, so a flaky connection produces one message in the
     // owner's Inbox rather than three.
-    send(text, clientMessageId, true);
+    send(text, clientMessageId, true, attachments);
   }
 
-  function send(text, clientMessageId, mayRetry) {
+  /** What the visitor's own bubble says while an attachment-only message is in flight. */
+  function attachmentSummary(attachments) {
+    if (attachments.length === 1) {
+      return attachments[0].kind === "audio" ? "Voice message" : "Photo";
+    }
+    return attachments.length + " attachments";
+  }
+
+  function send(text, clientMessageId, mayRetry, attachments) {
     api("send", {
       token: token,
       text: text,
       clientMessageId: clientMessageId,
       pageUrl: context.pageUrl,
       after: lastAt,
+      attachments: attachments || [],
     })
       .then(function (result) {
         if (result.status === 401 && mayRetry) {
           // The session expired while the visitor was reading. Re-open it and try once — they
           // should never be told to "refresh the page" for something we can fix silently.
           return openSession().then(function (ok) {
-            if (ok) return send(text, clientMessageId, false);
+            if (ok) return send(text, clientMessageId, false, attachments);
             finish();
           });
         }
@@ -272,7 +417,7 @@
 
   function finish() {
     sending = false;
-    sendButton.disabled = false;
+    updateSendState();
     showTyping(false);
   }
 
@@ -292,6 +437,10 @@
     switch (code) {
       case "rate_limited":
         return "That is a lot of messages at once. Give it a minute and try again.";
+      case "too_large":
+        return "That file is too big. Please send something under 8 MB.";
+      case "unsupported_type":
+        return "You can attach a photo or an audio clip.";
       case "disabled":
       case "origin_not_allowed":
       case "unknown_site":

@@ -35,7 +35,9 @@ const contentSecurityPolicyReportOnly = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: https://*.daily.co",
+  // Supabase Storage serves the signed URLs for customer photos and voice notes in the Inbox
+  // (Sprint 8 perception). `img-src` already allows `https:`; audio and video need saying.
+  "media-src 'self' blob: https://*.daily.co https://*.supabase.co",
   "worker-src 'self' blob:",
   "connect-src 'self' https://api.vapi.ai wss://*.vapi.ai https://*.daily.co wss://*.daily.co https://*.supabase.co wss://*.supabase.co https://prod.spline.design https://*.spline.design https://api.stripe.com",
   "frame-src 'self' https://*.daily.co https://js.stripe.com https://checkout.stripe.com",

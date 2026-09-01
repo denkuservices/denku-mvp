@@ -141,6 +141,36 @@ export function sendMessage(token: string, chatId: string | number, text: string
   });
 }
 
+export interface TelegramFileInfo {
+  file_id: string;
+  file_unique_id?: string;
+  file_size?: number;
+  /** Relative path under the file endpoint. Valid for at least one hour, then it is gone. */
+  file_path?: string;
+}
+
+/**
+ * Exchange a `file_id` for somewhere to download it from.
+ *
+ * Telegram never puts a URL in the update — a photo arrives as an id, and this is the round trip
+ * that turns it into bytes. The link it yields expires in about an hour, which is the reason
+ * `lib/platform/media/store.ts` keeps a copy of its own rather than saving the URL.
+ */
+export function getFile(token: string, fileId: string) {
+  return callApi<TelegramFileInfo>(token, "getFile", { file_id: fileId });
+}
+
+/**
+ * The download URL for a resolved `file_path`.
+ *
+ * ⚠️ **This URL contains the bot token.** It is Telegram's design, not ours, and it means the
+ * string must never be logged, stored, or handed to a browser — anyone holding it holds the
+ * customer's bot. It exists only long enough for a server-side fetch.
+ */
+export function fileDownloadUrl(token: string, filePath: string): string {
+  return `${API_BASE}/file/bot${token}/${filePath}`;
+}
+
 /** The "typing…" indicator. Best-effort courtesy while the model thinks; expires in ~5s. */
 export function sendChatAction(token: string, chatId: string | number, action = "typing") {
   return callApi<boolean>(token, "sendChatAction", { chat_id: chatId, action });

@@ -99,6 +99,47 @@ export const CONNECTION_SOURCES: Partial<Record<Channel, ConnectionSource>> = {
   },
 };
 
+/**
+ * How many CHAT channels this workspace has actually connected — registry-driven.
+ *
+ * Written because the dashboard was counting this by hand, naming `telegram_connections` and
+ * `email_connections` in a query and nothing else. Web Chat shipped, a customer connected it, and
+ * their dashboard told them they were paying for two channels and using zero — while the widget on
+ * their site was answering people. The count was not wrong about the database; it was wrong about
+ * the product, because it had to be edited to learn about a channel and nobody did.
+ *
+ * That is precisely what `CONNECTION_SOURCES` exists to prevent, so this asks the registry: every
+ * chat channel that declares a table gets counted, and the next one is counted the day its source
+ * is declared.
+ *
+ * Never throws — a nudge is the least important thing on a dashboard. A channel whose table is
+ * missing (migration not yet applied) contributes zero rather than failing the whole count.
+ */
+export async function countConnectedChatChannels(
+  orgId: string,
+  db: SupabaseClient = supabaseAdmin
+): Promise<number> {
+  if (!orgId) return 0;
+
+  let total = 0;
+  for (const channel of CHANNEL_ORDER) {
+    if (channelMeta(channel).kind !== "chat") continue;
+    const source = CONNECTION_SOURCES[channel];
+    if (!source) continue;
+
+    try {
+      let query = db.from(source.table).select("id", { count: "exact", head: true }).eq("org_id", orgId);
+      // A channel with no status column is connected by existing at all.
+      if (source.statusColumn) query = query.eq(source.statusColumn, "connected");
+      const { count, error } = await query;
+      if (!error) total += count ?? 0;
+    } catch {
+      /* one unavailable table must not cost the whole count */
+    }
+  }
+  return total;
+}
+
 /** Build the view for a channel that has no connection rows for this org. Pure. */
 export function emptyChannelView(channel: Channel): ChannelView {
   const meta = channelMeta(channel);

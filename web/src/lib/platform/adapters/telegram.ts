@@ -1,4 +1,5 @@
 import type { ChannelAdapter, NormalizedInbound, NormalizeContext } from "@/lib/platform/adapters/types";
+import type { InboundAttachment } from "@/lib/platform/media/types";
 
 /**
  * Telegram channel adapter.
@@ -18,9 +19,12 @@ import type { ChannelAdapter, NormalizedInbound, NormalizeContext } from "@/lib/
  * - **The message id is scoped to the chat.** Telegram's `message_id` restarts per chat, so
  *   `chatId:messageId` is what makes the idempotent append actually idempotent.
  *
- * Non-text updates (photos, stickers, joins, edits) are skipped rather than stored as empty
- * messages: a blank bubble in the Inbox would read as a bug, and there is nothing for the
- * reply engine to answer.
+ * **Photos and voice notes are no longer skipped** (Sprint 8). They used to be, and the comment
+ * here said a blank bubble would read as a bug — which was true, and was the wrong conclusion.
+ * A customer photographing the broken part instead of describing it is not an edge case, it is
+ * how people use a phone. The adapter now emits an attachment descriptor per file and the shared
+ * perception stage fills the bubble with what the AI actually saw or heard. Joins, edits and bot
+ * echoes are still ignored — those really are nothing to answer.
  */
 
 interface TelegramUser {
@@ -32,6 +36,16 @@ interface TelegramUser {
   language_code?: string;
 }
 
+/** The shape every Telegram file shares: an id we exchange for bytes, plus what it weighs. */
+interface TelegramFile {
+  file_id?: string;
+  file_unique_id?: string;
+  file_size?: number;
+  file_name?: string;
+  mime_type?: string;
+  duration?: number;
+}
+
 interface TelegramMessage {
   message_id?: number;
   from?: TelegramUser;
@@ -39,6 +53,14 @@ interface TelegramMessage {
   date?: number;
   text?: string;
   caption?: string;
+  /** Telegram sends the SAME photo at several resolutions; the last entry is the largest. */
+  photo?: TelegramFile[];
+  voice?: TelegramFile;
+  audio?: TelegramFile;
+  video?: TelegramFile;
+  video_note?: TelegramFile;
+  document?: TelegramFile;
+  sticker?: TelegramFile & { emoji?: string; is_animated?: boolean; is_video?: boolean };
 }
 
 export interface TelegramUpdate {
@@ -55,6 +77,58 @@ export function telegramDisplayName(from: TelegramUser | undefined): string | nu
   return null;
 }
 
+/**
+ * Everything attached to one Telegram message, as channel-agnostic descriptors.
+ *
+ * Telegram models each file type as its own field rather than one `attachments` array, so this is
+ * a list of special cases by construction. Two are worth knowing:
+ *
+ * - **`photo` is an array of the same picture at different sizes.** Telegram orders it smallest
+ *   first, so the last entry is the one worth reading — and the earlier ones must NOT be treated
+ *   as separate photos, or one holiday snap becomes four vision calls.
+ * - **`voice` and `audio` are different things.** `voice` is the hold-to-talk note, which is the
+ *   case this whole feature exists for; `audio` is a music file someone forwarded. Both are
+ *   transcribable and both are marked as audio, but the voice note gets the duration Telegram
+ *   states so the Inbox can show "0:14" without opening it.
+ *
+ * Stickers are deliberately NOT attachments: they are a webp of a cartoon, and describing one
+ * costs a vision call to learn that a customer sent a thumbs-up. The emoji Telegram helpfully
+ * includes says the same thing for free, and becomes the message text instead.
+ */
+export function telegramAttachments(msg: TelegramMessage): InboundAttachment[] {
+  const out: InboundAttachment[] = [];
+
+  const push = (
+    file: TelegramFile | undefined,
+    kind: InboundAttachment["kind"],
+    fallbackMime: string | null
+  ) => {
+    if (!file?.file_id) return;
+    out.push({
+      kind,
+      mime: file.mime_type ?? fallbackMime,
+      filename: file.file_name ?? null,
+      size: typeof file.file_size === "number" ? file.file_size : null,
+      durationSeconds: typeof file.duration === "number" ? file.duration : null,
+      ref: file.file_id,
+    });
+  };
+
+  const photos = Array.isArray(msg.photo) ? msg.photo : [];
+  if (photos.length > 0) push(photos[photos.length - 1], "image", "image/jpeg");
+
+  push(msg.voice, "audio", "audio/ogg");
+  push(msg.audio, "audio", "audio/mpeg");
+  push(msg.video, "video", "video/mp4");
+  push(msg.video_note, "video", "video/mp4");
+
+  // A document is whatever the sender dragged in — a PDF invoice, but just as often a photo sent
+  // "as a file" to keep it uncompressed. Its own mime type decides which it is, upstream.
+  push(msg.document, "file", null);
+
+  return out;
+}
+
 export const telegramAdapter: ChannelAdapter = {
   channel: "telegram",
   normalizeInbound(raw: unknown, ctx: NormalizeContext): NormalizedInbound[] {
@@ -64,10 +138,17 @@ export const telegramAdapter: ChannelAdapter = {
     const msg = update.message;
     if (!msg) return [];
 
-    // Captions carry the human's words when they attach a photo; the attachment itself is
-    // not something the AI can act on yet, but the sentence beside it is.
-    const text = typeof msg.text === "string" && msg.text ? msg.text : msg.caption;
-    if (typeof text !== "string" || text.trim().length === 0) return [];
+    // Captions carry the human's words when they attach a photo — the sentence beside the file is
+    // as much a part of the message as the file itself.
+    const written = typeof msg.text === "string" && msg.text ? msg.text : msg.caption;
+    const attachments = telegramAttachments(msg);
+
+    // A sticker is answered as the emoji it is, rather than sent to a vision model.
+    const sticker = msg.sticker?.emoji ? `${msg.sticker.emoji}` : "";
+    const text = typeof written === "string" && written.trim() ? written : sticker;
+
+    // Nothing said, nothing attached: a join, a pin, an edit. Not a customer talking.
+    if ((typeof text !== "string" || text.trim().length === 0) && attachments.length === 0) return [];
 
     const chatId = msg.chat?.id != null ? String(msg.chat.id) : null;
     if (!chatId) return [];
@@ -90,13 +171,14 @@ export const telegramAdapter: ChannelAdapter = {
         message: {
           role: "user",
           direction: "inbound",
-          content: text,
+          content: typeof text === "string" ? text : "",
+          attachments,
           externalMessageId: msg.message_id != null ? `${chatId}:${msg.message_id}` : null,
           // Telegram `date` is epoch SECONDS (Meta's is milliseconds — the one place these
           // two chat channels disagree, and an easy hour-off bug if copied across).
           createdAt: typeof msg.date === "number" ? new Date(msg.date * 1000).toISOString() : undefined,
         },
-        transcriptForIntent: text,
+        transcriptForIntent: typeof text === "string" ? text : "",
         meta: {
           telegram_chat_id: chatId,
           telegram_chat_type: msg.chat?.type ?? null,

@@ -3,6 +3,7 @@ import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveViewer } from "@/lib/platform/serverOrg";
 import { getConversationView } from "@/lib/platform/readModel/conversations";
 import { getHandlingStateWithAvailability, defaultHandling } from "@/lib/platform/handling";
+import { describeReplyReadiness } from "@/lib/platform/replyReadiness";
 import { getStarWithAvailability } from "@/lib/platform/stars";
 import { getVoiceArtifacts } from "@/lib/platform/readModel/voiceArtifacts";
 import { canReplyOn } from "@/lib/platform/transports/registry";
@@ -89,6 +90,21 @@ export default async function ConversationDetailPage({
   const canSend =
     detail.source === "conversations" && canReplyOn(detail.channel) && Boolean(outboundTarget);
 
+  /**
+   * Whether anyone is actually going to answer, rather than whether a person has taken over.
+   *
+   * Runs after the batch above because it needs `handling` and the resolved employee. It is one
+   * indexed read in the common case, and it replaces a line of header text that was simply
+   * asserting the optimistic case — see `replyReadiness.ts` for what that cost a real customer.
+   */
+  const readiness = await describeReplyReadiness({
+    orgId,
+    channel: detail.channel,
+    handling: handling.handling,
+    automationOptedOut: handling.automationOptedOut,
+    agentId: detail.employeeId,
+  });
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ThreadHeader
@@ -98,6 +114,7 @@ export default async function ConversationDetailPage({
         displayName={detail.contact.displayName}
         handle={detail.contact.handle}
         handling={handling.handling}
+        readiness={readiness}
         starred={starred}
         canStar={canStar}
         details={

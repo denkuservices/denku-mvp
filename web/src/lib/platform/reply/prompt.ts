@@ -28,6 +28,14 @@ export interface ChatPromptInput {
   contactName: string | null;
   /** The business's local time, so "tomorrow" means the same thing to the AI and the customer. */
   nowLocal?: string | null;
+  /**
+   * Whether this channel can carry a photo or a voice note at all.
+   *
+   * Read from the channel registry rather than assumed, because the instruction below is only
+   * true where perception actually runs — telling the AI on SMS that it can see photos would make
+   * it offer something the customer cannot do.
+   */
+  canPerceiveMedia?: boolean;
 }
 
 function asBusinessContext(raw: Record<string, unknown> | null): BusinessContext | null {
@@ -79,6 +87,28 @@ export function buildChatSystemPrompt(input: ChatPromptInput): string {
     parts.push(
       `The business's primary language is ${employee.language}. ` +
         `Reply in the language the customer writes in — if they write in another language, follow them.`
+    );
+  }
+
+  /**
+   * What the bracketed lines in a customer's message ARE.
+   *
+   * Without this, the model reads `[image] a cracked screen…` as the customer having typed a
+   * strange piece of markup, and either quotes it back or ignores it. With it, the description is
+   * treated as sight — and, more importantly, the model is told not to pretend to see when the
+   * line says we could not read the file. That second half is the honesty rule applied to a new
+   * sense: an AI that invents what is in an unreadable photo is exactly as harmful as one that
+   * invents a price.
+   */
+  if (input.canPerceiveMedia) {
+    parts.push(
+      [
+        "About photos and voice notes:",
+        "- When a customer sends a photo, a line starting with [image] appears in their message. That is what the photo shows, described for you. Treat it as if you had seen it.",
+        "- A line starting with [voice message] is what they said out loud, transcribed. Answer it as their own words — never mention that it was transcribed.",
+        "- If such a line says the file could not be read, say plainly that you could not open it and ask them to describe it or send it again. Never guess what it showed.",
+        "- Do not repeat these bracketed lines back to the customer. They describe what you perceived, not what they wrote.",
+      ].join("\n")
     );
   }
 

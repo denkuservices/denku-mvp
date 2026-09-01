@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getChatEntitlement } from "@/lib/billing/chatEntitlement";
+import { countConnectedChatChannels } from "@/lib/platform/readModel/channels";
 
 /**
  * The two things a workspace can be paying for and not getting.
@@ -61,7 +62,7 @@ export async function getSetupNudges(orgId: string): Promise<SetupNudge[]> {
   if (!orgId) return [];
 
   try {
-    const [agents, conversations, entitlement, telegram, email] = await Promise.all([
+    const [agents, conversations, entitlement, connectedCount] = await Promise.all([
       supabaseAdmin
         .from("agents")
         .select("id, business_context")
@@ -73,16 +74,9 @@ export async function getSetupNudges(orgId: string): Promise<SetupNudge[]> {
         .select("id", { count: "exact", head: true })
         .eq("org_id", orgId),
       getChatEntitlement(orgId),
-      supabaseAdmin
-        .from("telegram_connections")
-        .select("id", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .eq("status", "connected"),
-      supabaseAdmin
-        .from("email_connections")
-        .select("id", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .eq("status", "connected"),
+      // Registry-driven. This used to name telegram_connections and email_connections by hand,
+      // which meant Web Chat shipped and a customer using it was told they were using nothing.
+      countConnectedChatChannels(orgId),
     ]);
 
     const nudges: SetupNudge[] = [];
@@ -118,7 +112,6 @@ export async function getSetupNudges(orgId: string): Promise<SetupNudge[]> {
      * A workspace that bought two and connected one is paying for something it is not using, and
      * has a right to know.
      */
-    const connectedCount = (telegram.count ?? 0) + (email.count ?? 0);
     if (entitlement.slots > 0 && connectedCount < entitlement.slots) {
       nudges.push({
         kind: "unused_chat_slots",

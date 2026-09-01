@@ -2,8 +2,9 @@
 
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bot, Star, Tag, UserCheck, X } from "lucide-react";
+import { ArrowLeft, BellOff, Bot, Star, Tag, UserCheck, X } from "lucide-react";
 import { channelMeta, type Channel } from "@/lib/platform/channels";
+import type { ReplyReadiness } from "@/lib/platform/replyReadiness";
 import Avatar from "../../_platform/Avatar";
 import { channelIcon, channelIconClass } from "../../_platform/ChannelBadge";
 import { setConversationStarAction } from "../_actions";
@@ -26,6 +27,7 @@ export default function ThreadHeader({
   displayName,
   handle,
   handling,
+  readiness,
   starred,
   canStar,
   details,
@@ -36,6 +38,15 @@ export default function ThreadHeader({
   displayName: string | null;
   handle: string | null;
   handling: "ai" | "human";
+  /**
+   * Whether a reply is actually coming, and why not when it isn't.
+   *
+   * Separate from `handling` on purpose: `handling` only records whether a person took over, and
+   * reading it as "the AI is on it" is exactly the claim that turned out to be false — a real
+   * message sat unanswered under a header saying otherwise, because the workspace had not bought
+   * the channel. The header states what it knows, not what it hopes.
+   */
+  readiness: ReplyReadiness;
   starred: boolean;
   /** False when the stars migration is not applied — the control shows, disabled and honest. */
   canStar: boolean;
@@ -87,13 +98,26 @@ export default function ThreadHeader({
             {handling === "human" ? (
               <>
                 <UserCheck className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">A person is handling this</span>
+                <span className="truncate">{readiness.label}</span>
               </>
-            ) : (
+            ) : readiness.willAnswer ? (
               <>
                 <Bot className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Your AI Employee is answering</span>
+                <span className="truncate">{readiness.label}</span>
               </>
+            ) : (
+              /* Amber, not grey: this is something the owner has to act on, and it is the reason
+                 a customer of theirs is waiting. The link goes straight to the remedy. */
+              <span className="flex min-w-0 items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <BellOff className="h-3.5 w-3.5 shrink-0" />
+                {readiness.href ? (
+                  <Link href={readiness.href} className="truncate underline underline-offset-2">
+                    {readiness.label}
+                  </Link>
+                ) : (
+                  <span className="truncate">{readiness.label}</span>
+                )}
+              </span>
             )}
           </p>
         </div>
