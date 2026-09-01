@@ -31,7 +31,12 @@ export const CRM_SECTIONS: CrmNavItem[] = [
   {
     label: "Requests",
     href: "/dashboard/crm/requests",
-    description: "Tickets and appointment requests your AI created from conversations.",
+    description: "Service requests your AI created from conversations.",
+  },
+  {
+    label: "Appointments",
+    href: "/dashboard/crm/appointments",
+    description: "Your customer calendar, agenda and booking history.",
   },
 ];
 

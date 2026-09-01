@@ -225,7 +225,7 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
             label="Appointments booked"
             value={show(outcomes.appointmentsBooked)}
             note={`${artifacts.upcomingAppointments} still upcoming`}
-            href="/dashboard/crm/requests?type=appointment"
+            href="/dashboard/crm/appointments"
           />
           <StatCard
             label="Requests resolved"

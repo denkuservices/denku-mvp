@@ -28,7 +28,7 @@ function appointment(id: string, occursAt: string | null): RequestView {
     callId: null,
     contactId: null,
     who: null,
-    href: `/dashboard/crm/requests/${id}?type=appointment`,
+    href: `/dashboard/crm/appointments/${id}`,
   };
 }
 

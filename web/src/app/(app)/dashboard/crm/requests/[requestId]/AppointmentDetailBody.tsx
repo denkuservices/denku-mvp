@@ -76,10 +76,10 @@ export default async function AppointmentDetailBody({
   return (
     <div className="p-4 md:p-6">
       <Link
-        href="/dashboard/crm/requests?type=appointment"
+        href="/dashboard/crm/appointments"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
       >
-        <ArrowLeft className="h-4 w-4" /> Requests
+        <ArrowLeft className="h-4 w-4" /> Appointments
       </Link>
 
       {/* ── Header ───────────────────────────────────────────────────────────────────── */}

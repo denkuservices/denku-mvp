@@ -59,7 +59,7 @@ describe("platformRedirectTarget (legacy → platform routes)", () => {
 describe("Requests merge (R-122) — lists redirect, detail preserved", () => {
   it("the tickets + appointments LISTS redirect into CRM Requests with the right tab", () => {
     expect(platformRedirectTarget("/dashboard/tickets")).toBe("/dashboard/crm/requests?type=ticket");
-    expect(platformRedirectTarget("/dashboard/appointments")).toBe("/dashboard/crm/requests?type=appointment");
+    expect(platformRedirectTarget("/dashboard/appointments")).toBe("/dashboard/crm/appointments");
   });
 
   it("ticket detail + the create form stay reachable (no capability lost)", () => {

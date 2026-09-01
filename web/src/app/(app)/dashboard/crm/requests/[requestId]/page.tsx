@@ -1,9 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getAppointmentDetail } from "@/lib/platform/readModel/requests";
 import TicketDetailBody from "./TicketDetailBody";
-import AppointmentDetailBody from "./AppointmentDetailBody";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +38,7 @@ export default async function RequestDetailPage({
   // hint does not rule them out.
   if (rawType !== "ticket") {
     const appointment = await getAppointmentDetail(orgId, requestId);
-    if (appointment) return <AppointmentDetailBody orgId={orgId} appointment={appointment} />;
+    if (appointment) redirect(`/dashboard/crm/appointments/${requestId}`);
     // Hint said appointment but nothing matched — fall through rather than 404, so a stale link
     // to a request whose type changed still lands on the request.
   }

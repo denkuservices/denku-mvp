@@ -95,7 +95,7 @@ export function ticketToRequest(row: TicketRow): RequestView {
  * product. Interim detail route until Sprint 13's unified Request detail replaces it.
  */
 export function appointmentHref(id: string): string {
-  return requestHref("appointment", id);
+  return `/dashboard/crm/appointments/${id}`;
 }
 
 /**
@@ -107,7 +107,9 @@ export function appointmentHref(id: string): string {
  * hint, not a trust boundary — the page still resolves the id org-scoped either way.
  */
 export function requestHref(type: RequestType, id: string): string {
-  return `/dashboard/crm/requests/${id}?type=${type}`;
+  return type === "appointment"
+    ? appointmentHref(id)
+    : `/dashboard/crm/requests/${id}?type=ticket`;
 }
 
 export function appointmentToRequest(row: AppointmentRow): RequestView {

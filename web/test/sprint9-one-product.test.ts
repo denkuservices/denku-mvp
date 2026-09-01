@@ -151,19 +151,19 @@ describe("T4 · the appointment dead end is closed", () => {
     // Sprint 13 replaced the interim appointment-only route with the unified Request detail.
     // The rule this test exists for is unchanged: the link must not be a list.
     const href = appointmentHref("appt-1");
-    expect(href).toBe("/dashboard/crm/requests/appt-1?type=appointment");
+    expect(href).toBe("/dashboard/crm/appointments/appt-1");
     expect(href).not.toBe("/dashboard/appointments");
     expect(href).not.toBe("/dashboard/crm/requests");
   });
 
   it("that destination exists on disk", () => {
-    expect(routeExists("/dashboard/crm/requests/[requestId]")).toBe(true);
+    expect(routeExists("/dashboard/crm/appointments/[appointmentId]")).toBe(true);
   });
 
   it("the destination is not itself redirected — the loop is gone", () => {
     // The old href hit this redirect and returned the user to the page they clicked from.
     expect(platformRedirectTarget("/dashboard/appointments")).toBe(
-      "/dashboard/crm/requests?type=appointment"
+      "/dashboard/crm/appointments"
     );
     expect(platformRedirectTarget(appointmentHref("appt-1"))).toBeNull();
   });
@@ -178,7 +178,7 @@ describe("T4 · the appointment dead end is closed", () => {
       call_id: "call-1",
       lead_id: "lead-1",
     });
-    expect(view.href).toBe("/dashboard/crm/requests/appt-9?type=appointment");
+    expect(view.href).toBe("/dashboard/crm/appointments/appt-9");
   });
 
   it("the conversation rail links artifacts to the artifact", () => {
