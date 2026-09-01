@@ -248,7 +248,23 @@
         "caption": "It never forgets a customer",
         "note": "Every call joins a contact's history, so the next one starts from something."
       }
-    ]
+    ],
+    "signup": {
+      "title": "Create account",
+      "subtitle": "We'll email you an 8-digit code to get started.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "emailHint": "We'll email you an 8-digit code.",
+      "submit": "Continue",
+      "submitting": "Sending code…",
+      "invalidEmail": "Please enter a valid email address.",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "alreadyRegisteredTitle": "This email is already registered",
+      "alreadyRegisteredBody": "We didn't send anything. Sign in with your password instead.",
+      "goToSignIn": "Go to sign in",
+      "forgotPassword": "Forgot your password?"
+    }
   },
   "request": {
     "eyebrow": "Requests",
