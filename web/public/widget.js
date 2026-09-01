@@ -46,6 +46,29 @@
   var side = config.position === "left" ? "left" : "right";
 
   /**
+   * `denku.io` and `www.denku.io` are the same Denku, and a domain that redirects between them
+   * would otherwise break this widget silently.
+   *
+   * The snippet names one of the two; if the server redirects to the other, the iframe ends up on
+   * an origin that is not the one this script was loaded from, every `postMessage` is refused by
+   * the browser for mismatched origin, and the handshake never completes. The widget still limps —
+   * app.js starts a session on its own after a moment — but the visitor id never reaches it, so
+   * every page load looks like a new person to the shop owner, and the close button does nothing.
+   *
+   * So the host origin is *confirmed* by the iframe's first message rather than assumed: we accept
+   * that message from the origin we expected OR from its www/apex sibling, and talk to whichever
+   * one actually answered. Nothing wider is accepted — a third-party origin is still refused.
+   */
+  function sibling(origin) {
+    if (origin.indexOf("://www.") !== -1) return origin.replace("://www.", "://");
+    return origin.replace("://", "://www.");
+  }
+
+  function isOurOrigin(origin) {
+    return origin === base || origin === sibling(base);
+  }
+
+  /**
    * The visitor id lives in the CUSTOMER's storage, not ours.
    *
    * Storage inside a third-party iframe is partitioned or blocked outright by Safari and, more
@@ -100,6 +123,9 @@
 
   var frame = null;
   var open = false;
+  // Where the iframe actually lives. Starts as the origin the snippet named and is corrected to
+  // the real one the moment the iframe speaks.
+  var frameOrigin = base;
 
   function ensureFrame() {
     if (frame) return frame;
@@ -140,8 +166,9 @@
     if (!frame || !frame.contentWindow) return;
     message.source = "denku-chat-host";
     // Always addressed to Denku's exact origin — never "*", which would broadcast the page URL
-    // to whatever happens to be in the frame.
-    frame.contentWindow.postMessage(message, base);
+    // to whatever happens to be in the frame. `frameOrigin` is the origin that actually answered,
+    // which is not always the one the snippet named (see the www/apex note above).
+    frame.contentWindow.postMessage(message, frameOrigin);
   }
 
   launcher.addEventListener("click", function () {
@@ -149,9 +176,12 @@
   });
 
   window.addEventListener("message", function (event) {
-    if (event.origin !== base) return;
+    if (!isOurOrigin(event.origin)) return;
     var data = event.data;
     if (!data || data.source !== "denku-chat") return;
+
+    // Talk back to whichever of the two answered, not to the one we guessed.
+    frameOrigin = event.origin;
 
     if (data.type === "ready") {
       post({
