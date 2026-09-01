@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
+
+// The connections module imports the fail-fast service-role client; nothing here touches a DB.
+vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn() } }));
 import {
   isOriginAllowed,
   normalizeAllowedOrigin,
@@ -38,6 +41,18 @@ describe("web chat origin allowlist", () => {
     expect(normalizeAllowedOrigin("")).toBeNull();
   });
 
+  it("refuses what a human typed that is not a site", () => {
+    // `new URL("https://not")` parses happily, so the sentence "not a domain" used to become three
+    // valid origins. Junk here is not untidy, it is rendered into `frame-ancestors`, where one bad
+    // token can invalidate the directive and stop the widget rendering anywhere.
+    expect(normalizeAllowedOrigin("not")).toBeNull();
+    expect(normalizeAllowedOrigin("domain!!")).toBeNull();
+    expect(normalizeAllowedOrigin("shop")).toBeNull();
+    expect(normalizeAllowedOrigin("'; script-src *")).toBeNull();
+    // Development still works.
+    expect(normalizeAllowedOrigin("http://localhost:3000")).toBe("http://localhost:3000");
+  });
+
   it("matches exactly — a suffix is not a match", () => {
     expect(originMatches("https://shop.com", "https://shop.com")).toBe(true);
     // The bug a naive endsWith() would introduce, and the reason this test exists.
@@ -73,6 +88,50 @@ describe("web chat origin allowlist", () => {
     // "*" is what a frustrated developer pastes. It must not become allow-all.
     expect(isOriginAllowed("https://anything.com", ["*"])).toBe(false);
     expect(isOriginAllowed("https://anything.com", ["https://*"])).toBe(false);
+  });
+});
+
+describe("the customer's domain list", () => {
+  // `normalizeOriginList` reaches for the service-role client's module graph, so it is imported
+  // lazily behind the mock the token suite already needs.
+  async function normalize(input: string) {
+    const { normalizeOriginList } = await import("@/lib/webchat/connections");
+    return normalizeOriginList(input);
+  }
+
+  it("covers apex and www from either one, because the owner should not have to know", async () => {
+    // The whole point: a shop owner types the address they say out loud, and the punishment for
+    // guessing the wrong half of the pair used to be a widget that silently never loaded.
+    expect(await normalize("minosandco.com")).toEqual([
+      "https://minosandco.com",
+      "https://www.minosandco.com",
+    ]);
+    expect(await normalize("www.minosandco.com")).toEqual([
+      "https://www.minosandco.com",
+      "https://minosandco.com",
+    ]);
+  });
+
+  it("does not invent a www for a subdomain, and does not touch a wildcard", async () => {
+    expect(await normalize("shop.minosandco.com")).toEqual(["https://shop.minosandco.com"]);
+    expect(await normalize("*.minosandco.com")).toEqual(["https://*.minosandco.com"]);
+  });
+
+  it("keeps a builder address as its own entry — it is a different domain, never derived", async () => {
+    // Auto-deriving anything under myshopify.com would be a real widening: every Shopify store in
+    // the world is a subdomain of it.
+    const list = await normalize("minosandco.com\nminosandco.myshopify.com");
+    expect(list).toContain("https://minosandco.myshopify.com");
+    expect(list).not.toContain("https://www.myshopify.com");
+    expect(list).not.toContain("https://*.myshopify.com");
+  });
+
+  it("drops junk and never duplicates", async () => {
+    expect(await normalize("minosandco.com, www.minosandco.com,  , not a domain!!")).toEqual([
+      "https://minosandco.com",
+      "https://www.minosandco.com",
+    ]);
+    expect(await normalize("")).toEqual([]);
   });
 });
 

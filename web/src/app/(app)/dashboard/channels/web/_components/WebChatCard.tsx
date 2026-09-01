@@ -119,8 +119,17 @@ export function WebChatCard({
               />
               <p className="mt-1.5 text-xs text-gray-500">
                 The widget only runs on the sites you list here — nobody else can put your AI on their
-                page. Add more later, one per line. Use <span className="font-mono">*.yourshop.com</span> to
-                cover subdomains.
+                page. Type it however you say it; <span className="font-mono">www.</span> is covered
+                either way.
+              </p>
+              {/* Shopify, Wix and Squarespace all serve a second address alongside the custom
+                  domain, and a customer testing from the theme editor is on that one. They will not
+                  think of it, and the symptom — the widget works on the live site but not while
+                  they are editing it — reads as a bug in our product. */}
+              <p className="mt-1.5 text-xs text-gray-500">
+                On Shopify, Wix or Squarespace, add your builder address too (for example{" "}
+                <span className="font-mono">yourshop.myshopify.com</span>) — the theme editor and
+                previews run there.
               </p>
             </div>
 
@@ -335,7 +344,11 @@ export function WebChatCard({
               placeholder="yourshop.com"
               className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
             />
-            <p className="mt-1.5 text-xs text-gray-500">One per line. Empty means the widget loads nowhere.</p>
+            <p className="mt-1.5 text-xs text-gray-500">
+              One per line. <span className="font-mono">www.</span> is added for you. Use{" "}
+              <span className="font-mono">*.yourshop.com</span> only if you want every subdomain
+              (blog, staging, shop) to run the widget. Empty means it loads nowhere.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
