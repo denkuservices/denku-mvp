@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseUrl } from "@/lib/utils/url";
-import { corsHeaders, isOriginAllowed, normalizeOrigin } from "@/lib/webchat/origins";
+import { corsHeaders, isOriginAllowed, normalizeOrigin, originWithSibling } from "@/lib/webchat/origins";
 import type { WebChatConnection } from "@/lib/webchat/connections";
 
 /**
@@ -30,6 +30,10 @@ export type WebChatErrorCode =
   | "not_configured"
   | "invalid_session"
   | "rate_limited"
+  // Upload-only, and both are things the visitor can act on: pick a smaller file, or a different
+  // kind of file. Every other refusal is deliberately indistinguishable to a caller.
+  | "too_large"
+  | "unsupported_type"
   | "server_error";
 
 /** A refusal nobody cross-origin can read. Deliberately CORS-free — see rule 1. */
@@ -60,9 +64,22 @@ export function requestOrigin(req: NextRequest): string | null {
   return normalizeOrigin(req.headers.get("origin"));
 }
 
-/** Our own origin — what a same-origin fetch from inside the widget iframe carries. */
-export function selfOrigin(): string | null {
-  return normalizeOrigin(getBaseUrl());
+/**
+ * Our own origin — what a same-origin fetch from inside the widget iframe carries.
+ *
+ * Returns BOTH the configured host and its www/apex twin. This deployment names the apex in
+ * `NEXT_PUBLIC_SITE_URL` and serves from `www`, so a single value would not recognise our own
+ * dashboard — which is exactly how the in-product preview refused itself the first time it was
+ * opened. Recognising both is not a widening: they are the same site, under the same control.
+ */
+export function selfOrigins(): string[] {
+  const base = normalizeOrigin(getBaseUrl());
+  return base ? originWithSibling(base) : [];
+}
+
+/** Is this origin us? */
+export function isSelfOrigin(origin: string | null): boolean {
+  return !!origin && selfOrigins().includes(origin);
 }
 
 /**
@@ -91,11 +108,10 @@ export function connectionUsable(
   if (!connection) return "unknown_site";
   if (connection.status !== "connected") return "disabled";
 
-  const self = selfOrigin();
   // A missing Origin header is a non-browser caller (curl, a server-side integration). It is not
   // refused here — the signed token is what authorises it — but it gets no CORS headers either.
   if (!origin) return null;
-  if (self && origin === self) return null;
+  if (isSelfOrigin(origin)) return null;
   if (isOriginAllowed(origin, connection.allowedOrigins)) return null;
   return "origin_not_allowed";
 }
@@ -111,7 +127,6 @@ export async function readJson<T>(req: NextRequest): Promise<T | null> {
 
 /** CORS headers only when the caller is cross-origin; same-origin needs none. */
 export function corsFor(origin: string | null): string | null {
-  const self = selfOrigin();
-  if (!origin || (self && origin === self)) return null;
+  if (!origin || isSelfOrigin(origin)) return null;
   return origin;
 }
