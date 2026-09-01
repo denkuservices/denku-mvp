@@ -71,6 +71,15 @@ export function WebChatCard({
    * every change. Save is still what persists; this is the "what would it look like" copy.
    */
   const [theme, setTheme] = useState<WebChatTheme>(connection?.theme ?? {});
+  /**
+   * Bumped on every successful save so the preview re-fetches.
+   *
+   * `revalidatePath` refreshes the server components on this page, but the preview is an iframe
+   * holding a separately-rendered document — nothing about a server action reaches inside it. So
+   * saving a new header name changed the form and left the preview showing the old one, which is
+   * worse than no preview: two answers to the same question, side by side.
+   */
+  const [previewVersion, setPreviewVersion] = useState(0);
   const setColor = (key: (typeof THEME_KEYS)[number], next: string) =>
     setTheme((prev) => ({ ...prev, [key]: next || undefined }));
 
@@ -88,8 +97,13 @@ export function WebChatCard({
     setError(null);
     startTransition(async () => {
       const res = await action();
-      if (!res.ok) setError(res.error ?? "Something went wrong.");
-      else if (savedLabel) setSaved(savedLabel);
+      if (!res.ok) {
+        setError(res.error ?? "Something went wrong.");
+        return;
+      }
+      if (savedLabel) setSaved(savedLabel);
+      // What the visitor would now see, rather than what they would have seen before the save.
+      setPreviewVersion((v) => v + 1);
     });
   }
 
@@ -133,7 +147,7 @@ export function WebChatCard({
                 required
                 rows={2}
                 placeholder={"yourshop.com\nyourshop.myshopify.com"}
-                className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
               />
               <p className="mt-1.5 text-xs text-gray-500">
                 One per line. The widget only runs on the sites you list here — nobody else can put
@@ -159,7 +173,7 @@ export function WebChatCard({
                 id="site_name"
                 name="site_name"
                 placeholder="Main website"
-                className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
               />
             </div>
 
@@ -172,7 +186,7 @@ export function WebChatCard({
                 <select
                   id="agent_id"
                   name="agent_id"
-                  className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                  className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
                 >
                   <option value="">Choose an employee</option>
                   {employees.map((e) => (
@@ -209,7 +223,7 @@ export function WebChatCard({
      * making it. It is sticky so it stays beside whichever setting is being edited, and it
      * collapses under the form on a narrow screen rather than being hidden.
      */
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
       <div className="flex min-w-0 flex-col gap-4">
       <Surface>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -257,7 +271,7 @@ export function WebChatCard({
               onChange={(e) =>
                 run(() => assignWebChatEmployeeAction(connection.id, e.target.value || null), "Saved")
               }
-              className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
             >
               {connection.assignedAgentId ? null : (
                 <option value="">
@@ -322,7 +336,7 @@ export function WebChatCard({
               rows={3}
               defaultValue={connection.allowedOrigins.join("\n")}
               placeholder="yourshop.com"
-              className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
             />
             <p className="mt-1.5 text-xs text-gray-500">
               One per line. <span className="font-mono">www.</span> is added for you. Use{" "}
@@ -345,7 +359,7 @@ export function WebChatCard({
             </div>
             <div>
               <label htmlFor="display_name" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                Name shown in the chat header
+                Name in the chat header
               </label>
               <input
                 id="display_name"
@@ -392,7 +406,7 @@ export function WebChatCard({
               <ColorField
                 id="theme_surface"
                 name="theme_surface"
-                label="Conversation background"
+                label="Chat background"
                 value={theme.surface ?? ""}
                 fallback={DEFAULT_THEME.surface}
                 onChange={(v) => setColor("surface", v)}
@@ -497,7 +511,12 @@ export function WebChatCard({
 
       <div className="xl:sticky xl:top-4">
         <Surface>
-          <WebChatPreview origin={scriptOrigin} siteKey={connection.siteKey} theme={theme} />
+          <WebChatPreview
+            origin={scriptOrigin}
+            siteKey={connection.siteKey}
+            theme={theme}
+            reloadKey={previewVersion}
+          />
         </Surface>
       </div>
     </div>

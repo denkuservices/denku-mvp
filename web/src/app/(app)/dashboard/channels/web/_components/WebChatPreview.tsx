@@ -27,15 +27,29 @@ export default function WebChatPreview({
   origin,
   siteKey,
   theme,
+  reloadKey = 0,
 }: {
   /** Where the widget document is served from. */
   origin: string;
   siteKey: string;
   /** Live values from the form — not what is saved. */
   theme: WebChatTheme;
+  /**
+   * Bumped after a successful save, to re-fetch the widget document.
+   *
+   * Colours travel by `postMessage` and repaint in place, but the header name and the greeting are
+   * baked into the document the server renders — so saving them changed nothing visible until the
+   * whole page was reloaded, and the preview quietly disagreed with the form beside it. Rather than
+   * teach the widget a second live-update path for text it renders once, the frame is simply
+   * re-fetched when a save lands: one request, at the only moment it can be stale.
+   */
+  reloadKey?: number;
 }) {
   const frame = React.useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = React.useState(false);
+
+  // A remount means a fresh document, which has not sent its handshake yet.
+  React.useEffect(() => setReady(false), [reloadKey]);
 
   const accent = theme.accent || DEFAULT_THEME.accent;
 
@@ -64,6 +78,7 @@ export default function WebChatPreview({
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
           <iframe
             ref={frame}
+            key={reloadKey}
             title="Web chat preview"
             src={`${origin}/embed/chat?k=${encodeURIComponent(siteKey)}`}
             onLoad={() => setReady(true)}

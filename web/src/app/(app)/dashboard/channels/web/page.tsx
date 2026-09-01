@@ -55,7 +55,10 @@ export default async function WebChatPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+    /* Wider than the other channel pages, and for a reason they do not have: this one carries a
+       live preview beside the form. At max-w-3xl the preview took half the page and squeezed every
+       input into a column too narrow to lay them out evenly. */
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <Link
         href="/dashboard/channels"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500"
