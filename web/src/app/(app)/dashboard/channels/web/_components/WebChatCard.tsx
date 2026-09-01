@@ -110,17 +110,23 @@ export function WebChatCard({
               <label htmlFor="allowed_origins" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
                 Your website address
               </label>
-              <input
+              {/* A textarea, not an input.
+                  The field has always accepted a list — it splits on commas, spaces and newlines —
+                  but a single-line box says "one address" while quietly meaning "as many as you
+                  like". The owner of the first real install had to ask where the second address
+                  went, which is the question a form should never make someone ask. */}
+              <textarea
                 id="allowed_origins"
                 name="allowed_origins"
                 required
-                placeholder="yourshop.com"
+                rows={2}
+                placeholder={"yourshop.com\nyourshop.myshopify.com"}
                 className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
               />
               <p className="mt-1.5 text-xs text-gray-500">
-                The widget only runs on the sites you list here — nobody else can put your AI on their
-                page. Type it however you say it; <span className="font-mono">www.</span> is covered
-                either way.
+                One per line. The widget only runs on the sites you list here — nobody else can put
+                your AI on their page. Type each one however you say it out loud;{" "}
+                <span className="font-mono">www.</span> is covered either way.
               </p>
               {/* Shopify, Wix and Squarespace all serve a second address alongside the custom
                   domain, and a customer testing from the theme editor is on that one. They will not
