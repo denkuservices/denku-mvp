@@ -57,6 +57,13 @@ export function TimezoneCombobox({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            /*
+              The visible `FieldLabel` is not a <label for=…> — it cannot be, because the control is
+              a Radix trigger rather than a form element — so without this the combobox reaches a
+              screen reader as an unnamed "combobox". Named from the same string the sighted label
+              shows, so the two can never drift.
+            */
+            aria-label={label}
             className="h-11 w-full justify-between rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-normal shadow-sm transition hover:bg-gray-50 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-navy-900 dark:hover:bg-white/5"
           >
             <span className="flex min-w-0 items-center gap-2">

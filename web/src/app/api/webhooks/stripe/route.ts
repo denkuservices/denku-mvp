@@ -5,6 +5,14 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { pauseOrgBilling, resumeOrgBilling } from "@/lib/billing/pause";
 import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
+import {
+  notifyPlanActivated,
+  notifyPaymentReceipt,
+  notifyPaymentFailed,
+  notifySubscriptionCanceled,
+  notifyWorkspaceResumed,
+  resolveBillingOrgId,
+} from "@/lib/billing/lifecycleNotifications";
 
 /**
  * Verify Stripe webhook signature.
@@ -358,17 +366,75 @@ export async function POST(req: NextRequest) {
         .update({ onboarding_step: 5 })
         .eq("org_id", orgId);
 
+      // Purchase confirmation to the owner. Deduped on the session id (Stripe sends both
+      // `completed` and `async_payment_succeeded` for one purchase) and never throws —
+      // the money has already moved, so nothing here may turn this into a retry.
+      await notifyPlanActivated(orgId, {
+        planCode,
+        checkoutSessionId: session.id,
+      });
+
       // Return 200 OK
       return NextResponse.json({ received: true });
     }
 
     // Handle subscription events as backup (customer.subscription.created, customer.subscription.updated)
+    // A subscription that has actually ended. Stripe sends this once, when the period the
+    // customer paid for runs out (or on an immediate cancel). Nothing in the DB changes here
+    // — the pause/limit machinery already reads plan state — but the customer must be told,
+    // because from this moment their calls are not being answered.
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const customerId =
+        typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+      const orgId = await resolveBillingOrgId({
+        metadataOrgId: subscription.metadata?.org_id ?? null,
+        stripeCustomerId: customerId ?? null,
+      });
+
+      if (orgId) {
+        await notifySubscriptionCanceled(orgId, {
+          subscriptionId: subscription.id,
+          state: "ended",
+          planCode: subscription.metadata?.plan_code?.toLowerCase() ?? null,
+          effectiveAt: subscription.ended_at ? new Date(subscription.ended_at * 1000) : new Date(),
+        });
+      }
+
+      logEvent({
+        tag: "[BILLING][WEBHOOK][SUBSCRIPTION_DELETED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId ?? undefined,
+        severity: "info",
+        details: { subscription_id: subscription.id, resolved_org: !!orgId },
+      });
+
+      return NextResponse.json({ received: true });
+    }
+
     if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription;
       
       // Extract metadata
       const orgId = subscription.metadata?.org_id;
       const planCode = subscription.metadata?.plan_code?.toLowerCase();
+
+      // A cancellation scheduled for the end of the paid period. The subscription is still
+      // active, so the rest of this handler (which activates the plan) stays correct — but
+      // the customer has just asked to leave and deserves to be told what that will do, and
+      // when. Deduped on `${subscription}:scheduled`, so toggling it off and on is quiet.
+      if (orgId && subscription.cancel_at_period_end) {
+        const periodEnd = (subscription as unknown as { current_period_end?: number })
+          .current_period_end;
+        await notifySubscriptionCanceled(orgId, {
+          subscriptionId: subscription.id,
+          state: "scheduled",
+          planCode: planCode ?? null,
+          effectiveAt: periodEnd ? new Date(periodEnd * 1000) : null,
+        });
+      }
 
       if (!orgId || !planCode) {
         logEvent({
@@ -601,7 +667,26 @@ export async function POST(req: NextRequest) {
                   month: monthFromMetadata,
                   stripe_invoice_id: invoiceId,
                 });
+
+                await notifyWorkspaceResumed(orgIdFromMetadata, {
+                  reason: "payment_received",
+                  dedupeKey: `overage:${invoiceId}`,
+                });
               }
+
+              // Receipt for the overage collection itself. Deduped on the invoice id, so
+              // this and the regular-invoice path can never both bill the customer's inbox
+              // for one payment.
+              await notifyPaymentReceipt(orgIdFromMetadata, {
+                invoiceId,
+                invoiceNumber: invoice.number ?? null,
+                amountPaidCents: invoice.amount_paid ?? 0,
+                paidAt: invoice.status_transitions?.paid_at
+                  ? new Date(invoice.status_transitions.paid_at * 1000)
+                  : new Date(),
+                description: `Usage beyond your included minutes — ${monthFromMetadata}`,
+                invoiceUrl: invoice.hosted_invoice_url ?? null,
+              });
 
               logEvent({
                 tag: "[BILLING][WEBHOOK][OVERAGE_PAID]",
@@ -677,14 +762,20 @@ export async function POST(req: NextRequest) {
           case "invoice.payment_succeeded":
             await updateInvoiceRunStatus(invoice, "invoice.payment_succeeded");
 
-            // Auto-resume org if it was billing-paused due to payment failure
-            // Extract org_id from invoice metadata if available
-            const orgIdFromInvoiceMetadata = invoice.metadata?.org_id;
-            if (orgIdFromInvoiceMetadata) {
+            // Auto-resume org if it was billing-paused due to payment failure.
+            // The org comes from our own metadata when we raised the invoice, and from the
+            // customer↔org mapping when Stripe raised it itself (every renewal) — which is
+            // exactly the case a receipt is for.
+            const orgIdForPaidInvoice = await resolveBillingOrgId({
+              metadataOrgId: invoice.metadata?.org_id ?? null,
+              stripeCustomerId:
+                typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id ?? null,
+            });
+            if (orgIdForPaidInvoice) {
               const { data: orgSettings } = await supabaseAdmin
                 .from("organization_settings")
                 .select("workspace_status, paused_reason")
-                .eq("org_id", orgIdFromInvoiceMetadata)
+                .eq("org_id", orgIdForPaidInvoice)
                 .maybeSingle<{
                   workspace_status: "active" | "paused" | null;
                   paused_reason: "manual" | "hard_cap" | "past_due" | null;
@@ -696,16 +787,54 @@ export async function POST(req: NextRequest) {
                 (pausedReason === "past_due" || pausedReason === "hard_cap")
               ) {
                 // Org is billing-paused - auto-resume on payment success
-                await resumeOrgBilling(orgIdFromInvoiceMetadata, {
+                await resumeOrgBilling(orgIdForPaidInvoice, {
                   stripe_invoice_id: invoice.id,
                   invoice_type: "regular_monthly",
                 });
+
+                // Close the loop the pause email opened: the customer was told their line
+                // stopped, so they must be told it started again.
+                await notifyWorkspaceResumed(orgIdForPaidInvoice, {
+                  reason: "payment_received",
+                  dedupeKey: `invoice:${invoice.id}`,
+                });
               }
+
+              await notifyPaymentReceipt(orgIdForPaidInvoice, {
+                invoiceId: invoice.id,
+                invoiceNumber: invoice.number ?? null,
+                amountPaidCents: invoice.amount_paid ?? 0,
+                paidAt: invoice.status_transitions?.paid_at
+                  ? new Date(invoice.status_transitions.paid_at * 1000)
+                  : new Date(),
+                description: invoice.lines?.data?.[0]?.description ?? null,
+                invoiceUrl: invoice.hosted_invoice_url ?? null,
+              });
             }
             break;
 
           case "invoice.payment_failed":
             await updateInvoiceRunStatus(invoice, "invoice.payment_failed");
+
+            // Dunning. This is the warning that used to be missing entirely: until now the
+            // first thing a customer heard about a declined card was the line going dead.
+            const orgIdForFailedInvoice = await resolveBillingOrgId({
+              metadataOrgId: invoice.metadata?.org_id ?? null,
+              stripeCustomerId:
+                typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id ?? null,
+            });
+            if (orgIdForFailedInvoice) {
+              await notifyPaymentFailed(orgIdForFailedInvoice, {
+                invoiceId: invoice.id,
+                attemptCount: invoice.attempt_count ?? null,
+                invoiceNumber: invoice.number ?? null,
+                amountDueCents: invoice.amount_due ?? 0,
+                nextAttemptAt: invoice.next_payment_attempt
+                  ? new Date(invoice.next_payment_attempt * 1000)
+                  : null,
+                invoiceUrl: invoice.hosted_invoice_url ?? null,
+              });
+            }
             break;
 
           case "invoice.voided":

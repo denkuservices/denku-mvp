@@ -37,12 +37,25 @@ interface Props {
   onConnected?: () => void;
 }
 
+/**
+ * Same rule as `isIpv4` in `lib/vapi/sipTrunk.ts`, restated because that module is `server-only`
+ * and this form runs in the browser. Kept strict and in step with it deliberately: Vapi accepts
+ * nothing but a bare IPv4 on an inbound gateway.
+ */
+function isIpv4(value: string): boolean {
+  const parts = (value ?? "").trim().split(".");
+  if (parts.length !== 4) return false;
+  return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+}
+
 /** Carriers with a verified recipe. Anything else falls back to manual entry. */
 const CARRIERS = [
   {
     key: "netgsm",
     label: "Netgsm (Türkiye)",
-    gatewayHost: "sip.netgsm.com.tr",
+    // The ADDRESS of sip.netgsm.com.tr, not the name: Vapi rejects a hostname on an inbound
+    // gateway. Kept in step with KNOWN_SIP_CARRIERS in lib/vapi/sipTrunk.ts.
+    gatewayHost: "185.88.7.189",
     gatewayPort: 5060,
     panelPath: "Ses Hizmeti → Ayarlar → SIP Bilgileri",
     numberHint: "0850 123 45 67",
@@ -153,7 +166,12 @@ export function ConnectOwnNumberFlow({ onCancel, onConnected }: Props) {
   const submit = async () => {
     setError(null);
     if (!number.trim()) return setError("Enter the phone number you want to connect.");
-    if (!gatewayHost.trim()) return setError("Enter your provider's SIP address.");
+    if (!gatewayHost.trim()) return setError("Enter your provider's SIP server IP.");
+    if (!isIpv4(gatewayHost)) {
+      return setError(
+        "Your provider's SIP server must be an IP address like 185.88.7.189, not a name. Ask them for it if the panel only shows a hostname."
+      );
+    }
 
     setSubmitting(true);
     try {
@@ -236,13 +254,13 @@ export function ConnectOwnNumberFlow({ onCancel, onConnected }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
-                SIP address
+                SIP server IP
               </label>
               <input
                 type="text"
                 value={gatewayHost}
                 onChange={(e) => setGatewayHost(e.target.value)}
-                placeholder="sip.provider.com"
+                placeholder="185.88.7.189"
                 className={inputClass}
               />
             </div>

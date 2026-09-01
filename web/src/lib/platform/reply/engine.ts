@@ -192,6 +192,7 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
     nowLocal: localNow(req.employee.timezone),
     // Straight from the registry: the AI is told it can see and hear exactly where that is true.
     canPerceiveMedia: channel.capabilities.imageUnderstanding || channel.capabilities.audioUnderstanding,
+    hoursBlock: req.hoursBlock ?? null,
   });
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [

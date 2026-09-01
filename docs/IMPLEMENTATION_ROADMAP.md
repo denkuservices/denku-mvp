@@ -2027,6 +2027,95 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
   conversation, verify it in the database — then flip `productionReady`, exactly as Telegram was.
   18 new tests; 1058 passing; build green.
 
+### R-143 — Perception: the AI can see photos and hear voice notes on every chat channel
+**Priority:** High · **Status:** 🟡 **Code-complete 2026-09-01, awaiting bucket migration + live verification** · **Effort:** L · **Related:** [skills/media-perception.md](../skills/media-perception.md)
+> Audit question from the owner: do the chat channels understand images and voice messages? The
+> answer was **no, on all of them** — Telegram dropped photo and voice updates outright, Instagram
+> skipped every non-text event, email recorded an attachment list it could never open, and the web
+> widget had no way to send a file at all. A customer photographing the broken part instead of
+> describing it is not an edge case; it is how people use a phone.
+- **Business impact:** the single most common thing a customer does that Denku could not answer.
+  A shop gets "is this the right filter?" with a photo, a salon gets a voice note on the way to
+  work, a repair business gets a picture of the damage — all of it now reaches the AI as something
+  it can act on, and reaches the owner's Inbox with the original attached.
+- **Technical impact:** ONE shared perception stage inside `ingestInboundMessage`, not four channel
+  features. `lib/platform/media/{types,understand,store}.ts` (limits, budget, storage, rendition) ·
+  `lib/llm/multimodal.ts` (the provider split — images through the OpenAI-compatible shape on both
+  providers, audio through `/audio/transcriptions` on OpenAI and native `inline_data` on Gemini,
+  because the compatibility layer cannot take OGG/Opus) · attachment extraction in all four
+  adapters · a `resolveMedia` closure per webhook so credentials never enter the pipeline · a
+  private `channel-media` bucket · attachments rendered in the Inbox behind signed URLs · a
+  registry capability (`imageUnderstanding` / `audioUnderstanding`) and a prompt section fed from it.
+- **The decision worth defending:** the description and the transcript are written **into
+  `messages.content`**, prefixed `[image]` / `[voice message]`. Everything downstream already reads
+  that column — the Inbox, `loadHistory`, `classifyIntent`, recall, the ticket a human reads — so
+  perception reaches all of them at once. A side table would have meant teaching each reader
+  separately, and the one we forgot would answer a customer as if they had sent nothing.
+- **Web Chat needed a decision, not just code.** Its registry entry said `attachments: false`
+  because uploads from anonymous visitors are an abuse and storage question of their own. That was
+  right, and the question is now answered: session-token auth, a format allow-list (no SVG — SVG is
+  script), an 8 MB ceiling checked twice, a per-session count enforced from the bucket, and an
+  `org/webchat/session/uuid` path so `send` can prove a presented key belongs to the session
+  presenting it. Bounded and attributable rather than abuse-free, which is the honest goal for a
+  public endpoint.
+- **Honesty:** a file we could not read renders as "could not open it — do not guess what it
+  shows", and the system prompt repeats that instruction; the prompt only claims a sense the
+  registry says the channel has; voice is marked as perceiving nothing here because a call is
+  already understood inside the call by Vapi.
+- **Money:** idempotency is enforced BEFORE the spend (a redelivered webhook short-circuits on the
+  stored message rather than paying for a second vision call); caps are 8/20/15 MB by kind, 4
+  attachments per message, 200 media messages per org per hour, all DB-counted and failing open —
+  except the per-session upload count, which fails closed.
+- **Deliberately not built:** sending media outbound; routing a photographed product to a catalogue
+  entry (deferred by the owner to after the e-commerce integrations — perception is the layer that
+  has to exist first); in-widget voice recording; a separate OCR step (the vision prompt already
+  asks for readable text to be quoted exactly).
+- **Remaining:** apply `20260901110952_channel_media_bucket.sql`, confirm `GEMINI_API_KEY` or
+  `OPENAI_API_KEY` is a PAID key (customer photos and voice are personal data — the free Google AI
+  Studio tier may train on them), then send a real photo and a real voice note through Telegram and
+  the widget and verify in the database. 31 new tests; suite green.
+
+### R-142 — The transactional email estate: eleven missing emails, one brand
+**Priority:** High · **Status:** 🟡 **Code-complete 2026-09-01, staged behind `BILLING_NOTIFICATIONS_ENABLED`** · **Effort:** L · **Related:** [skills/transactional-email.md](../skills/transactional-email.md)
+> An audit of everything Denku puts in a customer's inbox found two problems at once: the mail
+> that existed did not look like the product, and the mail that mattered did not exist. Denku
+> emailed the two moments where it takes something away — the usage warning and the pause — and
+> none of the moments where the customer gives money or receives what they bought.
+- **Business impact:** a business paying $149–$899/month got no purchase confirmation, no
+  receipt for any renewal, no warning before a declined card silenced their phone, no
+  cancellation notice, no confirmation when their number went live, and no security email when
+  their password changed. Each absence is a support ticket, a chargeback, or a churn event that
+  the customer experiences as the company being asleep. **Eleven emails added**, each tied to a
+  condition that already exists in the code.
+- **Design impact:** the estate had drifted into four unrelated looks — a starter-template
+  indigo (`#4f46e5`) auth email, a slate-and-emoji notification style, a bare `system-ui`
+  invite, and a welcome mail that drew a fake logo (a black tile with a "D"). All 19 now render
+  through one chrome (`lib/email/layout.ts` + `brand.ts`): the landing system's teal-black
+  masthead carrying the real vortex mark, a copper hairline, bone ground, Georgia-led serif
+  headings, one button, one footer, one honest "why you're receiving this" line.
+- **Technical impact:** `lib/email/{brand,layout,dispatch,previewSamples}.ts` ·
+  `lib/billing/lifecycleNotifications.ts` · `lib/notifications/{activation,security}Notifications.ts`
+  · 8 new templates + 6 rewritten · triggers wired into the Stripe webhook (checkout,
+  invoice paid/failed, subscription cancelled/deleted), the add-on route, `runActivation`, and
+  `updatePasswordAction` · `public/email/denku-mark.png` rasterised from `app/icon.svg` ·
+  `/api/dev/email-preview` + `scripts/render-email-previews.mts` for design review.
+- **`email_dispatch_log` (migration `20260901105635`, applied to prod).** Every new trigger can
+  fire twice — Stripe redelivers webhooks, activation resumes from partial, crons re-run — so
+  sends claim a `(kind, dedupe_key)` row before sending and release it on failure. This
+  generalises the two claims already proven in the codebase (`welcome_email_sent_at`,
+  `notified_at`) for a lifecycle that has no natural column to claim. Those two were left alone.
+- **The Supabase Auth seam, stated plainly:** the signup-confirmation, one-time-code, magic-link,
+  password-recovery and email-change mails a real customer receives are sent by **Supabase Auth**
+  from templates in its own dashboard — no change in this repo can restyle them. Brand-matching
+  versions are generated into `docs/email/supabase-auth/` by
+  `scripts/render-supabase-auth-templates.mts`; **an operator must paste them in**, or the first
+  emails a customer ever sees remain the only ones that do not carry the brand.
+- **Remaining:** (a) paste the five Supabase Auth templates; (b) deploy so
+  `/email/denku-mark.png` resolves *before* any of this goes out; (c) set
+  `BILLING_NOTIFICATIONS_ENABLED=true` and watch `[EMAIL][DISPATCH][SENT]` on a real purchase —
+  that one flag is currently the difference between six consequential emails sending and
+  silently not. 38 new tests.
+
 ### R-138 — Supabase and the Vercel functions are on opposite coasts
 **Priority:** High · **Status:** 🔴 **Open — one-line fix, owner's call** · **Effort:** S · **Related:** `CURRENT_SPRINT.md` P1
 > Found 2026-08-27 while working the Inbox-latency list. It invalidates an assumption that ran
@@ -2118,3 +2207,146 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
 - **Superseded workaround (2026-08-25):** `SearchField` sets its padding with an inline style, which sits
   above every author rule and cannot be reset away. Any new control needing asymmetric padding must
   do the same until this is closed — or use `px-*`, which works.
+
+---
+
+### R-144 — Billing endpoints had no role check: any signed-in member could spend the workspace's money
+**Priority:** Critical · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** M · **Related:** [skills/workspace-roles-and-members.md](../skills/workspace-roles-and-members.md)
+> Found by a read-only Settings audit (2026-09-01), confirmed in source. `/api/billing/plan/change`,
+> `/api/billing/addons/update`, `/api/billing/stripe/portal`, `/api/billing/stripe/checkout` and
+> `/api/phone-lines/purchase` authenticated the caller and then stopped. A `viewer` — a role the
+> product already had, and the one a business would give a bookkeeper — could move a workspace from
+> the $149 plan to the $899 one, add paid add-ons, buy a phone line, or open the Stripe portal where
+> the card lives. The UI offered every one of those controls to everybody, because it had no role to
+> render against either.
+
+**Fixed by:** a single capability matrix (`web/src/lib/auth/permissions.ts`) and a `guard(capability)`
+gate at the top of every one of those routes. `manage_billing` is owner/admin. The Billing page now
+receives `can_manage_billing` from `/api/billing/summary` and disables the mutating controls with one
+sentence at the top saying why — a page of greyed-out buttons with no explanation reads as broken.
+`test/workspace-permissions.test.ts` asserts the **call sites**, not just the matrix: the rule was
+never missing, it was never invoked.
+
+---
+
+### R-145 — An admin could mint an owner; a workspace could be left with none
+**Priority:** Critical · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** M · **Related:** [skills/workspace-roles-and-members.md](../skills/workspace-roles-and-members.md)
+> The invite dialog offered `owner` to anyone who could invite, so `admin` and `owner` were the same
+> role wearing different labels — an admin could grant themselves, through a second address,
+> everything `admin` was deliberately withheld. There was also no single-owner concept, no ownership
+> transfer, and nothing preventing the last owner being removed or demoted, which would leave a
+> workspace with nobody able to take a billing decision and no route back.
+
+**Fixed by:** `grant_owner` is owner-only in the matrix and re-checked in the invite, role-change and
+removal paths; `assertNotLastOwner` counts owners at the moment of the write; ownership moves through
+`transfer_org_ownership`, a SECURITY DEFINER function with a pinned `search_path` that re-verifies the
+caller inside the database — two UPDATEs from application code would leave a window with two owners,
+or none. Verified against production inside a rolled-back transaction: the swap is atomic and a
+non-owner is refused with 42501.
+
+---
+
+### R-146 — Member management stopped at "invite"; the audit log advertised coverage it did not have
+**Priority:** High · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** L · **Related:** [skills/workspace-roles-and-members.md](../skills/workspace-roles-and-members.md)
+> The roster could show you who was in the workspace and do nothing about any of them: no role change,
+> no removal, no way to cancel an invitation sent to a typo'd address (acceptance matches on email at
+> signup, so a mistyped invite was a one-way door), no re-send, no expiry shown, and no way to invite
+> the `viewer` role that existed everywhere except in the one place that could hand it to somebody.
+> Separately, the Audit page said it covered "plan changes and member actions" while **nothing on
+> either path ever wrote a row**; it was readable by any signed-in member though it names people and
+> what they did; it showed the latest 20 entries with no way to reach the 21st; and it threw a React
+> hydration error on every direct load.
+
+**Fixed by:** `/api/members/[memberId]` (role change, removal), `/api/members/invites/[inviteId]`
+(revoke) and `.../resend` (DB-counted 60s cooldown — `lib/rateLimit.ts` is a no-op on Vercel), plus
+last-active per member via an org-scoped SECURITY DEFINER read of `auth.users`. The audit log is now
+capability-gated, filtered/searched/paged in Postgres with the filters held in the URL, CSV-exportable
+(the export is itself audited), and written to by billing, membership, workspace, hours, notification
+and security changes. Hydration fixed by `components/time/ClientTime.tsx` — explicit-UTC before
+hydration, the reader's zone after, via `useSyncExternalStore`; `suppressHydrationWarning` would have
+hidden the mismatch rather than removed it.
+
+---
+
+### R-147 — Account security was a password field and one button
+**Priority:** High · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** M · **Related:** [skills/workspace-roles-and-members.md](../skills/workspace-roles-and-members.md)
+> `supabase.auth.updateUser({ password })` does not ask for the current password, so anyone reaching a
+> signed-in tab — a shared laptop, an unlocked phone — could set a new one and lock the owner out of
+> their own business. That is the single most valuable thing an attacker can do with a borrowed
+> session, and it was one form away. There was also no second factor, and the only session control was
+> "sign out everywhere", so a stale session on a device left behind could not be seen, let alone ended.
+
+**Fixed by:** re-authentication on password change, verified on a **throwaway client with
+`persistSession: false`** (doing it on the request's own client would rotate the session and rewrite
+the auth cookies mid-request); failed attempts are audited. Individual sessions are listed and
+revocable through `list_my_sessions` / `revoke_my_session`, filtered on `auth.uid()` inside the
+function body — the current device is labelled, because otherwise "Sign out" on a row is a coin flip.
+TOTP two-step verification over Supabase Auth factors, with a half-made factor discarded if enrolment
+is abandoned and a code required to turn it OFF. Per-**account**; org-wide MFA enforcement is
+deliberately not claimed.
+
+---
+
+### R-148 — The AI had no idea when the business was open
+**Priority:** High · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** L · **Related:** [skills/business-hours.md](../skills/business-hours.md)
+> Opening hours existed only as one free-text line in the AI prompt, so the AI could **say** a
+> closing time with nothing behind it — and could not tell an 11pm caller that nobody was in,
+> because it had no idea. `isOutsideBusinessHours` in the Vapi webhook was a stub returning "inside
+> hours" for every call the product has ever taken, beside a TODO saying the config shape was
+> undefined. The phone-line screen's "Business hours" control was a permanently-checked,
+> permanently **disabled** checkbox under the words *Coming soon*, and Settings told the customer
+> their timezone was set so "the AI talks about your hours" — true, and useless.
+
+**Built:** structured `business_hours` jsonb + `after_hours_behavior` on `organization_settings`, a
+pure evaluator (`lib/business-hours/schema.ts`, 30 tests covering overnight shifts, dated holiday
+exceptions, DST, and the half-open interval boundary), and a day-by-day editor with breaks,
+holidays and a two-way choice about what the AI says.
+
+**Scoped by the owner the same day, and this is the load-bearing part: hours never gate the AI.**
+Every Denku product answers 24/7, on every channel, at every hour — a business paying for an AI
+employee is buying the eleven-at-night call its competitors miss, and a schedule that made the
+assistant hang up would sell that back to them. Hours describe when **staff** are in. The first
+implementation shipped a `say_closed` behaviour ("state the hours and end the call politely without
+collecting anything"); it was removed hours later, before any workspace could set it, along with
+the framing that treated the setting as enforcement. `after_hours_behavior` now has two values and
+both of them answer: `note_hours` (say the business is closed, then carry on and help fully, honest
+that a person follows up later) and `answer_normally` (do not raise it).
+
+**No hours configured means OPEN** — as does an unparseable document, an unknown timezone or a
+failed read. Chat channels evaluate per message; voice gets the schedule plus a standing honesty
+rule and logs `[CALL][AFTER_HOURS]`, which costs the customer nothing precisely because nothing is
+gated. `test/business-hours.test.ts` asserts the ABSENCE of refusal language in the prompt block,
+so the rule cannot be walked back by accident.
+
+### R-149 — Notification preferences the customer could not see or set
+**Priority:** Medium · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** S
+> `notify_on_artifacts` was the only preference in the product and it appeared on no settings page.
+> Usage alerts fired at fixed thresholds to an address nobody chose — `resolveOrgOwnerEmail` falls
+> back to the **owner's personal inbox**, which for a business with a bookkeeper is the wrong human
+> for "a customer left a message at 2am".
+
+**Fixed by:** a Notifications card offering the three things Denku actually sends, the thresholds it
+actually evaluates (50/75/90 — matching `lib/billing/usageAlerts.ts`, not an invented 50/80/100), and
+a nominated address that `resolveOrgOwnerEmail` now prefers. The preferences are **honoured**, not
+decorative: the usage cron reads them before claiming a threshold row, and optional billing mail
+(receipts, plan activation, add-on confirmations) is muted by them. **Payment failures and workspace
+pauses are sent regardless** — losing a phone line without warning is worse than an unwanted email,
+and a preference is not consent to be left in the dark about service stopping.
+
+---
+
+### R-150 — Settings accessibility and honesty: unnamed comboboxes, a "Coming soon" control, a raw Stripe id
+**Priority:** Low · **Status:** ✅ **Fixed 2026-09-01** · **Effort:** S
+> The Language and Timezone controls reached a screen reader as unnamed `combobox`es — their visible
+> `FieldLabel` is not a `<label for>` and cannot be, because the control is a Radix trigger. The phone
+> line's "Business hours" and "Use after-hours behavior" boxes claimed features under *Coming soon*
+> (now real pointers to the workspace setting). The Audit page rendered "Loading…" on a blank surface
+> for a couple of seconds (now a skeleton). Billing printed the full 27-character Stripe invoice id in
+> monospace under each month — an internal key in someone else's system, shown where a reference
+> number belongs; the last six are what a customer quotes to support, with the full value on hover and
+> to a screen reader.
+
+**Not built, and not implied anywhere in the UI:** SSO/SAML, SCIM, domain verification, IP allowlists,
+session timeouts, customer-facing API keys, outbound webhooks, data export/retention/workspace
+deletion, branding, verified email-address changes, a separate dashboard UI language, multi-workspace
+switching, bulk invite.

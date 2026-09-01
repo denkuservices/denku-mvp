@@ -36,6 +36,15 @@ export interface ChatPromptInput {
    * it offer something the customer cannot do.
    */
   canPerceiveMedia?: boolean;
+  /**
+   * The business's opening hours, whether this message arrived inside them, and what the owner
+   * said to do when it did not — pre-rendered by `buildHoursPromptBlock`.
+   *
+   * Passed in rather than read here for the same reason `recall` is: this file places text, it
+   * does not decide policy. Empty when the workspace has not set hours, which is every workspace
+   * that existed before the setting did.
+   */
+  hoursBlock?: string | null;
 }
 
 function asBusinessContext(raw: Record<string, unknown> | null): BusinessContext | null {
@@ -54,6 +63,11 @@ export function buildChatSystemPrompt(input: ChatPromptInput): string {
 
   const ctx = buildBusinessContextBlock(asBusinessContext(employee.businessContext));
   if (ctx.trim()) parts.push(ctx.trim());
+
+  // Structured hours sit with the business's other facts, and override the free-text "Hours:"
+  // line above when both exist: one of them is a schedule the product evaluated, the other is a
+  // sentence somebody typed once.
+  if (input.hoursBlock?.trim()) parts.push(input.hoursBlock.trim());
 
   // The customer's own instructions to their AI, when they wrote any. Placed after the facts so
   // it can shape the tone, and before the rules so it can never override them.

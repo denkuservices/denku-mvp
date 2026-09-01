@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   CheckCircle2,
@@ -10,19 +9,10 @@ import {
   Fingerprint,
   KeyRound,
   Loader2,
-  LogOut,
+  Lock,
   Mail,
-  MonitorSmartphone,
   ShieldCheck,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   FieldLabel,
   INPUT_WITH_ICON_CLASS,
@@ -32,12 +22,19 @@ import {
   SettingsButton,
   StatusPill,
 } from "@/app/(app)/dashboard/_platform/settings/ui";
-import { changePassword, signOutAllDevices } from "../../../_actions/security";
+import { changePassword } from "../../../_actions/security";
+import type { SessionRow } from "../../../_actions/security";
+import { MfaCard, type Factor } from "./MfaCard";
+import { SessionsCard } from "./SessionsCard";
 
 interface AccountSecurityClientProps {
   email: string;
   isPasswordManagedByProvider: boolean;
   providerLabel: string;
+  /** Resolved on the server: `auth.sessions` is not reachable from the browser. */
+  sessions: SessionRow[];
+  /** Resolved on the server so the card never paints "two-step is off" to someone who has it on. */
+  mfaFactors: Factor[];
 }
 
 /**
@@ -49,26 +46,36 @@ interface AccountSecurityClientProps {
  * concern now has its glyph and its tone, signing out everywhere is a `danger` control behind the
  * same dialog the rest of Settings uses, and the password field has a reveal toggle, which is the
  * single most useful affordance a password form can have and costs nothing.
+ *
+ * The audit added the two things that make this a security page rather than a password page:
+ * changing the password now requires the CURRENT one (a borrowed session could previously take the
+ * account), and the single "sign out everywhere" button grew into a real session list plus
+ * two-step verification — see `SessionsCard` and `MfaCard`.
  */
 export function AccountSecurityClient({
   email,
   isPasswordManagedByProvider,
   providerLabel,
+  sessions,
+  mfaFactors,
 }: AccountSecurityClientProps) {
-  const router = useRouter();
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [reveal, setReveal] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [isPasswordPending, startPasswordTransition] = useTransition();
-  const [isSignOutPending, startSignOutTransition] = useTransition();
-  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(false);
+
+    if (!currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
 
     // Client-side validation: check length first
     if (password.length < 8) {
@@ -84,26 +91,16 @@ export function AccountSecurityClient({
 
     // All client-side checks passed, call server action
     startPasswordTransition(async () => {
-      const result = await changePassword({ password, confirmPassword });
+      const result = await changePassword({ currentPassword, password, confirmPassword });
 
       if (result.ok) {
         setPasswordSuccess(true);
+        setCurrentPassword("");
         setPassword("");
         setConfirmPassword("");
         setTimeout(() => setPasswordSuccess(false), 3000);
       } else {
         setPasswordError(result.error || "Failed to update password");
-      }
-    });
-  };
-
-  const handleSignOutAll = () => {
-    startSignOutTransition(async () => {
-      const result = await signOutAllDevices();
-      if (result.ok) {
-        router.push("/login");
-      } else {
-        setSignOutOpen(false);
       }
     });
   };
@@ -137,7 +134,7 @@ export function AccountSecurityClient({
           description={
             isPasswordManagedByProvider
               ? `Managed by ${providerLabel}.`
-              : "Use at least 8 characters. Changing it does not sign you out elsewhere."
+              : "Enter your current password, then a new one of at least 8 characters. Changing it does not sign you out elsewhere."
           }
         />
 
@@ -150,6 +147,37 @@ export function AccountSecurityClient({
           </div>
         ) : (
           <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
+            {/*
+              The current password is asked for first because it is the point of the form: without
+              it, anyone reaching a signed-in tab could set a new one and lock the account holder
+              out of their own business. `autoComplete="current-password"` keeps the password
+              manager filling the right box.
+            */}
+            <div className="space-y-2 md:max-w-[calc(50%-0.5rem)]">
+              <FieldLabel htmlFor="current-password" icon={Lock} required>
+                Current password
+              </FieldLabel>
+              <div className="relative">
+                <Lock
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="password"
+                  id="current-password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
+                  disabled={isPasswordPending}
+                  className={INPUT_WITH_ICON_CLASS}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <FieldLabel htmlFor="new-password" icon={KeyRound} required>
@@ -163,6 +191,7 @@ export function AccountSecurityClient({
                   <input
                     type={reveal ? "text" : "password"}
                     id="new-password"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -196,6 +225,7 @@ export function AccountSecurityClient({
                   <input
                     type={reveal ? "text" : "password"}
                     id="confirm-password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
@@ -232,60 +262,11 @@ export function AccountSecurityClient({
         )}
       </Panel>
 
-      {/* Sessions */}
-      <Panel tone="critical">
-        <PanelHeader
-          icon={MonitorSmartphone}
-          tone="critical"
-          title="Active sessions"
-          description="Sign out of Denku on every device, including this one. Use it if you've lost a device."
-          action={
-            <SettingsButton
-              type="button"
-              variant="danger"
-              onClick={() => setSignOutOpen(true)}
-              disabled={isSignOutPending}
-            >
-              <LogOut />
-              Sign out everywhere
-            </SettingsButton>
-          }
-        />
-      </Panel>
+      {/* Two-step verification, then the devices this account is signed in on. */}
+      <MfaCard initialFactors={mfaFactors} />
 
-      <Dialog open={signOutOpen} onOpenChange={(o) => !isSignOutPending && setSignOutOpen(o)}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LogOut className="h-5 w-5 text-red-500" />
-              Sign out everywhere?
-            </DialogTitle>
-            <DialogDescription>
-              Every signed-in device is signed out, this one included. You&apos;ll be returned to the
-              login page.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <SettingsButton
-              type="button"
-              variant="ghost"
-              onClick={() => setSignOutOpen(false)}
-              disabled={isSignOutPending}
-            >
-              Cancel
-            </SettingsButton>
-            <SettingsButton
-              type="button"
-              variant="danger"
-              onClick={handleSignOutAll}
-              disabled={isSignOutPending}
-            >
-              {isSignOutPending ? <Loader2 className="animate-spin" /> : <LogOut />}
-              {isSignOutPending ? "Signing out…" : "Sign out everywhere"}
-            </SettingsButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SessionsCard sessions={sessions} />
+
     </div>
   );
 }

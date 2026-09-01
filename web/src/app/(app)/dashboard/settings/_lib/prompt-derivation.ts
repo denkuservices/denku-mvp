@@ -31,6 +31,17 @@ type DerivePromptInput = {
   timezone: string | null;
   firstMessage: string | null;
   businessContext?: BusinessContext | null;
+  /**
+   * The workspace's STRUCTURED opening hours, already rendered ("Mon–Fri 09:00–17:00, Sat–Sun
+   * closed"), plus the owner's after-hours rule.
+   *
+   * Passed in rather than read here because this module is pure and unit-tested. When present it
+   * replaces the free-text `businessContext.openingHours` line: one of the two is a schedule the
+   * product can evaluate, the other is a sentence somebody typed once, and an assistant quoting
+   * both would contradict itself.
+   */
+  businessHoursSummary?: string | null;
+  afterHoursInstruction?: string | null;
 };
 
 /** Build the concise "About the business" block — only non-empty fields (R-013). */
@@ -86,6 +97,11 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
     businessContext,
   } = input;
 
+  // Structured hours win over the free-text line, so the AI never quotes two different schedules.
+  const effectiveContext: BusinessContext | null = input.businessHoursSummary
+    ? { ...(businessContext ?? {}), openingHours: input.businessHoursSummary }
+    : businessContext ?? null;
+
   // Base prompt
   let prompt = `You are ${agentName}, a voice assistant for ${orgName}.\n\n`;
 
@@ -100,7 +116,21 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
   }
 
   // Business context (R-013) — inject early so the AI answers as this specific business.
-  prompt += buildBusinessContextBlock(businessContext);
+  prompt += buildBusinessContextBlock(effectiveContext);
+
+  /*
+   * How to talk about those hours.
+   *
+   * A standing rule rather than a fact about this call, because a Vapi assistant's prompt is
+   * written once and reused — it cannot be told "it is 11pm now". That costs nothing here: the
+   * hours never decide WHETHER the assistant helps, only what it is honest about. The line is
+   * always answered.
+   */
+  if (input.businessHoursSummary && input.afterHoursInstruction) {
+    prompt += `${input.afterHoursInstruction}
+
+`;
+  }
 
   // Add emphasis points
   if (emphasisPoints && emphasisPoints.length > 0) {

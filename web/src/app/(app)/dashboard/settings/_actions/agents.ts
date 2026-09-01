@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { deriveEffectivePrompt } from "../_lib/prompt-derivation";
+import { loadOrgHours } from "@/lib/business-hours/read";
+import { describeBusinessHours } from "@/lib/business-hours/schema";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 
 // Validation schema for agent configuration update
@@ -59,6 +61,44 @@ export type UpdateAgentConfigResult =
 /**
  * Update agent configuration and sync to Vapi
  */
+/**
+ * The workspace's structured opening hours, rendered for a voice prompt.
+ *
+ * **The phone is answered 24/7 and these hours never change that** (owner decision, 2026-09-01).
+ * They are a fact the assistant knows about the business, so that "when are you open?" has a right
+ * answer and "can someone come out tonight?" has an honest one — not a rule about when it works.
+ *
+ * A Vapi assistant's prompt is written once per assistant and reused, so it cannot be told "this
+ * call is at 11pm". It gets the schedule and a standing rule about honesty, and applies both to
+ * whatever time the caller names. Since nothing here gates anything, that limitation costs the
+ * customer nothing: the AI answers either way.
+ *
+ * Returns nulls when no hours are set, and the prompt then reads exactly as it did before this
+ * existed.
+ */
+async function hoursForPrompt(orgId: string): Promise<{
+  summary: string | null;
+  instruction: string | null;
+}> {
+  try {
+    const { hours, timeZone, behaviour } = await loadOrgHours(orgId);
+    if (!hours) return { summary: null, instruction: null };
+
+    const summary = `${describeBusinessHours(hours)} (${timeZone || "UTC"})`;
+    const shared =
+      "You answer this line 24 hours a day. The hours above are when STAFF are in, not when you work — never refuse a caller, end a call early, or decline to take a booking because of them.";
+
+    const instruction =
+      behaviour === "answer_normally"
+        ? `${shared} Do not raise the opening hours unless the caller asks.`
+        : `${shared} If a caller reaches you outside those hours, say briefly that the business is closed right now, then carry on and help them fully. Be honest that a person will follow up once it reopens, and never promise a specific callback time or that someone is available now.`;
+
+    return { summary, instruction };
+  } catch {
+    return { summary: null, instruction: null };
+  }
+}
+
 export async function updateAgentConfiguration(
   input: UpdateAgentConfigInput
 ): Promise<UpdateAgentConfigResult> {
@@ -128,6 +168,7 @@ export async function updateAgentConfiguration(
 
   // 7) Derive effective system prompt
   // Note: behaviorPreset is stored as ID (e.g., "professional"), not label
+  const promptHours = await hoursForPrompt(orgId);
   const effectivePrompt = deriveEffectivePrompt({
     orgName,
     agentName: existingAgent.name || "Agent",
@@ -142,6 +183,8 @@ export async function updateAgentConfiguration(
       validated.business_context !== undefined
         ? validated.business_context
         : (existingAgent.business_context as Record<string, string> | null) ?? null,
+    businessHoursSummary: promptHours.summary,
+    afterHoursInstruction: promptHours.instruction,
   });
 
   // 8) Prepare update payload
@@ -481,6 +524,7 @@ export async function updateAgentPromptOverride(
   let effectivePrompt = existingAgent.effective_system_prompt || "";
   if (!validated.system_prompt_override || validated.system_prompt_override.trim() === "") {
     // Re-derive prompt from current config
+    const promptHours = await hoursForPrompt(orgId);
     effectivePrompt = deriveEffectivePrompt({
       orgName,
       agentName: existingAgent.name || "Agent",
@@ -495,6 +539,8 @@ export async function updateAgentPromptOverride(
       timezone: existingAgent.timezone || null,
       firstMessage: existingAgent.first_message || null,
       businessContext: (existingAgent.business_context as Record<string, string> | null) ?? null,
+      businessHoursSummary: promptHours.summary,
+      afterHoursInstruction: promptHours.instruction,
     });
   } else {
     // Override is set, use it as effective

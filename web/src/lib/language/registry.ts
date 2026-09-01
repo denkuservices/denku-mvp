@@ -82,15 +82,23 @@ export const LANGUAGES: Readonly<Record<LanguageCode, LanguageCapability>> = {
     // Deepgram added Turkish to Nova-3 (batch AND streaming) — verified against Deepgram's own
     // announcement, not inferred. This is the ear.
     transcriberModel: "nova-3",
-    // The mouth: OpenAI TTS, the same choice Spanish makes. It reads whatever language the text
-    // is in, which is what a Turkish-primary employee needs.
+    // The mouth: a NATIVE Turkish voice, not an English one reading Turkish text.
     //
-    // ⚠ PENDING FIRST REAL CALL. Turkish was removed from the pickers in R-135 precisely because
-    // it was offered with nothing behind it. It is back because an operator asked for it and is
-    // about to place a real Turkish call on a connected line — the transcript and the recording
-    // from that call are the verification. If it does not hold up, this entry comes out again
-    // rather than being quietly tolerated.
-    voice: { provider: "openai", voiceId: "nova" },
+    // The first real Turkish call was placed on 2026-09-01 (a connected Netgsm 0850 line) and it
+    // settled the question the previous note left open. The ear passed — Deepgram nova-3
+    // transcribed the caller accurately. The mouth failed: `openai/nova` is built around English
+    // prosody, so it stressed the wrong syllables and paused in the wrong places. Understandable,
+    // but plainly not a person. That is not a defect worth tolerating on a line a business puts
+    // its name on.
+    //
+    // Azure's tr-TR neural voices are trained on Turkish, so the prosody comes from the language
+    // rather than being imposed on it, and Azure's TTS is faster than OpenAI's — which also
+    // takes a bite out of the turn latency the same call exposed. Emel is female, matching the
+    // employee persona these lines are given; `tr-TR-AhmetNeural` is the male counterpart.
+    //
+    // ⚠ PENDING ITS OWN REAL CALL, exactly as the last choice was. This entry has now been
+    // wrong once; it is not proven until someone hears it.
+    voice: { provider: "azure", voiceId: "tr-TR-EmelNeural" },
     voiceFollowsCaller: false,
     // VERIFIED FALSE (2026-08-31): Deepgram's `multi` code-switching option covers exactly ten
     // languages — en, es, fr, de, hi, ru, pt, ja, it, nl — and Turkish is not among them. It is a

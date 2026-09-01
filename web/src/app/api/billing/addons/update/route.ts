@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import {
@@ -10,6 +9,10 @@ import {
 import { z } from "zod";
 import Stripe from "stripe";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
+import { notifyAddonChanged } from "@/lib/billing/lifecycleNotifications";
+import { getEffectiveLimits } from "@/lib/billing/limits";
+import { guard } from "@/lib/auth/permissions";
+import { logAuditEvent } from "@/lib/audit/log";
 
 /**
  * Get current month start in UTC (YYYY-MM-01 format).
@@ -40,40 +43,17 @@ const RequestSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1) Get authenticated user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1) Authenticate AND authorize. This route adds a paid line item to a live Stripe
+    // subscription; a signed-in `viewer` could previously do it. `manage_billing` is owner/admin.
+    //
+    // The phone-line purchase calls this route over HTTP forwarding the buyer's cookies
+    // (see CLAUDE.md landmine #7) — that path stays working because a buyer who may purchase a
+    // line is already owner or admin, and if they are not, refusing here is the correct outcome.
+    const gate = await guard("manage_billing");
+    if (!gate.ok) return gate.response;
+    const org_id = gate.viewer.orgId;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // 2) Get profile and org_id
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, org_id")
-      .eq("auth_user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-    const org_id = profile?.org_id ?? null;
-
-    if (!org_id) {
-      return NextResponse.json(
-        { ok: false, error: "Organization not found" },
-        { status: 400 }
-      );
-    }
-
-    // 3) Check if workspace is billing-paused
+    // 2) Check if workspace is billing-paused
     const { data: orgSettings } = await supabaseAdmin
       .from("organization_settings")
       .select("workspace_status, paused_reason")
@@ -424,7 +404,40 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 14) Return success
+    // 14) Confirm the change by email. Add-ons move both the bill and the capability, and
+    // until now they moved both silently. Deduped on (org, addon, qty) so a re-submitted
+    // form does not re-confirm the same state; never throws — the purchase already happened.
+    try {
+      const limits = await getEffectiveLimits(org_id);
+      const effectiveTotal =
+        addon_key === "extra_phone"
+          ? limits.included_phones
+          : addon_key === "extra_concurrency"
+          ? limits.max_concurrent_calls
+          : null;
+
+      await notifyAddonChanged(org_id, {
+        addonKey: addon_key,
+        qty,
+        previousQty: currentQty,
+        effectiveTotal,
+      });
+    } catch (notifyErr) {
+      console.error("[BILLING][ADDON_UPDATE] Confirmation email failed (non-fatal)", notifyErr);
+    }
+
+    // 15) Record it. An add-on moves the monthly bill and the capability ceiling; the audit log
+    // claimed to cover billing and never saw one of these.
+    await logAuditEvent({
+      org_id,
+      actor_user_id: gate.viewer.profileId,
+      action: qty > currentQty ? "billing.addon.increase" : "billing.addon.decrease",
+      entity_type: "billing.addon",
+      entity_id: org_id,
+      diff: { [addon_key]: { before: currentQty, after: qty } },
+    });
+
+    // 16) Return success
     // TODO(billing): When we generate Stripe invoices, include add-on line items derived from:
     // - public.billing_org_addons (org_id, addon_key, qty)
     // - public.billing_addon_catalog (addon_key -> Stripe price metadata)

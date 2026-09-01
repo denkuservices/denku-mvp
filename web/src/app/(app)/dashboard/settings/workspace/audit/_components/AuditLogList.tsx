@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import Avatar from "@/app/(app)/dashboard/_platform/Avatar";
 import { EmptyState } from "@/app/(app)/dashboard/_platform/ui";
-import { Panel, SettingsButton, StatusPill } from "@/app/(app)/dashboard/_platform/settings/ui";
+import { Panel, StatusPill } from "@/app/(app)/dashboard/_platform/settings/ui";
+import { RelativeTime } from "@/components/time/ClientTime";
 
 type AuditLogChange = {
   field: string;
@@ -26,11 +27,10 @@ type AuditLogChange = {
 
 type AuditLogWithChanges = {
   id: string;
-  org_id: string;
   actor_user_id: string | null;
   action: string;
   entity_type: string;
-  entity_id: string;
+  entity_id: string | null;
   created_at: string;
   actor_email: string | null;
   actor_name: string | null;
@@ -39,23 +39,9 @@ type AuditLogWithChanges = {
 
 type AuditLogListProps = {
   logs: AuditLogWithChanges[];
+  /** True when filters are applied — an empty result then means "no matches", not "no history". */
+  filtered?: boolean;
 };
-
-function formatTimestamp(iso: string): string {
-  try {
-    const date = new Date(iso);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  } catch {
-    return iso;
-  }
-}
 
 function formatAction(action: string): string {
   return action
@@ -116,10 +102,15 @@ const TONE_CLASS = {
  *
  * The before → after diff keeps its disclosure (an audit trail is scanned far more often than it
  * is inspected) but is now rendered as an actual transition rather than two boxes side by side.
+ *
+ * Two later corrections. The list no longer slices itself to five with a "show more" toggle — the
+ * server pages it, so what arrives here is a page and all of it is shown. And timestamps go through
+ * `RelativeTime`, which is what fixed the hydration error this component threw on every direct
+ * load: it formatted in the server's timezone during SSR and in the reader's on the client, and
+ * React tore the tree down over the mismatch.
  */
-export function AuditLogList({ logs }: AuditLogListProps) {
+export function AuditLogList({ logs, filtered = false }: AuditLogListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [showAll, setShowAll] = useState(false);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -133,17 +124,19 @@ export function AuditLogList({ logs }: AuditLogListProps) {
     });
   };
 
-  // Show only latest 5 by default
-  const visibleLogs = showAll ? logs : logs.slice(0, 5);
-  const hasMore = logs.length > 5;
+  const visibleLogs = logs;
 
   if (logs.length === 0) {
     return (
       <Panel padded={false}>
         <EmptyState
           icon={History}
-          title="Nothing recorded yet"
-          description="Changes to workspace settings, members and plans are logged here as they happen."
+          title={filtered ? "Nothing matches those filters" : "Nothing recorded yet"}
+          description={
+            filtered
+              ? "Widen the date range or clear the filters to see the rest of the history."
+              : "Changes to workspace settings, members and plans are logged here as they happen."
+          }
         />
       </Panel>
     );
@@ -188,7 +181,7 @@ export function AuditLogList({ logs }: AuditLogListProps) {
                   <Avatar name={actor} seed={log.actor_user_id ?? actor} size="sm" className="!h-5 !w-5 !text-[10px]" />
                   <span className="font-medium text-gray-600 dark:text-gray-300">{actor}</span>
                   <span aria-hidden="true">·</span>
-                  <time dateTime={log.created_at}>{formatTimestamp(log.created_at)}</time>
+                  <RelativeTime iso={log.created_at} />
                 </div>
 
                 {hasChanges ? (
@@ -242,14 +235,6 @@ export function AuditLogList({ logs }: AuditLogListProps) {
         })}
       </ol>
 
-      {hasMore ? (
-        <div className="flex justify-center border-t border-gray-100 p-4 dark:border-white/10">
-          <SettingsButton type="button" variant="ghost" onClick={() => setShowAll(!showAll)}>
-            <ChevronDown className={showAll ? "rotate-180 transition-transform" : "transition-transform"} />
-            {showAll ? "Show less" : `Show ${logs.length - 5} more`}
-          </SettingsButton>
-        </div>
-      ) : null}
     </Panel>
   );
 }

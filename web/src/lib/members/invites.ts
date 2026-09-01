@@ -14,7 +14,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 const UNDEFINED_TABLE = "42P01";
 const PG_UNIQUE_VIOLATION = "23505";
 
-export type InviteRole = "admin" | "owner";
+/**
+ * `viewer` joined this union after the settings audit: the role existed everywhere except in
+ * the one place that could hand it to somebody, so a read-only teammate had to be made an admin.
+ */
+export type InviteRole = "viewer" | "admin" | "owner";
 
 export interface PendingInvite {
   id: string;

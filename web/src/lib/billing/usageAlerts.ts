@@ -21,11 +21,24 @@ import { pauseOrgBilling } from "@/lib/billing/pause";
 
 export const USAGE_THRESHOLDS = [50, 75, 90] as const;
 
-/** Which warning thresholds a usage level has crossed (below 100%). Pure. */
-export function crossedThresholds(billableMinutes: number, includedMinutes: number): number[] {
+/**
+ * Which warning thresholds a usage level has crossed (below 100%). Pure.
+ *
+ * `chosen` is the workspace's own ladder (`organization_settings.usage_alert_thresholds`), which
+ * Settings → Notifications now writes. Omitting it keeps the historical behaviour — all three
+ * thresholds — so every existing caller and test reads the same as before. An EMPTY array is a
+ * real answer, not a missing one: it means "do not warn me", and it must not fall back to the
+ * defaults, which is why the check below is on `undefined` rather than on length.
+ */
+export function crossedThresholds(
+  billableMinutes: number,
+  includedMinutes: number,
+  chosen?: readonly number[]
+): number[] {
   if (includedMinutes <= 0) return [];
+  const ladder = chosen === undefined ? USAGE_THRESHOLDS : chosen;
   const pct = (billableMinutes / includedMinutes) * 100;
-  return USAGE_THRESHOLDS.filter((t) => pct >= t);
+  return ladder.filter((t) => pct >= t);
 }
 
 /** Whether usage has hit 100% of included minutes → pause. Pure. */
@@ -96,7 +109,29 @@ export async function runUsageThresholdAlerts(): Promise<RunResult> {
         continue; // paused → don't also send a sub-100% warning
       }
 
-      const crossed = crossedThresholds(billable, included);
+      /**
+       * The workspace's own choice about being warned.
+       *
+       * Read here rather than filtered at send time so a workspace that opted out never CLAIMS a
+       * threshold row — otherwise turning warnings back on would silently skip the levels that
+       * were claimed and never sent.
+       *
+       * Note what is NOT optional: the 100% pause above happens regardless. A customer may decline
+       * a warning; they do not get to decline being told their phone line stopped.
+       */
+      const { data: prefs } = await supabaseAdmin
+        .from("organization_settings")
+        .select("notify_usage_alerts, usage_alert_thresholds")
+        .eq("org_id", row.org_id)
+        .maybeSingle<{ notify_usage_alerts: boolean | null; usage_alert_thresholds: number[] | null }>();
+
+      if (prefs?.notify_usage_alerts === false) continue;
+
+      const crossed = crossedThresholds(
+        billable,
+        included,
+        Array.isArray(prefs?.usage_alert_thresholds) ? prefs.usage_alert_thresholds : undefined
+      );
       if (crossed.length === 0) continue;
 
       const highest = Math.max(...crossed);

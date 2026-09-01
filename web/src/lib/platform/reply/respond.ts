@@ -10,6 +10,8 @@ import { generateReply } from "@/lib/platform/reply/engine";
 import { greetingFor, isOpeningCommand } from "@/lib/platform/reply/greeting";
 import { rescueFailedReply, shouldRescue } from "@/lib/platform/reply/fallback";
 import { resolveRecall, recallForStatedName, recallPromptBlock } from "@/lib/platform/recall";
+import { loadOrgHours } from "@/lib/business-hours/read";
+import { buildHoursPromptBlock, evaluateBusinessHours } from "@/lib/business-hours/schema";
 import { saveDraft } from "@/lib/platform/drafts";
 import { notifyNewArtifactsForConversation } from "@/lib/notifications/artifactNotifications";
 import { getHandlingState } from "@/lib/platform/handling";
@@ -153,7 +155,7 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
      * already hold. Unlocking a stranger's appointment because they wrote to a shared address is
      * exactly the failure the spec was written to prevent.
      */
-    const [history, contactName, recallFacts] = await Promise.all([
+    const [history, contactName, recallFacts, hours] = await Promise.all([
       loadHistory(input.orgId, input.conversationId, 20, db),
       contactDisplayName(input.orgId, input.contactId, db),
       input.statedName !== undefined
@@ -164,6 +166,19 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
             db,
           })
         : resolveRecall({ orgId: input.orgId, contactId: input.contactId, db }),
+      /**
+       * The business's opening hours, evaluated against NOW.
+       *
+       * Chat is the one place hours can be honoured properly: a message is answered at the
+       * moment it arrives, so the prompt can say "this arrived outside opening hours" and mean
+       * it. (Voice cannot do this per-call yet — the Vapi assistant prompt is static; see
+       * `skills/business-hours.md`.) Never throws, and an unreadable setting reads as "open".
+       *
+       * Loaded, not evaluated, here: the zone to judge "now" against is decided below, and
+       * evaluating in one zone while telling the AI another would put a contradiction in the
+       * prompt twice a year.
+       */
+      loadOrgHours(input.orgId, db),
     ]);
 
     // "I just opened this bot" is answered with the greeting, not with a model. See greeting.ts —
@@ -181,6 +196,17 @@ export async function respondToInbound(input: RespondInput): Promise<ReplyResult
             incoming: input.incoming,
             contactName,
             recall: recallPromptBlock(recallFacts, employee.timezone),
+            hoursBlock: (() => {
+              // The employee's own timezone wins when it is set: it is the one the AI already
+              // uses for "tomorrow", so the schedule must be judged and stated in the same one.
+              const zone = employee.timezone ?? hours.timeZone;
+              return buildHoursPromptBlock({
+                hours: hours.hours,
+                timeZone: zone,
+                behaviour: hours.behaviour,
+                verdict: evaluateBusinessHours(hours.hours, zone),
+              });
+            })(),
           },
           db
         );

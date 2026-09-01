@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/auth/permissions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { logEvent } from "@/lib/observability/logEvent";
@@ -51,6 +52,13 @@ export async function POST(
 
     const profile = profiles && profiles.length > 0 ? profiles[0] : null;
     const orgId = profile?.org_id ?? null;
+
+    // A phone line is the business's front door: pausing, renaming, re-pointing or
+    // deleting one changes who answers a real customer. `manage_channels` is owner/admin —
+    // a viewer reads what the line did, and changes nothing about it.
+    const gate = await guard("manage_channels");
+    if (!gate.ok) return gate.response;
+
 
     if (!orgId) {
       return NextResponse.json(

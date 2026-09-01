@@ -58,7 +58,8 @@ export function LanguageSelect({
           className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-400"
         />
         <Select value={selectValue} onValueChange={onChange}>
-          <SelectTrigger className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm shadow-sm transition hover:bg-gray-50 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-navy-900 dark:hover:bg-white/5">
+          {/* Same reason as the timezone combobox: a Radix trigger takes its name from aria-label. */}
+          <SelectTrigger aria-label={label} className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm shadow-sm transition hover:bg-gray-50 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-navy-900 dark:hover:bg-white/5">
             <SelectValue placeholder="Select a language" />
           </SelectTrigger>
           <SelectContent className="max-h-[260px]">

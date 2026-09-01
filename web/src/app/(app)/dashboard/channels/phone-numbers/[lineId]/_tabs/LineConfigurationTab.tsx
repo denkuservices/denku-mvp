@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -100,20 +102,23 @@ export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveErro
       <div>
         <h4 className="mb-4 text-sm font-semibold text-navy-700 dark:text-white">Routing</h4>
         <div className="space-y-4">
+          {/*
+            Business hours are a WORKSPACE setting, not a per-line one: a business has one set of
+            opening hours, and offering a second copy here would be two answers to one question.
+            This used to be a permanently-checked, permanently-disabled box under "Coming soon" —
+            a control that claimed a feature existed and did nothing. It is now a pointer to the
+            real setting.
+          */}
           <div>
-            <label className="mb-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked
-                disabled
-                className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-1 focus:ring-brand-500"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-white">
-                Business hours
-              </span>
-            </label>
+            <p className="text-sm font-medium text-gray-700 dark:text-white">Business hours</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Coming soon
+              Set once for the whole workspace, and used on every channel.{" "}
+              <Link
+                href="/dashboard/settings/workspace#hours"
+                className="font-semibold text-brand-600 hover:underline dark:text-brand-300"
+              >
+                Opening hours in Settings
+              </Link>
             </p>
           </div>
 
@@ -134,14 +139,10 @@ export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveErro
           </div>
 
           <div>
-            <label className="mb-2 flex items-center gap-2">
-              <input type="checkbox" checked={false} disabled className="h-4 w-4 rounded border-gray-300 text-gray-400" />
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Use after-hours behavior
-              </span>
-            </label>
+            <p className="text-sm font-medium text-gray-700 dark:text-white">After-hours behaviour</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Coming soon
+              Chosen alongside your opening hours. This line is answered 24/7 either way — the
+              setting only decides whether the AI mentions that your team is away.
             </p>
           </div>
         </div>

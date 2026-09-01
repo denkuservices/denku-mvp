@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { VOICE_PLAN_CODES } from "@/lib/billing/chatPlanKeys";
+import { guard } from "@/lib/auth/permissions";
+import { logAuditEvent } from "@/lib/audit/log";
 
 const RequestSchema = z.object({
   // Voice plans only, on purpose: moving an existing workspace onto `chat_only` would
@@ -29,38 +30,20 @@ function getCurrentMonthStart(): string {
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1) Get authenticated user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1) Authenticate AND authorize. Being signed in was never enough here: this route moves a
+    // workspace between a $149 and an $899 plan, and until the capability check landed a `viewer`
+    // could do it. `manage_billing` is owner/admin — see lib/auth/permissions.ts.
+    const gate = await guard("manage_billing");
+    if (!gate.ok) return gate.response;
+    const org_id = gate.viewer.orgId;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // 2) Get profile and org_id
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, org_id")
-      .eq("auth_user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-    const org_id = profile?.org_id ?? null;
-
-    if (!org_id) {
-      return NextResponse.json(
-        { ok: false, error: "Organization not found" },
-        { status: 400 }
-      );
-    }
+    // 2) Read the plan we are leaving, so the audit row can say what changed rather than only
+    // what it became. Best-effort: a missing override row simply means "on the catalogue plan".
+    const { data: previousOverride } = await supabaseAdmin
+      .from("org_plan_overrides")
+      .select("plan_code")
+      .eq("org_id", org_id)
+      .maybeSingle<{ plan_code: string | null }>();
 
     // 3) Parse and validate request body
     const body = await req.json().catch(() => null);
@@ -138,7 +121,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 7) Return success
+    // 7) Record it in the audit log. The Audit page told customers it covered "plan changes"
+    // while nothing on this path ever wrote a row — the most expensive action in the product was
+    // the least traceable one. Never throws (logAuditEvent swallows its own errors); the plan
+    // change already happened and must not be reported as failed because a log write did not.
+    await logAuditEvent({
+      org_id,
+      actor_user_id: gate.viewer.profileId,
+      action: "billing.plan.change",
+      entity_type: "billing.plan",
+      entity_id: org_id,
+      diff: { plan_code: { before: previousOverride?.plan_code ?? null, after: plan_code } },
+    });
+
+    // 8) Return success
     return NextResponse.json({
       ok: true,
       plan_code: plan_code,

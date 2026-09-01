@@ -46,3 +46,6 @@ repo_map.txt
 .env.local
 .env.*.local
 
+
+# Rendered transactional-email previews (scripts/render-email-previews.mts)
+.email-previews/

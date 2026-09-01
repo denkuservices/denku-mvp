@@ -37,16 +37,24 @@ import {
  * choosing between them.
  */
 const ROLES = [
-  { value: "admin", label: "Admin", hint: "Can manage settings, members and billing." },
-  { value: "owner", label: "Owner", hint: "Full control, including workspace-level actions." },
+  { value: "viewer", label: "Viewer", hint: "Reads conversations and reports. Changes nothing." },
+  { value: "admin", label: "Admin", hint: "Manages settings, members, channels and billing." },
+  { value: "owner", label: "Owner", hint: "Full control, including billing and ownership." },
 ] as const;
 
-export function InviteMemberForm() {
+type InviteRole = (typeof ROLES)[number]["value"];
+
+/**
+ * `canInviteOwner` is passed in rather than assumed: only the workspace OWNER may create another
+ * owner, and an admin who was offered the option would be told no after typing the address. The
+ * server refuses either way — this only stops the UI from promising something it cannot deliver.
+ */
+export function InviteMemberForm({ canInviteOwner = false }: { canInviteOwner?: boolean }) {
   const router = useRouter();
   const { success, error: toastError } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "owner">("admin");
+  const [role, setRole] = useState<InviteRole>("admin");
   const [isPending, startTransition] = useTransition();
 
   const close = () => {
@@ -135,15 +143,16 @@ export function InviteMemberForm() {
 
             <div className="space-y-2">
               <FieldLabel icon={ShieldCheck}>Role</FieldLabel>
-              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "owner")}>
+              <Select value={role} onValueChange={(v) => setRole(v as InviteRole)}>
                 <SelectTrigger
+                  aria-label="Role"
                   disabled={isPending}
                   className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm shadow-sm dark:border-white/10 dark:bg-navy-900"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.map((r) => (
+                  {ROLES.filter((r) => r.value !== "owner" || canInviteOwner).map((r) => (
                     <SelectItem key={r.value} value={r.value} className="py-2">
                       <span className="font-medium">{r.label}</span>
                       <span className="ml-2 text-xs text-gray-500">{r.hint}</span>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/auth/permissions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
@@ -67,53 +67,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      console.error("[purchase] Authentication failed", { authError });
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
-      );
+    // 2) Authenticate AND authorize. Buying a line adds an `extra_phone` add-on to the live
+    // subscription — it spends money, so it is `manage_billing`, not merely "signed in".
+    const gate = await guard("manage_billing");
+    if (!gate.ok) {
+      console.error("[purchase] Refused", { reason: gate.denial.error });
+      return gate.response;
     }
-
-    // 3) Get org_id from profile
-    // Use maybeSingle() for robust error handling and RLS compatibility
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("org_id")
-      .eq("auth_user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .maybeSingle<{ org_id: string | null }>();
-
-    if (profileError) {
-      // Log detailed error information for debugging
-      const errorDetails = {
-        message: profileError.message,
-        code: profileError.code,
-        details: profileError.details,
-        hint: profileError.hint,
-      };
-      
-      console.error("[purchase] Failed to fetch profile", {
-        error: profileError,
-        errorDetails,
-        user_id: user.id,
-        auth_user_id: user.id,
-      });
-      
-      return NextResponse.json(
-        { ok: false, error: "Failed to fetch user profile" },
-        { status: 500 }
-      );
-    }
-
-    const org_id = profile?.org_id ?? null;
+    const user = { id: gate.viewer.userId as string };
+    const org_id: string | null = gate.viewer.orgId;
 
     if (!org_id) {
       return NextResponse.json(
