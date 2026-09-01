@@ -208,10 +208,110 @@ function invoiceTone(status: string | null): "ok" | "warn" | "critical" | "neutr
 /** One line of a plan's contents. */
 function PlanFeature({ children }: { children: React.ReactNode }) {
   return (
-    <li className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
-      <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-500" />
+    <li className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-300">
+        <Check aria-hidden="true" className="h-3 w-3" />
+      </span>
       <span>{children}</span>
     </li>
+  );
+}
+
+/** Horizon-style monthly allowance summary. The figures still come from the invoice preview. */
+function UsageOverview({
+  usedMinutes,
+  includedMinutes,
+  planName,
+  month,
+}: {
+  usedMinutes: number;
+  includedMinutes: number;
+  planName: string;
+  month: string;
+}) {
+  const rawPercent = includedMinutes > 0 ? (usedMinutes / includedMinutes) * 100 : 0;
+  const displayPercent = Math.round(rawPercent * 10) / 10;
+  const visiblePercent = Math.min(rawPercent, 100);
+  const remainingMinutes = Math.max(includedMinutes - usedMinutes, 0);
+  const overageMinutes = Math.max(usedMinutes - includedMinutes, 0);
+  const radius = 56;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <Panel className="relative min-h-[290px] overflow-hidden !border-0 !bg-navy-700 bg-gradient-to-br from-navy-700 via-[#282264] to-brand-500 text-white shadow-xl dark:!bg-navy-800 dark:from-navy-800 dark:via-[#211d50] dark:to-brand-700">
+      <div aria-hidden="true" className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+      <div aria-hidden="true" className="absolute -bottom-24 left-20 h-48 w-48 rounded-full bg-sky-300/10 blur-3xl" />
+
+      <div className="relative flex h-full flex-col">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">Monthly allowance</p>
+            <h3 className="mt-1 text-xl font-semibold">Voice usage</h3>
+          </div>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white">
+            {planName} · {month}
+          </span>
+        </div>
+
+        <div className="mt-3 grid flex-1 grid-cols-1 items-center gap-5 sm:grid-cols-[164px_1fr]">
+          <div
+            role="progressbar"
+            aria-valuenow={displayPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Included voice minutes used"
+            className="relative mx-auto h-40 w-40 sm:mx-0"
+          >
+            <svg viewBox="0 0 136 136" className="h-full w-full -rotate-90" aria-hidden="true">
+              <defs>
+                <linearGradient id="billing-usage-progress" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#8ee7ff" />
+                </linearGradient>
+              </defs>
+              <circle cx="68" cy="68" r={radius} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="11" />
+              <circle
+                cx="68"
+                cy="68"
+                r={radius}
+                fill="none"
+                stroke="url(#billing-usage-progress)"
+                strokeLinecap="round"
+                strokeWidth="11"
+                strokeDasharray={circumference}
+                strokeDashoffset={circumference * (1 - visiblePercent / 100)}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="text-3xl font-semibold tabular-nums">{displayPercent}%</span>
+              <span className="text-xs text-white/55">of plan used</span>
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm text-white/60">Billable minutes</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums">
+              {usedMinutes.toLocaleString()}
+              <span className="ml-2 text-sm font-normal text-white/55">
+                of {includedMinutes.toLocaleString()} min
+              </span>
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-white/50">Remaining</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums">{remainingMinutes.toLocaleString()} min</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-white/50">Overage</p>
+                <p className={`mt-1 text-lg font-semibold tabular-nums ${overageMinutes > 0 ? "text-amber-200" : ""}`}>
+                  {overageMinutes.toLocaleString()} min
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Panel>
   );
 }
 
@@ -816,50 +916,40 @@ export default function WorkspaceBillingPage() {
             : "Calls, billable minutes and peak concurrency for the current billing month."
         }
       >
-        <Panel>
-          {preview ? (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {preview ? (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,.65fr)]">
+            <UsageOverview
+              usedMinutes={usedMinutes}
+              includedMinutes={includedMinutes}
+              planName={currentPlan?.display_name ?? currentPlanCode ?? "Plan"}
+              month={summary?.month ? formatMonth(summary.month) : "Current month"}
+            />
+            <Panel className="h-full">
+              <div className="mb-5">
+                <p className="text-base font-semibold text-navy-700 dark:text-white">Call activity</p>
+                <p className="mt-1 text-xs text-gray-500">Operational usage for this billing period.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <StatTile icon={PhoneCall} label="Calls" value={totalCalls.toLocaleString()} />
                 <StatTile icon={Clock} label="Minutes" value={usedMinutes.toLocaleString()} />
                 <StatTile
                   icon={Users}
                   label="Peak concurrent"
                   value={
-                    preview.peak_concurrent_calls !== null &&
-                    preview.peak_concurrent_calls !== undefined
+                    preview.peak_concurrent_calls !== null && preview.peak_concurrent_calls !== undefined
                       ? preview.peak_concurrent_calls.toString()
                       : "—"
                   }
                 />
                 <StatTile icon={Timer} label="Avg call" value={avgDuration} />
               </div>
-
-              {/*
-                The number the page never drew. `billable_minutes` is the sum of each call rounded
-                up to the minute (usageMath.ts), and everything past `included_minutes` is charged
-                at the overage rate — so this bar is the difference between a predictable invoice
-                and a surprising one.
-              */}
-              {includedMinutes > 0 ? (
-                <div className="mt-6 space-y-2">
-                  <Meter
-                    value={usedMinutes}
-                    max={includedMinutes}
-                    label="Included minutes used"
-                    valueLabel={`${usedMinutes.toLocaleString()} of ${includedMinutes.toLocaleString()} min`}
-                  />
-                  <p className="text-xs text-gray-500">
-                    {usedMinutes > includedMinutes
-                      ? `${(usedMinutes - includedMinutes).toLocaleString()} minutes over your plan — billed at ${
-                          currentPlan ? formatUsd(currentPlan.overage_rate_usd_per_min) : "the overage rate"
-                        }/min.`
-                      : `${(includedMinutes - usedMinutes).toLocaleString()} minutes left before overage starts.`}
-                  </p>
-                </div>
-              ) : null}
-            </>
-          ) : (
+              <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3 text-xs text-gray-500 dark:border-white/10 dark:bg-white/5">
+                Billable minutes round each completed call up to the next full minute.
+              </div>
+            </Panel>
+          </div>
+        ) : (
+          <Panel>
             <EmptyState
               icon={Activity}
               title="No usage recorded this month"
@@ -869,8 +959,8 @@ export default function WorkspaceBillingPage() {
                   : "Usage is tracked as soon as a plan is active and your AI starts answering."
               }
             />
-          )}
-        </Panel>
+          </Panel>
+        )}
       </SettingsSection>
 
       {/* ------------------------------------------------------------- plan */}
@@ -892,7 +982,7 @@ export default function WorkspaceBillingPage() {
           }
         >
           <div
-            className={`grid grid-cols-1 gap-4 rounded-[20px] transition-all duration-300 md:grid-cols-3 ${
+            className={`grid grid-cols-1 gap-4 rounded-[20px] transition-all duration-300 lg:grid-cols-3 ${
               highlightPlans ? "ring-4 ring-brand-500/30" : ""
             }`}
           >
@@ -923,35 +1013,38 @@ export default function WorkspaceBillingPage() {
               return (
                 <div
                   key={plan.plan_code}
-                  className={`relative flex flex-col rounded-[20px] border p-5 transition ${
+                  className={`relative flex min-h-[330px] flex-col overflow-hidden rounded-[20px] border p-6 transition ${
                     isCurrent
-                      ? "border-brand-500 bg-brand-500/5 shadow-sm dark:border-brand-400 dark:bg-brand-400/10"
-                      : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-white/10 dark:bg-navy-800 dark:hover:border-white/20"
+                      ? "border-brand-500 bg-gradient-to-br from-brand-500/10 via-white to-sky-50 shadow-lg shadow-brand-500/10 dark:border-brand-400 dark:from-brand-400/15 dark:via-navy-800 dark:to-navy-800"
+                      : "border-gray-200 bg-white hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg dark:border-white/10 dark:bg-navy-800 dark:hover:border-white/20"
                   }`}
                 >
-                  {isCurrent ? (
-                    <span className="absolute -top-2.5 left-5">
+                  <div className="mb-5 flex min-h-7 items-start justify-between gap-3">
+                    <p className="text-base font-semibold text-navy-700 dark:text-white">
+                      {plan.display_name}
+                    </p>
+                    {isCurrent ? (
                       <StatusPill tone="brand" icon={CheckCircle2}>
                         Current
                       </StatusPill>
-                    </span>
-                  ) : null}
+                    ) : null}
+                  </div>
 
-                  <p className="text-sm font-semibold text-navy-700 dark:text-white">
-                    {plan.display_name}
-                  </p>
-                  <p className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold tabular-nums text-navy-700 dark:text-white">
+                  <p className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold tabular-nums tracking-tight text-navy-700 dark:text-white">
                       {formatUsd(plan.monthly_fee_usd)}
                     </span>
-                    <span className="text-xs text-gray-500">/month</span>
+                    <span className="text-sm text-gray-500">/month</span>
                   </p>
 
-                  <ul className="mt-4 flex-1 space-y-1.5">
+                  <div className="my-5 h-px bg-gray-100 dark:bg-white/10" />
+                  <ul className="flex-1 space-y-3">
                     <PlanFeature>
                       {plan.included_minutes.toLocaleString()} minutes included
                     </PlanFeature>
-                    <PlanFeature>{plan.concurrency_limit} concurrent calls</PlanFeature>
+                    <PlanFeature>
+                      {plan.concurrency_limit} concurrent {plan.concurrency_limit === 1 ? "call" : "calls"}
+                    </PlanFeature>
                     <PlanFeature>
                       {plan.included_phone_numbers} phone number
                       {plan.included_phone_numbers === 1 ? "" : "s"}
@@ -967,7 +1060,7 @@ export default function WorkspaceBillingPage() {
                     disabled={isCurrent || confirmLoading || !canManageBilling}
                     title={!canManageBilling ? "Only owners and admins can change the plan" : undefined}
                     onClick={() => handlePlanChange(plan.plan_code)}
-                    className="mt-5 w-full"
+                    className={`mt-6 min-h-11 w-full ${isCurrent ? "disabled:!opacity-100" : ""}`}
                   >
                     {ButtonIcon ? <ButtonIcon /> : null}
                     {buttonLabel}
