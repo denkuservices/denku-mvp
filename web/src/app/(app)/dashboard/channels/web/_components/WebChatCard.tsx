@@ -60,6 +60,7 @@ export function WebChatCard({
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   React.useEffect(() => {
     if (!saved) return;
@@ -265,6 +266,54 @@ export function WebChatCard({
             website list, not the key.
           </p>
         </div>
+      </Surface>
+
+      {/**
+       * Preview — the real widget, not a mock.
+       *
+       * The embed endpoint accepts a Denku-origin parent alongside the customer's own allowlist
+       * precisely so this can exist: the same document, the same session, the same AI. A mocked
+       * preview would be the more comfortable thing to build and would tell the customer nothing
+       * about whether their widget actually works.
+       *
+       * Deliberately behind a click. Rendering it on page load would open a visitor session every
+       * time anyone looked at this screen, and anything typed into it is a REAL conversation that
+       * appears in the Inbox — which the copy says, because a test message the owner does not
+       * recognise later is worse than no preview at all.
+       */}
+      <Surface>
+        <h2 className="text-sm font-semibold text-navy-700 dark:text-white">Preview</h2>
+        <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400">
+          See exactly what a visitor sees, without leaving Denku. This is the live widget — anything
+          you type here is a real conversation and will appear in your Inbox.
+        </p>
+
+        {showPreview ? (
+          <div className="mt-3">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-sm dark:border-white/10">
+              <iframe
+                title="Web chat preview"
+                src={`${scriptOrigin}/embed/chat?k=${encodeURIComponent(connection.siteKey)}`}
+                className="block h-[520px] w-full max-w-[380px] bg-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPreview(false)}
+              className="mt-3 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+            >
+              Close preview
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="mt-3 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+          >
+            Open preview
+          </button>
+        )}
       </Surface>
 
       <Surface>
