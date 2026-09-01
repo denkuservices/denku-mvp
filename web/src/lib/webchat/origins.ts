@@ -36,6 +36,23 @@ export function normalizeOrigin(value: string | null | undefined): string | null
 }
 
 /**
+ * Does this look like a hostname a real website is served from?
+ *
+ * `new URL()` is far too permissive for a field a human types into: `https://not` parses happily,
+ * so the sentence "not a domain" becomes three valid origins. Junk in this list is not merely
+ * untidy — the stored entries are rendered straight into the embed response's `frame-ancestors`,
+ * and one malformed token there can invalidate the whole directive and stop the widget rendering
+ * anywhere. So the gate is here, on the way in.
+ *
+ * Requires a dot and a plausible TLD, with `localhost` carved out for development.
+ */
+function isPlausibleHost(host: string): boolean {
+  const bare = host.replace(/:\d+$/, "");
+  if (bare === "localhost") return true;
+  return /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(bare);
+}
+
+/**
  * Normalise what the customer typed into the allowlist field.
  *
  * People paste "shop.com", "www.shop.com/contact", "HTTPS://Shop.com/". All three mean the same
@@ -58,6 +75,8 @@ export function normalizeAllowedOrigin(value: string): string | null {
 
   const normalized = normalizeOrigin(`${scheme}${host}`);
   if (!normalized) return null;
+  // Reject what a human typed that is not a site, before it can reach `frame-ancestors`.
+  if (!isPlausibleHost(normalized.slice(normalized.indexOf("//") + 2))) return null;
   if (!isWildcard) return normalized;
 
   const sep = normalized.indexOf("//") + 2;

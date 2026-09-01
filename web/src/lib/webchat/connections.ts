@@ -86,13 +86,51 @@ export function generateSiteKey(): string {
   return `dkweb_${randomBytes(16).toString("hex")}`;
 }
 
-/** Clean a customer-entered domain list into stored origins. Invalid entries are dropped. */
+/**
+ * `example.com` and `www.example.com`, given either one.
+ *
+ * A shop owner types the address they say out loud. Which of the two their server actually serves —
+ * and whether it redirects to the other — is a detail they have never had to think about, and the
+ * punishment for guessing wrong is a widget that silently does not load. So we cover both.
+ *
+ * This is not a widening: the apex and its `www` are the same DNS owner, always. A real widening
+ * would be `*.example.com`, which also covers `blog.`, `staging.` and `shop.` — that stays an
+ * explicit choice the customer has to make.
+ *
+ * Deliberately conservative about WHEN it pairs: exactly `www.<two labels>` or a bare two-label
+ * host. `shop.example.com` gets no `www.shop.example.com` (noise), and `example.co.uk` gets no
+ * pair either, because knowing that `co.uk` is a suffix and not a subdomain needs the public
+ * suffix list. Those customers add the second line by hand — which fails safe, not broken.
+ */
+function originSibling(origin: string): string | null {
+  const sep = origin.indexOf("//") + 2;
+  const host = origin.slice(sep);
+  if (host.startsWith("*.")) return null;
+
+  if (host.startsWith("www.")) {
+    const bare = host.slice(4);
+    return bare.split(".").length === 2 ? `${origin.slice(0, sep)}${bare}` : null;
+  }
+  return host.split(".").length === 2 ? `${origin.slice(0, sep)}www.${host}` : null;
+}
+
+/**
+ * Clean a customer-entered domain list into stored origins. Invalid entries are dropped, and the
+ * apex/www sibling of each entry is added so the customer does not have to know which one their
+ * own site serves.
+ */
 export function normalizeOriginList(input: string[] | string): string[] {
   const parts = Array.isArray(input) ? input : String(input ?? "").split(/[\s,\n]+/);
   const out: string[] = [];
+  const add = (value: string | null) => {
+    if (value && !out.includes(value)) out.push(value);
+  };
+
   for (const part of parts) {
     const normalized = normalizeAllowedOrigin(String(part ?? ""));
-    if (normalized && !out.includes(normalized)) out.push(normalized);
+    if (!normalized) continue;
+    add(normalized);
+    add(originSibling(normalized));
   }
   return out;
 }
