@@ -17,9 +17,13 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
   if (!platformUxEnabled()) notFound();
 
   return (
-    <div>
+    <div className="relative isolate">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-72 bg-[radial-gradient(circle_at_18%_25%,rgba(66,42,251,0.10),transparent_38%),radial-gradient(circle_at_82%_18%,rgba(20,184,166,0.09),transparent_32%)]"
+      />
       <CrmTabs />
-      <div className="pt-6">{children}</div>
+      <div className="pt-3">{children}</div>
     </div>
   );
 }

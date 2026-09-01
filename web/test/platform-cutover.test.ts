@@ -168,7 +168,7 @@ describe("functional parity — no legacy destination is lost when the flag flip
       ["/dashboard/agents", "/dashboard/team"],
       ["/dashboard/agents/emp-1", "/dashboard/team/[employeeId]"],
       ["/dashboard/tickets", "/dashboard/crm/requests"],
-      ["/dashboard/appointments", "/dashboard/crm/requests"],
+      ["/dashboard/appointments", "/dashboard/crm/appointments"],
       // First-generation platform routes renamed in Phase 2
       ["/dashboard/conversations", "/dashboard/inbox"],
       ["/dashboard/conversations/conv-1", "/dashboard/inbox/[conversationId]"],
@@ -255,7 +255,7 @@ describe("information architecture", () => {
 
   it("CRM advertises only what exists — no Companies/Deals/Pipeline until they are built", () => {
     const labels = CRM_SECTIONS.map((s) => s.label.toLowerCase());
-    expect(labels).toEqual(["contacts", "requests"]);
+    expect(labels).toEqual(["contacts", "requests", "appointments"]);
   });
 
   it("the CRM hub index has a real default destination", () => {
@@ -267,6 +267,7 @@ describe("information architecture", () => {
     expect(activeCrmSection("/dashboard/crm/contacts")).toBe("/dashboard/crm/contacts");
     expect(activeCrmSection("/dashboard/crm/contacts/lead-9")).toBe("/dashboard/crm/contacts");
     expect(activeCrmSection("/dashboard/crm/requests")).toBe("/dashboard/crm/requests");
+    expect(activeCrmSection("/dashboard/crm/appointments/appt-9")).toBe("/dashboard/crm/appointments");
     expect(activeCrmSection("/dashboard/inbox")).toBeNull();
   });
 

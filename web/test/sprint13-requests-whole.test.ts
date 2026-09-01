@@ -42,10 +42,10 @@ function routeExists(href: string): boolean {
  * regress — so the ticket body was moved intact rather than rewritten, and these tests check the
  * pieces that carry that behaviour are still present.
  */
-describe("one URL shape for both request types", () => {
-  it("tickets and appointments produce the same href shape", () => {
+describe("first-class CRM routes for both request types", () => {
+  it("tickets and appointments produce dedicated href shapes", () => {
     expect(requestHref("ticket", "t1")).toBe("/dashboard/crm/requests/t1?type=ticket");
-    expect(requestHref("appointment", "a1")).toBe("/dashboard/crm/requests/a1?type=appointment");
+    expect(requestHref("appointment", "a1")).toBe("/dashboard/crm/appointments/a1");
     expect(appointmentHref("a1")).toBe(requestHref("appointment", "a1"));
   });
 
@@ -70,17 +70,18 @@ describe("one URL shape for both request types", () => {
       lead_id: null,
     });
     expect(ticket.href).toBe("/dashboard/crm/requests/t1?type=ticket");
-    expect(appointment.href).toBe("/dashboard/crm/requests/a1?type=appointment");
+    expect(appointment.href).toBe("/dashboard/crm/appointments/a1");
     // The legacy ticket URL is no longer produced anywhere.
     expect(ticket.href).not.toMatch(/\/dashboard\/tickets\//);
   });
 
-  it("the unified route exists and dispatches on type", () => {
+  it("both detail routes exist and old request links forward appointments", () => {
     expect(routeExists("/dashboard/crm/requests/[requestId]")).toBe(true);
+    expect(routeExists("/dashboard/crm/appointments/[appointmentId]")).toBe(true);
     const page = readCode("app/(app)/dashboard/crm/requests/[requestId]/page.tsx");
     expect(page).toMatch(/TicketDetailBody/);
-    expect(page).toMatch(/AppointmentDetailBody/);
     expect(page).toMatch(/getAppointmentDetail/);
+    expect(page).toMatch(/redirect\(`\/dashboard\/crm\/appointments\/\$\{requestId\}`\)/);
   });
 
   it("the type hint is not trusted as a security boundary", () => {
@@ -92,6 +93,7 @@ describe("one URL shape for both request types", () => {
 
   it("the interim appointment-only route is gone, replaced not duplicated", () => {
     expect(exists("app/(app)/dashboard/crm/requests/appointment")).toBe(false);
+    expect(routeExists("/dashboard/crm/appointments")).toBe(true);
   });
 });
 

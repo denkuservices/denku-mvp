@@ -159,9 +159,13 @@ describe("analytics reaches legacy parity", () => {
     expect(page).toMatch(/By outcome/);
   });
 
-  it("reuses the existing request funnel and response-time analytics", () => {
-    expect(page).toMatch(/TicketsAnalytics/);
+  it("keeps the request query while presenting it in the platform analytics UI", () => {
+    expect(page).toMatch(/RequestsAnalytics/);
     expect(page).toMatch(/getTicketsAnalytics/);
+  });
+
+  it("keeps every range on the canonical Analytics tab URL", () => {
+    expect(page).toMatch(/dashboard\?tab=analytics&range=/);
   });
 
   it("offers CSV export to owners and admins only, through the existing route", () => {
@@ -190,6 +194,11 @@ describe("Home shows a real time shape", () => {
   it("restores estimated savings and labels it an estimate", () => {
     expect(home).toMatch(/getEstimatedSavings/);
     expect(home).toMatch(/estimate/i);
+  });
+
+  it("shows invoice-aligned plan minute usage", () => {
+    expect(home).toMatch(/getMinuteUsageSummary/);
+    expect(home).toMatch(/UsageCard/);
   });
 
   it("keeps the action-first order — attention before trends", () => {

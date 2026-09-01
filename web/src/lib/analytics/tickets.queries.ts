@@ -405,7 +405,12 @@ function calculateSeries(
 ): TicketsAnalyticsSeries {
   // Determine bucket size
   const isHourly = range === "24h";
-  const bucketMs = isHourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 1 hour or 1 day
+  const isWeekly = range === "90d";
+  const bucketMs = isHourly
+    ? 60 * 60 * 1000
+    : isWeekly
+      ? 7 * 24 * 60 * 60 * 1000
+      : 24 * 60 * 60 * 1000;
 
   // Create time buckets
   const buckets = new Map<string, number>();
@@ -423,7 +428,11 @@ function calculateSeries(
     const ticketDate = new Date(ticket.created_at);
     const key = isHourly
       ? ticketDate.toISOString().slice(0, 13) + ":00:00Z"
-      : ticketDate.toISOString().slice(0, 10);
+      : isWeekly
+        ? new Date(from.getTime() + Math.floor((ticketDate.getTime() - from.getTime()) / bucketMs) * bucketMs)
+            .toISOString()
+            .slice(0, 10)
+        : ticketDate.toISOString().slice(0, 10);
     buckets.set(key, (buckets.get(key) ?? 0) + 1);
   }
 

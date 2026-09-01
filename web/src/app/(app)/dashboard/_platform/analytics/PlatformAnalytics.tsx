@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { CalendarDays, Download, Inbox, MessageSquareText, PiggyBank } from "lucide-react";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
-import { getRangedAggregates, getArtifactCounts, ANALYTICS_RANGES, type AnalyticsRange } from "@/lib/platform/readModel/aggregate";
+import { getRangedAggregates, ANALYTICS_RANGES, type AnalyticsRange } from "@/lib/platform/readModel/aggregate";
+import { getOutcomeCounts } from "@/lib/platform/readModel/outcomes";
 import { getEstimatedSavings } from "@/lib/platform/readModel/savings";
 import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
 import { isAdminOrOwner } from "@/lib/analytics/params";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
 import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
@@ -14,7 +14,8 @@ import ChannelBadge from "../ChannelBadge";
 import TrendChart from "../charts/TrendChart";
 import HourlyChart from "../charts/HourlyChart";
 import { titleCase } from "../format";
-import { Surface, SectionHeader, StatCard, Pill } from "../ui";
+import { Surface, SectionHeader, Pill } from "../ui";
+import RequestsAnalytics from "./RequestsAnalytics";
 
 /**
  * Analytics (rebuilt in Sprint 12 to legacy parity).
@@ -41,17 +42,17 @@ export default async function PlatformAnalytics({
 }) {
   const orgId = await resolveActiveOrgId();
 
-  const [agg, artifacts, savings, ticketAnalytics, canExport] = orgId
+  const [agg, outcomes, savings, ticketAnalytics, canExport] = orgId
     ? await Promise.all([
         getRangedAggregates(orgId, { range }),
-        getArtifactCounts(orgId),
+        getOutcomeCounts(orgId, range),
         getEstimatedSavings(orgId, range),
         getTicketsAnalytics(orgId, { range: rangeToLegacy(range) }).catch(() => null),
         currentUserCanExport(orgId),
       ])
     : [
         await getRangedAggregates("", { range }),
-        { tickets: 0, appointments: 0, openTickets: 0, upcomingAppointments: 0 },
+        { newContacts: null, requestsCreated: null, requestsResolved: null, appointmentsBooked: null, windowDays: range },
         null,
         null,
         false,
@@ -76,18 +77,7 @@ export default async function PlatformAnalytics({
 
   return (
     <div className={bare ? "" : "p-4 md:p-6"}>
-      {bare ? (
-        canExport ? (
-          <div className="mb-4 flex justify-end">
-            <a
-              href={`/api/admin/analytics/export?range=${rangeToLegacy(range)}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
-            >
-              <Download className="h-4 w-4" /> Export CSV
-            </a>
-          </div>
-        ) : null
-      ) : (
+      {bare ? null : (
         <PageHeader
           title="Analytics"
           subtitle="Cross-channel performance across your AI Employees."
@@ -106,47 +96,53 @@ export default async function PlatformAnalytics({
 
       {/* Range — the whole page reads from this one control, and it lives in the URL so a view
           can be shared or bookmarked. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {ANALYTICS_RANGES.map((r) => (
-          <Link
-            key={r}
-            href={`/dashboard/analytics?range=${r}`}
-            aria-current={r === range ? "page" : undefined}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              r === range
-                ? "bg-brand-500 text-white"
-                : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-navy-800 dark:text-gray-200"
-            }`}
-          >
-            Last {r} days
-          </Link>
-        ))}
-        {agg.limited ? (
-          <Pill tone="neutral">
-            Most recent {agg.total}+ — older conversations are outside this scan
-          </Pill>
-        ) : null}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-navy-800">
+        <div className="flex flex-wrap items-center gap-1" aria-label="Analytics date range">
+          {ANALYTICS_RANGES.map((r) => (
+            <Link
+              key={r}
+              href={`/dashboard?tab=analytics&range=${r}`}
+              aria-current={r === range ? "page" : undefined}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition ${
+                r === range
+                  ? "bg-navy-700 text-white shadow-sm dark:bg-white dark:text-navy-800"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-navy-700 dark:hover:bg-white/5 dark:hover:text-white"
+              }`}
+            >
+              Last {r} days
+            </Link>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          {agg.limited ? <Pill tone="neutral">Most recent {agg.total}+</Pill> : null}
+          {canExport ? (
+            <a
+              href={`/api/admin/analytics/export?range=${rangeToLegacy(range)}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </a>
+          ) : null}
+        </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Conversations"
-          value={agg.limited ? `${agg.total}+` : agg.total}
-          note={delta ?? `last ${range} days`}
-        />
-        <StatCard label="Requests created" value={artifacts.tickets} note="all time" />
-        <StatCard label="Appointments" value={artifacts.appointments} note="all time" />
-        <StatCard
-          label="Est. savings"
-          value={savings ? formatUsd(savings.usd) : "—"}
-          note={savings ? `estimate · ${Math.round(savings.minutes)} min handled` : "no call data"}
-        />
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <AnalyticsMetric icon={MessageSquareText} label="Conversations" value={agg.limited ? `${agg.total}+` : agg.total} note={delta ?? `last ${range} days`} tone="brand" />
+        <AnalyticsMetric icon={Inbox} label="Requests created" value={showOutcome(outcomes.requestsCreated)} note={`last ${range} days`} tone="sky" />
+        <AnalyticsMetric icon={CalendarDays} label="Appointments" value={showOutcome(outcomes.appointmentsBooked)} note={`booked in last ${range} days`} tone="violet" />
+        <AnalyticsMetric icon={PiggyBank} label="Est. savings" value={savings ? formatUsd(savings.usd) : "—"} note={savings ? `${Math.round(savings.minutes)} min handled` : "no call data"} tone="emerald" />
       </div>
 
       <section className="mb-6">
-        <SectionHeader title={`Conversations · last ${range} days`} />
         <Surface>
-          <TrendChart labels={agg.byDay.map((d) => d.date.slice(5))} values={agg.byDay.map((d) => d.count)} />
+          <div className="mb-1 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-navy-700 dark:text-white">Conversation volume</h2>
+              <p className="mt-1 text-xs text-gray-400">Daily activity across the last {range} days</p>
+            </div>
+            {delta ? <Pill tone={delta.startsWith("-") ? "warn" : "ok"}>{delta}</Pill> : null}
+          </div>
+          <TrendChart labels={agg.byDay.map((d) => d.date.slice(5))} values={agg.byDay.map((d) => d.count)} height={300} />
         </Surface>
       </section>
 
@@ -176,15 +172,54 @@ export default async function PlatformAnalytics({
         </Surface>
       </section>
 
-      {/* Request funnel + response times — the legacy ticket analytics, reused as-is. */}
+      {/* Request operations — purpose-built for this dashboard instead of the legacy 90-row list. */}
       {ticketAnalytics ? (
         <section>
           <SectionHeader title="Requests" />
-          <TicketsAnalytics data={ticketAnalytics} range={rangeToLegacy(range)} />
+          <RequestsAnalytics data={ticketAnalytics} range={rangeToLegacy(range)} />
         </section>
       ) : null}
     </div>
   );
+}
+
+function AnalyticsMetric({
+  icon: Icon,
+  label,
+  value,
+  note,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  note: string;
+  tone: "brand" | "sky" | "violet" | "emerald";
+}) {
+  const tones = {
+    brand: "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300",
+    sky: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300",
+    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
+  };
+  return (
+    <Surface className="min-h-36 transition hover:-translate-y-0.5 hover:shadow-xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="mt-2 text-3xl font-semibold tabular-nums text-navy-700 dark:text-white">{value}</p>
+        </div>
+        <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${tones[tone]}`}>
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-gray-400">{note}</p>
+    </Surface>
+  );
+}
+
+function showOutcome(value: number | null): string {
+  return value === null ? "—" : value.toLocaleString();
 }
 
 /** Our ranges are numbers; the legacy query layer and export route speak "7d" | "30d" | "90d". */

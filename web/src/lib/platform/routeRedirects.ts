@@ -74,7 +74,7 @@ export function platformRedirectTarget(pathname: string): string | null {
     return "/dashboard/crm/requests?type=ticket";
   }
   if (pathname === "/dashboard/appointments" || pathname === "/dashboard/appointments/") {
-    return "/dashboard/crm/requests?type=appointment";
+    return "/dashboard/crm/appointments";
   }
 
   // --- 2. First-generation platform routes renamed in Phase 2 ---------------

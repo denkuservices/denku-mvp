@@ -3,6 +3,7 @@ import { ArrowRight, AlertTriangle, CheckCircle2, Ticket, Calendar, Radio, UserC
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getConversationAggregates, getArtifactCounts } from "@/lib/platform/readModel/aggregate";
 import { getEstimatedSavings } from "@/lib/platform/readModel/savings";
+import { getMinuteUsageSummary } from "@/lib/platform/readModel/usage";
 import { getOutcomeCounts } from "@/lib/platform/readModel/outcomes";
 import { listEmployeeViews } from "@/lib/platform/readModel/employees";
 import { getTeamActivity, employeeAttention } from "@/lib/platform/readModel/employeeActivity";
@@ -18,6 +19,7 @@ import Avatar from "../Avatar";
 import ChannelBadge from "../ChannelBadge";
 import { formatWhen, titleCase } from "../format";
 import { Surface, SectionHeader, StatCard, EmptyState, Pill, ListContainer, ListRow } from "../ui";
+import UsageCard from "./UsageCard";
 
 const WINDOW_DAYS = 7;
 
@@ -37,7 +39,7 @@ const WINDOW_DAYS = 7;
 export default async function PlatformDashboard({ bare = false }: { bare?: boolean } = {}) {
   const orgId = await resolveActiveOrgId();
 
-  const [agg, artifacts, outcomes, employees, recent, connectedChannels, needsHuman, savings] = orgId
+  const [agg, artifacts, outcomes, employees, recent, connectedChannels, needsHuman, savings, usage] = orgId
     ? await Promise.all([
         getConversationAggregates(orgId, { windowDays: WINDOW_DAYS, limit: 500 }),
         getArtifactCounts(orgId),
@@ -47,6 +49,7 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
         listConnectedChannelViews(orgId),
         countNeedsHuman(orgId),
         getEstimatedSavings(orgId, WINDOW_DAYS),
+        getMinuteUsageSummary(orgId),
       ])
     : [
         { total: 0, byChannel: {}, byEmployee: [], byDay: [], byIntent: {}, limited: false, windowDays: WINDOW_DAYS },
@@ -61,6 +64,7 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
         [],
         [],
         [],
+        null,
         null,
         null,
       ];
@@ -208,45 +212,52 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
             </Link>
           }
         />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            label="Conversations handled"
-            value={agg.total}
-            note={agg.limited ? `recent ${agg.total}` : `last ${WINDOW_DAYS} days`}
-            href="/dashboard/inbox"
-          />
-          <StatCard
-            label="New customers"
-            value={show(outcomes.newContacts)}
-            note="first heard from you"
-            href="/dashboard/crm/contacts"
-          />
-          <StatCard
-            label="Appointments booked"
-            value={show(outcomes.appointmentsBooked)}
-            note={`${artifacts.upcomingAppointments} still upcoming`}
-            href="/dashboard/crm/requests?type=appointment"
-          />
-          <StatCard
-            label="Requests resolved"
-            value={show(outcomes.requestsResolved)}
-            note={`${show(outcomes.requestsCreated)} created`}
-            href="/dashboard/crm/requests?type=ticket"
-          />
-        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.55fr)]">
+          <div className="flex min-w-0 flex-col">
+            <div className="grid flex-1 grid-cols-2 gap-3">
+              <StatCard
+                label="Conversations handled"
+                value={agg.total}
+                note={agg.limited ? `recent ${agg.total}` : `last ${WINDOW_DAYS} days`}
+                href="/dashboard/inbox"
+              />
+              <StatCard
+                label="New customers"
+                value={show(outcomes.newContacts)}
+                note="first heard from you"
+                href="/dashboard/crm/contacts"
+              />
+              <StatCard
+                label="Appointments booked"
+                value={show(outcomes.appointmentsBooked)}
+                note={`${artifacts.upcomingAppointments} still upcoming`}
+                href="/dashboard/crm/appointments"
+              />
+              <StatCard
+                label="Requests resolved"
+                value={show(outcomes.requestsResolved)}
+                note={`${show(outcomes.requestsCreated)} created`}
+                href="/dashboard/crm/requests?type=ticket"
+              />
+            </div>
 
-        {/* The outcome translated into money. An estimate, and labelled as one — $25/hour is a
-            stand-in for a human answering the phone, not a measured rate for this business. */}
-        {savings && savings.minutes > 0 ? (
-          <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-            Roughly{" "}
-            <span className="font-semibold tabular-nums text-navy-700 dark:text-white">
-              ${Math.round(savings.usd).toLocaleString()}
-            </span>{" "}
-            of answering time your team didn&apos;t have to cover — an estimate based on{" "}
-            {Math.round(savings.minutes)} minutes handled, valued at $25/hour.
-          </p>
-        ) : null}
+            {/* The outcome translated into money. An estimate, and labelled as one. */}
+            {savings && savings.minutes > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 dark:border-emerald-500/15 dark:bg-emerald-500/5">
+                <p className="text-sm text-emerald-900 dark:text-emerald-200">
+                  Estimated team time saved
+                  <span className="ml-2 text-xs text-emerald-700/70 dark:text-emerald-300/60">
+                    {Math.round(savings.minutes)} minutes handled
+                  </span>
+                </p>
+                <span className="shrink-0 text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                  ${Math.round(savings.usd).toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <UsageCard usage={usage} />
+        </div>
       </section>
 
       {/* 3. WHO DID IT — the AI team, with real outcomes per employee. */}

@@ -27,7 +27,7 @@ const TABS: Array<{ id: HomeTab; label: string; href: string }> = [
  */
 export default function HomeTabs({ active }: { active: HomeTab }) {
   return (
-    <div className="mb-6 flex gap-1 border-b border-gray-200 dark:border-white/10">
+    <div className="mb-6 inline-flex gap-1 rounded-2xl border border-gray-100 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-navy-800">
       {TABS.map((t) => {
         const isActive = t.id === active;
         return (
@@ -35,10 +35,10 @@ export default function HomeTabs({ active }: { active: HomeTab }) {
             key={t.id}
             href={t.href}
             aria-current={isActive ? "page" : undefined}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-xl px-5 py-2 text-sm font-medium transition ${
               isActive
-                ? "border-brand-500 text-brand-600 dark:text-brand-300"
-                : "border-transparent text-gray-500 hover:text-navy-700 dark:hover:text-white"
+                ? "bg-navy-700 text-white shadow-sm dark:bg-white dark:text-navy-800"
+                : "text-gray-500 hover:bg-gray-50 hover:text-navy-700 dark:hover:bg-white/5 dark:hover:text-white"
             }`}
           >
             {t.label}

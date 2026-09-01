@@ -44,6 +44,7 @@ export default function TrendChart({
     grid: { borderColor: "rgba(148,163,184,0.2)", strokeDashArray: 4, xaxis: { lines: { show: false } } },
     xaxis: {
       categories: labels,
+      tickAmount: labels.length > 10 ? 8 : undefined,
       axisBorder: { show: false },
       axisTicks: { show: false },
       labels: { style: { colors: "#94a3b8", fontSize: "11px" }, rotate: 0, hideOverlappingLabels: true },

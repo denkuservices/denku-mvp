@@ -38,7 +38,17 @@ export default async function DashboardPage({
     const tab = resolveHomeTab(sp?.tab);
     return (
       <div className="p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-semibold tracking-tight text-navy-700 dark:text-white">Home</h1>
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-500">Workspace overview</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-navy-700 dark:text-white">
+            {tab === 'analytics' ? 'Performance analytics' : 'Good to see you'}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {tab === 'analytics'
+              ? 'See demand, service quality and outcomes across every AI employee.'
+              : 'Here is what your AI team handled and what needs your attention.'}
+          </p>
+        </div>
         {/* Above both home variants, so what a customer is told does not depend on a flag. */}
         <SetupNudges />
         <HomeTabs active={tab} />

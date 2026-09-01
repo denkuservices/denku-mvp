@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listInboxPage } from "@/lib/platform/readModel/inbox";
+import { appointmentHref } from "@/lib/platform/readModel/requests";
 import {
   EMPTY_ATTENTION_FEED,
   type AttentionFeed,
@@ -220,7 +221,7 @@ async function requestItems(orgId: string, db: SupabaseClient): Promise<Attentio
               })
             : "No time recorded yet",
         at: a.created_at,
-        href: `/dashboard/crm/requests/${a.id}?type=appointment`,
+        href: appointmentHref(a.id),
       });
     }
 

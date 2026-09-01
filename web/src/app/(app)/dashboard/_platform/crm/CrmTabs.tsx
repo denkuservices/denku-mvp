@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CalendarCheck2, ContactRound, ClipboardList } from "lucide-react";
 import { CRM_SECTIONS } from "./nav";
 
 /**
@@ -16,23 +17,29 @@ import { CRM_SECTIONS } from "./nav";
 export default function CrmTabs() {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const icons = [ContactRound, ClipboardList, CalendarCheck2];
 
   return (
-    <nav aria-label="Customers" className="border-b border-gray-200 dark:border-white/10">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
-        {CRM_SECTIONS.map((item) => {
+    <nav
+      aria-label="Customers"
+      className="rounded-2xl border border-gray-200/80 bg-white/90 p-1.5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-navy-800/90"
+    >
+      <ul className="flex gap-1 overflow-x-auto">
+        {CRM_SECTIONS.map((item, index) => {
           const active = isActive(item.href);
+          const Icon = icons[index];
           return (
-            <li key={item.href}>
+            <li key={item.href} className="min-w-0 flex-1 sm:flex-none">
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition ${
+                className={`group inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm transition sm:w-auto ${
                   active
-                    ? "border-brand-500 font-semibold text-brand-600 dark:text-brand-300"
-                    : "border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                    ? "bg-navy-700 font-semibold text-white shadow-sm dark:bg-white dark:text-navy-900"
+                    : "font-medium text-gray-500 hover:bg-gray-50 hover:text-navy-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
+                <Icon className={`h-4 w-4 ${active ? "text-teal-300 dark:text-brand-600" : "text-gray-400 group-hover:text-brand-500"}`} />
                 {item.label}
               </Link>
             </li>
