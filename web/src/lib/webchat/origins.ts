@@ -83,6 +83,27 @@ export function normalizeAllowedOrigin(value: string): string | null {
   return `${normalized.slice(0, sep)}*.${normalized.slice(sep)}`;
 }
 
+/**
+ * An origin and its www/apex twin.
+ *
+ * `denku.io` and `www.denku.io` are one site, and whichever one a deployment names in its config
+ * is not necessarily the one a browser arrives from — a domain that redirects between them makes
+ * that decision at request time. Comparing a single stored string against the browser's origin
+ * therefore fails on exactly the deployments that redirect, which is most of them.
+ *
+ * Used for OUR own origin, not for the customer's allowlist: that one has its own, deliberately
+ * more conservative pairing in `connections.ts`, because widening a customer's list is a different
+ * decision from recognising ourselves.
+ */
+export function originWithSibling(origin: string): string[] {
+  const sep = origin.indexOf("//") + 2;
+  if (sep < 2) return [origin];
+  const scheme = origin.slice(0, sep);
+  const host = origin.slice(sep);
+  const twin = host.startsWith("www.") ? host.slice(4) : `www.${host}`;
+  return [origin, `${scheme}${twin}`];
+}
+
 /** Does this request origin match one configured entry? */
 export function originMatches(origin: string, allowed: string): boolean {
   const entry = (allowed ?? "").trim().toLowerCase();

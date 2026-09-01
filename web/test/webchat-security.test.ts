@@ -7,6 +7,7 @@ import {
   normalizeAllowedOrigin,
   normalizeOrigin,
   originMatches,
+  originWithSibling,
 } from "@/lib/webchat/origins";
 
 /**
@@ -82,6 +83,18 @@ describe("web chat origin allowlist", () => {
     expect(isOriginAllowed("https://shop.com", ["  ", ""])).toBe(false);
     expect(isOriginAllowed(null, ["https://shop.com"])).toBe(false);
     expect(isOriginAllowed("https://shop.com", ["https://other.com", "https://shop.com"])).toBe(true);
+  });
+
+  it("knows itself on both of its own hosts", () => {
+    // The in-product preview refused itself the first time it was opened: NEXT_PUBLIC_SITE_URL
+    // names the apex, the dashboard is served from www, and a single-string comparison could not
+    // recognise our own page. Same trap as the loader's, one layer up.
+    expect(originWithSibling("https://denku.io")).toEqual(["https://denku.io", "https://www.denku.io"]);
+    expect(originWithSibling("https://www.denku.io")).toEqual(["https://www.denku.io", "https://denku.io"]);
+    expect(originWithSibling("http://localhost:3000")).toEqual([
+      "http://localhost:3000",
+      "http://www.localhost:3000",
+    ]);
   });
 
   it("never honours a bare wildcard", () => {

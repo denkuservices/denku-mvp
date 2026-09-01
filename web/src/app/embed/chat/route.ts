@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConnectionBySiteKey } from "@/lib/webchat/connections";
 import { isOriginAllowed, normalizeOrigin } from "@/lib/webchat/origins";
 import { issueFrameToken, isTokenSigningConfigured } from "@/lib/webchat/token";
-import { selfOrigin } from "@/lib/webchat/http";
+import { isSelfOrigin, selfOrigins } from "@/lib/webchat/http";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +76,10 @@ export async function GET(req: NextRequest) {
   }
 
   const parentOrigin = normalizeOrigin(req.headers.get("referer"));
-  const self = selfOrigin();
   const allowed =
     (!!parentOrigin && isOriginAllowed(parentOrigin, connection.allowedOrigins)) ||
-    // Our own dashboard previewing the widget it just configured.
-    (!!parentOrigin && !!self && parentOrigin === self);
+    // Our own dashboard previewing the widget it just configured — on either of our hosts.
+    isSelfOrigin(parentOrigin);
 
   if (!allowed) {
     console.warn("[WEBCHAT][EMBED][REFUSED]", {
@@ -122,7 +121,7 @@ export async function GET(req: NextRequest) {
     "connect-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",
-    `frame-ancestors ${connection.allowedOrigins.join(" ")}${self ? ` ${self}` : ""}`,
+    `frame-ancestors ${[...connection.allowedOrigins, ...selfOrigins()].join(" ")}`,
   ].join("; ");
 
   return html(
