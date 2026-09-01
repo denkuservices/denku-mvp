@@ -7,6 +7,7 @@ import { isTokenSigningConfigured } from "@/lib/webchat/token";
 import { llmConfigured } from "@/lib/llm/provider";
 import { getBaseUrl } from "@/lib/utils/url";
 import PageHeader from "../../_platform/PageHeader";
+import EmployeeAssignmentNotice from "../../_platform/channels/EmployeeAssignmentNotice";
 import { WebChatCard, type EmployeeOption } from "./_components/WebChatCard";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,13 @@ export default async function WebChatPage() {
           Only owners and admins can set up the chat widget.
         </div>
       ) : null}
+
+      <EmployeeAssignmentNotice
+        employeeCount={employees.length}
+        assignedAgentId={connection?.assignedAgentId ?? null}
+        channelLabel="Web Chat"
+        connected={Boolean(connection)}
+      />
 
       <WebChatCard
         connection={

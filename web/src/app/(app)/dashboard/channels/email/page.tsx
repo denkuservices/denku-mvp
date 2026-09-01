@@ -6,6 +6,7 @@ import { listConnections } from "@/lib/email/channel/connections";
 import { inboundDomain } from "@/lib/email/channel/address";
 import { getDomainRecords, type DnsRecord } from "@/lib/email/channel/domains";
 import { llmConfigured } from "@/lib/llm/provider";
+import EmployeeAssignmentNotice from "../../_platform/channels/EmployeeAssignmentNotice";
 import PageHeader from "../../_platform/PageHeader";
 import { EmailConnectionCard, type EmployeeOption } from "./_components/EmailConnectionCard";
 
@@ -103,6 +104,13 @@ export default async function EmailPage() {
           Only owners and admins can connect an email address.
         </div>
       ) : null}
+
+      <EmployeeAssignmentNotice
+        employeeCount={employees.length}
+        assignedAgentId={connection?.assignedAgentId ?? null}
+        channelLabel="Email"
+        connected={Boolean(connection)}
+      />
 
       <EmailConnectionCard
         connection={

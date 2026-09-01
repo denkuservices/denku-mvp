@@ -213,6 +213,16 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     MCP, so prod records it under that version and the repo filename was renamed to match. Treat
     that as a one-off authorization, not a precedent — still default to writing migration files and
     asking, and always align the repo filename to the version prod actually recorded.
+    **Superseded 2026-09-01:** the owner granted standing permission to apply migrations directly
+    ("bundan sonra kendin de migration yapabilirsin"), given the product is pre-revenue and in
+    active development. Writes are now allowed without asking each time — but the care that made
+    them safe is not optional: additive DDL only, idempotent (`if not exists`), a ROLLBACK comment,
+    a migration FILE committed to the repo as the source of truth, and the repo filename aligned to
+    the version prod records. Anything destructive (DROP, a column type change, a data backfill that
+    cannot be re-run) still gets asked about first. Revisit this grant the day there are paying
+    customers on the box. **Note:** a migration applied through the Supabase SQL Editor does NOT
+    write `supabase_migrations.schema_migrations` — insert the version row by hand, or repo and prod
+    drift apart silently (happened on 2026-09-01 with the Web Chat migration).
 11. **Instagram webhook (`/api/webhooks/instagram`, Sprint 1.5) is RECEIVE-ONLY** and its signature
     check needs the **raw body** — always `await req.text()` and verify `X-Hub-Signature-256`
     *before* `JSON.parse`. Unlike the Vapi webhook, Meta always signs, so it enforces from day one.
