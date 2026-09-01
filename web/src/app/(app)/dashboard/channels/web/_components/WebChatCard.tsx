@@ -3,6 +3,9 @@
 import React, { useState, useTransition } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, Globe, RefreshCw } from "lucide-react";
 import { Surface, Pill } from "../../../_platform/ui";
+import { DEFAULT_THEME, THEME_KEYS, type WebChatTheme } from "@/lib/webchat/theme";
+import ColorField from "./ColorField";
+import WebChatPreview from "./WebChatPreview";
 import {
   assignWebChatEmployeeAction,
   createWebChatAction,
@@ -20,6 +23,7 @@ export interface WebChatSummary {
   displayName: string | null;
   accentColor: string | null;
   greeting: string | null;
+  theme: WebChatTheme;
   status: "connected" | "disconnected" | "error";
   lastError: string | null;
   lastInboundAt: string | null;
@@ -60,7 +64,15 @@ export function WebChatCard({
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  /**
+   * The colours as the owner is choosing them — not what is saved.
+   *
+   * Held here rather than read from the form on submit because the preview repaints from it on
+   * every change. Save is still what persists; this is the "what would it look like" copy.
+   */
+  const [theme, setTheme] = useState<WebChatTheme>(connection?.theme ?? {});
+  const setColor = (key: (typeof THEME_KEYS)[number], next: string) =>
+    setTheme((prev) => ({ ...prev, [key]: next || undefined }));
 
   React.useEffect(() => {
     if (!saved) return;
@@ -188,7 +200,17 @@ export function WebChatCard({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    /**
+     * Two columns, and the preview is one of them.
+     *
+     * It used to sit behind an "Open preview" button, below everything else. That was wrong for
+     * the job this screen actually does: the owner is choosing colours, and a preview you have to
+     * open — and then scroll back to — cannot show you what the choice looks like while you are
+     * making it. It is sticky so it stays beside whichever setting is being edited, and it
+     * collapses under the form on a narrow screen rather than being hidden.
+     */
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+      <div className="flex min-w-0 flex-col gap-4">
       <Surface>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -283,54 +305,6 @@ export function WebChatCard({
         </div>
       </Surface>
 
-      {/**
-       * Preview — the real widget, not a mock.
-       *
-       * The embed endpoint accepts a Denku-origin parent alongside the customer's own allowlist
-       * precisely so this can exist: the same document, the same session, the same AI. A mocked
-       * preview would be the more comfortable thing to build and would tell the customer nothing
-       * about whether their widget actually works.
-       *
-       * Deliberately behind a click. Rendering it on page load would open a visitor session every
-       * time anyone looked at this screen, and anything typed into it is a REAL conversation that
-       * appears in the Inbox — which the copy says, because a test message the owner does not
-       * recognise later is worse than no preview at all.
-       */}
-      <Surface>
-        <h2 className="text-sm font-semibold text-navy-700 dark:text-white">Preview</h2>
-        <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400">
-          See exactly what a visitor sees, without leaving Denku. This is the live widget — anything
-          you type here is a real conversation and will appear in your Inbox.
-        </p>
-
-        {showPreview ? (
-          <div className="mt-3">
-            <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-sm dark:border-white/10">
-              <iframe
-                title="Web chat preview"
-                src={`${scriptOrigin}/embed/chat?k=${encodeURIComponent(connection.siteKey)}`}
-                className="block h-[520px] w-full max-w-[380px] bg-white"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPreview(false)}
-              className="mt-3 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
-            >
-              Close preview
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            className="mt-3 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
-          >
-            Open preview
-          </button>
-        )}
-      </Surface>
-
       <Surface>
         <h2 className="text-sm font-semibold text-navy-700 dark:text-white">Settings</h2>
 
@@ -383,33 +357,64 @@ export function WebChatCard({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="accent_color" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                Accent colour
-              </label>
-              <input
-                id="accent_color"
-                name="accent_color"
-                defaultValue={connection.accentColor ?? ""}
-                placeholder="#1B6E6E"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          <div>
+            <label htmlFor="greeting" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+              First thing the chat says
+            </label>
+            <input
+              id="greeting"
+              name="greeting"
+              defaultValue={connection.greeting ?? ""}
+              placeholder="Hi! How can we help?"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+            />
+            {/* Said by the widget, not stored as a message — so it never shows up in the Inbox
+                as something the business typed. */}
+            <p className="mt-1.5 text-xs text-gray-500">Shown before anyone types. Not saved as a message.</p>
+          </div>
+
+          <div className="border-t border-gray-100 pt-3 dark:border-white/10">
+            <p className="text-xs font-semibold text-navy-700 dark:text-white">Colours</p>
+            <p className="mt-1 text-xs text-gray-500">
+              The preview repaints as you choose. Pick one brand colour and the rest follow — change
+              the others only if you need to.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <ColorField
+                id="theme_accent"
+                name="theme_accent"
+                label="Brand colour"
+                hint="Chat bubble, your visitor's messages, Send."
+                value={theme.accent ?? ""}
+                fallback={DEFAULT_THEME.accent}
+                onChange={(v) => setColor("accent", v)}
               />
-            </div>
-            <div>
-              <label htmlFor="greeting" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                First thing the chat says
-              </label>
-              <input
-                id="greeting"
-                name="greeting"
-                defaultValue={connection.greeting ?? ""}
-                placeholder="Hi! How can we help?"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              <ColorField
+                id="theme_surface"
+                name="theme_surface"
+                label="Conversation background"
+                value={theme.surface ?? ""}
+                fallback={DEFAULT_THEME.surface}
+                onChange={(v) => setColor("surface", v)}
               />
-              {/* Said by the widget, not stored as a message — so it never shows up in the Inbox
-                  as something the business typed. */}
-              <p className="mt-1.5 text-xs text-gray-500">Shown before anyone types. Not saved as a message.</p>
+              <ColorField
+                id="theme_headerBg"
+                name="theme_headerBg"
+                label="Header background"
+                hint="Defaults to your brand colour."
+                value={theme.headerBg ?? ""}
+                fallback={theme.accent || DEFAULT_THEME.headerBg}
+                onChange={(v) => setColor("headerBg", v)}
+              />
+              <ColorField
+                id="theme_headerText"
+                name="theme_headerText"
+                label="Header text"
+                hint="Go dark if your brand colour is light."
+                value={theme.headerText ?? ""}
+                fallback={DEFAULT_THEME.headerText}
+                onChange={(v) => setColor("headerText", v)}
+              />
             </div>
           </div>
 
@@ -488,6 +493,13 @@ export function WebChatCard({
 
       {connection.status === "error" && connection.lastError ? <ErrorNote text={connection.lastError} /> : null}
       {error ? <ErrorNote text={error} /> : null}
+      </div>
+
+      <div className="xl:sticky xl:top-4">
+        <Surface>
+          <WebChatPreview origin={scriptOrigin} siteKey={connection.siteKey} theme={theme} />
+        </Surface>
+      </div>
     </div>
   );
 }

@@ -17,6 +17,12 @@
   --denku-muted: #5b6472;
   --denku-line: #e6e6e1;
   --denku-ground: #f7f5f1;
+  /* The header is its own pair rather than "the accent, always": a business whose brand colour is
+     very light needs dark text on it, and deriving that automatically guesses wrong often enough
+     to be worth one more control. `resolveTheme` still defaults it to the accent, so a business
+     that only picks one colour never sees these. */
+  --denku-header-bg: var(--denku-accent);
+  --denku-header-text: #ffffff;
 }
 
 * {
@@ -43,8 +49,8 @@ body {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: var(--denku-accent);
-  color: #fff;
+  background: var(--denku-header-bg);
+  color: var(--denku-header-text);
   flex: 0 0 auto;
 }
 

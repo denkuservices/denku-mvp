@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeAllowedOrigin } from "@/lib/webchat/origins";
+import { sanitizeTheme, type WebChatTheme } from "@/lib/webchat/theme";
 
 /**
  * Web Chat install lifecycle: create an embed, say where it may run, point it at an Employee.
@@ -31,6 +32,8 @@ export interface WebChatConnection {
   displayName: string | null;
   accentColor: string | null;
   greeting: string | null;
+  /** Widget colours. Always sanitized — see lib/webchat/theme.ts. */
+  theme: WebChatTheme;
   status: "connected" | "disconnected" | "error";
   lastError: string | null;
   lastInboundAt: string | null;
@@ -47,6 +50,7 @@ type Row = {
   display_name: string | null;
   accent_color: string | null;
   greeting: string | null;
+  theme: unknown;
   status: WebChatConnection["status"];
   last_error: string | null;
   last_inbound_at: string | null;
@@ -54,7 +58,7 @@ type Row = {
 };
 
 const COLUMNS =
-  "id, org_id, site_key, site_name, allowed_origins, assigned_agent_id, display_name, accent_color, greeting, status, last_error, last_inbound_at, created_at";
+  "id, org_id, site_key, site_name, allowed_origins, assigned_agent_id, display_name, accent_color, greeting, theme, status, last_error, last_inbound_at, created_at";
 
 function toConnection(row: Row): WebChatConnection {
   return {
@@ -67,6 +71,7 @@ function toConnection(row: Row): WebChatConnection {
     displayName: row.display_name,
     accentColor: row.accent_color,
     greeting: row.greeting,
+    theme: sanitizeTheme(row.theme),
     status: row.status,
     lastError: row.last_error,
     lastInboundAt: row.last_inbound_at,
@@ -251,6 +256,7 @@ export interface UpdateInput {
   displayName?: string | null;
   accentColor?: string | null;
   greeting?: string | null;
+  theme?: unknown;
   status?: WebChatConnection["status"];
 }
 
@@ -269,6 +275,9 @@ export async function updateConnection(
   if (patch.displayName !== undefined) row.display_name = patch.displayName?.trim() || null;
   if (patch.accentColor !== undefined) row.accent_color = patch.accentColor?.trim() || null;
   if (patch.greeting !== undefined) row.greeting = patch.greeting?.trim() || null;
+  // Sanitized on the way in, so a bad colour can never reach a visitor's browser even if it
+  // reached the database some other way.
+  if (patch.theme !== undefined) row.theme = sanitizeTheme(patch.theme);
   if (patch.status !== undefined) {
     row.status = patch.status;
     // Re-enabling clears the stale error that put the card in "needs attention"; leaving it

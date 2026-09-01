@@ -76,12 +76,26 @@ export async function updateWebChatAction(
   const auth = await requireOrgAdmin();
   if (!auth.ok) return { ok: false, error: auth.error };
 
+  /**
+   * Colours arrive as four separate fields and are stored as one object.
+   *
+   * An empty field means "no choice", not "black" — so it is dropped rather than stored, and the
+   * widget's own default shows through. `updateConnection` sanitizes on the way in, so anything
+   * that is not a hex colour never reaches the column.
+   */
+  const theme = {
+    accent: String(formData.get("theme_accent") ?? "").trim() || undefined,
+    surface: String(formData.get("theme_surface") ?? "").trim() || undefined,
+    headerBg: String(formData.get("theme_headerBg") ?? "").trim() || undefined,
+    headerText: String(formData.get("theme_headerText") ?? "").trim() || undefined,
+  };
+
   const result = await updateConnection(auth.orgId, connectionId, {
     siteName: String(formData.get("site_name") ?? ""),
     allowedOrigins: String(formData.get("allowed_origins") ?? ""),
     displayName: String(formData.get("display_name") ?? ""),
-    accentColor: String(formData.get("accent_color") ?? ""),
     greeting: String(formData.get("greeting") ?? ""),
+    theme,
   });
 
   if (!result.ok) return { ok: false, error: result.error };
