@@ -17,6 +17,7 @@ import {
   Hash,
   Layers,
   Loader2,
+  Lock,
   MessagesSquare,
   Minus,
   Phone,
@@ -57,6 +58,13 @@ import {
 type BillingSummary = {
   ok: boolean;
   org_id: string;
+  /**
+   * Whether the person reading this may CHANGE the bill, as opposed to see it. Sent by
+   * /api/billing/summary rather than inferred here — the browser has no trustworthy way to know a
+   * role, and the mutating routes enforce the same capability regardless of what this page renders.
+   */
+  can_manage_billing?: boolean;
+  viewer_role?: "owner" | "admin" | "viewer" | null;
   month: string;
   preview: {
     plan_code: string | null;
@@ -230,6 +238,26 @@ function PlanFeature({ children }: { children: React.ReactNode }) {
  * Every fetch, handler and state transition below is unchanged: this is money, and the failure
  * mode of a redesign that quietly alters a Stripe call is not a visual one.
  */
+/**
+ * A Stripe invoice id, shown the way a reference number is shown rather than the way a database
+ * key is.
+ *
+ * `in_1PxyzABCdefGHIjkLMNopqrs` in full, in monospace, under the month is the internal id of a
+ * record in someone else's system: nobody reading their own billing history has ever needed all
+ * 27 characters, and printing them makes the row look like debug output. The last six are enough
+ * to quote to support, which is the only reason a customer touches this string at all — and the
+ * full value stays available on hover and to a screen reader.
+ */
+function InvoiceReference({ id }: { id: string }) {
+  const tail = id.length > 8 ? id.slice(-6) : id;
+  return (
+    <span className="font-mono text-xs text-gray-500" title={id}>
+      <span className="sr-only">Invoice reference {id}</span>
+      <span aria-hidden="true">Ref ·{tail}</span>
+    </span>
+  );
+}
+
 export default function WorkspaceBillingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -238,6 +266,9 @@ export default function WorkspaceBillingPage() {
   const isOnboardingFlow = intent === "choose_plan" && returnTo === "/onboarding";
 
   const [summary, setSummary] = React.useState<BillingSummary | null>(null);
+  // Defaults to false while the summary is loading, so no control flashes into existence for
+  // someone who is not allowed to use it.
+  const canManageBilling = summary?.can_manage_billing ?? false;
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [portalLoading, setPortalLoading] = React.useState(false);
@@ -582,8 +613,14 @@ export default function WorkspaceBillingPage() {
           type="button"
           variant="primary"
           onClick={handlePortalRedirect}
-          disabled={portalLoading || !hasPlan}
-          title={!hasPlan ? "Available after you choose a plan" : undefined}
+          disabled={portalLoading || !hasPlan || !canManageBilling}
+          title={
+            !canManageBilling
+              ? "Only owners and admins can manage billing"
+              : !hasPlan
+                ? "Available after you choose a plan"
+                : undefined
+          }
         >
           {portalLoading ? <Loader2 className="animate-spin" /> : <Wallet />}
           {portalLoading ? "Opening…" : "Payment & invoices"}
@@ -687,6 +724,18 @@ export default function WorkspaceBillingPage() {
     <div className="space-y-8">
       {hero}
 
+      {/*
+        Say why, once, at the top. A page of greyed-out buttons with no explanation reads as a
+        broken page; the same page with one sentence reads as a rule. Everything below stays
+        visible on purpose — knowing what the workspace costs is not a privilege.
+      */}
+      {summary && !canManageBilling ? (
+        <Notice tone="info" icon={Lock} title="You can see the bill, not change it">
+          Plan changes, add-ons and payment details are limited to owners and admins. Everything on
+          this page is up to date — ask an owner if something needs changing.
+        </Notice>
+      ) : null}
+
       {/* ---------------------------------------------------------- banners */}
       {checkoutSyncing && checkoutSyncMessage ? (
         <Notice tone="info" icon={Loader2}>
@@ -738,7 +787,7 @@ export default function WorkspaceBillingPage() {
               type="button"
               variant="primary"
               onClick={handlePortalRedirect}
-              disabled={portalLoading || !hasPlan}
+              disabled={portalLoading || !hasPlan || !canManageBilling}
               title={!hasPlan ? "Available after you choose a plan" : undefined}
             >
               {portalLoading ? <Loader2 className="animate-spin" /> : <CreditCard />}
@@ -915,7 +964,8 @@ export default function WorkspaceBillingPage() {
                   <SettingsButton
                     type="button"
                     variant={isCurrent ? "secondary" : buttonVariant}
-                    disabled={isCurrent || confirmLoading}
+                    disabled={isCurrent || confirmLoading || !canManageBilling}
+                    title={!canManageBilling ? "Only owners and admins can change the plan" : undefined}
                     onClick={() => handlePlanChange(plan.plan_code)}
                     className="mt-5 w-full"
                   >
@@ -973,7 +1023,7 @@ export default function WorkspaceBillingPage() {
                                     );
                                   }
                                 }}
-                                disabled={currentQty === 0 || isUpdating}
+                                disabled={currentQty === 0 || isUpdating || !canManageBilling}
                                 className="h-9 w-9 !px-0"
                               >
                                 <Minus />
@@ -990,7 +1040,7 @@ export default function WorkspaceBillingPage() {
                                     handleAddonUpdate(addon.key, currentQty + addon.step);
                                   }
                                 }}
-                                disabled={isBillingPaused || isUpdating || !hasPlan}
+                                disabled={isBillingPaused || isUpdating || !hasPlan || !canManageBilling}
                                 className="h-9 w-9 !px-0"
                               >
                                 <Plus />
@@ -1088,9 +1138,7 @@ export default function WorkspaceBillingPage() {
                     <StatusPill tone={invoiceTone(invoiceRun.status)} icon={ReceiptText}>
                       {formatInvoiceStatus(invoiceRun.status)}
                     </StatusPill>
-                    <span className="truncate font-mono text-xs text-gray-500">
-                      {invoiceRun.stripe_invoice_id}
-                    </span>
+                    <InvoiceReference id={invoiceRun.stripe_invoice_id} />
                   </div>
                 ) : null}
               </Panel>
@@ -1164,6 +1212,7 @@ export default function WorkspaceBillingPage() {
                     disabled={
                       isUpdating ||
                       !hasPlan ||
+                      !canManageBilling ||
                       (!isActive && (Boolean(blockedBy) || isBillingPaused))
                     }
                     onClick={() => handleAddonUpdate(tier.key, isActive ? 0 : 1)}
@@ -1280,7 +1329,7 @@ export default function WorkspaceBillingPage() {
               type="button"
               variant="secondary"
               onClick={handlePortalRedirect}
-              disabled={portalLoading || !hasPlan}
+              disabled={portalLoading || !hasPlan || !canManageBilling}
             >
               <ReceiptText />
               Receipts
@@ -1305,8 +1354,8 @@ export default function WorkspaceBillingPage() {
                       {formatMonth(invoice.month)}
                     </p>
                     {invoice.stripe_invoice_id ? (
-                      <p className="truncate font-mono text-xs text-gray-500">
-                        {invoice.stripe_invoice_id}
+                      <p className="truncate">
+                        <InvoiceReference id={invoice.stripe_invoice_id} />
                       </p>
                     ) : null}
                   </div>

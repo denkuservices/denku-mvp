@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/auth/permissions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 
@@ -104,40 +104,13 @@ function getAppUrl(req: NextRequest): string {
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1) Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1) Authenticate AND authorize. The portal is where a card is replaced and an invoice is
+    // paid — an authenticated `viewer` had no business reaching it.
+    const gate = await guard("manage_billing");
+    if (!gate.ok) return gate.response;
+    const org_id = gate.viewer.orgId;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // 2) Get profile and org_id
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, org_id, email, full_name")
-      .eq("auth_user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-    const org_id = profile?.org_id ?? null;
-
-    if (!org_id) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 400 }
-      );
-    }
-
-    // 3) Initialize Stripe client
+    // 2) Initialize Stripe client
     let stripe: Stripe;
     try {
       stripe = getStripeClient();

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listSessions } from "../../_actions/security";
 import { AccountSecurityClient } from "../security/_components/AccountSecurityClient";
 
 /**
@@ -38,11 +39,35 @@ export default async function SecuritySection() {
     }
   }
 
+  // Sessions live in `auth.sessions`, which the browser cannot reach — resolved here and passed
+  // down. Returns an empty list rather than throwing if the migration has not been applied yet.
+  const sessions = await listSessions();
+
+  /**
+   * Enrolled second factors, read on the server so the card is correct on first paint.
+   *
+   * Best-effort: an auth backend that cannot answer must not take the whole Security section down
+   * with it, and the card degrades to "off" — which is what its own controls would then correct.
+   */
+  let mfaFactors: Array<{ id: string; friendlyName: string | null; status: string }> = [];
+  try {
+    const { data } = await supabase.auth.mfa.listFactors();
+    mfaFactors = (data?.all ?? []).map((f) => ({
+      id: f.id,
+      friendlyName: f.friendly_name ?? null,
+      status: f.status,
+    }));
+  } catch {
+    /* leave empty */
+  }
+
   return (
     <AccountSecurityClient
       email={userEmail ?? "—"}
       isPasswordManagedByProvider={isPasswordManagedByProvider}
       providerLabel={providerLabel}
+      sessions={sessions}
+      mfaFactors={mfaFactors}
     />
   );
 }

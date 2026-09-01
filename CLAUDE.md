@@ -303,6 +303,88 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     in `messages` IS the delivery, and the visitor's browser fetches it, which is why human takeover
     from the Inbox works here with no channel-specific code. See `skills/webchat-integration.md`.
 
+15. **Supabase Auth owns the auth emails a real customer sees.** `signInWithOtp` and
+    `resetPasswordForEmail` hand the send to Supabase, which renders from templates stored in
+    ITS dashboard — editing `lib/email/templates.ts` changes only the (little-used) Resend path,
+    so a "fixed" auth email can still arrive looking like nothing else we send. Brand-matching
+    HTML is generated into `docs/email/supabase-auth/` and must be pasted in by an operator.
+    Everything else Denku sends renders through ONE chrome (`lib/email/layout.ts`): dark
+    masthead + vortex mark, copper hairline, bone ground, serif headings, one button, one
+    footer, and an honest "why you're receiving this" line. Two rules when touching mail:
+    (a) **every new email registers in `lib/email/previewSamples.ts`** — that inventory is what
+    `/api/dev/email-preview`, the preview script and the design tests all iterate, so an
+    unregistered template is one nobody ever looks at; (b) **anything triggered by a webhook,
+    cron or resumable action sends through `sendOnce()`** (`lib/email/dispatch.ts`), which claims
+    a `(kind, dedupe_key)` row in `email_dispatch_log` — Stripe redelivers, activation resumes
+    from partial, and a duplicate receipt cannot be recalled. Money mail is staged behind
+    `BILLING_NOTIFICATIONS_ENABLED`; onboarding and security mail deliberately is not. See
+    `skills/transactional-email.md`.
+
+16. **Authorization is a capability matrix, and it did not used to exist.** Corrected 2026-09-01
+    after a Settings audit. Until then `/api/billing/plan/change`, `/api/billing/addons/update`,
+    the Stripe portal + checkout routes and `/api/phone-lines/purchase` checked only that
+    *someone* was signed in — a `viewer` could move a workspace onto the $899 plan or buy add-ons
+    — and an `admin` could invite a second `owner`, which made the two roles the same role. Both
+    are closed. **The rule now: any route that spends money, changes membership, touches a channel
+    or reads the audit trail begins with `guard(<capability>)` from `lib/auth/permissions.ts`.**
+    Do not hand-roll `role === "admin"` string checks; add a row to the matrix. Four things that
+    are deliberate and must not be "simplified": the role is read with the **service-role** client
+    (authorization must not depend on an RLS policy staying permissive); an unrecognised role
+    string is **not** a role (fail closed); `profiles` is resolved by `id` **then** `auth_user_id`
+    (this repo carries both, and the old routes disagreed about which); and only an `owner` may
+    grant or take `owner`. A workspace must never lose its last owner — `assertNotLastOwner`
+    guards every path that writes `profiles.role`/`org_id`, and ownership moves through the atomic
+    `transfer_org_ownership` SECURITY DEFINER function, never two UPDATEs. The audit log is now
+    capability-gated, paged/filtered in Postgres, CSV-exportable (the export is itself audited),
+    and — for the first time — **actually written to** by billing and membership changes; it had
+    advertised that coverage while nothing wrote a row. Password changes require the current
+    password (verified on a throwaway client with `persistSession: false`, never the request's own
+    client, which would rotate the session mid-request); sessions are individually revocable and
+    TOTP two-step exists, both per-ACCOUNT, not org-enforced. See
+    `skills/workspace-roles-and-members.md`.
+
+17. **Business hours are a FACT the AI knows, never a gate.** Built 2026-09-01; scoped by the
+    owner the same day: **every Denku product answers 24/7, on every channel, at every hour.**
+    Opening hours describe when STAFF are in. A business paying for an AI employee is buying the
+    eleven-at-night call its competitors miss, so **never add a behaviour that stops, refuses or
+    shortens** — a `say_closed` option ("state the hours and end the call") existed for a few hours
+    and was removed before anyone could set it, because it contradicted the product it belonged to.
+    `after_hours_behavior` has exactly two values, both of which answer: `note_hours` (say the
+    business is closed, then carry on and help fully, honest that a person follows up later) and
+    `answer_normally` (do not raise it). The evaluator lives in `lib/business-hours/schema.ts`
+    (pure, 30 tests). Four rules: **(a) no hours configured means OPEN** — and so does an
+    unparseable document, an unknown timezone, or a failed read; nothing about a settings column
+    should make a customer worse off. (b) A dated exception beats the weekly pattern. (c)
+    `close <= open` means the shift runs past midnight (`22:00–02:00` is a bar, not a typo) and
+    spills into the next day. (d) Wall-clock via `Intl`, **never a stored UTC offset** — an offset
+    is an hour wrong for half the year. Chat channels evaluate per message; voice gets the schedule
+    plus a standing honesty rule (a Vapi prompt is written once per assistant and cannot be told
+    "it is 11pm now") and logs `[CALL][AFTER_HOURS]` — which costs nothing precisely *because*
+    hours gate nothing. The Settings copy says "answers 24/7" in three places; keep it there.
+    See `skills/business-hours.md`.
+
+18. **Perception writes into `messages.content`, and that is on purpose.** Built 2026-09-01: every
+    chat channel (Telegram, Instagram, Email, Web Chat) now reads photos and hears voice notes via
+    ONE shared stage inside `ingestInboundMessage` — `lib/platform/media/*` + `lib/llm/multimodal.ts`.
+    Five things to know before touching it: (a) **the description and the transcript go into the
+    message BODY**, prefixed `[image]` / `[voice message]`, because the Inbox, `loadHistory`,
+    `classifyIntent` and recall all already read `content` — a side table would mean teaching each
+    of them and the one forgotten would answer a customer as if they sent nothing; `meta.media[]`
+    carries the structured record beside it. (b) **Adapters never fetch.** They emit a `ref`
+    (`file_id`, CDN url, Resend attachment id, storage key) and the WEBHOOK injects a
+    `resolveMedia` closure holding the credential — same shape as `classifyIntent`. A Telegram
+    download URL contains the bot token and must never be logged. (c) **Callers must answer
+    `ingested.content`, not the raw normalized content**, or a photo with no caption is answered as
+    an empty message. (d) **A file we could not read must never read as one we could** — the
+    rendition says so and the prompt forbids guessing; and the prompt only claims a sense the
+    registry says the channel has (`imageUnderstanding` / `audioUnderstanding`, which are a
+    DIFFERENT claim from `attachments`). (e) **Idempotency is checked before the spend**: a
+    redelivered webhook short-circuits on the stored message instead of paying for the vision call
+    twice. Originals live in the private `channel-media` bucket (migration
+    `20260901110952`, no RLS policies by design — service-role writes, signed reads) because every
+    provider URL expires. Web Chat is the one channel with a visitor upload endpoint; its limits in
+    `lib/webchat/uploads.ts` are what stand in for identity. See `skills/media-perception.md`.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -350,12 +432,16 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `docs/INBOX_V2.md` — the Inbox split view: why the list lives in the layout, the two new state
   tables (`conversation_stars` / `conversation_reads`, inert until migrated), and why the composer
   is deliberately disabled
+- `skills/workspace-roles-and-members.md` — **who may do what**: the capability matrix, the member lifecycle and ownership transfer, the audit log, and account security (re-auth, sessions, TOTP)
+- `skills/business-hours.md` — when the business is open, what the AI does when it is not, and exactly how far that reaches (chat yes, voice not yet)
 - `skills/platform-architecture.md` — the AI-Employees platform model (Employee/Channel/Conversation/Contact/Artifact), the shared ingest pipeline + channel adapters, dual-write flag, how to add a channel (Sprint 4.5)
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
 - `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, and the transport that delivers by storing
+- `skills/media-perception.md` — how the AI sees and hears on every chat channel: the shared perception stage, why the description lives in `messages.content`, the resolver-per-channel split, and the limits that make an anonymous upload endpoint defensible
 - `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
+- `skills/transactional-email.md` — **what Denku sends to a customer's inbox**: the 19-email estate + the 5 Supabase-Auth ones, the shared `renderEmail()` chrome, the send-once claim ledger, and the rules for adding an email
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
 - `skills/auth-and-tenancy.md` — auth flows, middleware, org model, the two admin worlds

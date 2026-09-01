@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Building2, History } from "lucide-react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AlertTriangle, ArrowLeft, Building2, History, Lock } from "lucide-react";
+import { getViewer, roleCan } from "@/lib/auth/permissions";
 import { EmptyState } from "@/app/(app)/dashboard/_platform/ui";
 import {
   Notice,
@@ -8,48 +8,26 @@ import {
   SettingsHero,
   SettingsLinkButton,
 } from "@/app/(app)/dashboard/_platform/settings/ui";
+import { AUDIT_PAGE_SIZE, listAuditActors, parseAuditFilters, readAuditPage } from "@/lib/audit/read";
 import { AuditLogList } from "./_components/AuditLogList";
+import { AuditFilterBar } from "./_components/AuditFilterBar";
+import { AuditPager } from "./_components/AuditPager";
 
-type AuditLogRow = {
-  id: string;
-  org_id: string;
-  actor_user_id: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  created_at: string;
-};
-
-type AuditLogChangeRow = {
-  audit_log_id: string;
-  field: string;
-  before_value: string | null;
-  after_value: string | null;
-  created_at: string;
-};
-
-type ProfileRow = {
-  id: string;
-  email: string | null;
-  full_name: string | null;
-};
-
-type AuditLogWithActor = AuditLogRow & {
-  actor_email: string | null;
-  actor_name: string | null;
-};
-
-type AuditLogWithChanges = AuditLogWithActor & {
-  changes: Array<{ field: string; before_value: string | null; after_value: string | null }>;
-};
+export const dynamic = "force-dynamic";
 
 /**
- * The page header, shared by every state.
+ * The audit log.
  *
- * The old page rendered a gradient shell with a four-level breadcrumb *and* a "Back" button
- * directly underneath it — two ways back, under a nav rail that was already showing where you
- * were. One header, one way back, and it names the place it returns to.
+ * Three things were wrong with it, and all three were about honesty rather than looks. It said it
+ * covered "plan changes and member actions" while nothing on either path ever wrote a row. It was
+ * readable by anyone signed in, including a `viewer`, though it names who did what and when. And
+ * it showed the latest twenty entries with no way to reach the twenty-first, so the record existed
+ * without being consultable.
+ *
+ * Now: capability-gated (`view_audit_log`), filtered and paged in Postgres, exportable as CSV, and
+ * actually written to by billing, membership and workspace changes.
  */
+
 function AuditHeader() {
   return (
     <SettingsHero
@@ -66,37 +44,15 @@ function AuditHeader() {
   );
 }
 
-export default async function WorkspaceAuditPage() {
-  const supabase = await createSupabaseServerClient();
+export default async function WorkspaceAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const viewer = await getViewer();
+  if (!viewer.userId) redirect("/login");
 
-  // 1) Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  // 2) Get profile with org_id
-  const { data: profile, error: profErr } = await supabase
-    .from("profiles")
-    .select("id, org_id")
-    .eq("id", user.id)
-    .single<{ id: string; org_id: string | null }>();
-
-  if (profErr || !profile) {
-    return (
-      <div className="space-y-8">
-        <AuditHeader />
-        <Notice tone="critical" icon={AlertTriangle} title="We couldn't load your profile">
-          Reload the page — if this keeps happening, contact support.
-        </Notice>
-      </div>
-    );
-  }
-
-  if (!profile.org_id) {
+  if (!viewer.orgId) {
     return (
       <div className="space-y-8">
         <AuditHeader />
@@ -111,20 +67,31 @@ export default async function WorkspaceAuditPage() {
     );
   }
 
-  const orgId = profile.org_id;
+  // The audit trail names people and the decisions they took. A viewer reads the work; they do
+  // not read the record of who changed what about the workspace.
+  if (!roleCan(viewer.role, "view_audit_log")) {
+    return (
+      <div className="space-y-8">
+        <AuditHeader />
+        <Notice tone="info" icon={Lock} title="Owners and admins only">
+          The audit log records who changed what in this workspace, so it is limited to owners and
+          admins. Ask an owner if you need something from it.
+        </Notice>
+      </div>
+    );
+  }
 
-  // 3) Fetch audit_log records for this org (latest 20)
-  const { data: auditLogs, error: auditErr } = await supabase
-    .from("audit_log")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false })
-    .limit(20)
-    .returns<AuditLogRow[]>();
+  const raw = await searchParams;
+  const flat: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(raw)) flat[k] = Array.isArray(v) ? v[0] : v;
 
-  if (auditErr) {
-    // Log detail server-side; show the customer something safe (house rule).
-    console.error("[SETTINGS][AUDIT][LOAD_FAILED]", auditErr.message);
+  const filters = parseAuditFilters(flat);
+  const page = Number.parseInt(flat.page ?? "1", 10);
+
+  let result;
+  try {
+    result = await readAuditPage(viewer.orgId, filters, Number.isNaN(page) ? 1 : page, AUDIT_PAGE_SIZE);
+  } catch {
     return (
       <div className="space-y-8">
         <AuditHeader />
@@ -135,67 +102,25 @@ export default async function WorkspaceAuditPage() {
     );
   }
 
-  const logs = auditLogs || [];
-
-  // 4) Get unique actor_user_ids and fetch profiles (filter out nulls)
-  const actorIds = Array.from(
-    new Set(logs.map((log) => log.actor_user_id).filter((id): id is string => id !== null))
-  );
-  const { data: profiles } =
-    actorIds.length > 0
-      ? await supabase
-          .from("profiles")
-          .select("id, email, full_name")
-          .in("id", actorIds)
-          .returns<ProfileRow[]>()
-      : { data: [] };
-
-  const profileMap = new Map<string, ProfileRow>();
-  if (profiles) {
-    for (const p of profiles) {
-      profileMap.set(p.id, p);
-    }
-  }
-
-  // 5) Fetch audit_log_changes for all audit_log_ids
-  const auditLogIds = logs.map((log) => log.id);
-  const { data: changes } = await supabase
-    .from("audit_log_changes")
-    .select("*")
-    .in("audit_log_id", auditLogIds)
-    .order("created_at", { ascending: true })
-    .returns<AuditLogChangeRow[]>();
-
-  const changesMap = new Map<string, AuditLogChangeRow[]>();
-  if (changes) {
-    for (const change of changes) {
-      const existing = changesMap.get(change.audit_log_id) || [];
-      existing.push(change);
-      changesMap.set(change.audit_log_id, existing);
-    }
-  }
-
-  // 6) Combine audit logs with actor info and changes
-  const auditLogsWithChanges: AuditLogWithChanges[] = logs.map((log) => {
-    const actorProfile = log.actor_user_id ? profileMap.get(log.actor_user_id) : null;
-    const logChanges = changesMap.get(log.id) || [];
-
-    return {
-      ...log,
-      actor_email: actorProfile?.email || null,
-      actor_name: actorProfile?.full_name || null,
-      changes: logChanges.map((c) => ({
-        field: c.field,
-        before_value: c.before_value,
-        after_value: c.after_value,
-      })),
-    };
-  });
+  const actors = (await listAuditActors(viewer.orgId)).map((a) => ({
+    id: a.id,
+    label: a.full_name || a.email || "Unnamed member",
+  }));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <AuditHeader />
-      <AuditLogList logs={auditLogsWithChanges} />
+      <AuditFilterBar actors={actors} total={result.total} />
+      <AuditLogList
+        logs={result.entries}
+        // A filtered view with no matches is a different message from a workspace with no history.
+        filtered={Object.values(filters).some(Boolean)}
+      />
+      {result.pageCount > 1 ? (
+        <Panel padded={false}>
+          <AuditPager page={result.page} pageCount={result.pageCount} />
+        </Panel>
+      ) : null}
     </div>
   );
 }

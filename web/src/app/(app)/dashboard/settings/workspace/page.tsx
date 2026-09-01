@@ -1,5 +1,7 @@
 import {
+  Bell,
   Building2,
+  Clock,
   CreditCard,
   History,
   ScrollText,
@@ -24,6 +26,11 @@ import { WorkspaceGeneralForm } from "./general/_components/WorkspaceGeneralForm
 import { WebhooksCard } from "./general/_components/WebhooksCard";
 import { WorkspaceControlsCard } from "./general/_components/WorkspaceControlsCard";
 import MembersSection from "./_components/MembersSection";
+import { BusinessHoursCard } from "./general/_components/BusinessHoursCard";
+import { NotificationsCard } from "./general/_components/NotificationsCard";
+import { loadNotificationPrefs } from "@/lib/notifications/prefs.server";
+import { loadOrgHours } from "@/lib/business-hours/read";
+import { getViewer, roleCan } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +90,15 @@ export default async function WorkspaceSettingsPage() {
   const planCode = await getPlanCode(orgId);
   const displayName = orgName?.trim() || "Your workspace";
 
+  // The hours the AI actually follows, and whether this viewer may change them. Both resolved on
+  // the server so the editor never renders a control the save would refuse.
+  const [orgHours, viewer, notificationPrefs] = await Promise.all([
+    loadOrgHours(orgId),
+    getViewer(),
+    loadNotificationPrefs(orgId),
+  ]);
+  const canEditSettings = roleCan(viewer.role, "manage_workspace_settings");
+
   return (
     <div className="space-y-8">
       <SettingsHero
@@ -129,6 +145,25 @@ export default async function WorkspaceSettingsPage() {
         </Panel>
       </SettingsSection>
 
+      {/*
+        Hours sits directly under Identity, next to the timezone it is interpreted in — the two
+        are one setting split across two controls, and putting them on opposite ends of the page
+        is how a customer ends up with 09:00–17:00 in the wrong part of the world.
+      */}
+      <SettingsSection
+        id="hours"
+        icon={Clock}
+        title="Opening hours"
+        hint="When you're open, and what the AI does when you're not."
+      >
+        <BusinessHoursCard
+          initialHours={orgHours.hours}
+          initialBehaviour={orgHours.behaviour}
+          timeZoneLabel={settings?.default_timezone ?? orgHours.timeZone}
+          canEdit={canEditSettings}
+        />
+      </SettingsSection>
+
       <SettingsSection
         id="members"
         icon={Users}
@@ -138,6 +173,15 @@ export default async function WorkspaceSettingsPage() {
         <Panel padded={false}>
           <MembersSection />
         </Panel>
+      </SettingsSection>
+
+      <SettingsSection
+        id="notifications"
+        icon={Bell}
+        title="Notifications"
+        hint="What we email you about, and where."
+      >
+        <NotificationsCard initial={notificationPrefs} canEdit={canEditSettings} />
       </SettingsSection>
 
       <SettingsSection

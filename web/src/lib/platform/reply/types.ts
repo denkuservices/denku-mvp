@@ -47,6 +47,13 @@ export interface ReplyRequest {
    * number that a colleague might answer.
    */
   recall?: string | null;
+  /**
+   * The opening-hours block (schedule + whether this message is inside it + the after-hours
+   * instruction), already rendered by `buildHoursPromptBlock`. Null when the workspace has not
+   * set hours — which is every workspace that predates the setting, and they behave exactly as
+   * they did before.
+   */
+  hoursBlock?: string | null;
 }
 
 export type ReplyArtifact = { type: "ticket" | "appointment"; id: string };

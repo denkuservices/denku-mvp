@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/auth/permissions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { getStripeClient, ensureStripeCustomer } from "../create-draft-invoice-helpers";
@@ -43,40 +43,14 @@ function getAppUrl(req: NextRequest): string {
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1) Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1) Authenticate AND authorize. This starts a paid subscription. The person going through
+    // onboarding is the org's `owner` by default, so the gate is invisible on the happy path and
+    // closed for everyone it should be closed for.
+    const gate = await guard("manage_billing");
+    if (!gate.ok) return gate.response;
+    const org_id = gate.viewer.orgId;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // 2) Get profile and org_id
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, org_id, email, full_name")
-      .eq("auth_user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const profile = profiles && profiles.length > 0 ? profiles[0] : null;
-    const org_id = profile?.org_id ?? null;
-
-    if (!org_id) {
-      return NextResponse.json(
-        { ok: false, error: "Organization not found" },
-        { status: 400 }
-      );
-    }
-
-    // 3) Parse request body
+    // 2) Parse request body
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json(

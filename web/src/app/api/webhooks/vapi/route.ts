@@ -18,6 +18,8 @@ import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
 import { ensureCurrentRevision } from "@/lib/platform/manifest/revisions";
+import { loadOrgHours } from "@/lib/business-hours/read";
+import { evaluateBusinessHours, type BusinessHours } from "@/lib/business-hours/schema";
 
 const VapiWebhookSchema = z
   .object({
@@ -313,22 +315,30 @@ async function checkSalesEntitlement(orgId: string): Promise<boolean> {
 }
 
 /**
- * Check if call is outside business hours.
- * Returns true if outside hours, false if inside hours or no business hours config.
+ * Was this call outside the business's opening hours?
+ *
+ * Was a stub returning `false` for every call ever taken, next to a TODO saying the config shape
+ * was undefined. The shape is defined now (`lib/business-hours/schema.ts`) and the real evaluation
+ * lives there, pure and unit-testable; this is the thin wrapper the call path uses.
+ *
+ * **A workspace with no hours set is open.** Every workspace predates this setting, and none of
+ * them agreed to have their phone treated as closed.
+ *
+ * Note on scope, so nobody reads more into this than is here: the Vapi assistant's system prompt
+ * is static per assistant, so knowing a call is after-hours does NOT yet change what the assistant
+ * says mid-call — it is recorded, and it steers the artifact the call produces. The text channels
+ * do honour it per-message (`lib/platform/reply/respond.ts`), because a message is answered at the
+ * instant it arrives.
  */
 function isOutsideBusinessHours(
   callTimestamp: string,
-  agentTimezone: string | null,
-  businessHoursConfig: any
+  timezone: string | null,
+  hours: BusinessHours | null
 ): boolean {
-  // If no business hours config exists, treat as inside hours
-  if (!businessHoursConfig) {
-    return false;
-  }
-
-  // TODO: Implement business hours logic based on businessHoursConfig
-  // For now, return false (inside hours) since config structure is not defined yet
-  return false;
+  if (!hours) return false;
+  const at = callTimestamp ? new Date(callTimestamp) : new Date();
+  if (Number.isNaN(at.getTime())) return false;
+  return !evaluateBusinessHours(hours, timezone, at).open;
 }
 
 /**
@@ -1896,6 +1906,38 @@ export async function POST(req: NextRequest) {
       // Always returns a safe fallback (support_en) - never throws or returns null
       personaKey = await selectPersonaKeyForCall(agentId, intent, startedAt || new Date().toISOString(), orgId, vapiCallId);
       
+      /**
+       * Record whether this call arrived outside the business's opening hours.
+       *
+       * Two reasons it is worth knowing even though the assistant's own prompt is static and
+       * cannot yet change mid-call: it is the honest answer to "why did the AI take a message at
+       * 11pm", and it is what a report about after-hours demand is built from. Best-effort and
+       * silent on failure — a call must never be dropped over a settings read.
+       */
+      try {
+        const orgHours = await loadOrgHours(orgId);
+        if (
+          isOutsideBusinessHours(
+            startedAt || new Date().toISOString(),
+            orgHours.timeZone,
+            orgHours.hours
+          )
+        ) {
+          logEvent({
+            tag: "[CALL][AFTER_HOURS]",
+            ts: Date.now(),
+            stage: "INTENT",
+            source: "vapi_webhook",
+            org_id: orgId,
+            vapi_call_id: vapiCallId,
+            severity: "info",
+            details: { behaviour: orgHours.behaviour, timezone: orgHours.timeZone },
+          });
+        }
+      } catch (hoursErr) {
+        console.warn("[WEBHOOK][HOURS] Could not evaluate business hours (non-fatal)", hoursErr);
+      }
+
       // Emit INTENT_DETECTED when intent/persona is decided
       logEvent({
         tag: "[INTENT_DETECTED]",

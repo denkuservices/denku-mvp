@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createInvite } from "@/lib/members/invites";
 import { sendMemberInviteEmail } from "@/lib/email/send";
 import { memberInviteTemplate } from "@/lib/email/templates/memberInvite";
 import { getBaseUrl } from "@/lib/utils/url";
+import { guard } from "@/lib/auth/permissions";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -13,41 +14,46 @@ export const dynamic = "force-dynamic";
  * Member invite — SESSION-authenticated, customer-reachable (Sprint 6, L4 / R-010).
  *
  * Lives under /api/members/* (NOT /api/admin/*, which the middleware Basic-Auth gate would
- * 401 for customers — the original bug). Verifies the caller is an admin/owner of their org,
- * creates a real pending invite, and emails the invitee a signup link. Honest: if the
- * org_invites migration isn't applied yet it reports that plainly instead of faking success.
+ * 401 for customers — the original bug). Creates a real pending invite and emails the invitee a
+ * signup link. Honest: if the `org_invites` migration is not applied it reports that plainly
+ * instead of faking success.
+ *
+ * Two things changed after the settings audit:
+ *
+ *   * **`viewer` is invitable.** The role existed in the data model and in the roster pill, and
+ *     was the one role you could not actually give anyone — so a business that wanted a
+ *     read-only bookkeeper had to make them an admin, which is the opposite of what they asked for.
+ *   * **Only an owner may invite an owner.** An admin creating a second owner is an admin granting
+ *     themselves, through a second address, everything `admin` was deliberately not given.
+ *
+ * The profile is resolved through `getViewer` (lib/auth/permissions) rather than a local
+ * `profiles.id` lookup. This route keyed on `id` while the billing routes keyed on `auth_user_id`;
+ * for a workspace where those diverge the two disagreed about who you were.
  */
 
 const InviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["admin", "owner"]),
+  role: z.enum(["viewer", "admin", "owner"]),
 });
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("id, org_id, role, full_name")
-    .eq("id", auth.user.id)
-    .maybeSingle<{ id: string; org_id: string | null; role: string | null; full_name: string | null }>();
-
-  if (!profile?.org_id) {
-    return NextResponse.json({ ok: false, error: "No organization found" }, { status: 400 });
-  }
-  if (profile.role !== "admin" && profile.role !== "owner") {
-    return NextResponse.json({ ok: false, error: "Only admins and owners can invite members" }, { status: 403 });
-  }
+  const gate = await guard("manage_members");
+  if (!gate.ok) return gate.response;
+  const { orgId, profileId, role: actorRole } = gate.viewer;
 
   const parsed = InviteSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "Enter a valid email and role" }, { status: 400 });
   }
-  const { email, role } = parsed.data;
+  const { role } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
+
+  if (role === "owner" && actorRole !== "owner") {
+    return NextResponse.json(
+      { ok: false, error: "Only the workspace owner can invite another owner." },
+      { status: 403 }
+    );
+  }
 
   // Guard: already a member of this org?
   const { data: existing } = await supabaseAdmin
@@ -55,14 +61,14 @@ export async function POST(req: NextRequest) {
     .select("id, org_id")
     .eq("email", email)
     .maybeSingle<{ id: string; org_id: string | null }>();
-  if (existing?.org_id === profile.org_id) {
-    return NextResponse.json({ ok: false, error: "That person is already a member of this workspace" }, { status: 400 });
+  if (existing?.org_id === orgId) {
+    return NextResponse.json(
+      { ok: false, error: "That person is already a member of this workspace" },
+      { status: 400 }
+    );
   }
 
-  const result = await createInvite(
-    { orgId: profile.org_id, email, role, invitedBy: profile.id },
-    supabaseAdmin
-  );
+  const result = await createInvite({ orgId, email, role, invitedBy: profileId }, supabaseAdmin);
 
   if (!result.ok) {
     if (result.reason === "not_enabled") {
@@ -74,13 +80,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Could not create the invitation" }, { status: 500 });
   }
 
-  // Resolve the workspace name for the email (best-effort).
-  const { data: org } = await supabaseAdmin.from("orgs").select("name").eq("id", profile.org_id).maybeSingle<{ name: string | null }>();
+  // Resolve the workspace name and the inviter for the email (best-effort).
+  const [{ data: org }, { data: actor }] = await Promise.all([
+    supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
+    supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", profileId)
+      .maybeSingle<{ full_name: string | null }>(),
+  ]);
   const orgName = org?.name || "your Denku workspace";
   const signupUrl = `${getBaseUrl()}/signup?email=${encodeURIComponent(email)}`;
 
   // Non-fatal: the invite exists even if the email fails; report truthfully.
-  const mail = await sendMemberInviteEmail(email, memberInviteTemplate({ orgName, inviterName: profile.full_name, signupUrl }));
+  const mail = await sendMemberInviteEmail(
+    email,
+    memberInviteTemplate({ orgName, inviterName: actor?.full_name ?? null, signupUrl })
+  );
+
+  if (result.id) {
+    await supabaseAdmin
+      .from("org_invites")
+      .update({ last_sent_at: new Date().toISOString() })
+      .eq("id", result.id);
+  }
+
+  await logAuditEvent({
+    org_id: orgId,
+    actor_user_id: profileId,
+    action: "member.invite",
+    entity_type: "member.invite",
+    entity_id: result.id ?? orgId,
+    diff: { email: { before: null, after: email }, role: { before: null, after: role } },
+  });
 
   return NextResponse.json({
     ok: true,
