@@ -141,8 +141,10 @@
 > **Business Verification + App Review (Advanced Access) + Live Mode** (external Meta dependency, not a
 > Denku defect). See `docs/SPRINT_1.5_REVIEW.md` Closure addendum + `docs/META_APP_REVIEW_PACKAGE.md`.
 > Filed **R-078** (remove TEMP subscribe button) and **R-079** (OAuth stores requested not granted
-> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-141
+> scopes). Sprint 1 remains 9 Completed / R-001 In Progress.) · **Next free ID:** R-142
 > *(R-137 Telegram channel + reply engine, R-138 Supabase/Vercel region mismatch, R-139 contact recall — filed 2026-08-27.)*
+> *(R-141 Web Chat channel — filed AND code-complete 2026-09-01; its migration still needs an
+> operator to apply it, and no widget has been embedded on a real site yet.)*
 > *(R-140 workspace pause missed purchased phone lines — filed AND fixed 2026-08-31; its backfill
 > migration still needs an operator to apply it.)*
 > *(R-133 was announced as "next free" on 2026-07-25 and never assigned — it stays **retired**, never
@@ -1984,6 +1986,46 @@ the coarse owner/admin/viewer roles. Marketing over-claims all of these — R-00
 - **Known gaps (filed, not hidden):** no idle-conversation artifact guarantee (a chat never "ends" —
   today the guarantee is the model calling `create_ticket`, which the prompt makes explicit); photo
   captions are read but attachments dropped; no group-chat product story.
+
+### R-141 — Web Chat: the channel that runs in a stranger's browser
+**Priority:** High · **Status:** 🟡 **Code-complete 2026-09-01, awaiting migration + live verification** · **Effort:** L · **Related:** [skills/webchat-integration.md](../skills/webchat-integration.md)
+> The fourth channel, and the first one with **no provider in the middle**. Telegram has a bot
+> token; email has a forwarding address; Instagram has OAuth. A website widget has a public key
+> printed in the customer's page source and a visitor we know nothing about. That single fact
+> shapes every decision below.
+- **Business impact:** a customer pastes two lines into their site and their AI Employee answers
+  website visitors — the channel with the shortest path from "I am interested" to a booking, and
+  the one prospects ask for first. Conversations land in the same Inbox as voice and Telegram, and
+  a person can take over from the composer exactly as they already do.
+- **Technical impact:** `web_chat_connections` + `web_chat_sessions` (service-role only, RLS with
+  no policies) · `lib/webchat/*` (connections, sessions + volume caps, origin allowlist, signed
+  tokens, shared refusal helpers, thread read) · `adapters/webchat.ts` + `transports/webchat.ts` ·
+  three public endpoints (`/api/webchat/session|send|poll`) · `/embed/chat` route handler serving
+  the iframe document · `public/widget.js` loader + `public/webchat/app.{js,css}` · a
+  `/dashboard/channels/web` install surface. Registry, read model and Inbox pick it up with no
+  channel-specific UI code, which is the O(1)-per-channel property working as designed.
+- **The security shape, because it is not the one the other channels use.** The site key is an
+  ADDRESS, not a password. Access control is the customer's **origin allowlist**, and it is
+  enforced exactly once — at `/embed/chat`, against the browser-set `Referer`, which a page script
+  cannot forge — then carried forward in an HMAC-signed frame token, exchanged for a session token
+  that names the org. Widget API calls are same-origin (the iframe is on our domain), so their
+  `Origin` header says nothing about whose site the visitor is on; enforcing the allowlist there
+  would refuse every legitimate request. `frame-ancestors` is set per connection from the same
+  allowlist, so the browser independently refuses to render the widget anywhere else, and
+  `next.config.ts` now excludes `/embed/*` from the app-wide `X-Frame-Options`/CSP rather than
+  loosening them for everyone. **An empty allowlist refuses everywhere** — fail closed.
+- **What that does not cover, stated plainly:** a non-browser client can send any `Referer` it
+  likes, obtain a frame token, and call the API. Irreducible for a public endpoint with a public
+  key. The answer is volume caps (inbound per conversation per hour, new sessions per install per
+  hour, both counted from the database because `lib/rateLimit.ts` is a no-op on Vercel) on top of
+  the reply engine's existing spend guard, plus the embedding origin in every refusal log.
+- **Deliberately not built:** attachments (uploads from anonymous visitors are their own abuse and
+  storage decision), a streamed transport (polling costs a fraction of a held-open function and is
+  indistinguishable at chat speed), and proactive or triggered messages.
+- **Remaining:** apply `20260901090000_web_chat_channel.sql`, confirm `SECRET_ENCRYPTION_KEY` is set
+  (the channel refuses to issue sessions without it), embed the widget on a real site, hold a real
+  conversation, verify it in the database — then flip `productionReady`, exactly as Telegram was.
+  18 new tests; 1058 passing; build green.
 
 ### R-138 — Supabase and the Vercel functions are on opposite coasts
 **Priority:** High · **Status:** 🔴 **Open — one-line fix, owner's call** · **Effort:** S · **Related:** `CURRENT_SPRINT.md` P1

@@ -5,7 +5,7 @@ import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
-import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 import Stripe from "stripe";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
@@ -83,11 +83,12 @@ async function handleCheckoutSuccess(sessionId: string) {
       return;
     }
 
-    // A chat-only purchase bought a chat TIER, not the $0 base plan. Same write the webhook
-    // does, and idempotent on (org_id, addon_key) so both running is harmless — this page is
-    // the one the customer actually lands on, so it must not depend on the webhook winning.
+    // A session carrying `chat_addon_key` bought a chat TIER — on its own, or alongside a
+    // voice plan. Same write the webhook does, and idempotent on (org_id, addon_key) so both
+    // running is harmless — this page is the one the customer actually lands on, so it must not
+    // depend on the webhook winning.
     const chatAddonKey = session.metadata?.chat_addon_key;
-    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+    if (chatAddonKey) {
       const recorded = await recordChatPurchase(orgId, chatAddonKey);
       if (!recorded.ok) {
         console.error("[onboarding/page] Could not record chat purchase", {

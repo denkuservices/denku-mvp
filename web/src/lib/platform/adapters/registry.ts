@@ -4,6 +4,7 @@ import { voiceAdapter } from "@/lib/platform/adapters/voice";
 import { instagramAdapter } from "@/lib/platform/adapters/instagram";
 import { telegramAdapter } from "@/lib/platform/adapters/telegram";
 import { emailAdapter } from "@/lib/platform/adapters/email";
+import { webChatAdapter } from "@/lib/platform/adapters/webchat";
 
 /**
  * Channel adapter registry (Sprint 4.5 — Phase 3).
@@ -18,6 +19,7 @@ const ADAPTERS: Partial<Record<Channel, ChannelAdapter>> = {
   instagram: instagramAdapter,
   telegram: telegramAdapter,
   email: emailAdapter,
+  web: webChatAdapter,
 };
 
 export function getChannelAdapter(channel: Channel): ChannelAdapter | undefined {

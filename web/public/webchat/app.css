@@ -1,0 +1,221 @@
+/**
+ * The chat widget's own stylesheet, served inside the iframe.
+ *
+ * It borrows the Inbox's reasoning rather than the dashboard's palette: side and colour are how
+ * a reader tells the two voices apart, so the visitor's own messages sit right on the accent and
+ * the business's sit left on white. The accent itself is set per install from a CSS variable, so
+ * a shop can match its brand without any of this being rewritten.
+ *
+ * Deliberately light-only. The widget renders on the customer's page, whose background we do not
+ * know; guessing dark from the visitor's OS preference produces a dark bubble on a light site as
+ * often as it helps.
+ */
+
+:root {
+  --denku-accent: #1b6e6e;
+  --denku-ink: #16202b;
+  --denku-muted: #5b6472;
+  --denku-line: #e6e6e1;
+  --denku-ground: #f7f5f1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--denku-ink);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.denku-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--denku-accent);
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.denku-header strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.denku-header .denku-sub {
+  display: block;
+  font-size: 12px;
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+.denku-close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.denku-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.denku-log {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--denku-ground);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.denku-msg {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.denku-msg.assistant {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--denku-line);
+  border-bottom-left-radius: 4px;
+}
+
+.denku-msg.user {
+  align-self: flex-end;
+  background: var(--denku-accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* A message the browser has not yet had confirmed by the server. */
+.denku-msg.pending {
+  opacity: 0.65;
+}
+
+.denku-typing {
+  align-self: flex-start;
+  display: flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--denku-line);
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+}
+
+.denku-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--denku-muted);
+  animation: denku-bounce 1.2s infinite;
+}
+
+.denku-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.denku-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes denku-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* Respect a visitor who has asked their system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .denku-typing span {
+    animation: none;
+  }
+}
+
+.denku-note {
+  align-self: center;
+  font-size: 12px;
+  color: var(--denku-muted);
+  text-align: center;
+  max-width: 90%;
+}
+
+.denku-form {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--denku-line);
+  background: #fff;
+}
+
+.denku-input {
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--denku-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  max-height: 120px;
+  outline: none;
+}
+
+.denku-input:focus {
+  border-color: var(--denku-accent);
+}
+
+.denku-send {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 12px;
+  background: var(--denku-accent);
+  color: #fff;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.denku-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.denku-footer {
+  flex: 0 0 auto;
+  padding: 6px 10px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--denku-muted);
+  background: #fff;
+}

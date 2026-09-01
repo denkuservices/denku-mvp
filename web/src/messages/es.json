@@ -248,7 +248,23 @@
         "caption": "Nunca olvida a un cliente",
         "note": "Cada llamada se suma al historial del contacto, así la siguiente no empieza de cero."
       }
-    ]
+    ],
+    "signup": {
+      "title": "Crear cuenta",
+      "subtitle": "Te enviaremos un código de 8 dígitos por correo para empezar.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@empresa.com",
+      "emailHint": "Te enviaremos un código de 8 dígitos por correo.",
+      "submit": "Continuar",
+      "submitting": "Enviando código…",
+      "invalidEmail": "Introduce una dirección de correo válida.",
+      "haveAccount": "¿Ya tienes una cuenta?",
+      "signIn": "Iniciar sesión",
+      "alreadyRegisteredTitle": "Este correo ya está registrado",
+      "alreadyRegisteredBody": "No hemos enviado nada. Inicia sesión con tu contraseña.",
+      "goToSignIn": "Ir a iniciar sesión",
+      "forgotPassword": "¿Olvidaste tu contraseña?"
+    }
   },
   "request": {
     "eyebrow": "Solicitudes",

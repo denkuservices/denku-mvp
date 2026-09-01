@@ -2,13 +2,22 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { loginAction, type LoginResult } from "./loginAction";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default function LoginPage() {
   const router = useRouter();
+  /*
+   * Carry the address across from a signup that refused to send.
+   *
+   * Signup now tells a customer who already has an account to sign in instead. Making them retype
+   * the address they just typed would undo half of what that message is for — and the value is
+   * only ever prefilled into a field they can edit, never acted on, so nothing rests on it.
+   */
+  const searchParams = useSearchParams();
+  const prefilledEmail = searchParams.get("email") ?? "";
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -56,6 +65,7 @@ export default function LoginPage() {
             name="email"
             type="email"
             required
+            defaultValue={prefilledEmail}
             autoComplete="email"
             className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
             placeholder="you@company.com"
@@ -91,7 +101,7 @@ export default function LoginPage() {
             </label>
           </div>
           <Link
-            href="/forgot-password"
+            href={prefilledEmail ? `/forgot-password?email=${encodeURIComponent(prefilledEmail)}` : "/forgot-password"}
             className="text-sm text-[var(--s-ink-faint)] underline-offset-2 transition-colors hover:text-[var(--s-accent)] hover:underline"
           >
             Forgot Password?

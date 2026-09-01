@@ -210,14 +210,24 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
   web: {
     id: "web",
     label: "Web Chat",
-    description: "A chat widget on your website.",
+    description: "A chat widget on your website, answered by your AI Employee.",
     icon: "web",
     tone: "web",
     kind: "chat",
     connection: "embed",
-    capabilities: chat({ outbound: true }),
+    /**
+     * Attachments are off: the widget sends and receives text only. Turning this on would mean
+     * accepting uploads from anonymous visitors on a public endpoint, which is a storage and
+     * abuse decision of its own, not a widget feature.
+     */
+    capabilities: chat({ outbound: true, attachments: false }),
+    /**
+     * Not production-ready yet: the channel is built end to end, but nobody has held a real
+     * conversation through a widget on a real customer's site. Flipped only on live evidence,
+     * exactly as Telegram was — see that entry for what "evidence" meant there.
+     */
     productionReady: false,
-    adopted: false,
+    adopted: true,
   },
 });
 

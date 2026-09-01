@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "../../stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
-import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
@@ -87,10 +87,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // A chat-only purchase bought a chat TIER, not the $0 base plan. Same write the other
-    // three paths do, idempotent on (org_id, addon_key).
+    // A session carrying `chat_addon_key` bought a chat TIER — alone, or alongside a voice
+    // plan. Same write the other three paths do, idempotent on (org_id, addon_key).
     const chatAddonKey = session.metadata?.chat_addon_key;
-    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+    if (chatAddonKey) {
       await recordChatPurchase(orgId, chatAddonKey);
     }
 

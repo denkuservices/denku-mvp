@@ -23,6 +23,9 @@ const intlMiddleware = createIntlMiddleware(routing);
  */
 const UNLOCALISED = [
   "/api", "/admin", "/dashboard", "/onboarding",
+  // The Web Chat widget document. It is a route handler serving HTML into an iframe on a
+  // customer's site; a locale prefix would 404 it and take their chat down.
+  "/embed",
   "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password",
   "/auth", "/_next", "/horizon",
 ];

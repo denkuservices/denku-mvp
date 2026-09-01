@@ -42,6 +42,7 @@ function request(id: string, createdAt: string, over: Partial<RequestView> = {})
     createdAt,
     callId: null,
     contactId: null,
+    who: null,
     href: `/dashboard/tickets/${id}`,
     ...over,
   };

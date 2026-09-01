@@ -11,6 +11,7 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
+import { assignEmployeeToChannel } from "@/lib/platform/assignEmployee";
 import Stripe from "stripe";
 import { CHANNELS, CHANNEL_ORDER } from "@/lib/platform/channels";
 import { canReplyOn } from "@/lib/platform/transports/registry";
@@ -29,14 +30,31 @@ export async function bootstrapWorkspaceAction(formData: FormData) {
   const workspaceName = formData.get("workspaceName")?.toString() || "";
   const fullName = formData.get("fullName")?.toString() || "";
   const phone = formData.get("phone")?.toString() || null;
-  
+  const website = formData.get("website")?.toString().trim() || null;
+
   console.log("[onboarding submit] step 0 (workspace bootstrap)");
-  
+
   if (!workspaceName.trim() || !fullName.trim()) {
     return { ok: false, error: "Workspace name and full name are required." };
   }
-  
+
   const result = await bootstrapOrgAndProfile(workspaceName.trim(), fullName.trim(), phone?.trim() || null);
+
+  /*
+   * The website is saved on THIS path too, not only on `saveWorkspaceAction`.
+   *
+   * Which of the two runs depends on whether an org already existed when the page rendered —
+   * something the customer cannot see and has no reason to care about. When bootstrap won the
+   * race, the site they had just typed was silently discarded, and the one field that teaches
+   * the AI anything about their business arrived empty.
+   */
+  if (result.ok && website) {
+    await supabaseAdmin
+      .from("organization_settings")
+      .update({ website_url: website })
+      .eq("org_id", result.orgId);
+  }
+
   return result;
 }
 
@@ -623,6 +641,32 @@ export async function bootstrapOrgAndProfile(
       .maybeSingle();
 
     const existingStep = (settings as any)?.onboarding_step ?? 0;
+
+    /*
+     * THE FIRST CONTINUE MUST MOVE.
+     *
+     * This branch runs whenever an org already exists — which, after a normal signup, it always
+     * does. It used to return the step it found, still 0, so the form re-rendered the very same
+     * screen: the customer's first click did nothing, and only the second one (by then routed to
+     * `saveWorkspaceAction`, because the client had learned the org id) advanced them. A button
+     * that needs pressing twice reads as a broken product on the first screen of the product.
+     *
+     * The workspace step has now genuinely been completed by the time we get here — the name and
+     * profile were just written above — so the step moves with it. Forward-only, like every other
+     * write in this machine: a workspace already past Goal is never dragged back to it.
+     */
+    if (existingStep < 1) {
+      const { error: stepError } = await supabaseAdmin
+        .from("organization_settings")
+        .upsert({ org_id: existingOrgId, onboarding_step: 1 }, { onConflict: "org_id" });
+
+      if (stepError) {
+        console.error("[bootstrapOrgAndProfile] Error advancing onboarding_step:", stepError);
+        return { ok: false, error: "Could not save your workspace. Please try again." };
+      }
+
+      return { ok: true, orgId: existingOrgId, onboardingStep: 1 };
+    }
 
     return { ok: true, orgId: existingOrgId, onboardingStep: existingStep };
   }
@@ -1528,8 +1572,22 @@ Always confirm the caller's name, phone number, and a short summary before submi
       };
     }
 
-    // 4a) Insert into phone_lines table (idempotent: ignore conflicts)
-    // Insert after we have phone_number_e164 (required for activation completion)
+    /*
+     * 4a) Insert into phone_lines table (idempotent: ignore conflicts).
+     *
+     * `assigned_agent_id` is the employee we just created, NOT null.
+     *
+     * It was null, and that single word was the difference between a finished setup and a broken
+     * one. Vapi was wired correctly — assistant created, number bound to it at creation — so the
+     * line genuinely answered. But Denku's own model was not: every surface that asks "who
+     * answers this channel" reads `phone_lines.assigned_agent_id`, so the customer arrived at
+     * their new dashboard to two warnings ("Voice: No employee assigned", "No AI Employee is
+     * connected to a channel") about a channel that was, in fact, already answering. Following
+     * either warning led to a page with no way to assign anyone.
+     *
+     * Writing it here is not a UI fix. The line and the employee were created by the same
+     * transaction of intent; recording that is the honest state.
+     */
     try {
       const now = new Date().toISOString();
       const { error: phoneLineError } = await supabaseAdmin
@@ -1540,7 +1598,7 @@ Always confirm the caller's name, phone number, and a short summary before submi
           phone_number_e164: phoneNumberE164,
           status: "live",
           line_type: "support",
-          assigned_agent_id: null,
+          assigned_agent_id: agentId,
           created_at: now,
           updated_at: now,
         });
@@ -1580,6 +1638,55 @@ Always confirm the caller's name, phone number, and a short summary before submi
         console.log("[runActivation] Phone line already exists (idempotent)");
       } else {
         console.warn("[runActivation] Exception inserting phone_lines (non-fatal):", errorMsg);
+      }
+    }
+
+    /*
+     * 4b) Make sure the line really is owned by the employee, whichever branch above ran.
+     *
+     * The insert covers a first activation. This covers the other two ways a line can exist by
+     * now: a resumed activation that created the line on an earlier attempt (when the column was
+     * still being written as null), and any line already carrying this Vapi number. Both are
+     * ordinary — activation is deliberately resumable — and both used to leave the customer with
+     * a line nothing owned.
+     *
+     * Only ever fills a BLANK owner. If a person has since assigned a different employee to this
+     * number, that decision outranks a re-run of setup.
+     */
+    if (agentId) {
+      try {
+        const { data: lineRow } = await supabaseAdmin
+          .from("phone_lines")
+          .select("id, assigned_agent_id")
+          .eq("org_id", orgId)
+          .eq("vapi_phone_number_id", phone.id)
+          .maybeSingle<{ id: string; assigned_agent_id: string | null }>();
+
+        if (lineRow && !lineRow.assigned_agent_id) {
+          const assigned = await assignEmployeeToChannel({
+            orgId,
+            channel: "voice",
+            connectionId: lineRow.id,
+            employeeId: agentId,
+          });
+          if (!assigned.ok) {
+            console.warn("[runActivation] Could not assign employee to line (non-fatal):", assigned.error);
+          }
+        } else if (lineRow?.assigned_agent_id === agentId) {
+          // The insert above already did it — mirror into the platform table all the same, so
+          // `employee_channels` is populated on a fresh activation too.
+          await assignEmployeeToChannel({
+            orgId,
+            channel: "voice",
+            connectionId: lineRow.id,
+            employeeId: agentId,
+          });
+        }
+      } catch (assignErr) {
+        console.warn(
+          "[runActivation] Exception assigning employee to line (non-fatal):",
+          assignErr instanceof Error ? assignErr.message : String(assignErr)
+        );
       }
     }
 
@@ -1738,7 +1845,26 @@ export async function checkPhoneStatus(): Promise<
  * Server action that creates Stripe checkout session directly (no API route).
  * Returns checkout session URL for redirect.
  */
-export async function startPlanCheckout(planCode: "starter" | "growth" | "scale") {
+/**
+ * Start checkout for a voice plan, optionally with a chat tier in the SAME session.
+ *
+ * Voice and chat used to be sold as an either/or: selecting one cleared the other, so a business
+ * that wanted its phone answered *and* its messages answered had to buy the phone plan, finish
+ * onboarding, find the billing page and buy chat again — two card entries and two invoices for
+ * one decision they had already made on this screen. Nothing in the billing model required that.
+ * `org_plan_limits` holds one base plan; chat tiers live in `billing_org_addons`, which is a
+ * different table entirely, so a voice plan and a chat tier were always able to coexist.
+ *
+ * So the session simply carries two line items. `plan_code` is still the base plan and
+ * `chat_addon_key` still names the tier — the same two pieces of metadata the three completion
+ * paths (webhook, redirect fallback, manual sync) already read. What changed there is only that
+ * recording the tier is no longer conditional on the base plan being `chat_only`: the tier was
+ * paid for, so it is recorded, whatever it was bought alongside.
+ */
+export async function startPlanCheckout(
+  planCode: "starter" | "growth" | "scale",
+  chatAddonKey?: string | null
+) {
   try {
     // 1) Authenticate user with Supabase server client (cookies-based)
     const supabase = await createSupabaseServerClient();
@@ -1831,6 +1957,46 @@ export async function startPlanCheckout(planCode: "starter" | "growth" | "scale"
       return { ok: false, error: "Plan not found" };
     }
 
+    /*
+     * 5b) The optional chat tier bought alongside.
+     *
+     * Fails CLOSED on a missing `stripe_price_id`, exactly as the chat-only checkout does: an
+     * offer we cannot charge for must never reach a checkout page. Refusing the whole session is
+     * the right call rather than quietly dropping the chat half — the customer selected two
+     * things and would otherwise be charged for one without being told which.
+     */
+    let chatPrice: { stripe_price_id: string; price_usd_month: number } | null = null;
+    if (chatAddonKey) {
+      if (!isChatAddonKey(chatAddonKey)) {
+        return { ok: false, error: "Invalid chat plan" };
+      }
+
+      const { data: addonCatalog } = await supabaseAdmin
+        .from("billing_addon_catalog")
+        .select("stripe_price_id, price_usd_month")
+        .eq("addon_key", chatAddonKey)
+        .eq("is_active", true)
+        .maybeSingle<{ stripe_price_id: string | null; price_usd_month: number }>();
+
+      if (!addonCatalog?.stripe_price_id) {
+        logEvent({
+          tag: "[ONBOARDING][CHECKOUT_START][CHAT_CONFIG_ERROR]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: orgId,
+          severity: "error",
+          details: { addon_key: chatAddonKey, error: "stripe_price_id not configured" },
+        });
+        return { ok: false, error: "Chat plans are not available yet. Please contact support." };
+      }
+
+      chatPrice = {
+        stripe_price_id: addonCatalog.stripe_price_id,
+        price_usd_month: addonCatalog.price_usd_month,
+      };
+    }
+
     // 6) Initialize Stripe client
     let stripe: Stripe;
     try {
@@ -1907,13 +2073,17 @@ export async function startPlanCheckout(planCode: "starter" | "growth" | "scale"
             },
             quantity: 1,
           },
+          ...(chatPrice ? [{ price: chatPrice.stripe_price_id, quantity: 1 }] : []),
         ],
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
           org_id: orgId,
           plan_code: planCode,
-          kind: "onboarding_plan_purchase",
+          kind: chatPrice ? "onboarding_plan_and_chat_purchase" : "onboarding_plan_purchase",
+          // Only present when a tier was actually bought — the completion paths key on its
+          // presence, so an empty string here would try to record a tier that does not exist.
+          ...(chatAddonKey && chatPrice ? { chat_addon_key: chatAddonKey } : {}),
         },
         allow_promotion_codes: true,
       });

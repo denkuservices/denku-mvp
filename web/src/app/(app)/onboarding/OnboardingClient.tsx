@@ -347,6 +347,51 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     initialState.businessDescription ?? ""
   );
   const [website, setWebsite] = useState(initialState.websiteUrl ?? "");
+  /**
+   * Whether a site was given — read from the SAVED state, not the input above.
+   *
+   * The Goal step runs after the workspace step has been committed, so `state.websiteUrl` is what
+   * the server actually stored. Reading the local input instead would keep the promise alive on a
+   * back-navigation where nothing was saved.
+   */
+  const hasWebsite = Boolean(state.websiteUrl?.trim());
+  /**
+   * What the Proceed button is about to charge for, in words.
+   *
+   * Stated rather than implied, because voice and chat can now be bought together: with two
+   * highlighted cards on screen and one button under them, "which of these am I paying for" is
+   * a real question, and the answer belongs on the page and not on the Stripe form after it.
+   */
+  const checkoutSummary = React.useMemo(() => {
+    const plan = selectedPlan ? state.plans.find((p) => p.plan_code === selectedPlan) : null;
+    const chat = selectedChat ? state.chatPlans.find((t) => t.addon_key === selectedChat) : null;
+    if (!plan && !chat) return "";
+
+    const parts: string[] = [];
+    if (plan) parts.push(`${plan.display_name} · ${formatUsd(plan.monthly_fee_usd)}/mo`);
+    if (chat) {
+      parts.push(
+        `${chat.channels === 1 ? "1 chat channel" : `${chat.channels} chat channels`} · ${formatUsd(chat.price_usd_month)}/mo`
+      );
+    }
+
+    const total = (plan?.monthly_fee_usd ?? 0) + (chat?.price_usd_month ?? 0);
+    // The total is only worth printing when there are two things to add up.
+    return parts.length > 1
+      ? `${parts.join("  +  ")}  =  ${formatUsd(total)}/month`
+      : parts[0];
+  }, [selectedPlan, selectedChat, state.plans, state.chatPlans]);
+
+  /** Just the host, so the copy shows `theirshop.com` rather than a pasted tracking URL. */
+  const websiteHost = React.useMemo(() => {
+    const raw = state.websiteUrl?.trim();
+    if (!raw) return "";
+    try {
+      return new URL(raw.startsWith("http") ? raw : `https://${raw}`).hostname.replace(/^www\./, "");
+    } catch {
+      return raw;
+    }
+  }, [state.websiteUrl]);
 
   // Step 2: Phone number (AI line)
   const [country, setCountry] = useState("US");
@@ -398,7 +443,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
      * serverless function that returns before its own background work finishes may simply be
      * frozen. Failures are swallowed: nothing about this step depends on it.
      */
-    if (action === "saveWorkspace" && website.trim()) {
+    if ((action === "saveWorkspace" || action === "bootstrap") && website.trim()) {
       void researchWebsiteAction().catch(() => {});
     }
 
@@ -621,8 +666,27 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     );
   }
 
+  /**
+   * Leave setup for the dashboard — with a FULL page load, deliberately.
+   *
+   * `/onboarding` and `/dashboard` share the `(app)` layout, and that layout decides between the
+   * dashboard shell and the sidebar-less setup chrome from `getOnboardingComplete()`, read once
+   * on the server. A client-side `router.push` reuses the layout instance that was rendered while
+   * onboarding was still incomplete — so the customer arrived at their dashboard with the bone
+   * setup background, no navigation, and a "Back to setup" button that led nowhere, and had to
+   * discover for themselves that reloading fixed it. The first thing they ever see of the
+   * product should not be something they have to repair.
+   *
+   * A hard navigation re-runs the layout on the server, where onboarding is now complete.
+   *
+   * Still no `completeOnboarding()` call here: activation already set onboarding_step = 6, and
+   * this remains pure navigation. Only HOW we navigate changed.
+   */
   const handleComplete = () => {
-    // Navigate directly to dashboard - activation already set onboarding_step = 6
+    if (typeof window !== "undefined") {
+      window.location.assign("/dashboard");
+      return;
+    }
     router.push("/dashboard");
   };
 
@@ -964,11 +1028,31 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     htmlFor="businessDescription"
                     className="block font-display text-[16px] font-medium text-[#0A1A2F]"
                   >
-                    What does your business do?
+                    {hasWebsite ? "Anything your website doesn't say?" : "What does your business do?"}
                   </label>
+                  {/*
+                    The question changes when we were given a website, but the field stays.
+
+                    Asking someone to describe a business whose site we are already reading looks
+                    like we ignored what they just typed. But dropping the field entirely would be
+                    worse: a scrape can fail, a site can be one JavaScript-rendered page, and
+                    plenty of businesses say less about themselves online than they would say in
+                    one sentence out loud. So the site becomes the assumed answer and this becomes
+                    the correction — which is also the honest description of what happens next,
+                    since nothing read from the site is ever saved without the owner confirming it
+                    in Knowledge.
+                  */}
                   <p className="mt-1 text-sm text-[#2C3E54]">
-                    A sentence or two. Your AI uses this to answer questions instead of passing
-                    them on.
+                    {hasWebsite ? (
+                      <>
+                        We&apos;re reading{" "}
+                        <span className="font-medium text-[#0A1A2F]">{websiteHost}</span> in the
+                        background for your services, hours and common questions. Add anything it
+                        doesn&apos;t mention — or leave this blank.
+                      </>
+                    ) : (
+                      "A sentence or two. Your AI uses this to answer questions instead of passing them on."
+                    )}
                   </p>
                   <textarea
                     id="businessDescription"
@@ -977,7 +1061,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     onChange={(e) => setBusinessDescription(e.target.value)}
                     rows={3}
                     maxLength={1000}
-                    placeholder="We're a dental clinic in Kadıköy. Cleanings, fillings, implants and whitening."
+                    /*
+                      Generic on purpose, and in the interface's own language.
+
+                      The previous placeholder was a fully-formed sentence about a dental clinic
+                      in a specific Istanbul district — vivid enough to read as an answer already
+                      filled in, and in a language the surrounding labels do not speak. It taught
+                      the reader about someone else's company instead of prompting them about
+                      their own.
+                    */
+                    placeholder={
+                      hasWebsite
+                        ? "e.g. we also cover the whole metro area, and we're closed on public holidays"
+                        : "e.g. we're a family dental practice in New York — cleanings, fillings, implants and whitening"
+                    }
                     className="mt-3 w-full resize-none rounded-[10px] border border-[#0A1A2F]/12 bg-white px-4 py-3 text-[15px] text-[#0A1A2F] placeholder:text-[#6B7888]/60 outline-none transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15"
                   />
                   <p className="mt-2 text-xs text-[#6B7888]">
@@ -998,9 +1095,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                     Give your AI a phone line
                   </h2>
+                  {/*
+                    Say when the number actually appears.
+
+                    Nothing is provisioned on this screen: a US number costs money every month
+                    from the moment it exists, so one is only claimed after a voice plan is paid
+                    for — which is also why there is no trial number to hand out. What this step
+                    collects is a preference, and reading it as "my number is being created now"
+                    is the difference between a customer who waits calmly through checkout and one
+                    who thinks a step failed.
+                  */}
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    This is the number it answers — 24 hours a day, without ringing out. Pick an area
-                    code your customers will recognise.
+                    This is the number it answers — 24 hours a day, without ringing out. Tell us the
+                    area code your customers would recognise; we claim the number itself right after
+                    you choose a plan, so nothing is reserved until then.
                   </p>
                 </div>
 
@@ -1023,7 +1131,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">Get a new number</h3>
-                            <p className="mt-1 text-sm text-[#2C3E54]">We&apos;ll assign you a number.</p>
+                            <p className="mt-1 text-sm text-[#2C3E54]">We&apos;ll claim one for you once your plan is active.</p>
                           </div>
                           <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />
                         </div>
@@ -1135,8 +1243,9 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     How much should it handle?
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    Pick the monthly call volume that fits your business. You&apos;re charged now, and
-                    you can move up or down at any time.
+                    Pick the monthly call volume that fits your business — and add chat if your
+                    customers message you as well. You&apos;re charged now, and you can move up or
+                    down at any time.
                   </p>
                 </div>
 
@@ -1218,8 +1327,10 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                                   className={`w-full ${isSelected ? tealBtn : outlineBtn}`}
                                   disabled={isPending}
                                   onClick={() => {
-                                    setSelectedPlan(plan.plan_code);
-                                    setSelectedChat(null);
+                                    // Clicking the selected plan again clears it, so a customer
+                                    // who changes their mind to chat-only is not stuck with a
+                                    // voice plan they can no longer deselect.
+                                    setSelectedPlan((prev) => (prev === plan.plan_code ? null : plan.plan_code));
                                     setError(null);
                                     setCheckoutMessage(null);
                                   }}
@@ -1233,12 +1344,16 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     </div>
 
                     {/*
-                      Chat instead of voice.
+                      Chat: alongside a voice plan, or instead of one.
 
                       Placed under the voice plans rather than beside them because it is a
                       different shape of purchase, not a fourth size: it buys channels the AI
-                      answers on and NO phone line. Selecting one clears the voice selection, so
-                      the checkout button can only ever mean one thing.
+                      answers on rather than call minutes. The two selections used to clear each
+                      other, which made the page say something the billing model never did — a
+                      voice plan lives in `org_plan_limits` and a chat tier in
+                      `billing_org_addons`, and they have always been able to coexist. A business
+                      whose customers both call and message had to buy twice, on two different
+                      screens, for one decision.
 
                       Renders only when a tier has a configured Stripe price — `getOnboardingState`
                       filters on that, so an offer we cannot charge for never reaches a button.
@@ -1247,11 +1362,12 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <div className="space-y-4 border-t border-[#0A1A2F]/10 pt-7">
                         <div>
                           <h3 className="font-display text-[19px] font-normal text-[#0A1A2F]">
-                            Or skip the phone line entirely
+                            {selectedPlan ? "Add chat as well" : "Or answer messages instead of calls"}
                           </h3>
                           <p className="mt-2 text-[14px] leading-relaxed text-[#2C3E54]">
-                            An AI that answers messages instead of calls. Sold by channel, not by
-                            message — there is no counter to run out of.
+                            {selectedPlan
+                              ? "The same AI employee, answering your messages too. Sold by channel, not by message — there is no counter to run out of."
+                              : "An AI that answers messages instead of calls. Sold by channel, not by message — there is no counter to run out of. You can take this on its own, or add it to a plan above."}
                           </p>
                         </div>
 
@@ -1296,15 +1412,17 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                                       ? "Pick any one of these"
                                       : `Pick any ${tier.channels} of these`}
                                   </p>
-                                  <p>No phone number, no call minutes</p>
+                                  {/* Only true when chat is being bought on its own — saying it
+                                      under a selected voice plan would contradict the phone line
+                                      the customer is buying on the same screen. */}
+                                  {!selectedPlan ? <p>No phone number, no call minutes</p> : null}
                                   <p>Same inbox, tickets and appointments</p>
                                 </div>
                                 <Button
                                   className={`mt-4 w-full ${isSelected ? tealBtn : outlineBtn}`}
                                   disabled={isPending}
                                   onClick={() => {
-                                    setSelectedChat(tier.addon_key);
-                                    setSelectedPlan(null);
+                                    setSelectedChat((prev) => (prev === tier.addon_key ? null : tier.addon_key));
                                     setError(null);
                                     setCheckoutMessage(null);
                                   }}
@@ -1318,66 +1436,64 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       </div>
                     )}
 
-                    {/* Action buttons */}
-                    <div className="flex flex-col items-center gap-3 pt-2">
-                      {selectedChat && (
-                        <Button
-                          className={`min-w-[220px] ${primaryBtn}`}
-                          disabled={checkoutLoading || isPending || isConfirming}
-                          onClick={() => {
-                            if (!selectedChat) return;
-                            setCheckoutLoading(true);
-                            setError(null);
-                            setCheckoutMessage(null);
-                            startTransition(async () => {
-                              const result = await startChatCheckout(selectedChat);
-                              if (result.ok && result.url) {
-                                window.location.href = result.url;
-                              } else {
-                                setCheckoutLoading(false);
-                                if (result.error === "UNAUTH") {
-                                  setError("Authentication error. Please refresh the page and try again.");
-                                } else if (result.error === "BILLING_PAUSED") {
-                                  setError("BILLING_PAUSED");
-                                } else {
-                                  setError(result.error || "Failed to start checkout");
-                                }
-                              }
-                            });
-                          }}
-                        >
-                          {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
-                        </Button>
-                      )}
+                    {/*
+                      Action buttons.
 
-                      {selectedPlan && (
-                        <Button
-                          className={`min-w-[220px] ${primaryBtn}`}
-                          disabled={checkoutLoading || isPending || isConfirming}
-                          onClick={() => {
-                            if (!selectedPlan) return;
-                            setCheckoutLoading(true);
-                            setError(null);
-                            setCheckoutMessage(null);
-                            startTransition(async () => {
-                              const result = await startPlanCheckout(selectedPlan as "starter" | "growth" | "scale");
-                              if (result.ok && result.url) {
-                                window.location.href = result.url;
-                              } else {
-                                setCheckoutLoading(false);
-                                if (result.error === "UNAUTH") {
-                                  setError("Authentication error. Please refresh the page and try again.");
-                                } else if (result.error === "BILLING_PAUSED") {
-                                  setError("BILLING_PAUSED");
+                      ONE checkout button, not one per kind of thing selected. There used to be a
+                      button under the voice branch and another under the chat branch, which was
+                      workable only because the two selections were mutually exclusive. Now that
+                      they are not, two buttons would be two ways to pay with no way to tell which
+                      one charges for what.
+
+                      The summary line above it is deliberate too: this is the last screen before
+                      a card is charged, so what is about to be bought is stated in words rather
+                      than left implied by which cards look highlighted.
+                    */}
+                    <div className="flex flex-col items-center gap-3 pt-2">
+                      {(selectedPlan || selectedChat) && (
+                        <>
+                          <p className="text-center text-sm text-[#2C3E54]">
+                            {checkoutSummary}
+                          </p>
+                          <Button
+                            className={`min-w-[220px] ${primaryBtn}`}
+                            disabled={checkoutLoading || isPending || isConfirming}
+                            onClick={() => {
+                              setCheckoutLoading(true);
+                              setError(null);
+                              setCheckoutMessage(null);
+                              startTransition(async () => {
+                                /*
+                                 * A voice plan, with or without a chat tier, goes through
+                                 * `startPlanCheckout` — one Stripe session with both line items.
+                                 * Chat on its own keeps its own entry point, which also lands the
+                                 * workspace on the $0 `chat_only` base plan.
+                                 */
+                                const result = selectedPlan
+                                  ? await startPlanCheckout(
+                                      selectedPlan as "starter" | "growth" | "scale",
+                                      selectedChat
+                                    )
+                                  : await startChatCheckout(selectedChat!);
+
+                                if (result.ok && result.url) {
+                                  window.location.href = result.url;
                                 } else {
-                                  setError(result.error || "Failed to start checkout");
+                                  setCheckoutLoading(false);
+                                  if (result.error === "UNAUTH") {
+                                    setError("Authentication error. Please refresh the page and try again.");
+                                  } else if (result.error === "BILLING_PAUSED") {
+                                    setError("BILLING_PAUSED");
+                                  } else {
+                                    setError(result.error || "Failed to start checkout");
+                                  }
                                 }
-                              }
-                            });
-                          }}
-                        >
-                          {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
-                        </Button>
+                              });
+                            }}
+                          >
+                            {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                          </Button>
+                        </>
                       )}
 
                       <Button
@@ -1393,7 +1509,9 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                           startTransition(async () => {
                             const result = await continueWithoutPlan(state.orgId!);
                             if (result.ok) {
-                              router.push("/dashboard/channels/phone-numbers");
+                              // Onboarding just completed, so the shared (app) layout must be
+                              // re-rendered on the server — see `handleComplete`.
+                              window.location.assign("/dashboard/channels/phone-numbers");
                             } else {
                               setError(result.error || "Failed to continue without plan");
                             }
@@ -1539,8 +1657,22 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                         Almost ready to answer
                       </h2>
-                      <p className="mt-3 text-[15px] text-[#2C3E54]">
-                        Your number is reserved. Carriers take up to ~2 minutes to switch it on.
+                      {/*
+                        Say what the wait IS, not just how long it lasts.
+
+                        The old copy gave a bare "~2 minutes" and a ticking clock with nothing
+                        behind it, so the obvious reading was that Denku was still working — and
+                        a customer who called during it heard silence and concluded the product
+                        was broken. Everything on our side is in fact finished by this point: the
+                        number exists, the AI employee exists, and the two are already bound. What
+                        is left is the phone network publishing the number, which we do not
+                        control and cannot speed up. Naming it turns a mysterious delay into an
+                        ordinary one.
+                      */}
+                      <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                        Your AI employee is built and already assigned to this number — that part
+                        is done. The last step belongs to the phone network, which takes a minute
+                        or two to publish a brand-new number before calls can reach it.
                       </p>
                     </div>
 
@@ -1552,15 +1684,22 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         <div className="mx-auto h-1 w-full max-w-xs overflow-hidden rounded-full bg-[#0A1A2F]/[0.08]">
                           <div className="h-full bg-[#1B6E6E] transition-all duration-1000" style={{ width: `${((120 - countdownRemaining) / 120) * 100}%` }} />
                         </div>
+                        <p className="text-xs text-[#6B7888]">
+                          Typical time for a carrier to switch a new number on
+                        </p>
                       </div>
                     )}
 
                     {countdownRemaining === 0 && phoneStatus === "activating" && (
-                      <p className="text-sm text-[#6B7888]">Still activating… This usually completes within a few moments.</p>
+                      <p className="text-sm text-[#6B7888]">
+                        Taking a little longer than usual. Nothing is wrong and nothing is lost —
+                        the number stays yours and starts answering the moment the carrier
+                        finishes. You can leave this page.
+                      </p>
                     )}
 
                     <p className="text-sm text-[#6B7888]">
-                      As soon as it&apos;s on, call the number below to hear your AI answer.
+                      Until then, a call may not connect. That&apos;s the carrier, not your AI.
                     </p>
                   </>
                 )}
@@ -1581,6 +1720,20 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     ) : (
                       <span className="text-[15px] font-medium text-[#0A1A2F]">Number will appear here once provisioning completes.</span>
                     )}
+                    {/*
+                      The one fact the customer cannot see for themselves.
+
+                      A number on its own says nothing about whether anything is listening on it.
+                      This is the sentence that closes that gap — and it is only true because
+                      activation now writes the employee onto the line, rather than leaving it
+                      unassigned for the customer to discover as a dashboard warning.
+                    */}
+                    {displayPhoneNumber ? (
+                      <p className="flex items-center gap-1.5 text-xs text-[#134F4F]">
+                        <Check className="h-3.5 w-3.5 shrink-0" />
+                        Your AI employee is assigned to this number
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 

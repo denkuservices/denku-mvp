@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, AlertTriangle, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
-import { getEmployeeView } from "@/lib/platform/readModel/employees";
+import { getEmployeeView, listEmployeeViews } from "@/lib/platform/readModel/employees";
+import { listConnectedChannelViews } from "@/lib/platform/readModel/channels";
 import { getEmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { listConversationViews } from "@/lib/platform/readModel/conversations";
 import {
@@ -22,6 +23,7 @@ import { Pill } from "../../_platform/ui";
 import EmployeeTabs from "../../_platform/team/EmployeeTabs";
 import SetupForm from "../../_platform/team/SetupForm";
 import KnowledgeForm from "../../_platform/team/KnowledgeForm";
+import ClaimChannelList, { type ClaimableChannel } from "../../_platform/team/ClaimChannelList";
 import { EMPLOYEE_TAB_META, resolveEmployeeTab } from "../../_platform/team/tabs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -112,7 +114,38 @@ export default async function EmployeeDetailPage({
       .eq("org_id", orgId)
       .maybeSingle<{ website_facts: Record<string, string> | null }>();
     websiteFacts = ws?.website_facts ?? null;
-  }  const conversations =
+  }
+
+  /*
+   * The channels this employee could be put on, for the Channels tab's empty state.
+   *
+   * Only computed for that tab — six tabs on one route must not mean six sets of queries. An
+   * already-owned connection is listed too, labelled with its current owner: moving a channel
+   * between employees is a legitimate thing to want, and hiding it would just send the reader
+   * back out to the channels page to hunt for it.
+   */
+  let claimable: ClaimableChannel[] = [];
+  if (tab === "channels" && employee.channels.length === 0) {
+    const [views, roster] = await Promise.all([
+      listConnectedChannelViews(orgId).catch(() => []),
+      listEmployeeViews(orgId).catch(() => []),
+    ]);
+    const nameById = new Map(roster.map((e) => [e.id, e.name]));
+
+    claimable = views
+      .filter((v) => v.connectionId && v.status !== "coming_soon")
+      .map((v) => {
+        const ownerId = v.assignedTo;
+        return {
+          channel: v.channel,
+          connectionId: v.connectionId as string,
+          identifier: v.identifier,
+          ownedByName: ownerId ? nameById.get(ownerId) ?? "another employee" : null,
+        };
+      });
+  }
+
+  const conversations =
     tab === "activity" || tab === "overview"
       ? (await listConversationViews(orgId, { limit: 200 }))
           .filter((c) => c.employeeId === employee.id)
@@ -234,11 +267,7 @@ export default async function EmployeeDetailPage({
 
       {tab === "knowledge" ? (
         config ? (
-          <KnowledgeForm
-            employee={config}
-            workspaceStatus={workspaceStatus}
-            websiteFacts={websiteFacts}
-          />
+          <KnowledgeForm employee={config} workspaceStatus={workspaceStatus} />
         ) : (
           <Card>
             <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s knowledge.</p>
@@ -249,13 +278,11 @@ export default async function EmployeeDetailPage({
       {tab === "channels" ? (
         <Card>
           {employee.channels.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No channels connected.{" "}
-              <Link href="/dashboard/channels" className="text-brand-600 hover:underline">
-                Connect one
-              </Link>
-              .
-            </p>
+            <ClaimChannelList
+              employeeId={employee.id}
+              employeeName={employee.name}
+              claimable={claimable}
+            />
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-white/10">
               {employee.channels.map((c) => {

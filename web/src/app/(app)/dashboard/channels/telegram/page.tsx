@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listConnections } from "@/lib/telegram/connections";
 import { llmConfigured } from "@/lib/llm/provider";
 import PageHeader from "../../_platform/PageHeader";
+import EmployeeAssignmentNotice from "../../_platform/channels/EmployeeAssignmentNotice";
 import { TelegramConnectionCard, type EmployeeOption } from "./_components/TelegramConnectionCard";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,13 @@ export default async function TelegramPage() {
           Only owners and admins can connect a Telegram bot.
         </div>
       ) : null}
+
+      <EmployeeAssignmentNotice
+        employeeCount={employees.length}
+        assignedAgentId={connection?.assignedAgentId ?? null}
+        channelLabel="Telegram"
+        connected={Boolean(connection)}
+      />
 
       <TelegramConnectionCard
         connection={

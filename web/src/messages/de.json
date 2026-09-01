@@ -248,7 +248,23 @@
         "caption": "Er vergisst keinen Kunden",
         "note": "Jeder Anruf ergänzt die Historie des Kontakts, damit der nächste nicht bei null anfängt."
       }
-    ]
+    ],
+    "signup": {
+      "title": "Konto erstellen",
+      "subtitle": "Wir senden Ihnen einen 8-stelligen Code per E-Mail.",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "sie@firma.com",
+      "emailHint": "Wir senden Ihnen einen 8-stelligen Code per E-Mail.",
+      "submit": "Weiter",
+      "submitting": "Code wird gesendet…",
+      "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+      "haveAccount": "Sie haben bereits ein Konto?",
+      "signIn": "Anmelden",
+      "alreadyRegisteredTitle": "Diese E-Mail-Adresse ist bereits registriert",
+      "alreadyRegisteredBody": "Wir haben nichts gesendet. Melden Sie sich stattdessen mit Ihrem Passwort an.",
+      "goToSignIn": "Zur Anmeldung",
+      "forgotPassword": "Passwort vergessen?"
+    }
   },
   "request": {
     "eyebrow": "Anfragen",

@@ -54,7 +54,47 @@ const EMPTY_DRAFT: KnowledgeDraft = {
 
 const LLM_TIMEOUT_MS = 20_000;
 
-const SYSTEM_PROMPT = [
+/**
+ * The language the draft is written in.
+ *
+ * Deliberately the EMPLOYEE's configured language, not "whatever language the source material
+ * happened to be in" — which is what this used to say, and what produced the failure that
+ * prompted the change: a business with a Turkish website got a Knowledge form full of Turkish
+ * sentences under English labels, in an English interface, with the source page's own mixed
+ * English/Turkish product names copied straight through into `services`.
+ *
+ * The employee's language is the right anchor because it is the language these words are
+ * actually spoken to customers in. It is chosen during onboarding and shown in the employee's
+ * Setup, so it is a decision the owner made and can change — unlike the incidental language of a
+ * web page we scraped.
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  tr: "Turkish",
+  es: "Spanish",
+  de: "German",
+  fr: "French",
+  it: "Italian",
+  pt: "Portuguese",
+  nl: "Dutch",
+  ar: "Arabic",
+  ru: "Russian",
+};
+
+/** A language name for the prompt. Unknown or missing codes fall back to English. Pure. */
+export function draftLanguageName(code: string | null | undefined): string {
+  const key = (code ?? "").trim().toLowerCase().split(/[-_]/)[0];
+  return LANGUAGE_NAMES[key] ?? "English";
+}
+
+function systemPrompt(languageName: string): string {
+  // Global on purpose: the rule names the language on four lines, and a string `replace` would
+  // have filled in only the first — leaving the model three instructions containing a literal
+  // `{{LANGUAGE}}` to interpret.
+  return SYSTEM_PROMPT_BASE.replace(/\{\{LANGUAGE\}\}/g, languageName);
+}
+
+const SYSTEM_PROMPT_BASE = [
   "You prepare a draft profile for a small business, to be reviewed by its owner before use.",
   "",
   "You will be given: the business's own description of itself, its name, what it uses its AI for,",
@@ -79,7 +119,14 @@ const SYSTEM_PROMPT = [
   '- Where you know the question but not the answer, write `Question — ` and stop, so the owner',
   "  sees exactly what is left to fill in.",
   "",
-  "Write in the same language the business used to describe itself.",
+  "LANGUAGE — write every field in {{LANGUAGE}}, whatever language the material is in.",
+  "- These words are spoken to customers by an AI configured to speak {{LANGUAGE}}, and they sit",
+  "  in a form whose labels are in {{LANGUAGE}}. A field in another language is a field the owner",
+  "  cannot review at a glance and the AI cannot say naturally.",
+  "- Translate what you were given. Do NOT copy source phrases through untranslated, and do not",
+  "  mix languages within a field.",
+  "- Proper nouns are the exception: a business name, a brand or a place name keeps its own",
+  "  spelling, because that is what it is called.",
   "",
   'Return JSON with exactly these keys, all strings, empty string where unknown: "businessName",',
   '"services", "openingHours", "serviceArea", "faqs", "bookingPolicy", "cancellationPolicy", "tone".',
@@ -171,11 +218,11 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
           }>(),
         supabaseAdmin
           .from("agents")
-          .select("business_context")
+          .select("business_context, language")
           .eq("org_id", orgId)
           .order("created_at", { ascending: true })
           .limit(1)
-          .maybeSingle<{ business_context: Record<string, unknown> | null }>(),
+          .maybeSingle<{ business_context: Record<string, unknown> | null; language: string | null }>(),
         // What customers actually asked. The single most useful input here, and the one thing
         // the owner cannot easily reconstruct from memory.
         supabaseAdmin
@@ -231,6 +278,13 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
       .filter(Boolean)
       .join("\n\n");
 
+    /*
+     * The employee's own language wins; the workspace's onboarding answer is the fallback for a
+     * workspace whose employee row predates the column. English if neither says anything —
+     * never "guess from the material", which is the behaviour being replaced.
+     */
+    const languageName = draftLanguageName(agent?.language ?? settings?.onboarding_language);
+
     const client = new OpenAI({
       apiKey: provider.apiKey,
       baseURL: provider.baseURL,
@@ -244,7 +298,7 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
       max_tokens: 900,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt(languageName) },
         { role: "user", content: material },
       ],
     });
@@ -276,6 +330,7 @@ export async function draftKnowledgeForOrg(orgId: string): Promise<DraftResult> 
 
     console.info("[KNOWLEDGE_DRAFT][OK]", {
       org_id: orgId,
+      language: languageName,
       questions: questions.length,
       filled: Object.values(draft).filter((v) => v.length > 0).length,
     });

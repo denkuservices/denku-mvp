@@ -21,7 +21,19 @@ export type RequestPasswordResetResult =
  *   risk to the signup critical path.
  *
  * ENUMERATION-SAFE: always returns `{ ok: true }` for a well-formed email regardless
- * of whether an account exists. Never reveals account existence.
+ * of whether an account exists.
+ *
+ * **This is deliberately NOT the product-wide rule, and the asymmetry is the point.** Signup
+ * tells a customer outright that their address is already registered — because it must: Supabase
+ * mails a magic LINK to a known address, and a customer who was silently signed into a dashboard
+ * they did not expect had no way to understand what had happened.
+ *
+ * Reset stays silent because the two are not the same request. On signup a person is claiming
+ * *this address is mine*; being wrong costs them a wasted form submission. Here a person is
+ * asking us to *send a credential to an address*, which is the request an attacker uses to probe
+ * at scale and the one where knowing the answer pairs with something worth having. Same
+ * information, different price for leaking it — so the two surfaces answer differently on
+ * purpose. Do not "make these consistent" by opening this one.
  *
  * OPERATOR NOTE: `${baseUrl}/auth/reset-callback` must be present in the Supabase
  * Auth "Redirect URLs" allowlist (same place `/auth/callback` is configured) or

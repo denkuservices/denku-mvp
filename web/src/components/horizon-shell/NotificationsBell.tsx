@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, AlertTriangle, AlertCircle, MessageSquare, Loader2 } from 'lucide-react';
+import { Bell, AlertTriangle, AlertCircle, ClipboardList, MessageSquare, Loader2 } from 'lucide-react';
 import { loadAttentionAction } from '@/app/(app)/dashboard/_actions/topbar';
 import type { AttentionFeed, AttentionItem } from '@/lib/platform/readModel/attentionTypes';
 
@@ -25,6 +25,15 @@ import type { AttentionFeed, AttentionItem } from '@/lib/platform/readModel/atte
 
 const CACHE_TTL_MS = 60_000;
 
+/**
+ * How often an open, visible tab re-checks.
+ *
+ * Long enough that it is not a load-bearing cost on the dashboard (four queries a minute per open
+ * tab), short enough that "a customer just booked something" reaches the person who needs to know
+ * while it is still news.
+ */
+const POLL_MS = 60_000;
+
 let cached: { at: number; feed: AttentionFeed } | null = null;
 
 const EMPTY: AttentionFeed = { items: [], count: 0 };
@@ -34,6 +43,7 @@ const ICONS = {
   usage: AlertTriangle,
   needs_person: AlertTriangle,
   unread: MessageSquare,
+  new_request: ClipboardList,
 } as const;
 
 const TONES = {
@@ -93,6 +103,32 @@ export default function NotificationsBell() {
     return () => clearTimeout(timer);
   }, [load]);
 
+  /**
+   * Keep the badge current on a page nobody is navigating.
+   *
+   * The feed was only ever fetched on mount, so a customer sitting on their dashboard while a
+   * call came in — the exact situation the bell is for — saw nothing until they clicked something.
+   * A ticket raised at 10:02 was news at 10:02, not whenever they next changed page.
+   *
+   * Polls only while the tab is actually visible, and refetches immediately on becoming visible
+   * again, so a tab left open in the background costs nothing and is nonetheless right the moment
+   * it is looked at.
+   */
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    function refreshIfVisible() {
+      if (document.visibilityState === 'visible') void load(true);
+    }
+
+    const interval = setInterval(refreshIfVisible, POLL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [load]);
+
   useEffect(() => {
     if (!open) return;
     function onDown(event: MouseEvent) {
@@ -142,7 +178,18 @@ export default function NotificationsBell() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-12 z-[9999] w-[min(92vw,360px)] overflow-hidden rounded-[20px] bg-white shadow-xl shadow-shadow-500 dark:!bg-navy-700 dark:shadow-none"
+          /*
+           * On a phone the panel is pinned to the VIEWPORT, not to the button.
+           *
+           * The bell is not the last control in the capsule — the theme toggle, help and the
+           * avatar all sit to its right — so `right-0` anchored a 92vw-wide panel to a point
+           * roughly 120px in from the screen edge. On a 375px phone that put its left edge about
+           * 90px off-screen: the panel ran off the page and took the horizontal scroll with it.
+           *
+           * `max-md:fixed inset-x-4` gives it equal margins against the screen instead, which is
+           * the same treatment the search panel beside it already uses.
+           */
+          className="absolute right-0 top-12 z-[9999] w-[min(92vw,360px)] overflow-hidden rounded-[20px] bg-white shadow-xl shadow-shadow-500 max-md:fixed max-md:inset-x-4 max-md:top-[84px] max-md:w-auto dark:!bg-navy-700 dark:shadow-none"
         >
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-white/10">
             <p className="text-sm font-bold text-navy-700 dark:text-white">Needs your attention</p>

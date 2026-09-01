@@ -1,5 +1,5 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
 /**
  * Application-layer secret encryption (AES-256-GCM) for credentials at rest —
@@ -48,6 +48,22 @@ export function isSecretBoxConfigured(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A separate key for a separate purpose, derived from the one that is already deployed.
+ *
+ * Web Chat needs to SIGN session tokens, not encrypt anything — a different operation, and
+ * using the encryption key directly for it would mean one leaked key breaks two unrelated
+ * things and there is no way to rotate one without the other. HKDF gives an independent key
+ * per label with no second env var for an operator to lose (the same reasoning that made
+ * Telegram reuse `SECRET_ENCRYPTION_KEY` rather than introduce its own).
+ *
+ * Throws when no key is configured — callers must treat that as "not available", never as
+ * "sign with something else".
+ */
+export function deriveSubkey(label: string): Buffer {
+  return Buffer.from(hkdfSync("sha256", getKey(), Buffer.alloc(0), Buffer.from(label, "utf8"), 32));
 }
 
 export function encryptSecret(plaintext: string): string {

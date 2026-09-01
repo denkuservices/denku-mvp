@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripeClient } from "../create-draft-invoice-helpers";
 import { logEvent } from "@/lib/observability/logEvent";
-import { isActivatablePlanCode, CHAT_ONLY_PLAN_CODE } from "@/lib/billing/chatPlanKeys";
+import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
@@ -205,12 +205,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 10b) A chat-only purchase bought a chat TIER, not the $0 base plan. The webhook does the
-    //      same thing; this is the path a refreshed success page takes when the webhook is slow,
-    //      and the two must agree — otherwise whether chat works would depend on which arrived
-    //      first. Idempotent on (org_id, addon_key), so both running is harmless.
+    // 10b) A session carrying `chat_addon_key` bought a chat TIER — alone, or alongside a voice
+    //      plan. The webhook does the same thing; this is the path a refreshed success page takes
+    //      when the webhook is slow, and the two must agree — otherwise whether chat works would
+    //      depend on which arrived first. Idempotent on (org_id, addon_key).
     const chatAddonKey = session.metadata?.chat_addon_key;
-    if (planCode === CHAT_ONLY_PLAN_CODE && chatAddonKey) {
+    if (chatAddonKey) {
       const recorded = await recordChatPurchase(org_id, chatAddonKey);
       logEvent({
         tag: recorded.ok

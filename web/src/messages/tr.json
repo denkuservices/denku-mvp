@@ -248,7 +248,23 @@
         "caption": "Hiçbir müşteriyi unutmaz",
         "note": "Her arama bir kişinin geçmişine eklenir, böylece sonraki sıfırdan başlamaz."
       }
-    ]
+    ],
+    "signup": {
+      "title": "Hesap oluştur",
+      "subtitle": "Başlamanız için e-postanıza 8 haneli bir kod göndereceğiz.",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "emailHint": "Size 8 haneli bir kod göndereceğiz.",
+      "submit": "Devam et",
+      "submitting": "Kod gönderiliyor…",
+      "invalidEmail": "Lütfen geçerli bir e-posta adresi girin.",
+      "haveAccount": "Zaten hesabınız var mı?",
+      "signIn": "Giriş yapın",
+      "alreadyRegisteredTitle": "Bu e-posta zaten kayıtlı",
+      "alreadyRegisteredBody": "Hiçbir e-posta göndermedik. Şifrenizle giriş yapabilirsiniz.",
+      "goToSignIn": "Giriş yap",
+      "forgotPassword": "Şifrenizi mi unuttunuz?"
+    }
   },
   "request": {
     "eyebrow": "Talepler",

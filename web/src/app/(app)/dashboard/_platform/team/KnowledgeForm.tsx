@@ -11,7 +11,7 @@ import {
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import { draftKnowledgeAction } from "./_actions/draftKnowledge";
-import { examplesForTimezone } from "./knowledgeExamples";
+import { knowledgeExamples } from "./knowledgeExamples";
 import {
   BUSINESS_CONTEXT_FIELDS,
   toSetupFormState,
@@ -32,20 +32,9 @@ import {
 export default function KnowledgeForm({
   employee,
   workspaceStatus,
-  websiteFacts,
 }: {
   employee: EmployeeConfig;
   workspaceStatus: "active" | "paused";
-  /**
-   * What the business's own website said, read during onboarding.
-   *
-   * Used as placeholder text where it has something for a field, so the owner sees THEIR hours
-   * and THEIR services rather than a worked example from another country. Placeholders only:
-   * nothing here is ever saved without being typed or drafted and confirmed, because a real page
-   * can be years out of date and "we read it off your website" is no defence for telling a
-   * customer the wrong opening time.
-   */
-  websiteFacts?: Record<string, string> | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -60,31 +49,15 @@ export default function KnowledgeForm({
   const [justSaved, setJustSaved] = React.useState(false);
   const [drafting, setDrafting] = React.useState(false);
   /**
-   * Placeholder examples for wherever the reader actually is.
+   * The placeholder examples.
    *
-   * Resolved after mount so the server and the first client render agree; until then the
-   * employee's own saved timezone stands, which is usually already right.
+   * Website facts are deliberately NOT merged in here. They reach the fields through "Draft with
+   * AI", as real values a person reviews and saves — which keeps one meaning per appearance: grey
+   * is an example, black is your answer. Showing a fact from someone's own site as a placeholder
+   * would leave them believing it was already saved, which is the same confusion in a politer
+   * costume.
    */
-  const [zone, setZone] = React.useState<string | null>(employee.timezone ?? null);
-  React.useEffect(() => {
-    try {
-      setZone(Intl.DateTimeFormat().resolvedOptions().timeZone || employee.timezone || null);
-    } catch {
-      // Keep the employee's saved zone.
-    }
-  }, [employee.timezone]);
-  const regional = React.useMemo(() => examplesForTimezone(zone), [zone]);
-  /** The business's own site wins over a regional example, field by field. */
-  const examples = React.useMemo(() => {
-    if (!websiteFacts) return regional;
-    const merged = { ...regional };
-    for (const [key, value] of Object.entries(websiteFacts)) {
-      if (key in merged && typeof value === "string" && value.trim()) {
-        merged[key as keyof typeof merged] = value.trim();
-      }
-    }
-    return merged;
-  }, [regional, websiteFacts]);
+  const examples = knowledgeExamples();
   /** True once a draft has been loaded, so the form can say these words are not saved yet. */
   const [draftLoaded, setDraftLoaded] = React.useState(false);
 

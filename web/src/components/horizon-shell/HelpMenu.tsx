@@ -60,7 +60,8 @@ export default function HelpMenu() {
         <div
           role="menu"
           aria-label="Help"
-          className="absolute right-0 top-12 z-[9999] w-[min(92vw,260px)] overflow-hidden rounded-[20px] bg-white py-2 shadow-xl shadow-shadow-500 dark:!bg-navy-700 dark:shadow-none"
+          // Same viewport pinning as the search and notification panels — see NotificationsBell.
+          className="absolute right-0 top-12 z-[9999] w-[min(92vw,260px)] overflow-hidden rounded-[20px] bg-white py-2 shadow-xl shadow-shadow-500 max-md:fixed max-md:inset-x-4 max-md:top-[84px] max-md:w-auto dark:!bg-navy-700 dark:shadow-none"
         >
           <Item href="/docs" icon={BookOpen} label="Documentation" hint="How Denku works" newTab />
           <Item href="/support" icon={LifeBuoy} label="Support" hint="Answers and contact" newTab />

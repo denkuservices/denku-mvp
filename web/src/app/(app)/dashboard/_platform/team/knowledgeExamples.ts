@@ -1,16 +1,21 @@
 /**
- * Placeholder examples, chosen by where the person actually is.
+ * Placeholder examples for the Knowledge fields.
  *
- * The first version shipped one set written around a clinic in Kadıköy. To an owner in Ohio that
- * is not a helpful example, it is a product that looks like it was built for somewhere else — and
- * a placeholder's whole job is to show the SHAPE of a good answer, which it cannot do while the
- * reader is busy noticing it does not apply to them.
+ * **Every one begins with "e.g." and that is not decoration.** The previous version shipped
+ * fully-formed sentences in Turkish — a district and city for the service area, a cancellation
+ * fee stated to the half-price — and an owner who pressed "Draft with AI"
+ * read them as the draft. The AI had correctly left those fields EMPTY because the website
+ * said nothing about hours or cancellation; the placeholder filled the silence with a Turkish
+ * dental clinic, on the profile of a company that sells medical uniforms.
  *
- * The region comes from the browser's own timezone, the same source the timezone picker uses. No
- * IP lookup, nothing sent anywhere: it is the zone the person's device is set to.
+ * That is the exact failure this feature exists to prevent, arriving through the one part of it
+ * nobody thought could lie. A placeholder that reads like an answer IS an answer as far as the
+ * person looking at it is concerned. So they are prefixed, kept short, and written to be
+ * obviously generic.
  *
- * These are examples, never defaults. Nothing here is ever written into a field — an example that
- * silently became data would be exactly the invented fact this product refuses everywhere else.
+ * **One language: the product's.** They used to be picked from the reader's timezone, which put
+ * Turkish text in front of an English interface — the placeholder was speaking a different
+ * language from every label around it. The interface is English, so these are English.
  */
 
 export type KnowledgeExamples = {
@@ -24,67 +29,29 @@ export type KnowledgeExamples = {
   tone: string;
 };
 
-const TR: KnowledgeExamples = {
-  businessName: "Kadıköy Diş Kliniği",
-  services: "Diş temizliği, dolgu, kanal tedavisi, implant ve beyazlatma. İlk muayene ücretsiz.",
-  openingHours: "Pzt–Cum 09:00–18:00, Cmt 10:00–14:00, Pazar kapalı",
-  serviceArea: "Kadıköy, İstanbul — tek klinik",
-  faqs: "Anlaşmalı kurumlarınız var mı? — Özel sağlık sigortalarının çoğuyla çalışıyoruz.\nOtopark var mı? — Evet, hastalarımıza ücretsiz.",
-  bookingPolicy: "En az bir gün önceden randevu alın. Aynı gün için iptallere bağlı.",
-  cancellationPolicy: "24 saat önceden haber verin, aksi halde muayene ücretinin yarısı yansıtılır.",
-  tone: "Sıcak ve güven verici — arayanların çoğu diş hekiminden çekiniyor.",
-};
-
-const US: KnowledgeExamples = {
-  businessName: "Riverside Dental",
-  services: "Cleanings, fillings, root canals, implants and whitening. First consultation is free.",
-  openingHours: "Mon–Fri 9:00–6:00, Sat 10:00–2:00, closed Sunday",
-  serviceArea: "One office in Columbus, OH",
-  faqs: "Do you take insurance? — Yes, most PPO plans.\nIs there parking? — Yes, free for patients.",
-  bookingPolicy: "Book at least a day ahead. Same-day slots depend on cancellations.",
-  cancellationPolicy: "24 hours' notice, otherwise half the visit fee is charged.",
-  tone: "Warm and reassuring — a lot of callers are nervous about the dentist.",
-};
-
-const EU: KnowledgeExamples = {
-  businessName: "Rivergate Dental",
-  services: "Cleanings, fillings, root canals, implants and whitening. First consultation is free.",
-  openingHours: "Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday",
-  serviceArea: "One practice in central Amsterdam",
-  faqs: "Do you take insurance? — Yes, most private plans.\nIs there parking? — Yes, free for patients.",
-  bookingPolicy: "Book at least a day ahead. Same-day slots depend on cancellations.",
-  cancellationPolicy: "24 hours' notice, otherwise half the visit fee is charged.",
-  tone: "Warm and reassuring — a lot of callers are nervous about the dentist.",
-};
-
-const ES: KnowledgeExamples = {
-  businessName: "Clínica Dental Riera",
-  services: "Limpiezas, empastes, endodoncias, implantes y blanqueamiento. Primera visita gratuita.",
-  openingHours: "Lun–Vie 9:00–18:00, Sáb 10:00–14:00, domingo cerrado",
-  serviceArea: "Una clínica en Barcelona",
-  faqs: "¿Trabajáis con seguros? — Sí, con la mayoría de seguros privados.\n¿Hay aparcamiento? — Sí, gratuito para pacientes.",
-  bookingPolicy: "Pide cita con al menos un día de antelación. El mismo día depende de las cancelaciones.",
-  cancellationPolicy: "Avisa con 24 horas, si no se cobra la mitad de la visita.",
-  tone: "Cercano y tranquilizador — mucha gente viene con miedo al dentista.",
+/**
+ * Deliberately a plain, unremarkable business rather than a specific one.
+ *
+ * A vivid example teaches the shape of a good answer but invites the reader to picture someone
+ * else's company. These say what belongs in the box and nothing more.
+ */
+export const KNOWLEDGE_EXAMPLES: KnowledgeExamples = {
+  businessName: "e.g. Northside Supply",
+  services: "e.g. what you sell or do, and anything a customer often asks whether you offer",
+  openingHours: "e.g. Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday",
+  serviceArea: "e.g. the cities, districts or regions you serve",
+  faqs: "e.g. Do you deliver outside the city? — Yes, within 3 working days.",
+  bookingPolicy: "e.g. how far ahead customers should book, and whether same-day is possible",
+  cancellationPolicy: "e.g. how much notice you need, and any fee",
+  tone: "e.g. warm and patient; or brisk and to the point",
 };
 
 /**
- * Pick a set from an IANA timezone.
+ * The examples to show.
  *
- * Deliberately coarse. The point is that the example does not feel foreign, not that it names the
- * reader's own street — four buckets do that, and a longer table would be more to keep true.
+ * Kept as a function because the caller merges the business's own website facts over the top,
+ * field by field — a real detail from their site always beats a generic prompt.
  */
-export function examplesForTimezone(timezone: string | null | undefined): KnowledgeExamples {
-  const tz = (timezone ?? "").trim();
-  if (!tz) return US;
-
-  if (tz === "Europe/Istanbul" || tz === "Asia/Istanbul") return TR;
-  if (tz === "Europe/Madrid" || tz.startsWith("America/Mexico") || tz.startsWith("America/Bogota"))
-    return ES;
-  if (tz.startsWith("Europe/") || tz.startsWith("Africa/")) return EU;
-  if (tz.startsWith("America/") || tz.startsWith("US/") || tz.startsWith("Canada/")) return US;
-
-  return EU;
+export function knowledgeExamples(): KnowledgeExamples {
+  return { ...KNOWLEDGE_EXAMPLES };
 }
-
-export { TR as TR_EXAMPLES, US as US_EXAMPLES, EU as EU_EXAMPLES, ES as ES_EXAMPLES };

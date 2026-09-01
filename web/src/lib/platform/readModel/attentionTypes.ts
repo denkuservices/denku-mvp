@@ -6,7 +6,13 @@
  * person adding a constant does not have to rediscover why the build broke.
  */
 
-export type AttentionKind = "workspace_paused" | "usage" | "needs_person" | "unread";
+export type AttentionKind =
+  | "workspace_paused"
+  | "usage"
+  | "needs_person"
+  | "unread"
+  /** A ticket or appointment your AI produced that nobody has dealt with yet. */
+  | "new_request";
 export type AttentionSeverity = "critical" | "warning" | "info";
 
 export interface AttentionItem {
