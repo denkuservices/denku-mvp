@@ -133,15 +133,19 @@ async function deriveOrgIdFromContact(
 /**
  * Create or get a minimal call stub for the given call_id.
  * Returns the call row with org_id, or null if creation fails.
- * 
- * Sets vapi_call_id = `tool:${call_id}` to satisfy NOT NULL constraint.
+ *
+ * `vapi_call_id` is NOT NULL, so a stub needs a value for it. When the tool call came from a real
+ * phone call we have Vapi's own id and use it verbatim — that way the webhook's later upsert
+ * (`onConflict: vapi_call_id`) lands on THIS row instead of creating a second one for the same
+ * call. Only when there is no Vapi id do we fall back to the synthetic `tool:` prefix.
  */
 async function ensureCallStub(
   callId: string,
-  orgId: string
+  orgId: string,
+  realVapiCallId?: string | null
 ): Promise<{ id: string; org_id: string; vapi_call_id: string } | null> {
   try {
-    const vapiCallId = `tool:${callId}`;
+    const vapiCallId = realVapiCallId || `tool:${callId}`;
     
     // Check if call already exists (by id or vapi_call_id)
     const { data: existing } = await supabaseAdmin
@@ -211,12 +215,53 @@ async function ensureCallStub(
   }
 }
 
+/**
+ * Vapi sends "" for every declared property the model did not fill.
+ *
+ * Lifted from `create-appointment`, where it was written after the first real booking in production
+ * failed validation on exactly this. An empty string means "not provided" and must be read that
+ * way — otherwise a declared-but-unfilled field rejects the whole call.
+ */
+const optionalText = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.string().optional().nullable()
+);
+
+/**
+ * Two callers, two vocabularies — and until 2026-09-02 only one of them worked.
+ *
+ * The internal caller (`app/api/webhooks/vapi/route.ts`) sends the canonical shape:
+ * `call_id` + `description` + `requester_*`. The LIVE Vapi tool sends something else entirely:
+ * the call id as an `x-vapi-call-id` header, and a body of `notes` / `lead_name` / `lead_phone` /
+ * `lead_email`. Against a schema that required `call_id` and `description` in the body, **every
+ * invocation from a real phone call failed validation** — silently, because tickets kept appearing
+ * anyway: `ensureTicketForCall` in the webhook creates one regardless, so the never-dead-end
+ * guarantee had been covering for a tool that never once succeeded.
+ *
+ * So nothing is required here any more. Both vocabularies are accepted and normalized below, and
+ * what a ticket actually needs (something to say, and an org to belong to) is checked afterwards
+ * with a message the assistant can act on.
+ */
 const RequestSchema = z.object({
-  call_id: z.string().uuid(),
-  description: z.string().min(1),
-  requester_phone: z.string().optional().nullable(),
-  requester_email: z.string().email().optional().nullable(),
-  requester_name: z.string().optional().nullable(),
+  call_id: optionalText,
+  /** Vapi's own call id, when it arrives in the body rather than the header. */
+  vapi_call_id: optionalText,
+  description: optionalText,
+  /** What the live Vapi tool calls `description`. */
+  notes: optionalText,
+  requester_phone: optionalText,
+  requester_email: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().email().optional().nullable()
+  ),
+  requester_name: optionalText,
+  /** The `lead_*` spelling the live Vapi tool uses for the same three fields. */
+  lead_phone: optionalText,
+  lead_email: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().email().optional().nullable()
+  ),
+  lead_name: optionalText,
   /**
    * What the call was about, in the caller's own language.
    *
@@ -224,8 +269,14 @@ const RequestSchema = z.object({
    * ticket falls back to a generic title. It used to be IGNORED even when supplied — the insert
    * hard-coded "Support Request" — which is why every ticket in production carries that title.
    */
-  subject: z.string().min(1).max(120).optional().nullable(),
-  priority: z.enum(["low", "normal", "high"]).optional().nullable(),
+  subject: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().max(120).optional().nullable()
+  ),
+  priority: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.enum(["low", "normal", "high"]).optional().nullable()
+  ),
 }).passthrough();
 
 export async function POST(request: NextRequest) {
@@ -339,15 +390,93 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const input = parsed.data;
-    const callId = input.call_id;
+    const raw = parsed.data;
 
-    // Look up call to get org_id
-    let { data: callData, error: callErr } = await supabaseAdmin
-      .from("calls")
-      .select("id, org_id")
-      .eq("id", callId)
-      .maybeSingle<{ id: string; org_id: string | null }>();
+    /**
+     * One vocabulary from here down.
+     *
+     * The `lead_*` / `notes` spellings are what the live Vapi tool sends; the `requester_*` /
+     * `description` ones are what the internal webhook sends. Whichever arrived, the rest of this
+     * handler sees the canonical names and never has to ask which caller it is serving.
+     */
+    const input = {
+      ...raw,
+      description: raw.description ?? raw.notes ?? null,
+      requester_phone: raw.requester_phone ?? raw.lead_phone ?? null,
+      requester_email: raw.requester_email ?? raw.lead_email ?? null,
+      requester_name: raw.requester_name ?? raw.lead_name ?? null,
+    };
+
+    /**
+     * A ticket has to say something.
+     *
+     * Refusing beats writing a row that reads "Support Request" and nothing else — the team would
+     * see a ticket and learn nothing from it. The message is written for the assistant, which can
+     * act on it: it still has the conversation in front of it and can call again with a sentence.
+     * The caller is not dead-ended either way, because `ensureTicketForCall` in the webhook still
+     * guarantees an artifact when the call ends.
+     */
+    if (!input.description && !raw.subject) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: "DESCRIPTION_REQUIRED",
+          recoverable: true,
+          details: { message: "Say what the customer needs in `description`, then call this again." },
+        },
+      });
+    }
+    if (!input.description) input.description = raw.subject ?? null;
+
+    /**
+     * Which call this is — from the header first, because that is the one that always arrives.
+     *
+     * The body `call_id` is what the internal caller sends and it is a `calls.id`. The header is
+     * what Vapi sends on every real phone call and it is a `calls.vapi_call_id`. Treating the two
+     * as the same column is the second half of the bug this route carried: even once a Vapi body
+     * validated, the lookup was `.eq("id", …)` against a value that lives in a different column.
+     */
+    const headerCallId = request.headers.get("x-vapi-call-id")?.trim() || null;
+    const isUuid = (v: string | null | undefined): v is string =>
+      typeof v === "string" && /^[0-9a-fA-F-]{36}$/.test(v);
+
+    const bodyCallId = isUuid(raw.call_id) ? raw.call_id : null;
+    const vapiCallId =
+      (isUuid(raw.vapi_call_id) ? raw.vapi_call_id : null) ??
+      (headerCallId && !headerCallId.includes("{{") ? headerCallId : null);
+
+    // Look up call to get org_id — by our own id when we have one, otherwise by Vapi's.
+    let callData: { id: string; org_id: string | null } | null = null;
+    if (bodyCallId) {
+      const { data } = await supabaseAdmin
+        .from("calls")
+        .select("id, org_id")
+        .eq("id", bodyCallId)
+        .maybeSingle<{ id: string; org_id: string | null }>();
+      callData = data ?? null;
+    }
+    if (!callData && vapiCallId) {
+      const { data } = await supabaseAdmin
+        .from("calls")
+        .select("id, org_id")
+        .eq("vapi_call_id", vapiCallId)
+        .maybeSingle<{ id: string; org_id: string | null }>();
+      callData = data ?? null;
+    }
+
+    /**
+     * The id every write below uses.
+     *
+     * Prefers the resolved row's own primary key, so a ticket created from a Vapi call attaches to
+     * the call the webhook already wrote instead of inventing a second one.
+     */
+    const callId = callData?.id ?? bodyCallId ?? vapiCallId;
+    if (!callId) {
+      return NextResponse.json({
+        ok: false,
+        error: { code: "CALL_ID_REQUIRED", recoverable: false },
+      });
+    }
 
     let orgId: string | null = null;
     let callStubFailed = false;
@@ -406,7 +535,7 @@ export async function POST(request: NextRequest) {
       });
       
       // Attempt to create call stub (best effort)
-      const stub = await ensureCallStub(callId, derivedOrgId);
+      const stub = await ensureCallStub(callId, derivedOrgId, vapiCallId);
       if (stub) {
         logEvent({
           tag: "[TOOL][CALL_STUB_UPSERTED]",
