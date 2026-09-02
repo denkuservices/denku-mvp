@@ -593,3 +593,76 @@ Afterwards, say so and the next session can verify the whole chain from the data
 - The Vapi **tool definitions live in the Vapi account, not this repo.** The contract they must
   satisfy is documented at the top of `app/api/tools/create-appointment/route.ts`; three bookings
   were lost to those two drifting apart.
+
+---
+
+## Next up — Voice and Chat as two products (opened 2026-09-02)
+
+> Asked by the owner after hitting "No active Stripe subscription found" while buying a chat
+> channel: **"voice planları ve chat planları — bunların her biri farklı ürünler. Voice alan biri
+> chat planı da alabilir, vice versa."**
+
+### What is wrong today
+
+`org_plan_limits` holds exactly **one** `plan_code` per org. So a customer who wants chat and no
+phone line is parked on **`chat_only`** — a $0 voice plan carrying zero minutes, zero concurrency
+and zero numbers. It works, and it is a fiction: the workspace is described by a voice plan it did
+not buy, and every screen that reasons about "the plan" has to know that one of the plans is not
+really a plan.
+
+Two things fall out of that fiction:
+
+- **`plan_code IS NULL` means preview mode.** A chat customer therefore cannot simply have no voice
+  plan — they would be treated as having bought nothing and be gated out of paid features. Hence
+  the fake plan.
+- **Chat is only purchasable two different ways, and the billing page knows only one of them.**
+  `startChatCheckout` (an onboarding server action) creates a real Stripe subscription priced at
+  the chat tier; `/api/billing/addons/update` adds the tier as a line item to a subscription that
+  already exists. The billing page always does the second. A workspace with a plan but **no Stripe
+  subscription** — set by a support action, an abandoned checkout, or development — therefore hits
+  a dead end. That is the reported bug, and it is a symptom of the model, not a separate defect.
+
+### Target model
+
+Two independent products. A workspace may hold either, both, or neither.
+
+| | Where it lives | Values |
+|---|---|---|
+| **Voice plan** | `org_plan_limits.plan_code` | `starter` · `growth` · `scale` · NULL = no voice |
+| **Chat plan** | `billing_org_addons` (already) | `chat_basic` · `chat_standard` · none |
+
+**`chat_only` is retired.** A chat customer is simply a workspace with no voice plan and a chat
+tier. Only **one org** is on it in production, so the backfill is a single row.
+
+### What has to change, and why each one
+
+1. **`isPreviewMode`** — from "no voice plan" to "**bought nothing at all**". This is the load-
+   bearing one: it is what lets a chat customer stop needing a fake voice plan. (`lib/billing/isPreviewMode.ts`)
+2. **`checkOnboarding.hasActivePlan`** — same redefinition, or a chat customer cannot reach the
+   dashboard they are paying for. Also `loginAction`, `verify-email/checkConfirmed`, `onboarding/page`.
+3. **Activation** — `runActivation` currently skips provisioning *when the plan is `chat_only`*.
+   Becomes: skip when there is **no voice plan**. Same behaviour, honest condition.
+4. **Billing page** — voice plans and chat plans as two sections that do not gate each other. The
+   chat buttons lose their `hasPlan` condition.
+5. **Purchase routing (this is the reported bug)** — buying chat must ask *does this workspace have
+   a Stripe subscription?* With one, chat is a line item (`addons/update`). Without one, chat starts
+   its own checkout (`startChatCheckout`, promoted out of onboarding so the billing page can call
+   it). Neither path is new; only the choosing is.
+6. **`usageMath.ts`** — drop `chat_only` from `PlanCode` once the single row is backfilled.
+7. **Backfill** — the one `chat_only` org becomes `plan_code = NULL`, keeping its chat add-on.
+   Reversible; nothing about its Stripe subscription changes.
+
+### Decisions already taken (do not re-litigate)
+
+- **One Stripe subscription, several line items.** A customer who holds both products has one
+  subscription carrying a voice item and a chat item. Two subscriptions would double the invoices,
+  the dunning and the proration for no gain, and the add-on machinery already works this way.
+- **Chat stays capacity-priced** (how many channels), not metered by messages. Unchanged.
+- **`chat_only` is retired rather than kept as a legacy value.** With one row, carrying it forever
+  would cost more in explanation than in migration.
+
+### Definition of done
+
+A workspace can buy chat with no voice plan, buy voice later, and hold both — with the dashboard,
+preview-mode gating, activation and the billing page all telling the truth at every step. No screen
+mentions `chat_only`.
