@@ -20,12 +20,19 @@ let addonUpsertFails = false;
 /** Chat tiers cleared before a purchase is recorded — the one-plan-at-a-time rule. */
 let clearedKeys: string[] = [];
 
+/** Is the workspace under test Denku-operated? Drives the `orgs.is_internal` read. */
+let isInternal = false;
+/** Simulates the `orgs` read failing — must resolve to "not internal", never to "allow". */
+let orgError: unknown = null;
+
 /** Minimal stand-in for the query builder, matching only the calls the module makes. */
 function builderFor(table: string) {
   const result =
     table === "billing_org_addons"
       ? { data: addonRows, error: addonError }
-      : { data: activeRows, error: activeError };
+      : table === "orgs"
+        ? { data: orgError ? null : { is_internal: isInternal }, error: orgError }
+        : { data: activeRows, error: activeError };
 
   const chain: Record<string, unknown> = {};
   const self = () => chain;
@@ -49,6 +56,8 @@ function builderFor(table: string) {
     return Promise.resolve({ error: null });
   };
   chain.order = () => Promise.resolve(result);
+  // The `orgs` read ends on .maybeSingle().
+  chain.maybeSingle = () => Promise.resolve(result);
   // billing_org_addons ends on .eq(), so the chain must also be awaitable.
   chain.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);
   return chain;
@@ -75,6 +84,54 @@ beforeEach(() => {
   addonWrites = [];
   addonUpsertFails = false;
   clearedKeys = [];
+  isInternal = false;
+  orgError = null;
+});
+
+/**
+ * Denku runs as its own customer, so the landing page's chat widget is a real Web Chat channel on
+ * a real workspace. Granting it through `billing_org_addons` would have put a $299/month add-on
+ * with no Stripe subscription behind it into every revenue figure, and a number in a revenue
+ * report that nobody pays is a number somebody eventually acts on. The exemption lives on the
+ * workspace instead, and these tests pin how far it reaches.
+ */
+describe("internal workspaces", () => {
+  it("gets chat capacity with no billing row at all", async () => {
+    isInternal = true;
+    const ent = await getChatEntitlement("denku");
+    expect(ent.slots).toBeGreaterThan(0);
+    expect((await canAiReplyOnChannel("denku", "web")).allowed).toBe(true);
+  });
+
+  it("still answers only on channels that are switched on", async () => {
+    // Capacity is not the same as activation. An internal workspace should not silently start
+    // answering on every channel that exists the moment a message arrives on it — it claims a
+    // slot the same way a paying one does, which keeps the two paths identical.
+    isInternal = true;
+    activeRows = [{ channel: "web" }];
+    const ent = await getChatEntitlement("denku");
+    expect(ent.active).toEqual(["web"]);
+  });
+
+  it("does not grant capacity to an ordinary workspace", async () => {
+    isInternal = false;
+    expect((await getChatEntitlement("org-1")).slots).toBe(0);
+    expect((await canAiReplyOnChannel("org-1", "web")).allowed).toBe(false);
+  });
+
+  it("reads a FAILED orgs lookup as not internal, never as allow", async () => {
+    // Fail closed on money. A broken read must not start answering on a channel nobody paid for.
+    orgError = { message: "orgs unreadable" };
+    expect((await getChatEntitlement("org-1")).slots).toBe(0);
+    expect((await canAiReplyOnChannel("org-1", "web")).allowed).toBe(false);
+  });
+
+  it("keeps a purchased entitlement if it somehow exceeds the internal grant", async () => {
+    isInternal = true;
+    addonRows = [{ addon_key: "chat_standard", qty: 1 }];
+    const ent = await getChatEntitlement("denku");
+    expect(ent.slots).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe("getChatEntitlement", () => {

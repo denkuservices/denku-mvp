@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveLlmProvider } from "@/lib/llm/provider";
 import { channelMeta } from "@/lib/platform/channels";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
+import { buildDenkuCorePrompt } from "@/lib/denku-agent/corePrompt";
+import { isDenkuSelfOrg, loadCorpusContext } from "@/lib/denku-agent/tools";
 import { executeTool, toolDefinitionsFor, type ToolContext } from "@/lib/platform/reply/tools";
 import { COMMERCE_TOOL_NAMES } from "@/lib/commerce/tools";
 import type { ReplyArtifact, ReplyRequest, ReplyResult } from "@/lib/platform/reply/types";
@@ -185,16 +187,37 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
   }
 
   const channel = channelMeta(req.channel);
-  const system = buildChatSystemPrompt({
-    employee: req.employee,
-    channelLabel: channel.label,
-    contactName: req.contactName,
-    recall: req.recall,
-    nowLocal: localNow(req.employee.timezone),
-    // Straight from the registry: the AI is told it can see and hear exactly where that is true.
-    canPerceiveMedia: channel.capabilities.imageUnderstanding || channel.capabilities.audioUnderstanding,
-    hoursBlock: req.hoursBlock ?? null,
-  });
+
+  /**
+   * Denku's own workspace is a customer in every way except one: its prompt.
+   *
+   * It has a real employee, a real Inbox, real contacts and real artifacts, because the fastest
+   * way to find out what the product is like is to be its customer. But its system prompt is not
+   * built from Knowledge fields somebody typed. Denku's product facts ARE the product, and typed
+   * fields are precisely what went stale on the landing page assistant for months — four
+   * languages reported as two, half the channels missing. `buildDenkuCorePrompt` renders them
+   * from the registries and the billing catalogue instead, so they cannot.
+   *
+   * Everything else on this path is unchanged: same engine, same tools, same handover, same
+   * artifacts. If the reply engine breaks for Denku, it has broken for every customer, which is
+   * the point of dogfooding it here rather than building a second one.
+   */
+  const system = isDenkuSelfOrg(req.employee.orgId)
+    ? buildDenkuCorePrompt({
+        ...(await loadCorpusContext()),
+        surface: `the ${channel.label} channel on Denku's own site`,
+        spoken: false,
+      })
+    : buildChatSystemPrompt({
+        employee: req.employee,
+        channelLabel: channel.label,
+        contactName: req.contactName,
+        recall: req.recall,
+        nowLocal: localNow(req.employee.timezone),
+        // Straight from the registry: the AI is told it can see and hear exactly where that is true.
+        canPerceiveMedia: channel.capabilities.imageUnderstanding || channel.capabilities.audioUnderstanding,
+        hoursBlock: req.hoursBlock ?? null,
+      });
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },

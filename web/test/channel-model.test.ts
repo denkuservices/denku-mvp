@@ -22,14 +22,16 @@ describe("channel registry — identity + capability model (R-100/R-102)", () =>
     expect(CHANNEL_ORDER).toHaveLength(Object.keys(CHANNELS).length);
   });
 
-  it("voice+telegram are production-ready; voice+instagram+telegram+email+web are adopted (no over-claim)", () => {
-    // Both earned production the same way: a real conversation on production, verified in the
-    // database afterwards. Instagram is adopted but cannot reply, so it stays out of the
-    // sellable list. Email is adopted — it receives and normalizes — but has not yet made the
-    // round trip on a real mailbox, so it stays out too, and Web Chat is adopted end to end but
-    // has not yet been embedded on a real customer site. `adopted` and `productionReady` are
-    // different claims and this is the test that stops them collapsing into one.
-    expect(productionChannels()).toEqual(["voice", "telegram"]);
+  it("four channels are sellable; instagram is adopted but not (no over-claim)", () => {
+    // Voice and Telegram earned production the same way: a real conversation on production,
+    // verified in the database afterwards. Email joined them on 2026-09-03 on the same bar — a
+    // real Gmail → forwarding → Denku round trip — and Web Chat on the same day by owner
+    // decision rather than live evidence, which the registry entry records plainly.
+    //
+    // Instagram stays out and structurally always will: it cannot reply. That is the line this
+    // test defends — `adopted` (an adapter exists) and `productionReady` (safe to sell) are
+    // different claims, and collapsing them is how a demo becomes a refund.
+    expect(productionChannels()).toEqual(["voice", "telegram", "email", "web"]);
     expect(adoptedChannels()).toEqual(["voice", "instagram", "telegram", "email", "web"]);
     expect(comingSoonChannels()).toEqual(["messenger", "whatsapp", "sms"]);
   });

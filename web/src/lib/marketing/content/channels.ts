@@ -10,11 +10,14 @@
  * Owner decision 2026-08-29: Voice, Telegram and Email are presented as live;
  * Instagram as receive-only; the rest carry a Beta badge and are not purchasable.
  *
- * ⚠️ One known disagreement: the runtime registry still has Email at
- * `productionReady: false`. The owner states it is working. That flag is left
- * alone — flipping it would change product gating on the strength of a marketing
- * decision. If Email really is production-ready, an engineer should flip it in the
- * registry deliberately, and this note should come out.
+ * The ⚠️ note that used to sit here recorded a disagreement — the runtime registry
+ * had Email at `productionReady: false` while this file called it live — and asked
+ * an engineer to flip the registry deliberately if Email really was ready. That
+ * happened on 2026-09-03, and Web chat moved to `live` the same day after the owner
+ * ran the snippet on minosandco.com and the AI answered a real visitor. Registry and
+ * marketing now agree on every row, which is the state this file is supposed to be
+ * in. If they ever diverge again, write the note back rather than picking a side
+ * quietly.
  */
 
 export type ChannelStatus = "live" | "limited" | "beta";
@@ -92,12 +95,14 @@ export const MARKETING_CHANNELS: MarketingChannel[] = [
     caveat: "Not included in any plan yet.",
   },
   {
+    // Live since 2026-09-03: the snippet was embedded on a real third-party site
+    // (minosandco.com) and the AI answered a visitor there. It is a chat channel like
+    // Telegram and email, so it counts against a chat plan's channel allowance.
     id: "webchat",
     label: "Web chat",
     line: "A widget on your site.",
-    status: "beta",
-    statusLabel: "Beta",
-    caveat: "Not included in any plan yet.",
+    status: "live",
+    statusLabel: "Live",
   },
 ];
 

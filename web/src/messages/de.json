@@ -979,7 +979,7 @@
     "headline": "Chat wird nach Kanal verkauft, nicht nach Nachricht.",
     "sub": "Sie wählen, auf welchen Kanälen Ihre KI antwortet. Es gibt keinen Nachrichtenzähler, der leerläuft.",
     "availableTitle": "Kanäle, die Sie heute wählen können",
-    "available": "Telegram und E-Mail. Die übrigen können Sie schon verbinden und die Nachrichten eintreffen sehen — die KI antwortet dort, sobald sie fertig sind.",
+    "available": "Telegram, E-Mail und Web-Chat. Die übrigen können Sie schon verbinden und die Nachrichten eintreffen sehen — die KI antwortet dort, sobald sie fertig sind.",
     "slotOne": "1 Kanal Ihrer Wahl",
     "slotTwo": "2 Kanäle Ihrer Wahl",
     "custom": "Individuell",

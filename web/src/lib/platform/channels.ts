@@ -220,10 +220,22 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     connection: "credentials",
     capabilities: chat({ outbound: true }),
     /**
-     * Not production-ready yet: the pipeline exists but no real mail has made the round trip.
-     * Flipped only on live evidence, exactly as Telegram was.
+     * Production-ready as of 2026-09-03 (owner decision).
+     *
+     * The evidence bar was "a real round trip", and it was met: a real Gmail → Hotmail →
+     * forwarding → Denku round trip was verified in the database, with the AI drafting and a
+     * person approving. `lib/marketing/content/channels.ts` had carried a ⚠️ note asking an
+     * engineer to flip this deliberately if Email really was ready — this is that flip, and the
+     * note is gone with it.
+     *
+     * **One real limit survives the flag, and it must not be forgotten.** Denku sends nothing
+     * from an unverified domain and there is no fallback to a Denku address, so a workspace
+     * cannot send as itself until its owner publishes DNS records. Receiving, drafting and human
+     * approval work the day they forward; automatic sending waits on their DNS. Anything that
+     * SELLS this channel has to say so — see the `email-sending-limit` chunk in
+     * `lib/denku-agent/corpus.ts`.
      */
-    productionReady: false,
+    productionReady: true,
     adopted: true,
   },
   sms: {
@@ -261,11 +273,20 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
      */
     capabilities: chat({ outbound: true }),
     /**
-     * Not production-ready yet: the channel is built end to end, but nobody has held a real
-     * conversation through a widget on a real customer's site. Flipped only on live evidence,
-     * exactly as Telegram was — see that entry for what "evidence" meant there.
+     * Production-ready as of 2026-09-03, on the same bar every other channel here had to meet:
+     * a real conversation, on a real site, observed.
+     *
+     * The owner embedded the snippet on minosandco.com, opened the widget as a visitor, and the
+     * AI answered. Two things that proof establishes beyond "it renders": the origin allowlist
+     * admitted a genuine third-party domain (this channel's whole access model), and the reply
+     * engine drove a conversation through the store-and-fetch transport.
+     *
+     * It also proved the entitlement gate, from both sides — with a chat plan the AI replied;
+     * without one the widget still opened and displayed the thread but no reply was produced.
+     * That is the intended shape (a visitor is never shown a broken widget because the business
+     * has not paid) and it is the half nobody tests deliberately.
      */
-    productionReady: false,
+    productionReady: true,
     adopted: true,
   },
 });

@@ -979,7 +979,7 @@
     "headline": "Chat is sold by channel, not by message.",
     "sub": "You pick which channels your AI answers on. There is no message counter to run out of.",
     "availableTitle": "Channels you can pick today",
-    "available": "Telegram and email. You can connect the others now and watch messages arrive — the AI starts answering on them when they ship.",
+    "available": "Telegram, email and web chat. You can connect the others now and watch messages arrive — the AI starts answering on them when they ship.",
     "slotOne": "1 channel of your choice",
     "slotTwo": "2 channels of your choice",
     "custom": "Custom",
