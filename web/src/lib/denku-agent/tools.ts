@@ -128,18 +128,29 @@ export async function executeDenkuKnowledge(args: DenkuKnowledgeArgs): Promise<s
 }
 
 /**
+ * The workspace Denku runs itself on, created by `scripts/provision-denku-workspace.mts`.
+ *
+ * A literal with an env override, the same shape as `VAPI_DENKU_ASSISTANT_ID` and the Vapi tool
+ * ids: this is a specific real row, not a secret and not a policy, and hardcoding it means the
+ * feature works on deploy instead of waiting on someone to add a variable in Vercel. The env var
+ * still wins, so another environment can point at its own copy.
+ */
+export const DENKU_SELF_ORG_ID = "286b7738-85e5-4d66-a08f-4d87f4f8f30c";
+
+/**
  * Is this workspace Denku itself?
  *
- * Denku runs as its own customer, so its knowledge tool has to be scoped the same way a
- * customer's commerce tools are — by workspace, not by trust in the caller. `DENKU_SELF_ORG_ID`
- * names that workspace.
+ * Denku runs as its own customer, so its knowledge tool is scoped the way a customer's commerce
+ * tools are — by workspace, not by trust in the caller. Every other workspace is a business that
+ * hired Denku, and its AI must never start discussing Denku's pricing with its own callers.
  *
- * Unset means NO workspace is Denku, which fails closed: the chat side simply does not offer the
- * tool. The voice route reads it the other way round (see the route) because the landing-page
- * demo has no workspace to resolve at all in the first seconds of a call.
+ * Note this is an identity, not an entitlement: `orgs.is_internal` marks workspaces Denku
+ * OPERATES (this one, and any demo or partner workspace later), and grants chat capacity. This
+ * names the single one that IS Denku. Merging them would give every future demo workspace a sales
+ * assistant.
  */
 export function isDenkuSelfOrg(orgId: string | null | undefined): boolean {
-  const self = process.env.DENKU_SELF_ORG_ID?.trim();
+  const self = process.env.DENKU_SELF_ORG_ID?.trim() || DENKU_SELF_ORG_ID;
   if (!self || !orgId) return false;
   return orgId === self;
 }

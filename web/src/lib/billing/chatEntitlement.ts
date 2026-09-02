@@ -50,11 +50,20 @@ function isChatChannel(id: string): boolean {
   return Boolean(c) && c.kind === "chat";
 }
 
+/**
+ * How many chat channels an INTERNAL workspace may run.
+ *
+ * Every chat channel there is, because the cost of granting one is zero and the point of an
+ * internal workspace is to use the whole product. Written as a count rather than `Infinity` so
+ * the downgrade arithmetic below stays ordinary numbers.
+ */
+const INTERNAL_SLOTS = 99;
+
 export async function getChatEntitlement(orgId: string): Promise<ChatEntitlement> {
   if (!orgId) return EMPTY;
 
   try {
-    const [addons, active] = await Promise.all([
+    const [addons, active, org] = await Promise.all([
       supabaseAdmin
         .from("billing_org_addons")
         .select("addon_key, qty")
@@ -67,17 +76,41 @@ export async function getChatEntitlement(orgId: string): Promise<ChatEntitlement
         .select("channel, activated_at")
         .eq("org_id", orgId)
         .order("activated_at", { ascending: true }),
+      supabaseAdmin
+        .from("orgs")
+        .select("is_internal")
+        .eq("id", orgId)
+        .maybeSingle<{ is_internal: boolean | null }>(),
     ]);
 
     // A missing table (before the migration is applied) or a failed read reads as "not
     // purchased" rather than as "allow everything".
     if (addons.error) return EMPTY;
 
-    const slots = (addons.data ?? []).reduce((sum, row) => {
+    /**
+     * Denku-operated workspaces get capacity without a billing row.
+     *
+     * Denku runs as its own customer, so the landing page's chat widget is a real Web Chat
+     * channel on a real workspace answered by this engine. The alternative was a
+     * `billing_org_addons` row, which would have put a $299/month add-on with no Stripe
+     * subscription behind it into every revenue figure — and a number in a revenue report that
+     * nobody pays is a number somebody eventually acts on. Billing data stays a record of what
+     * was actually charged.
+     *
+     * Scope is narrow on purpose: this grants CHAT CAPACITY only. Voice minutes cost real money
+     * per minute to a third party, so an internal workspace pays for those exactly like a
+     * customer, and the concurrency lease, the overage hard cap and `isWorkspacePaused` are all
+     * untouched. A failed read means "not internal" — the fail-closed direction.
+     */
+    const isInternal = !org.error && org.data?.is_internal === true;
+
+    const purchased = (addons.data ?? []).reduce((sum, row) => {
       const per = CHAT_ADDON_SLOTS[String(row.addon_key)] ?? 0;
       const qty = Number(row.qty) || 0;
       return sum + per * Math.max(0, qty);
     }, 0);
+
+    const slots = isInternal ? Math.max(INTERNAL_SLOTS, purchased) : purchased;
 
     const activeIds = active.error
       ? []

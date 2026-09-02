@@ -14,12 +14,14 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { makeChain } from "./helpers/supabaseMock";
 import {
   DENKU_KNOWLEDGE_TOOL_NAME,
+  DENKU_SELF_ORG_ID,
   denkuKnowledgeToolDefinition,
   isDenkuSelfOrg,
 } from "@/lib/denku-agent/tools";
 import { CORPUS_IDS } from "@/lib/denku-agent/corpus";
 import { DENKU_TOOL_IDS } from "@/lib/vapi/assistantConfig";
 import { toolDefinitionsFor, executeTool } from "@/lib/platform/reply/tools";
+import type { ChatCompletionTool } from "openai/resources/chat/completions";
 
 /**
  * Who may ask Denku's assistant about Denku.
@@ -31,6 +33,19 @@ import { toolDefinitionsFor, executeTool } from "@/lib/platform/reply/tools";
  * EVERY assistant, so the tests below pin both the identity check and the fact that this tool
  * stays out of that list.
  */
+
+/**
+ * `ChatCompletionTool` is a union in this SDK version — a function tool or a custom one — so the
+ * name is only reachable after narrowing. Every tool this codebase defines is a function tool.
+ */
+function toolName(t: ChatCompletionTool): string {
+  return "function" in t ? t.function.name : "";
+}
+
+function fn(t: ChatCompletionTool): { name: string; description: string; parameters?: unknown } {
+  if (!("function" in t)) throw new Error("expected a function tool");
+  return t.function as { name: string; description: string; parameters?: unknown };
+}
 
 const SELF = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
@@ -60,11 +75,15 @@ describe("workspace identity", () => {
     expect(isDenkuSelfOrg("")).toBe(false);
   });
 
-  it("fails CLOSED when the env var is unset — no workspace is Denku", () => {
-    // An unset variable in a new environment must not make every workspace Denku's.
+  it("falls back to the real workspace id when the env var is unset", () => {
+    // A literal with an env override, like VAPI_DENKU_ASSISTANT_ID and the Vapi tool ids: this
+    // is a specific real row, so the feature works on deploy instead of waiting for someone to
+    // add a variable in Vercel. What must never happen is an unset variable making EVERY
+    // workspace Denku's — which is the second assertion.
     delete process.env.DENKU_SELF_ORG_ID;
-    expect(isDenkuSelfOrg(SELF)).toBe(false);
+    expect(isDenkuSelfOrg(DENKU_SELF_ORG_ID)).toBe(true);
     expect(isDenkuSelfOrg(OTHER)).toBe(false);
+    expect(isDenkuSelfOrg(SELF)).toBe(false);
   });
 });
 
@@ -73,8 +92,7 @@ describe("the tool is never merged into every assistant", () => {
     // `ensureAssistantConfig` merges that list into every assistant on every config path. A
     // Vapi tool id added there would hand this to every customer at once. If this test fails,
     // someone has done exactly that.
-    const definition = denkuKnowledgeToolDefinition();
-    expect(definition.function.name).toBe(DENKU_KNOWLEDGE_TOOL_NAME);
+    expect(fn(denkuKnowledgeToolDefinition()).name).toBe(DENKU_KNOWLEDGE_TOOL_NAME);
     // Nothing in the shared list may be this tool. The ids are opaque, so what is asserted is
     // the count: four tools belong to every assistant, and this is not one of them.
     expect(DENKU_TOOL_IDS).toHaveLength(4);
@@ -84,18 +102,18 @@ describe("the tool is never merged into every assistant", () => {
 describe("chat tool exposure", () => {
   it("offers the knowledge tool to Denku's own workspace", async () => {
     const tools = await toolDefinitionsFor(SELF);
-    expect(tools.map((t) => t.function.name)).toContain(DENKU_KNOWLEDGE_TOOL_NAME);
+    expect(tools.map(toolName)).toContain(DENKU_KNOWLEDGE_TOOL_NAME);
   });
 
   it("does NOT offer it to any other workspace", async () => {
     const tools = await toolDefinitionsFor(OTHER);
-    expect(tools.map((t) => t.function.name)).not.toContain(DENKU_KNOWLEDGE_TOOL_NAME);
+    expect(tools.map(toolName)).not.toContain(DENKU_KNOWLEDGE_TOOL_NAME);
   });
 
   it("still gives every workspace its booking and handover tools", async () => {
     // The regression that would matter most: a change to tool exposure must not cost a customer
     // the two things their AI is actually for.
-    const names = (await toolDefinitionsFor(OTHER)).map((t) => t.function.name);
+    const names = (await toolDefinitionsFor(OTHER)).map(toolName);
     expect(names).toContain("create_appointment");
     expect(names).toContain("create_ticket");
   });
@@ -164,21 +182,21 @@ describe("the landing page calls Denku's own assistant", () => {
 });
 
 describe("tool definition", () => {
-  const def = denkuKnowledgeToolDefinition();
+  const def = fn(denkuKnowledgeToolDefinition());
 
   it("enumerates every corpus topic, so the model chooses rather than guesses", () => {
-    const params = def.function.parameters as {
+    const params = def.parameters as {
       properties: { topic: { enum: string[] } };
     };
     expect(params.properties.topic.enum).toEqual([...CORPUS_IDS]);
   });
 
   it("requires nothing, because a half-formed question is still answerable", () => {
-    const params = def.function.parameters as { required?: string[] };
+    const params = def.parameters as { required?: string[] };
     expect(params.required ?? []).toEqual([]);
   });
 
   it("tells the model to prefer the lookup over its own memory", () => {
-    expect(def.function.description).toMatch(/rather than answering from memory/);
+    expect(def.description).toMatch(/rather than answering from memory/);
   });
 });
