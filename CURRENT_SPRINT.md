@@ -1,3 +1,92 @@
+# CURRENT SPRINT — "Real Customers, Real Money" (opened 2026-09-02)
+
+> The BYON line is live and answering in Turkish on a customer's own Netgsm number
+> (see [[byon-netgsm-live]] and the D0 history below). Using it exposed a set of faults that
+> reading the code had not, and this sprint is that list. Two of them are money.
+
+**Status: 🟡 IN PROGRESS.** Shipped items are marked; the rest are open with the finding that
+motivates them, so nobody has to re-derive it.
+
+---
+
+## ⛔ Billing findings — open, and the most serious thing on this list
+
+These were found on 2026-09-02 while answering "what happens when I upgrade my plan?". They are
+recorded before the fix so the reasoning survives it.
+
+### B-1 · A plan upgrade charges nothing (exploitable)
+
+`POST /api/billing/plan/change` writes `org_plan_overrides` and **never touches Stripe**.
+`org_plan_limits` is a VIEW straight over that table:
+
+```sql
+SELECT o.id AS org_id, ov.plan_code,
+  CASE lower(ov.plan_code) WHEN 'starter' THEN 1 WHEN 'growth' THEN 4 WHEN 'scale' THEN 10 END
+FROM orgs o LEFT JOIN org_plan_overrides ov ON ov.org_id = o.id;
+```
+
+So an owner or admin on starter ($149) can move themselves to scale ($899) and immediately hold
+scale's limits — 3600 minutes, 10 concurrent calls — while the Stripe subscription keeps billing
+$149. The answer to "will my starter minutes transfer, or will I pay for both?" is neither:
+**today the upgrade is free.**
+
+Fix: the route must move the Stripe subscription item to the new plan's price with proration
+*before* writing the override, and refuse the change if Stripe fails. Same compensation
+discipline as the phone-line purchase. Note plans are created with inline `price_data` at
+checkout rather than catalogue price ids, so there is no `stripe_price_id` on
+`billing_plan_catalog` to move to yet.
+
+### B-2 · The plan fee is billed twice
+
+Checkout creates a recurring monthly **subscription** for the plan. The monthly close-month cron
+(`.github/workflows/close_month.yml`, 00:10 UTC on the 1st) *also* adds a `monthly_fee_usd`
+invoice item for the same month. Both bill the same fee.
+
+It has not hit a customer yet only because that invoice is created as a **draft**
+(`auto_advance: false`) and a person must finalise it. That is luck, not design.
+
+Fix: decide which path owns the recurring fee — the subscription — and reduce close-month to
+usage-only (overage and anything else not on the subscription).
+
+### B-3 · Overage behaviour — answered, no bug
+
+When the included minutes run out the line keeps working. Overage accrues at the plan's per-minute
+rate, is added to the monthly invoice as its own line item, and is *not* charged as it happens —
+so it is metered, not pay-as-you-go. A $100 threshold notifies and a $250 hard cap pauses the
+workspace. Working as intended; documented here because the question was asked.
+
+---
+
+## Open work
+
+| # | Item | Note |
+|---|---|---|
+| 1 | **B-1 / B-2 above** | Money. Do first. |
+| 2 | **Mobile UI pass over every page** | Reported: content shifts and overflows on some pages. Needs a page-by-page audit at 375px, not a spot fix. |
+| 3 | **PDF → employee knowledge** | Owner uploads a document; the AI learns the business from it. Should fill the Knowledge fields it can and leave the rest blank rather than guessing, with the document kept for retrieval. Method to be chosen and written down before building. |
+| 4 | **Customer recall across conversations** | Verify what already exists (contact/lead linking is in place; conversation history reaching the prompt is not confirmed) and close the gap. |
+| 5 | **Voice samples** | Picker ships without audio until `ELEVENLABS_API_KEY` / `AZURE_SPEECH_KEY` are set and `scripts/render-voice-samples.mts` runs once. |
+| 6 | **Netgsm concurrent channel count** | Unknown, and the likely cause of a busy signal on 2026-09-01. A caller who hears busy never reaches Vapi, so Denku cannot even count the loss. |
+| 7 | **`MODEL_TIERS_ENABLED`** | Stays off until the Advanced tier has been heard on a real call. |
+
+---
+
+## Shipped in this sprint
+
+| Item | What it fixed |
+|---|---|
+| BYO SIP over Netgsm | First customer-owned number answered by the AI. Vapi needs a numeric IPv4 gateway; Netgsm's "Arayan Prefix" must be `+90` or every caller is filed un-dialably. |
+| Turkish voice | `openai/nova` → Azure `tr-TR-EmelNeural` → ElevenLabs `sarah` on `eleven_turbo_v2_5`. Two real calls to get there. |
+| Ticket = a task, not a receipt | Every call used to become an identically-titled ticket. A call is now always a record; only an actionable call is a ticket. |
+| Ticket data | `requester_*`, `lead_id`, `contact_id`, `conversation_id` were null on all 104 production tickets; the webhook sent the phone under a key the route does not read. |
+| Phone line quota | Purchase charged an `extra_phone` add-on on every purchase, so the plan's included number was never spendable. |
+| Voice picker + samples | The business chooses and hears the voice; a chosen voice now replaces the whole voice object, not just its id. |
+| Model tiers | Standard/Advanced, upgrade-only, flag-gated. **No minute multiplier** — a real call costs ~$0.09/min against $0.37 of revenue. |
+| Onboarding Back | Screen-only; never lowers `onboarding_step`, which gates dashboard access. |
+| Add-on panel | The `#` beside the price was a `Hash` icon; prices now say `/mo`. |
+
+---
+
 # CURRENT SPRINT — D0 "Turn It On" (Denku 2.0, Sprint 0)
 
 > Plan: [docs/SPRINT_D0_TURN_IT_ON.md](docs/SPRINT_D0_TURN_IT_ON.md) · execution vehicle:

@@ -179,16 +179,18 @@ async function ensureDraftInvoice(
       auto_advance: false, // Draft mode
     });
 
-    // Add monthly fee line item
-    if (preview.monthly_fee_usd && preview.monthly_fee_usd > 0) {
-      await stripe.invoiceItems.create({
-        customer: customerId,
-        invoice: invoice.id,
-        amount: Math.round(preview.monthly_fee_usd * 100), // Convert to cents
-        currency: "usd",
-        description: `${(preview.plan_code || "plan").toUpperCase()} Plan – Monthly fee`,
-      });
-    }
+    /*
+     * The plan fee is NOT invoiced here. It is already a recurring item on the workspace's Stripe
+     * subscription, created at checkout and re-priced by `/api/billing/plan/change`, so adding it
+     * to this invoice bills the same month twice.
+     *
+     * That it never reached a customer is luck rather than design: this invoice is created as a
+     * draft (`auto_advance: false`) and a person has to finalise it, so the second charge sat one
+     * click away for as long as the code existed. Found 2026-09-02.
+     *
+     * This invoice is for what the subscription cannot express: usage. Overage is metered per
+     * call across the month and is only knowable once the month is closed.
+     */
 
     // Add overage line item
     if (preview.estimated_overage_cost_usd && preview.estimated_overage_cost_usd > 0) {
