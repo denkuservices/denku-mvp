@@ -8,10 +8,11 @@ import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
  * - VAPI_API_KEY: Private API key for server-side Vapi operations (never exposed)
  * - VAPI_DENKU_ASSISTANT_ID: Denku's own assistant (optional — falls back to the literal below)
  *
- * ⚠️ `VAPI_AGENT_ID` is DEAD as of 2026-09-03 and is deliberately no longer read. It is set in
- * Vercel to `155b21ad…`, the old customer-shaped demo assistant, so continuing to read it would
- * have made repointing the landing page a silent no-op in production while looking correct in
- * the diff. Remove it from the environment when convenient; leaving it set does nothing.
+ * ⚠️ `VAPI_AGENT_ID` is DEAD as of 2026-09-03 and must never be read again. It HELD
+ * `155b21ad…`, the old customer-shaped demo assistant, and was deleted from Vercel the same day.
+ * The rename is what made this commit real: had the route kept reading that name, repointing the
+ * landing page would have been a silent no-op in production while looking correct in the diff.
+ * If you are tempted to "restore" the old variable name, that is the trap.
  *
  * Client-side Requirements:
  * - NEXT_PUBLIC_VAPI_PUBLIC_KEY: Public key from Vapi dashboard (safe to expose)

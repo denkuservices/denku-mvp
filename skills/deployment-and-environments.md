@@ -47,10 +47,11 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
 - `VAPI_DENKU_ASSISTANT_ID` — Denku's OWN assistant, the one the landing page calls (falls back
   to `a7846579-78b9-451a-8821-2c5764a3fc6f` in `api/vapi/start`). Regenerate its prompt with
   `scripts/register-denku-agent.mts`.
-- ⚠ `VAPI_AGENT_ID` is **dead** since 2026-09-03 and is no longer read anywhere. It is still set in
-  Vercel to `155b21ad…` (the old customer-shaped demo assistant), which is exactly why the new
-  variable has a different name: continuing to read the old one would have made repointing the
-  landing page a silent no-op in production. Safe to delete; harmless if left.
+- ⚠ `VAPI_AGENT_ID` is **gone** — dead in code since 2026-09-03 and deleted from Vercel the same
+  day. It held `155b21ad…` (the old customer-shaped demo assistant), which is exactly why the
+  replacement has a different name: continuing to read the old one would have made repointing the
+  landing page a silent no-op in production, correct-looking diff and all. Do not reintroduce the
+  name.
 - ⚠ Not env but env-coupled: tool IDs `6c9b0279…`/`5373add8…` hardcoded in onboarding actions —
   tied to the specific Vapi account.
 

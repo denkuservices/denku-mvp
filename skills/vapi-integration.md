@@ -14,8 +14,8 @@
   from `POST /api/vapi/start` (returns `VAPI_DENKU_ASSISTANT_ID` env or the fallback
   `a7846579-78b9-451a-8821-2c5764a3fc6f` — **Denku's own assistant**, whose prompt is generated
   from the registries by `scripts/register-denku-agent.mts` rather than typed). The old
-  `155b21ad…` is a customer-shaped assistant that keeps the pilot phone line; `VAPI_AGENT_ID` is
-  dead and no longer read.
+  `155b21ad…` is a customer-shaped assistant that keeps the pilot phone line; `VAPI_AGENT_ID` was
+  deleted from Vercel on 2026-09-03 and must never be reintroduced.
 
 ## Assistants — creation rules (hard-won)
 

@@ -108,7 +108,7 @@ says it must not reach the client bundle. Switching accounts would have left the
 normally and failing silently on every click.
 
 It now fetches the id from `POST /api/vapi/start`, which honours `VAPI_DENKU_ASSISTANT_ID`.
-**Setting that env var is all the demo needs.** (`VAPI_AGENT_ID` is dead and no longer read —
+**Setting that env var is all the demo needs.** (`VAPI_AGENT_ID` is gone — dead in code and deleted from Vercel on 2026-09-03,
 see `skills/deployment-and-environments.md` for why it was renamed rather than reused.)
 
 ### 3c. After switching

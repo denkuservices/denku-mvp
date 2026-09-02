@@ -166,10 +166,11 @@ describe("the landing page calls Denku's own assistant", () => {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-  it("does not read VAPI_AGENT_ID, which is set in Vercel to the old assistant", () => {
-    // The trap this pins: `VAPI_AGENT_ID=155b21ad…` is configured in production. Reading it
-    // would have made repointing the landing page a silent no-op there while the diff looked
-    // correct. The rename is the fix, so reading the old name again must fail loudly here.
+  it("does not read VAPI_AGENT_ID, the variable that used to pin the old assistant", () => {
+    // The trap this pins: `VAPI_AGENT_ID=155b21ad…` was configured in production until it was
+    // deleted on 2026-09-03. Reading it would have made repointing the landing page a silent
+    // no-op there while the diff looked correct. The rename was the fix, and the variable could
+    // be recreated by anyone at any time — so reading that name again must fail loudly here.
     expect(route).not.toMatch(/VAPI_AGENT_ID/);
     expect(route).toMatch(/VAPI_DENKU_ASSISTANT_ID/);
   });

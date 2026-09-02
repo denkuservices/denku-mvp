@@ -147,9 +147,9 @@ is an UPDATE of an existing row rather than a new one.
   new one. The dashboard would show one workspace while capability checks ran against another:
   exactly the divergence CLAUDE.md landmine #16 describes. One profile row per user, until a real
   workspace switcher exists.
-- **`VAPI_AGENT_ID` is dead** and no longer read anywhere. It is still set in Vercel to
-  `155b21ad…`; leaving it does nothing. It was renamed rather than reused precisely because
-  reading it would have made repointing the landing page a silent no-op in production.
+- **`VAPI_AGENT_ID` is gone** — dead in code and deleted from Vercel on 2026-09-03. It held
+  `155b21ad…`. It was renamed rather than reused precisely because reading it would have made
+  repointing the landing page a silent no-op in production. Do not reintroduce the name.
 - **The corpus is English-only** and the model translates at speaking time. Deliberate: a
   technical claim ("your carrier must give us an IPv4 address") mistranslated into a wrong promise
   is worse than an accent. The marketing-derived facts are already localised at their source.
