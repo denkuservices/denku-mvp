@@ -94,18 +94,44 @@ describe("anything wider than a phone carries its own scroller", () => {
 });
 
 describe("multi-column grids collapse on a narrow screen", () => {
-  it("never forces three or more columns at phone width", () => {
-    /*
-     * Two columns at 375px is a deliberate and common choice — stat tiles read fine that way.
-     * Three or more is not: it leaves under 110px a column, which is narrower than the shortest
-     * useful input. A responsive prefix anywhere on the line means the base value was chosen, not
-     * inherited by accident.
-     */
+  /*
+   * Three columns is not wrong by itself.
+   *
+   * The first version of this rule flagged every `grid-cols-3`, and the first real thing it caught
+   * was three short stats side by side on the billing page — which reads perfectly well at 375px.
+   * Squeezing READ-ONLY content into thirds gives each about 110px, and a label plus a number fits
+   * that comfortably. Squeezing a text input into it does not.
+   *
+   * So the rule is about controls, plus a hard ceiling: four or more columns at phone width leaves
+   * roughly 80px each, which is too narrow for anything at all.
+   */
+  const CONTROL = /<(input|select|textarea)/;
+
+  it("never squeezes form controls into three or more columns at phone width", () => {
     const offenders: string[] = [];
 
     for (const { rel, body } of FILES) {
-      body.split("\n").forEach((line, index) => {
+      const lines = body.split(String.fromCharCode(10));
+      lines.forEach((line, index) => {
         const base = line.match(/(?:^|[\s"'`])grid-cols-([3-9]|1[0-2])(?:[\s"'`]|$)/);
+        if (!base) return;
+        if (/(sm|md|lg|xl|2xl):grid-cols-/.test(line)) return;
+
+        // Look into the grid, not at it: the controls are in the children.
+        const inside = lines.slice(index, index + 18).join(String.fromCharCode(10));
+        if (CONTROL.test(inside)) offenders.push(`${rel}:${index + 1} — grid-cols-${base[1]}`);
+      });
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("never forces four or more columns at phone width, control or not", () => {
+    const offenders: string[] = [];
+
+    for (const { rel, body } of FILES) {
+      body.split(String.fromCharCode(10)).forEach((line, index) => {
+        const base = line.match(/(?:^|[\s"'`])grid-cols-([4-9]|1[0-2])(?:[\s"'`]|$)/);
         if (!base) return;
         if (/(sm|md|lg|xl|2xl):grid-cols-/.test(line)) return;
         offenders.push(`${rel}:${index + 1} — grid-cols-${base[1]}`);
@@ -114,7 +140,6 @@ describe("multi-column grids collapse on a narrow screen", () => {
 
     // The month calendar is the one honest exception: seven columns IS the thing, and it lives
     // inside its own `min-w-[760px]` scroller (asserted above).
-    const unexpected = offenders.filter((o) => !o.includes("RequestCalendar.tsx"));
-    expect(unexpected).toEqual([]);
+    expect(offenders.filter((o) => !o.includes("RequestCalendar.tsx"))).toEqual([]);
   });
 });

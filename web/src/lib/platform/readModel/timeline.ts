@@ -24,7 +24,17 @@ import { listContactNotes, type ContactNote } from "@/lib/platform/contactNotes"
  * the timeline.
  */
 
-export type TimelineKind = "conversation" | "request" | "note";
+export type TimelineKind = "conversation" | "call" | "request" | "note";
+
+/** A voice call, as the timeline needs it. */
+export interface TimelineCall {
+  id: string;
+  startedAt: string | null;
+  durationSeconds: number | null;
+  direction: string | null;
+  outcome: string | null;
+  intent: string | null;
+}
 
 export interface TimelineEntry {
   /** Stable within a timeline — `${kind}:${id}`. */
@@ -41,6 +51,47 @@ export interface TimelineEntry {
   href: string | null;
   /** Request status / conversation intent — rendered as a pill when present. */
   badge: string | null;
+}
+
+/** "4 min", "45 sec" — never "0:00", which reads as a bug rather than a very short call. */
+function formatDuration(seconds: number | null): string | null {
+  if (!seconds || seconds <= 0) return null;
+  if (seconds < 60) return `${seconds} sec`;
+  return `${Math.round(seconds / 60)} min`;
+}
+
+/**
+ * A phone call, on its own.
+ *
+ * Calls used to reach the timeline only when they produced a request — and since a call is now
+ * only turned into a ticket when a person actually has something to do, that means an answered,
+ * fully-resolved call left NO trace on the customer it was with. The most common good outcome
+ * was the most invisible one, which is the opposite of what a CRM is for.
+ */
+function callEntry(call: TimelineCall, linkedRequest: RequestView | null): TimelineEntry | null {
+  const at = call.startedAt;
+  if (!at) return null;
+
+  const inbound = (call.direction ?? "inbound") !== "outbound";
+  const duration = formatDuration(call.durationSeconds);
+
+  // The request is folded in rather than listed twice: one real-world event, one row.
+  const detail = linkedRequest
+    ? `${duration ? `${duration} · ` : ""}${linkedRequest.title}`
+    : duration;
+
+  return {
+    key: `call:${call.id}`,
+    kind: "call",
+    at,
+    title: inbound ? "Called in" : "We called",
+    detail: detail ?? null,
+    channel: "voice",
+    // The request is the more useful destination when there is one — it carries the transcript
+    // and everything a person would act on.
+    href: linkedRequest?.href ?? `/dashboard/calls/${call.id}`,
+    badge: linkedRequest?.status ?? call.intent ?? null,
+  };
 }
 
 function conversationEntry(c: ConversationView): TimelineEntry | null {
@@ -93,16 +144,32 @@ function noteEntry(n: ContactNote): TimelineEntry {
  */
 export function buildTimeline(input: {
   conversations: ConversationView[];
+  calls?: TimelineCall[];
   requests: RequestView[];
   notes: ContactNote[];
 }): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
+  const calls = input.calls ?? [];
+
+  // A request that came from a call is shown ON the call, not beside it. Two rows a second apart
+  // describing one phone call is noise, and the call is the thing that actually happened.
+  const requestByCall = new Map<string, RequestView>();
+  for (const r of input.requests) {
+    if (r.callId) requestByCall.set(r.callId, r);
+  }
 
   for (const c of input.conversations) {
     const e = conversationEntry(c);
     if (e) entries.push(e);
   }
+  for (const call of calls) {
+    const e = callEntry(call, requestByCall.get(call.id) ?? null);
+    if (e) entries.push(e);
+  }
   for (const r of input.requests) {
+    // Already folded into its call above. Folding is an optimisation — a request whose call is
+    // NOT on this timeline still gets its own row rather than disappearing.
+    if (r.callId && calls.some((c) => c.id === r.callId)) continue;
     const e = requestEntry(r);
     if (e) entries.push(e);
   }
@@ -113,6 +180,39 @@ export function buildTimeline(input: {
     // Deterministic tie-break so equal timestamps never reorder between renders.
     return diff !== 0 ? diff : a.key.localeCompare(b.key);
   });
+}
+
+/**
+ * Every call this person made, newest first.
+ *
+ * Keyed on `lead_id` because that is where voice identity still lives (the `contacts` backfill is
+ * R-081) — the same choice `lib/platform/recall.ts` makes, and for the same reason. Capped: a
+ * timeline is read, not audited, and the calls page holds the whole history.
+ */
+export async function listContactCalls(
+  orgId: string,
+  contactRef: string,
+  db: SupabaseClient = supabaseAdmin,
+  limit = 50
+): Promise<TimelineCall[]> {
+  const { data, error } = await db
+    .from("calls")
+    .select("id, started_at, duration_seconds, direction, outcome, intent")
+    .eq("org_id", orgId)
+    .eq("lead_id", contactRef)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  return (data as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id),
+    startedAt: (row.started_at as string | null) ?? null,
+    durationSeconds: (row.duration_seconds as number | null) ?? null,
+    direction: (row.direction as string | null) ?? null,
+    outcome: (row.outcome as string | null) ?? null,
+    intent: (row.intent as string | null) ?? null,
+  }));
 }
 
 /**
@@ -127,14 +227,15 @@ export async function getContactTimeline(
 ): Promise<TimelineEntry[]> {
   if (!orgId || !contactRef) return [];
 
-  const [requests, notes] = await Promise.all([
+  const [requests, notes, calls] = await Promise.all([
     // `contactId` is pushed into the query, so this is EVERY request for this person — not the
     // org's most recent N with theirs filtered out of it.
     listRequestViews(orgId, { contactId: contactRef }, db)
       .then((r) => r.items)
       .catch(() => [] as RequestView[]),
     listContactNotes(orgId, contactRef, db).catch(() => [] as ContactNote[]),
+    listContactCalls(orgId, contactRef, db).catch(() => [] as TimelineCall[]),
   ]);
 
-  return buildTimeline({ conversations, requests, notes });
+  return buildTimeline({ conversations, calls, requests, notes });
 }

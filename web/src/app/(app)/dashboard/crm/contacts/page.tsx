@@ -2,24 +2,34 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Activity,
-  ArrowUpRight,
   BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
   Contact as ContactIcon,
+  Download,
+  Inbox,
   Plus,
   Search,
-  SlidersHorizontal,
-  Sparkles,
   UsersRound,
 } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listContactViews } from "@/lib/platform/readModel/contacts";
-import Avatar from "../../_platform/Avatar";
-import ChannelBadge from "../../_platform/ChannelBadge";
+import { loadContactInsights } from "@/lib/platform/readModel/contactInsights";
+import {
+  CONTACTS_PAGE_SIZE,
+  SEGMENTS,
+  SORTS,
+  contactsHref,
+  matchesSearch,
+  matchesSegment,
+  parseContactsQuery,
+  sortRows,
+  withInsights,
+} from "@/lib/platform/crm/contactRows";
 import CrmMetricCard from "../../_platform/crm/CrmMetricCard";
-import { formatWhen, titleCase } from "../../_platform/format";
-import { lifecycleMeta, LIFECYCLE_STAGES } from "@/lib/platform/lifecycle";
-import { EmptyState, Pill, SearchField } from "../../_platform/ui";
+import ContactsTable from "../../_platform/crm/ContactsTable";
+import { EmptyState, SearchField } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +40,33 @@ function one(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v).trim();
 }
 
-function sourceLabel(source: string | null): string {
-  if (!source) return "Direct";
-  return titleCase(source.replace(/_/g, " "));
-}
-
-/** Contacts — a dense, scan-friendly customer workspace rather than a loose list of names. */
+/**
+ * Contacts — the customer workspace.
+ *
+ * It used to be a name, a lifecycle pill, a one-word source and a date: four columns of which one
+ * carried anything, so a screen holding real people read as a single column of names. The work
+ * those people had generated — every request, call and appointment — sat in the same database,
+ * linked to the same rows, and was nowhere on this screen.
+ *
+ * What a CRM list is FOR is deciding who to deal with next, and that needs three things the old
+ * page had none of: what is outstanding for each person, a way to cut the list down to the ones
+ * that matter, and a way to act without leaving. So:
+ *
+ *   * **Rows carry the work.** Open requests, next appointment, calls and talk time — joined in
+ *     one batched pass (`loadContactInsights`), never per row.
+ *   * **Segments answer real questions.** "Needs attention" is anyone with a request still open;
+ *     "Gone quiet" deliberately excludes them, because a customer waiting on you is neglected
+ *     rather than dormant. The metric cards ARE those segments, so a number you can see is a list
+ *     you can open.
+ *   * **The list is actionable.** Select rows and move them through the lifecycle in one go, peek
+ *     at a person beside the list rather than navigating away, dial or email from the row, and
+ *     take the whole thing away as CSV.
+ *
+ * Filtering and sorting run in memory over a bounded scan (500), matching the read model this
+ * page has always used. That is honest at the volumes Denku workspaces actually hold and is
+ * marked as bounded in the UI when it bites; pushing it into Postgres is the right next step and
+ * a different change.
+ */
 export default async function ContactsPage({
   searchParams,
 }: {
@@ -44,159 +75,263 @@ export default async function ContactsPage({
   if (!platformUxEnabled()) notFound();
 
   const sp = searchParams ? await searchParams : undefined;
-  const rawSearch = one(sp?.q);
-  const search = rawSearch.toLowerCase();
-  const stageParam = one(sp?.stage);
-  const stage = LIFECYCLE_STAGES.includes(stageParam as (typeof LIFECYCLE_STAGES)[number])
-    ? stageParam
-    : "";
-
-  const orgId = await resolveActiveOrgId();
-  const all = orgId ? await listContactViews(orgId, { limit: SCAN_LIMIT }) : [];
-  const bounded = all.length >= SCAN_LIMIT;
-  const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-  const contacts = all.filter((contact) => {
-    if (stage && contact.status !== stage) return false;
-    if (!search) return true;
-    return [contact.displayName, contact.primaryHandle, contact.source, contact.status]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search);
+  const query = parseContactsQuery({
+    q: one(sp?.q),
+    segment: one(sp?.segment),
+    sort: one(sp?.sort),
+    page: one(sp?.page),
   });
 
-  const countFor = (value: string) => all.filter((contact) => contact.status === value).length;
+  const orgId = await resolveActiveOrgId();
+  const contacts = orgId ? await listContactViews(orgId, { limit: SCAN_LIMIT }) : [];
+  const bounded = contacts.length >= SCAN_LIMIT;
+
+  // One batched pass for the whole scan, so the segment counts below describe the same universe
+  // the table does.
+  const insights = orgId
+    ? await loadContactInsights(orgId, contacts.map((c) => c.id))
+    : new Map();
+  const all = withInsights(contacts, insights);
+
+  /*
+   * Reading the clock is the point here, not a purity slip: "Gone quiet" and "Upcoming" are
+   * defined relative to now, and this is an async Server Component rendered per request
+   * (`force-dynamic`), so there is no re-render for an unstable value to disagree with. The rule
+   * is written for client components, where it is right.
+   */
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const searched = all.filter((row) => matchesSearch(row, query.q));
+  const filtered = searched.filter((row) => matchesSegment(row, query.segment, now));
+  const sorted = sortRows(filtered, query.sort);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / CONTACTS_PAGE_SIZE));
+  const page = Math.min(query.page, pageCount);
+  const rows = sorted.slice((page - 1) * CONTACTS_PAGE_SIZE, page * CONTACTS_PAGE_SIZE);
+
+  /** Counts are over the SEARCHED set, so a segment tab never promises rows a search has hidden. */
+  const countFor = (segment: string) =>
+    searched.filter((row) => matchesSegment(row, segment, now)).length;
+
+  const needsAttention = countFor("attention");
+  const upcoming = countFor("upcoming");
   const qualified = countFor("qualified");
-  const newLeads = countFor("new");
-  const activeRecently = all.filter((contact) => {
-    const lastSeen = Date.parse(contact.lastSeenAt ?? "");
-    return Number.isFinite(lastSeen) && lastSeen >= recentCutoff;
-  }).length;
 
-  const hrefForStage = (nextStage: string) => {
-    const params = new URLSearchParams();
-    if (rawSearch) params.set("q", rawSearch);
-    if (nextStage) params.set("stage", nextStage);
-    const query = params.toString();
-    return `/dashboard/crm/contacts${query ? `?${query}` : ""}`;
-  };
+  const exportParams = new URLSearchParams();
+  if (query.q) exportParams.set("q", query.q);
+  if (query.segment) exportParams.set("segment", query.segment);
+  if (query.sort !== "recent") exportParams.set("sort", query.sort);
+  const exportHref = `/api/crm/contacts/export${exportParams.toString() ? `?${exportParams}` : ""}`;
 
-  const stageFilters = [
-    { label: "All contacts", value: "", count: all.length },
-    { label: "New", value: "new", count: newLeads },
-    { label: "Contacted", value: "contacted", count: countFor("contacted") },
-    { label: "Qualified", value: "qualified", count: qualified },
-  ];
+  const hasFilters = Boolean(query.q || query.segment);
 
   return (
     <div className="p-4 md:p-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      {/* ------------------------------------------------------------- header */}
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-500">
-            <Sparkles className="h-3.5 w-3.5" /> Customer intelligence
-          </div>
           <h1 className="text-2xl font-semibold tracking-tight text-navy-700 dark:text-white md:text-3xl">
-            Contacts
+            Customers
           </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-            Every customer, channel and lifecycle signal in one place — automatically enriched by your AI team.
+            Everyone your AI team has spoken to, and what is still open for them.
           </p>
         </div>
-        <Link
-          href="/dashboard/crm/contacts/new"
-          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-navy-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-md dark:bg-white dark:text-navy-900 dark:hover:bg-brand-200"
-        >
-          <Plus className="h-4 w-4" /> Add contact
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={exportHref}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 px-3.5 text-sm font-semibold text-navy-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+          >
+            <Download className="h-4 w-4" /> Export
+          </a>
+          <Link
+            href="/dashboard/crm/contacts/new"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-navy-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-md dark:bg-white dark:text-navy-900 dark:hover:bg-brand-200"
+          >
+            <Plus className="h-4 w-4" /> Add contact
+          </Link>
+        </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <CrmMetricCard label="Total contacts" value={`${all.length}${bounded ? "+" : ""}`} detail="Unified customer records" icon={UsersRound} tone="violet" />
-        <CrmMetricCard label="Qualified" value={qualified} detail={`${all.length ? Math.round((qualified / all.length) * 100) : 0}% of your CRM`} icon={BadgeCheck} tone="teal" />
-        <CrmMetricCard label="New leads" value={newLeads} detail="Waiting for follow-up" icon={Sparkles} tone="amber" />
-        <CrmMetricCard label="Active this week" value={activeRecently} detail="Touched in the last 7 days" icon={Activity} tone="sky" />
+      {/* --------------------------------------------- metrics, which are filters */}
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <CrmMetricCard
+          label="Total contacts"
+          value={`${all.length}${bounded ? "+" : ""}`}
+          detail="Everyone on record"
+          icon={UsersRound}
+          tone="violet"
+          href={contactsHref(query, { segment: "", page: 1 })}
+          active={query.segment === ""}
+        />
+        <CrmMetricCard
+          label="Needs attention"
+          value={needsAttention}
+          detail="Has a request still open"
+          icon={Inbox}
+          tone="amber"
+          href={contactsHref(query, { segment: "attention", page: 1 })}
+          active={query.segment === "attention"}
+        />
+        <CrmMetricCard
+          label="Upcoming"
+          value={upcoming}
+          detail="Appointment still to come"
+          icon={Activity}
+          tone="sky"
+          href={contactsHref(query, { segment: "upcoming", page: 1 })}
+          active={query.segment === "upcoming"}
+        />
+        <CrmMetricCard
+          label="Qualified"
+          value={qualified}
+          detail={`${all.length ? Math.round((qualified / all.length) * 100) : 0}% of your CRM`}
+          icon={BadgeCheck}
+          tone="teal"
+          href={contactsHref(query, { segment: "qualified", page: 1 })}
+          active={query.segment === "qualified"}
+        />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-navy-800">
+        {/* ------------------------------------------------------------ toolbar */}
         <div className="border-b border-gray-100 p-4 dark:border-white/10">
-          <form method="get" className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            {stage ? <input type="hidden" name="stage" value={stage} /> : null}
-            <SearchField className="min-w-[240px] flex-1" defaultValue={rawSearch} placeholder="Search name, phone, email, source…" label="Search contacts" />
-            <button type="submit" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600">
+          <form method="get" className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {query.segment ? <input type="hidden" name="segment" value={query.segment} /> : null}
+            {query.sort !== "recent" ? (
+              <input type="hidden" name="sort" value={query.sort} />
+            ) : null}
+            <SearchField
+              className="min-w-[240px] flex-1"
+              defaultValue={query.q}
+              placeholder="Search name, phone, email, source…"
+              label="Search contacts"
+            />
+            <button
+              type="submit"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600"
+            >
               <Search className="h-4 w-4" /> Search
             </button>
-            {search || stage ? (
-              <Link href="/dashboard/crm/contacts" className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5">
+            {hasFilters ? (
+              <Link
+                href="/dashboard/crm/contacts"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
+              >
                 Clear
               </Link>
             ) : null}
           </form>
 
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-0.5">
-            <SlidersHorizontal className="mr-1 h-4 w-4 shrink-0 text-gray-400" />
-            {stageFilters.map((item) => {
-              const active = stage === item.value;
-              return (
-                <Link key={item.label} href={hrefForStage(item.value)} className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${active ? "bg-navy-700 text-white shadow-sm dark:bg-white dark:text-navy-900" : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-navy-700 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"}`}>
-                  {item.label}
-                  <span className={active ? "text-white/65 dark:text-navy-500" : "text-gray-400"}>{item.count}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-white/10">
-          <p className="text-sm font-semibold text-navy-700 dark:text-white">
-            {contacts.length === 0 ? "No matching contacts" : `${contacts.length}${bounded && !search ? "+" : ""} contact${contacts.length === 1 ? "" : "s"}`}
-          </p>
-          {bounded && !search ? <Pill tone="neutral">Most recent {SCAN_LIMIT}</Pill> : <span className="text-xs text-gray-400">Sorted by recent activity</span>}
-        </div>
-
-        {contacts.length === 0 ? (
-          search || stage ? (
-            <EmptyState icon={Search} title="No contacts match these filters" description="Try a different name or clear the lifecycle filter." action={{ label: "Clear filters", href: "/dashboard/crm/contacts" }} />
-          ) : (
-            <EmptyState icon={ContactIcon} title="No contacts yet" description="Every person your AI Employees speak with is saved here automatically, with their history across every channel." action={{ label: "View conversations", href: "/dashboard/inbox" }} />
-          )
-        ) : (
-          <div>
-            <div className="hidden grid-cols-[minmax(260px,1.5fr)_minmax(130px,.6fr)_minmax(130px,.65fr)_minmax(140px,.7fr)_28px] gap-4 border-b border-gray-100 bg-gray-50/70 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:border-white/10 dark:bg-white/[0.025] md:grid">
-              <span>Contact</span><span>Lifecycle</span><span>Source</span><span>Last activity</span><span />
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-white/10">
-              {contacts.map((contact) => {
-                const lifecycle = lifecycleMeta(contact.status);
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex flex-1 flex-wrap items-center gap-1.5">
+              {SEGMENTS.map((segment) => {
+                const active = query.segment === segment.value;
+                const count = countFor(segment.value);
                 return (
-                  <Link key={contact.id} href={`/dashboard/crm/contacts/${contact.id}`} className="group grid gap-3 px-4 py-4 transition hover:bg-brand-50/50 dark:hover:bg-white/[0.035] md:grid-cols-[minmax(260px,1.5fr)_minmax(130px,.6fr)_minmax(130px,.65fr)_minmax(140px,.7fr)_28px] md:items-center md:gap-4 md:px-5">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar name={contact.displayName} seed={contact.primaryHandle || contact.id} size="md" />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-navy-700 dark:text-white">{contact.displayName || contact.primaryHandle || "Unknown contact"}</p>
-                          <div className="flex items-center -space-x-1">
-                            {contact.channels.map((channel) => <ChannelBadge key={channel} channel={channel} compact className="ring-2 ring-white dark:ring-navy-800" />)}
-                          </div>
-                        </div>
-                        {contact.primaryHandle && contact.displayName ? <p className="mt-0.5 truncate text-xs text-gray-500">{contact.primaryHandle}</p> : <p className="mt-0.5 text-xs text-gray-400">No contact details</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between md:block">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 md:hidden">Lifecycle</span>
-                      {lifecycle ? <Pill tone={lifecycle.tone}>{lifecycle.label}</Pill> : <span className="text-xs text-gray-400">Not set</span>}
-                    </div>
-                    <div className="hidden text-sm text-gray-600 dark:text-gray-300 md:block">{sourceLabel(contact.source)}</div>
-                    <div className="flex items-center justify-between md:block">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 md:hidden">Last activity</span>
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{formatWhen(contact.lastSeenAt)}</span>
-                    </div>
-                    <ArrowUpRight className="hidden h-4 w-4 text-gray-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-brand-500 md:block" />
+                  <Link
+                    key={segment.value || "all"}
+                    href={contactsHref(query, { segment: segment.value, page: 1 })}
+                    title={segment.hint}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "bg-navy-700 text-white shadow-sm dark:bg-white dark:text-navy-900"
+                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-navy-700 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
+                    }`}
+                  >
+                    {segment.label}
+                    <span className={active ? "text-white/65 dark:text-navy-500" : "text-gray-400"}>
+                      {count}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Sorting is a set of links rather than a <select>, so it works without JavaScript and
+                every sort is a URL somebody can share. */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+                Sort
+              </span>
+              {SORTS.map((sort) => {
+                const active = query.sort === sort.value;
+                return (
+                  <Link
+                    key={sort.value}
+                    href={contactsHref(query, { sort: sort.value, page: 1 })}
+                    className={`rounded-lg px-2 py-1 text-xs font-medium transition ${
+                      active
+                        ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200"
+                        : "text-gray-500 hover:text-navy-700 dark:hover:text-white"
+                    }`}
+                  >
+                    {sort.label}
                   </Link>
                 );
               })}
             </div>
           </div>
+        </div>
+
+        {/* --------------------------------------------------------------- body */}
+        {rows.length === 0 ? (
+          hasFilters ? (
+            <EmptyState
+              icon={Search}
+              title="No customers match these filters"
+              description="Try a different name, or widen the segment."
+              action={{ label: "Clear filters", href: "/dashboard/crm/contacts" }}
+            />
+          ) : (
+            <EmptyState
+              icon={ContactIcon}
+              title="No customers yet"
+              description="Every person your AI Employees speak with is saved here automatically, with their history across every channel."
+              action={{ label: "View conversations", href: "/dashboard/inbox" }}
+            />
+          )
+        ) : (
+          <>
+            <ContactsTable rows={rows} />
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/10">
+              <p className="text-xs text-gray-500">
+                {sorted.length === 0
+                  ? "No customers"
+                  : `${(page - 1) * CONTACTS_PAGE_SIZE + 1}–${
+                      (page - 1) * CONTACTS_PAGE_SIZE + rows.length
+                    } of ${sorted.length}${bounded && !hasFilters ? "+" : ""}`}
+                {bounded && !hasFilters ? (
+                  <span className="text-gray-400"> · most recent {SCAN_LIMIT} scanned</span>
+                ) : null}
+              </p>
+
+              {pageCount > 1 ? (
+                <nav aria-label="Customer pages" className="flex items-center gap-2">
+                  {page > 1 ? (
+                    <Link
+                      href={contactsHref(query, { page: page - 1 })}
+                      className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-navy-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                    </Link>
+                  ) : null}
+                  <span className="text-xs text-gray-500">
+                    Page {page} of {pageCount}
+                  </span>
+                  {page < pageCount ? (
+                    <Link
+                      href={contactsHref(query, { page: page + 1 })}
+                      className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-navy-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+                    >
+                      Next <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  ) : null}
+                </nav>
+              ) : null}
+            </div>
+          </>
         )}
       </section>
     </div>

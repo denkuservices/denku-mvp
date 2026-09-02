@@ -11,6 +11,10 @@ import {
   TimerReset,
 } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
+import { getViewer } from "@/lib/auth/permissions";
+import { listSavedViews } from "@/lib/platform/savedViews";
+import SavedViewsBar from "../../_platform/crm/SavedViewsBar";
+import RequestBoard from "../../_platform/crm/RequestBoard";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listRequestViews } from "@/lib/platform/readModel/requests";
 import CrmMetricCard from "../../_platform/crm/CrmMetricCard";
@@ -56,6 +60,27 @@ export default async function RequestsPage({
   }
 
   const orgId = await resolveActiveOrgId();
+
+  /*
+   * Saved views.
+   *
+   * The bar is fed this page's OWN search params, so what gets saved is exactly what the reader
+   * is looking at. `view` never goes in (normalizeViewQuery strips it) — a view that stored its
+   * own id would re-select itself forever.
+   */
+  const viewer = await getViewer();
+  const savedViews = orgId ? await listSavedViews(orgId, "requests", viewer.profileId) : [];
+
+  const currentParams = new URLSearchParams();
+  for (const key of ["status", "q"] as const) {
+    const value = one(sp?.[key]);
+    if (value) currentParams.set(key, value);
+  }
+  const activeViewId = one(sp?.view) ?? null;
+
+  // List or board. The list stays the default: it is the one that reads well on a phone, and a
+  // board is a way of WORKING a pipeline rather than a better way of reading one.
+  const layout = one(sp?.layout) === "board" ? "board" : "list";
   const { items, counts } = orgId
     ? await listRequestViews(orgId, { type: "ticket", status, search })
     : { items: [], counts: { all: 0, ticket: 0, appointment: 0 } };
@@ -89,6 +114,14 @@ export default async function RequestsPage({
         <CrmMetricCard label="Resolved" value={resolvedItems.length} detail="Completed in this view" icon={CheckCircle2} tone="teal" />
       </div>
 
+      <SavedViewsBar
+        surface="requests"
+        views={savedViews}
+        currentQuery={currentParams.toString()}
+        activeViewId={activeViewId}
+        basePath="/dashboard/crm/requests"
+      />
+
       <section className="mb-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-navy-800">
         <form method="get" className="flex flex-col gap-3 p-4 md:flex-row">
           <SearchField className="min-w-[220px] flex-1" defaultValue={search} placeholder="Search customer, subject or detail…" label="Search requests" />
@@ -109,10 +142,40 @@ export default async function RequestsPage({
       <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-navy-800">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-white/10">
           <p className="text-sm font-semibold text-navy-700 dark:text-white">{items.length === 0 ? "Nothing here" : `${items.length} request${items.length === 1 ? "" : "s"}`}</p>
-          <span className="text-xs text-gray-400">Newest activity first</span>
+          <span className="flex items-center gap-3">
+            <span className="text-xs text-gray-400">
+              {layout === "board" ? "Drag a card, or use its status menu" : "Newest activity first"}
+            </span>
+            <span className="inline-flex overflow-hidden rounded-lg border border-gray-200 dark:border-white/10">
+              {(["list", "board"] as const).map((option) => {
+                const params = new URLSearchParams(currentParams.toString());
+                if (activeViewId) params.set("view", activeViewId);
+                if (option === "board") params.set("layout", "board");
+                const active = layout === option;
+                return (
+                  <Link
+                    key={option}
+                    href={`/dashboard/crm/requests${params.size ? `?${params.toString()}` : ""}`}
+                    aria-current={active ? "true" : undefined}
+                    className={`px-2.5 py-1 text-xs font-medium transition ${
+                      active
+                        ? "bg-brand-500 text-white"
+                        : "text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    {option === "list" ? "List" : "Board"}
+                  </Link>
+                );
+              })}
+            </span>
+          </span>
         </div>
 
-        {items.length === 0 ? (
+        {layout === "board" && items.length > 0 ? (
+          <div className="p-4">
+            <RequestBoard items={items} />
+          </div>
+        ) : items.length === 0 ? (
           hasFilters ? <EmptyState icon={Search} title="No requests match these filters" description="Try a different status or clear the filters to see every service request." action={{ label: "Clear filters", href: "/dashboard/crm/requests" }} /> : <EmptyState icon={Inbox} title="No requests yet" description="Customer requests created by your AI team will appear here automatically." action={{ label: "View conversations", href: "/dashboard/inbox" }} />
         ) : (
           <div>

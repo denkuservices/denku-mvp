@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { MessagesSquare, Ticket, StickyNote, ArrowUpRight } from "lucide-react";
+import { MessagesSquare, Phone, Ticket, StickyNote, ArrowUpRight } from "lucide-react";
 import type { TimelineEntry, TimelineKind } from "@/lib/platform/readModel/timeline";
 import { formatWhen, titleCase } from "../format";
 import ChannelBadge from "../ChannelBadge";
@@ -16,6 +16,7 @@ import ChannelBadge from "../ChannelBadge";
 
 const ICONS: Record<TimelineKind, React.ComponentType<{ className?: string }>> = {
   conversation: MessagesSquare,
+  call: Phone,
   request: Ticket,
   note: StickyNote,
 };
