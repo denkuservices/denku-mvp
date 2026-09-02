@@ -209,10 +209,16 @@ async function main() {
 
   console.log(`\n  DENKU_SELF_ORG_ID=${orgId}`);
   console.log(`  site key:        ${siteKey}\n`);
-  console.log("  Nobody can open this workspace's Inbox yet — it has no profiles row, on purpose.");
-  console.log("  To give the owner access (this MOVES them here; there is no switcher in the UI):\n");
-  console.log(`    insert into profiles (id, auth_user_id, email, org_id, role)`);
-  console.log(`    values (gen_random_uuid(), '${OWNER_USER_ID}', '<owner email>', '${orgId}', 'owner');\n`);
+  console.log("  Giving a person access to this workspace's Inbox is an UPDATE, never an");
+  console.log("  INSERT:\n");
+  console.log(`    update profiles set org_id = '${orgId}', updated_at = now()`);
+  console.log(`    where id = '${OWNER_USER_ID}';\n`);
+  console.log("  A SECOND profiles row would split the two resolvers and authorize against");
+  console.log("  the WRONG workspace: getViewer() matches on `id` first and would keep");
+  console.log("  finding the old row, while getActiveOrgId() matches on `auth_user_id`");
+  console.log("  ordered by updated_at and would find the new one. CLAUDE.md landmine #16.");
+  console.log("  It MOVES that person - there is no workspace switcher in the UI - and it");
+  console.log("  is reversed by setting org_id back.\n");
 }
 
 main().catch((err) => {
