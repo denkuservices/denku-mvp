@@ -130,15 +130,23 @@ idempotent, and it refuses a localhost URL because R-077 was exactly that mistak
 cd web && npx vite-node --config vitest.config.ts scripts/provision-denku-workspace.mts --dry-run
 ```
 
-Repairs or recreates the workspace. It never writes a `profiles` row — see below.
+Repairs or recreates the workspace. It never writes a `profiles` row — see Known gaps for why access
+is an UPDATE of an existing row rather than a new one.
 
 ## Known gaps
 
-- **Nobody can open Denku's Inbox.** The workspace has no `profiles` row, deliberately:
-  `getActiveOrgId` picks a user's most recently updated profile and there is no workspace switcher
-  in the UI, so adding one would move that person into this workspace with no way back except SQL.
-  Until the owner decides, prospect conversations are stored and answered but not readable by a
-  human. `provision-denku-workspace.mts` prints the statement that fixes it.
+- ~~Nobody can open Denku's Inbox.~~ **Resolved 2026-09-03**: the owner's profile was MOVED here
+  with `update profiles set org_id = …`. Their previous workspace, `test2 llc`, was empty — 0
+  agents, 0 conversations, 0 calls, no plan — so it cost nothing, and it is reversed by setting
+  `org_id` back.
+
+  **It had to be an UPDATE, not an INSERT, and that is the part worth keeping.** A second
+  `profiles` row would split the two resolvers: `getViewer()` (authorization) matches on `id`
+  FIRST, and the existing row has `id = auth_user_id`, so it would keep finding the OLD workspace
+  — while `getActiveOrgId()` matches on `auth_user_id` ordered by `updated_at` and would find the
+  new one. The dashboard would show one workspace while capability checks ran against another:
+  exactly the divergence CLAUDE.md landmine #16 describes. One profile row per user, until a real
+  workspace switcher exists.
 - **`VAPI_AGENT_ID` is dead** and no longer read anywhere. It is still set in Vercel to
   `155b21ad…`; leaving it does nothing. It was renamed rather than reused precisely because
   reading it would have made repointing the landing page a silent no-op in production.

@@ -451,9 +451,13 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     `scripts/register-denku-agent.mts` (re-run after any channel/price/corpus change — the prompt
     is a snapshot) and `scripts/provision-denku-workspace.mts`. ⚠️ **`VAPI_AGENT_ID` is dead** and
     no longer read; it is still set in Vercel to the old assistant, which is exactly why the new
-    variable has a different name. ⚠️ **Denku's own Inbox is unreadable** — the workspace has no
-    `profiles` row on purpose (there is no workspace switcher in the UI, so adding one MOVES that
-    person there permanently). See `skills/denku-own-agent.md`.
+    variable has a different name. Giving a person access to that workspace's Inbox is an
+    **UPDATE of their existing `profiles` row, never a second row** — done for the owner
+    2026-09-03. A second row splits the two resolvers: `getViewer()` (authorization) matches on
+    `id` first, `getActiveOrgId()` on `auth_user_id` by `updated_at`, so the dashboard would show
+    one workspace while capability checks ran against another (landmine #16 again). One profile
+    row per user until a workspace switcher exists; it MOVES that person, and is reversed by
+    setting `org_id` back. See `skills/denku-own-agent.md`.
 
 ## Design system (per-surface, do not cross-contaminate)
 
