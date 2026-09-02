@@ -245,7 +245,7 @@ merges it into `model.toolIds`. **Do not hand-roll a `model` PATCH** — landmin
 One rule:
 
 - **Text (name, description, category, specs) → synced locally, answered through RAG.**
-  [`agent_knowledge_documents`](../supabase/migrations/20260902060000_agent_knowledge_documents.sql)
+  [`agent_knowledge_documents`](../supabase/migrations/20260902013717_agent_knowledge_documents.sql)
   already exists for this.
 - **Price and stock → always live, 30–60 s TTL.**
 
