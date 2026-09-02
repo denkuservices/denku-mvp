@@ -1048,7 +1048,16 @@ export default function WorkspaceBillingPage() {
         monthly: addon.price_usd_month * (isChatAddonKey(addon.key) ? Math.min(qty, 1) : qty),
       };
     })
-    .filter((line) => line.qty > 0);
+    .filter((line) => line.qty > 0)
+    /**
+     * Products first, then the pieces bolted onto them.
+     *
+     * Voice is the plan line above; chat is the other product a workspace can hold, so it belongs
+     * directly under it rather than buried among extra numbers and extra seats. Everything else
+     * keeps the catalogue's own order, which is the order the cards below are drawn in — two
+     * different orders for the same list would make the page harder to read, not easier.
+     */
+    .sort((a, b) => Number(isChatAddonKey(b.key)) - Number(isChatAddonKey(a.key)));
 
   // Find current plan object from summary.plans (only if plan exists)
   const currentPlan = hasPlan

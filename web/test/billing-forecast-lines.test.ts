@@ -11,7 +11,8 @@ function addonLines(
       const qty = active[a.key] || 0;
       return { key: a.key, label: a.label, qty, monthly: a.price_usd_month * (isChatAddonKey(a.key) ? Math.min(qty, 1) : qty) };
     })
-    .filter((l) => l.qty > 0);
+    .filter((l) => l.qty > 0)
+    .sort((a, b) => Number(isChatAddonKey(b.key)) - Number(isChatAddonKey(a.key)));
 }
 
 describe("forecast add-on itemisation", () => {
@@ -25,10 +26,12 @@ describe("forecast add-on itemisation", () => {
   it("adds up to the total the card already showed", () => {
     // ali4@hotmail.com's real workspace: growth + chat_standard + 1 extra number + 1 extra seat.
     const lines = addonLines(available, { chat_standard: 1, extra_phone: 1, extra_concurrency: 1 });
+    // Products first: the voice plan is its own line above this list, so chat leads it and the
+    // pieces bolted onto a plan follow.
     expect(lines.map((l) => l.label)).toEqual([
+      "Chat — 2 channels",
       "Extra concurrent calls",
       "Extra phone number",
-      "Chat — 2 channels",
     ]);
     expect(lines.reduce((sum, l) => sum + l.monthly, 0)).toBe(608);
   });
