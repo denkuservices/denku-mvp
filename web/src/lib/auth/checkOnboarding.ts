@@ -3,22 +3,22 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 
 /**
  * Check if plan is active for an org.
- * Plan is active if org_plan_limits.plan_code IS NOT NULL.
- * 
+ *
+ * "Active" means **bought something** — voice, chat, or both — not "has a voice plan". The
+ * difference matters to exactly one kind of customer and matters completely to them: someone who
+ * bought chat and no phone line used to read as having no plan here, and would have been held out
+ * of the dashboard they were paying for. That is the reason the fictional `chat_only` voice plan
+ * existed; `lib/billing/planState.ts` removes the need for it.
+ *
  * @param orgId Organization ID
  * @returns true if plan is active, false otherwise
  */
 export async function isPlanActive(orgId: string): Promise<boolean> {
-  const { data: planLimits } = await supabaseAdmin
-    .from("org_plan_limits")
-    .select("plan_code")
-    .eq("org_id", orgId)
-    .maybeSingle<{ plan_code: string | null }>();
-
-  return !!planLimits?.plan_code;
+  return hasAnyPaidPlan(orgId);
 }
 
 /**

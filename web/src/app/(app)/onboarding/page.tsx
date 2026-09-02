@@ -4,6 +4,7 @@ import { OnboardingClient } from "./OnboardingClient";
 import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
 import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
@@ -100,14 +101,10 @@ async function handleCheckoutSuccess(sessionId: string) {
       }
     }
 
-    // Verify plan is now active by checking org_plan_limits
-    const { data: planLimits } = await supabaseAdmin
-      .from("org_plan_limits")
-      .select("plan_code")
-      .eq("org_id", orgId)
-      .maybeSingle<{ plan_code: string | null }>();
-
-    const isPlanActive = !!planLimits?.plan_code;
+    // Verify something was actually bought — voice, chat, or both. A chat purchase leaves no
+    // voice plan behind, so reading `plan_code` alone would send a paying customer back round the
+    // onboarding loop. See lib/billing/planState.ts.
+    const isPlanActive = await hasAnyPaidPlan(orgId);
 
     if (isPlanActive) {
       // Plan is active - set onboarding_step = 5 (Activating, DB step 5 = UI step 4) if current step < 5

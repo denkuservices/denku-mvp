@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 
 /**
  * Check if current user's email is confirmed.
@@ -36,14 +37,9 @@ export async function checkConfirmedAction(): Promise<{
     let redirectTo = "/dashboard";
     if (profiles && profiles.length > 0 && profiles[0].org_id) {
       const orgId = profiles[0].org_id;
-      // Check plan active status (plan is active if org_plan_limits.plan_code exists)
-      const { data: planLimits } = await supabaseAdmin
-        .from("org_plan_limits")
-        .select("plan_code")
-        .eq("org_id", orgId)
-        .maybeSingle<{ plan_code: string | null }>();
-
-      const planActive = !!planLimits?.plan_code;
+      // "Active" means bought something — voice, chat, or both. A chat-only customer used to be
+      // read as having no plan here and sent back to onboarding. See lib/billing/planState.ts.
+      const planActive = await hasAnyPaidPlan(orgId);
       if (!planActive) {
         redirectTo = "/onboarding";
       }
