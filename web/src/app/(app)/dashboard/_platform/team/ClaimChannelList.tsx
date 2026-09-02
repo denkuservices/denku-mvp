@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plug } from "lucide-react";
 import ChannelBadge from "../ChannelBadge";
+import SaveButton, { useSavedFlash } from "../ui/SaveButton";
 import type { Channel } from "@/lib/platform/channels";
 
 export interface ClaimableChannel {
@@ -40,6 +41,15 @@ export default function ClaimChannelList({
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * Which row just succeeded.
+   *
+   * The refresh normally replaces this whole list — the employee has a channel now — but a slow
+   * revalidation left the row sitting there with a button that had simply gone quiet, which reads
+   * as a click that did nothing. The tick covers that gap.
+   */
+  const [assigned, setAssigned] = React.useState<string | null>(null);
+  const { saved, flashSaved } = useSavedFlash();
 
   async function assign(item: ClaimableChannel) {
     if (busy) return;
@@ -57,6 +67,8 @@ export default function ClaimChannelList({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) {
+        setAssigned(item.connectionId);
+        flashSaved();
         router.refresh();
       } else {
         setError(data?.error || "Couldn't assign that channel. Please try again.");
@@ -104,14 +116,20 @@ export default function ClaimChannelList({
                 <span className="ml-2 text-xs text-gray-400">Currently {item.ownedByName}</span>
               ) : null}
             </span>
-            <button
-              type="button"
+            <SaveButton
               onClick={() => void assign(item)}
+              saving={busy === item.connectionId}
+              saved={saved && assigned === item.connectionId}
+              // A row stops being "dirty" once it has been assigned — that is what holds the tick
+              // in place instead of offering the same assignment straight back.
+              dirty={assigned !== item.connectionId}
               disabled={Boolean(busy)}
-              className="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
-            >
-              {busy === item.connectionId ? "Assigning…" : item.ownedByName ? "Move here" : "Assign"}
-            </button>
+              size="sm"
+              className="shrink-0"
+              label={item.ownedByName ? "Move here" : "Assign"}
+              savingLabel="Assigning…"
+              savedLabel="Assigned"
+            />
           </li>
         ))}
       </ul>
