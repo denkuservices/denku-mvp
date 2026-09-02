@@ -427,6 +427,34 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     exists, the registration does not. **Any IdeaSoft or commerce-API work starts at
     `skills/commerce-integrations.md`.**
 
+20. **The assistant on denku.io is Denku running as its own customer — and nothing it claims is
+    typed by hand.** Built 2026-09-03. The landing page's call button and the chat widget both
+    reach it. It exists because the old one (`155b21ad…`, still the pilot phone line) carried a
+    hand-typed prompt that had gone stale invisibly: it told callers **"English and Spanish"**
+    while four languages shipped, and had never heard of Telegram, Email, Web Chat, BYON, the
+    commerce integration, or three of the four things Denku sells. **The rule: availability is
+    DERIVED** from `CHANNELS[...].productionReady` + `LANGUAGES` + the billing catalogue
+    (`lib/denku-agent/facts.ts`), so a channel flipping to production-ready starts being offered in
+    the same commit. The registry's three-way split — sellable / connectable-but-silent / not built
+    — is rendered as three separate clauses, because collapsing it is how a demo becomes a refund.
+    Five rules: (a) **`skills/*.md` must NEVER reach this assistant** — landmines and unfixed bugs
+    read back to a prospect; anything sellable is restated in `corpus.ts` in customer words; (b) no
+    SOC 2 / HIPAA / ISO claim, ever — Denku holds none; (c) **`search_denku_knowledge` is NOT in
+    `DENKU_TOOL_IDS`** and a test pins that list's length, because `ensureAssistantConfig` merges
+    it into every assistant and would hand a plumber's AI Denku's price list; (d) `isDenkuSelfOrg`
+    is an IDENTITY (the one workspace that IS Denku) while **`orgs.is_internal` is an ENTITLEMENT**
+    (workspaces Denku operates — grants **chat capacity only**, never voice minutes, concurrency,
+    overage caps or pause, so revenue figures stay a record of what was actually charged); (e) the
+    voice tool route answers **without** an org, unlike every other tool route, because its caller
+    is an anonymous visitor before any `calls` row exists — it still refuses an org that resolves
+    to someone else. Vapi artifacts and prod rows are created by scripts, never by hand:
+    `scripts/register-denku-agent.mts` (re-run after any channel/price/corpus change — the prompt
+    is a snapshot) and `scripts/provision-denku-workspace.mts`. ⚠️ **`VAPI_AGENT_ID` is dead** and
+    no longer read; it is still set in Vercel to the old assistant, which is exactly why the new
+    variable has a different name. ⚠️ **Denku's own Inbox is unreadable** — the workspace has no
+    `profiles` row on purpose (there is no workspace switcher in the UI, so adding one MOVES that
+    person there permanently). See `skills/denku-own-agent.md`.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -477,6 +505,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/workspace-roles-and-members.md` — **who may do what**: the capability matrix, the member lifecycle and ownership transfer, the audit log, and account security (re-auth, sessions, TOTP)
 - `skills/business-hours.md` — when the business is open, what the AI does when it is not, and exactly how far that reaches (chat yes, voice not yet)
 - `skills/platform-architecture.md` — the AI-Employees platform model (Employee/Channel/Conversation/Contact/Artifact), the shared ingest pipeline + channel adapters, dual-write flag, how to add a channel (Sprint 4.5)
+- `skills/denku-own-agent.md` — **the assistant that sells Denku**: why its knowledge is derived from the registries rather than typed, the three layers (890-token prompt + 22-chunk corpus + model-picks-the-topic retrieval), and the rules that stop it over-promising
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
