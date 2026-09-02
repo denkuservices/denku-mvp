@@ -19,6 +19,7 @@
  */
 
 import { siteConfig } from "@/config/site";
+import { EMAIL_LOCALE_TAG, normalizeEmailLocale, type EmailLocale } from "./i18n";
 
 /** The landing system's palette, restated for mail. */
 export const EMAIL_COLORS = {
@@ -100,23 +101,25 @@ export function esc(value: string | number | null | undefined): string {
 }
 
 /** `1234.5` → `$1,234.50`. Amounts are always shown to the cent in billing mail. */
-export function formatUsd(amount: number): string {
-  return `$${amount.toLocaleString("en-US", {
+export function formatUsd(amount: number, locale?: EmailLocale): string {
+  return `$${amount.toLocaleString(EMAIL_LOCALE_TAG[normalizeEmailLocale(locale)], {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
 /** Stripe amounts arrive in cents. */
-export function formatUsdFromCents(cents: number): string {
-  return formatUsd(cents / 100);
+export function formatUsdFromCents(cents: number, locale?: EmailLocale): string {
+  return formatUsd(cents / 100, locale);
 }
 
 /** `2026-09-01` / Date → `1 September 2026`. */
-export function formatDateLong(value: string | Date): string {
+export function formatDateLong(value: string | Date, locale?: EmailLocale): string {
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return typeof value === "string" ? value : "";
-  return date.toLocaleDateString("en-GB", {
+  const normalized = normalizeEmailLocale(locale);
+  const dateLocale = normalized === "en" ? "en-GB" : EMAIL_LOCALE_TAG[normalized];
+  return date.toLocaleDateString(dateLocale, {
     day: "numeric",
     month: "long",
     year: "numeric",

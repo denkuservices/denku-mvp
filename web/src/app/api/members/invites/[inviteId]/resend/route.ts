@@ -62,7 +62,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ inviteId:
 
   const [{ data: org }, { data: actor }] = await Promise.all([
     supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
-    supabaseAdmin.from("profiles").select("full_name").eq("id", actorId).maybeSingle<{ full_name: string | null }>(),
+    supabaseAdmin.from("profiles").select("full_name, ui_locale").eq("id", actorId).maybeSingle<{ full_name: string | null; ui_locale: "en" | "es" | "de" | "tr" | null }>(),
   ]);
 
   const orgName = org?.name || "your Denku workspace";
@@ -70,7 +70,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ inviteId:
 
   const mail = await sendMemberInviteEmail(
     invite.email,
-    memberInviteTemplate({ orgName, inviterName: actor?.full_name ?? null, signupUrl })
+    memberInviteTemplate({ orgName, inviterName: actor?.full_name ?? null, signupUrl, locale: actor?.ui_locale ?? "en" })
   );
 
   // Stamp the send and push the expiry out together — an invitation that arrives on day 13 of a

@@ -5,6 +5,7 @@ import { resolveSender } from "./senders";
 import { getVerificationEmailHtml, getOtpEmailHtml, getPasswordResetEmailHtml } from "./templates";
 import type { VerificationEmailParams, PasswordResetEmailParams } from "./templates";
 import { welcomeTemplate } from "./templates/welcome";
+import { emailText, type EmailLocale } from "./i18n";
 
 /**
  * Send email verification email after signup
@@ -20,7 +21,7 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
     const { data, error } = await resend.emails.send({
       from: resolveSender("auth"),
       to: params.email,
-      subject: "Verify your email - Denku",
+      subject: emailText(params.locale, { en: "Verify your email — Denku", es: "Verifica tu correo — Denku", de: "E-Mail-Adresse bestätigen – Denku", tr: "E-posta adresinizi doğrulayın — Denku" }),
       html: getVerificationEmailHtml(params),
     });
 
@@ -52,7 +53,7 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
     const { data, error } = await resend.emails.send({
       from: resolveSender("auth"),
       to: params.email,
-      subject: "Your verification code - Denku",
+      subject: emailText(params.locale, { en: "Your verification code — Denku", es: "Tu código de verificación — Denku", de: "Ihr Bestätigungscode – Denku", tr: "Doğrulama kodunuz — Denku" }),
       html: getOtpEmailHtml(params),
     });
 
@@ -84,7 +85,7 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
     const { data, error } = await resend.emails.send({
       from: resolveSender("auth"),
       to: params.email,
-      subject: "Reset your password - Denku",
+      subject: emailText(params.locale, { en: "Reset your password — Denku", es: "Restablece tu contraseña — Denku", de: "Passwort zurücksetzen – Denku", tr: "Parolanızı sıfırlayın — Denku" }),
       html: getPasswordResetEmailHtml(params),
     });
 
@@ -207,13 +208,13 @@ export async function sendMemberInviteEmail(
  * Send "Welcome to Denku" email (Resend). Server-only.
  * Called once when onboarding starts after verified login.
  */
-export async function sendWelcomeEmail(toEmail: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendWelcomeEmail(toEmail: string, locale: EmailLocale = "en"): Promise<{ ok: boolean; error?: string }> {
   if (!resend) {
     console.log("[sendWelcomeEmail] Skipped - RESEND_API_KEY not configured");
     return { ok: false, error: "RESEND_API_KEY not configured" };
   }
 
-  const { subject, html } = welcomeTemplate();
+  const { subject, html } = welcomeTemplate(locale);
 
   try {
     const { data, error } = await resend.emails.send({

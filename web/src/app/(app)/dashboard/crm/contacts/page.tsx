@@ -19,7 +19,6 @@ import { loadContactInsights } from "@/lib/platform/readModel/contactInsights";
 import {
   CONTACTS_PAGE_SIZE,
   SEGMENTS,
-  SORTS,
   contactsHref,
   matchesSearch,
   matchesSegment,
@@ -28,8 +27,9 @@ import {
   withInsights,
 } from "@/lib/platform/crm/contactRows";
 import CrmMetricCard from "../../_platform/crm/CrmMetricCard";
+import ContactsFilters from "../../_platform/crm/ContactsFilters";
 import ContactsTable from "../../_platform/crm/ContactsTable";
-import { EmptyState, SearchField } from "../../_platform/ui";
+import { EmptyState } from "../../_platform/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +112,9 @@ export default async function ContactsPage({
   /** Counts are over the SEARCHED set, so a segment tab never promises rows a search has hidden. */
   const countFor = (segment: string) =>
     searched.filter((row) => matchesSegment(row, segment, now)).length;
+  const segmentCounts = Object.fromEntries(
+    SEGMENTS.map((segment) => [segment.value, countFor(segment.value)]),
+  ) as Record<(typeof SEGMENTS)[number]["value"], number>;
 
   const needsAttention = countFor("attention");
   const upcoming = countFor("upcoming");
@@ -195,83 +198,8 @@ export default async function ContactsPage({
 
       <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-navy-800">
         {/* ------------------------------------------------------------ toolbar */}
-        <div className="border-b border-gray-100 p-4 dark:border-white/10">
-          <form method="get" className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {query.segment ? <input type="hidden" name="segment" value={query.segment} /> : null}
-            {query.sort !== "recent" ? (
-              <input type="hidden" name="sort" value={query.sort} />
-            ) : null}
-            <SearchField
-              className="min-w-[240px] flex-1"
-              defaultValue={query.q}
-              placeholder="Search name, phone, email, source…"
-              label="Search contacts"
-            />
-            <button
-              type="submit"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600"
-            >
-              <Search className="h-4 w-4" /> Search
-            </button>
-            {hasFilters ? (
-              <Link
-                href="/dashboard/crm/contacts"
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
-              >
-                Clear
-              </Link>
-            ) : null}
-          </form>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="flex flex-1 flex-wrap items-center gap-1.5">
-              {SEGMENTS.map((segment) => {
-                const active = query.segment === segment.value;
-                const count = countFor(segment.value);
-                return (
-                  <Link
-                    key={segment.value || "all"}
-                    href={contactsHref(query, { segment: segment.value, page: 1 })}
-                    title={segment.hint}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "bg-navy-700 text-white shadow-sm dark:bg-white dark:text-navy-900"
-                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-navy-700 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
-                    }`}
-                  >
-                    {segment.label}
-                    <span className={active ? "text-white/65 dark:text-navy-500" : "text-gray-400"}>
-                      {count}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Sorting is a set of links rather than a <select>, so it works without JavaScript and
-                every sort is a URL somebody can share. */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-                Sort
-              </span>
-              {SORTS.map((sort) => {
-                const active = query.sort === sort.value;
-                return (
-                  <Link
-                    key={sort.value}
-                    href={contactsHref(query, { sort: sort.value, page: 1 })}
-                    className={`rounded-lg px-2 py-1 text-xs font-medium transition ${
-                      active
-                        ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200"
-                        : "text-gray-500 hover:text-navy-700 dark:hover:text-white"
-                    }`}
-                  >
-                    {sort.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+        <div className="border-b border-gray-100 dark:border-white/10">
+          <ContactsFilters query={query} counts={segmentCounts} />
         </div>
 
         {/* --------------------------------------------------------------- body */}

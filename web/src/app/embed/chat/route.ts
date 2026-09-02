@@ -45,34 +45,55 @@ function html(body: string, status: number, headers: Record<string, string> = {}
   });
 }
 
+const PROBLEM_COPY: Record<string, Record<string, string>> = {
+  "Missing site key.": { es: "Falta la clave del sitio.", de: "Website-Schlüssel fehlt.", tr: "Site anahtarı eksik." },
+  "Chat is not configured on this deployment.": { es: "El chat no está configurado en este despliegue.", de: "Der Chat ist in dieser Bereitstellung nicht eingerichtet.", tr: "Sohbet bu dağıtımda yapılandırılmadı." },
+  "Unknown site key.": { es: "Clave de sitio desconocida.", de: "Unbekannter Website-Schlüssel.", tr: "Site anahtarı tanınmıyor." },
+  "This chat widget is switched off.": { es: "Este widget de chat está desactivado.", de: "Dieses Chat-Widget ist ausgeschaltet.", tr: "Bu sohbet bileşeni kapalı." },
+  "This chat widget has no allowed website yet. Add your domain in Denku → Channels → Web Chat.": { es: "Este widget aún no tiene un sitio permitido. Añade tu dominio en Denku → Canales → Chat web.", de: "Für dieses Chat-Widget ist noch keine Website zugelassen. Fügen Sie Ihre Domain unter Denku → Kanäle → Web-Chat hinzu.", tr: "Bu sohbet bileşeni için henüz izin verilen bir site yok. Alan adınızı Denku → Kanallar → Web sohbeti bölümünden ekleyin." },
+  "This chat widget must be embedded from an allowed website.": { es: "Este widget debe integrarse desde un sitio permitido.", de: "Dieses Chat-Widget muss von einer zugelassenen Website eingebettet werden.", tr: "Bu sohbet bileşeni izin verilen bir siteden yerleştirilmelidir." },
+};
+
 /** A refusal a developer installing the widget can act on, and a visitor never sees. */
-function problemPage(message: string, status: number) {
+function problemPage(message: string, status: number, locale = "en") {
+  let translated = PROBLEM_COPY[message]?.[locale] ?? message;
+  const originMatch = message.match(/^This chat widget is not allowed on (.+)\. Add it in Denku → Channels → Web Chat\.$/);
+  if (originMatch && locale !== "en") {
+    translated = locale === "es"
+      ? `Este widget no está permitido en ${originMatch[1]}. Añádelo en Denku → Canales → Chat web.`
+      : locale === "de"
+        ? `Dieses Chat-Widget ist auf ${originMatch[1]} nicht zugelassen. Fügen Sie es unter Denku → Kanäle → Web-Chat hinzu.`
+        : `Bu sohbet bileşenine ${originMatch[1]} üzerinde izin verilmiyor. Denku → Kanallar → Web sohbeti bölümünden ekleyin.`;
+  }
   return html(
     `<!doctype html><meta charset="utf-8"><title>Denku Chat</title>` +
-      `<body style="margin:0;font:14px system-ui,sans-serif;color:#5b6472;padding:16px">${message}</body>`,
+      `<body lang="${locale}" style="margin:0;font:14px system-ui,sans-serif;color:#5b6472;padding:16px">${translated}</body>`,
     status
   );
 }
 
 export async function GET(req: NextRequest) {
+  const requestedLocale = req.nextUrl.searchParams.get("locale") ?? "en";
+  const locale = ["en", "es", "de", "tr"].includes(requestedLocale) ? requestedLocale : "en";
   const siteKey = (req.nextUrl.searchParams.get("k") ?? "").trim();
-  if (!siteKey) return problemPage("Missing site key.", 400);
+  if (!siteKey) return problemPage("Missing site key.", 400, locale);
 
   if (!isTokenSigningConfigured()) {
     console.error("[WEBCHAT][EMBED][NO_SIGNING_KEY]");
-    return problemPage("Chat is not configured on this deployment.", 503);
+    return problemPage("Chat is not configured on this deployment.", 503, locale);
   }
 
   const connection = await getConnectionBySiteKey(siteKey);
-  if (!connection) return problemPage("Unknown site key.", 404);
-  if (connection.status !== "connected") return problemPage("This chat widget is switched off.", 403);
+  if (!connection) return problemPage("Unknown site key.", 404, locale);
+  if (connection.status !== "connected") return problemPage("This chat widget is switched off.", 403, locale);
 
   if (connection.allowedOrigins.length === 0) {
     // Not an error state — an unfinished install. Saying so is what stops a customer pasting the
     // snippet, seeing nothing, and concluding the product is broken.
     return problemPage(
       "This chat widget has no allowed website yet. Add your domain in Denku → Channels → Web Chat.",
-      403
+      403,
+      locale,
     );
   }
 
@@ -91,7 +112,8 @@ export async function GET(req: NextRequest) {
       parentOrigin
         ? `This chat widget is not allowed on ${parentOrigin}. Add it in Denku → Channels → Web Chat.`
         : "This chat widget must be embedded from an allowed website.",
-      403
+      403,
+      locale,
     );
   }
 

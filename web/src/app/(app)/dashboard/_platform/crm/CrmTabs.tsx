@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarCheck2, ContactRound, ClipboardList } from "lucide-react";
+import { useDashboardLocale } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 import { CRM_SECTIONS } from "./nav";
+
+const SECTION_ICONS = [ContactRound, ClipboardList, CalendarCheck2] as const;
 
 /**
  * CRM hub tabs (Phase 2).
@@ -16,18 +19,19 @@ import { CRM_SECTIONS } from "./nav";
  */
 export default function CrmTabs() {
   const pathname = usePathname() ?? "";
+  const { translate } = useDashboardLocale();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const icons = [ContactRound, ClipboardList, CalendarCheck2];
 
   return (
     <nav
-      aria-label="Customers"
+      aria-label={translate("Customers")}
+      data-dashboard-no-translate="true"
       className="rounded-2xl border border-gray-200/80 bg-white/90 p-1.5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-navy-800/90"
     >
       <ul className="flex gap-1 overflow-x-auto">
         {CRM_SECTIONS.map((item, index) => {
           const active = isActive(item.href);
-          const Icon = icons[index];
+          const Icon = SECTION_ICONS[index];
           return (
             <li key={item.href} className="min-w-0 flex-1 sm:flex-none">
               <Link
@@ -40,7 +44,7 @@ export default function CrmTabs() {
                 }`}
               >
                 <Icon className={`h-4 w-4 ${active ? "text-teal-300 dark:text-brand-600" : "text-gray-400 group-hover:text-brand-500"}`} />
-                {item.label}
+                {translate(item.label)}
               </Link>
             </li>
           );

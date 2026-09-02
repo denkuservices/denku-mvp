@@ -5,6 +5,7 @@ import { getBaseUrl } from "@/lib/utils/url";
 import { resolveOrgOwnerEmail } from "@/lib/notifications/recipient";
 import { sendBillingNotificationEmail } from "@/lib/email/send";
 import { workspacePausedTemplate, type PauseReason } from "@/lib/email/templates/workspacePaused";
+import { resolveOrgEmailLocale } from "@/lib/email/locale.server";
 
 /**
  * R-009 — email the owner when billing pauses their workspace (hard_cap / past_due),
@@ -41,6 +42,7 @@ export async function notifyWorkspacePaused(orgId: string, reason: PauseReason):
       reason,
       orgName: org?.name ?? null,
       billingUrl: `${getBaseUrl()}/dashboard/settings/workspace/billing`,
+      locale: await resolveOrgEmailLocale(orgId, to),
     });
 
     const result = await sendBillingNotificationEmail(to, { subject, html });

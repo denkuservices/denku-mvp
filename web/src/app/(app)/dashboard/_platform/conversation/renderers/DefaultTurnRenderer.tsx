@@ -124,7 +124,7 @@ export default function DefaultTurnRenderer({ turn, showTimestamp = true }: Turn
   if (isSystem) {
     return (
       <div className="my-2 flex justify-center">
-        <span className="max-w-[85%] rounded-lg bg-[#FFF5D6] px-3 py-1.5 text-center text-xs text-[#5B5333] shadow-sm dark:bg-[#182229] dark:text-[#8696A0]">
+        <span data-dashboard-user-content="true" className="max-w-[85%] rounded-lg bg-[#FFF5D6] px-3 py-1.5 text-center text-xs text-[#5B5333] shadow-sm dark:bg-[#182229] dark:text-[#8696A0]">
           {turn.content}
         </span>
       </div>
@@ -140,7 +140,7 @@ export default function DefaultTurnRenderer({ turn, showTimestamp = true }: Turn
             : "rounded-tl-none bg-white text-[#111B21] dark:bg-[#202C33] dark:text-[#E9EDEF]"
         }`}
       >
-        <p className="whitespace-pre-wrap break-words">{linkify(turn.content)}</p>
+        <p data-dashboard-user-content="true" className="whitespace-pre-wrap break-words">{linkify(turn.content)}</p>
         {turn.media && turn.media.length > 0 ? <Attachments media={turn.media} /> : null}
         {clock ? (
           <p

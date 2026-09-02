@@ -7,6 +7,7 @@ import { sendBillingNotificationEmail } from "@/lib/email/send";
 import { usageAlertTemplate } from "@/lib/email/templates/usageAlert";
 import { billingNotificationsEnabled } from "@/lib/billing/pauseNotifications";
 import { pauseOrgBilling } from "@/lib/billing/pause";
+import { resolveOrgEmailLocale } from "@/lib/email/locale.server";
 
 /**
  * R-009 usage management (owner policy 2026-07-23: PAUSE at the cap — trust + money
@@ -19,7 +20,8 @@ import { pauseOrgBilling } from "@/lib/billing/pause";
  * Staged behind `BILLING_NOTIFICATIONS_ENABLED`.
  */
 
-export const USAGE_THRESHOLDS = [50, 75, 90] as const;
+/** Default warning ladder. Workspaces may still explicitly opt into a 50% warning. */
+export const USAGE_THRESHOLDS = [75, 90] as const;
 
 /**
  * Which warning thresholds a usage level has crossed (below 100%). Pure.
@@ -172,6 +174,7 @@ export async function runUsageThresholdAlerts(): Promise<RunResult> {
         includedMinutes: included,
         orgName: org?.name ?? null,
         billingUrl: `${getBaseUrl()}/dashboard/settings/workspace/billing`,
+        locale: await resolveOrgEmailLocale(row.org_id, to),
       });
 
       const result = await sendBillingNotificationEmail(to, { subject, html });

@@ -377,7 +377,7 @@ function ConversationRow({
 
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${inbox.strong}`}>
+            <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${inbox.strong}`} data-dashboard-user-content="true">
               {name}
             </span>
             <HandledChip handling={row.handling} />
@@ -390,6 +390,7 @@ function ConversationRow({
             {/* An unread row states itself twice — the count, and the weight of the line it
                 belongs to — because the count is easy to miss while scanning a column. */}
             <span
+              data-dashboard-user-content="true"
               className={`min-w-0 flex-1 truncate text-[13px] ${
                 row.unread > 0 ? `font-medium ${inbox.strong}` : inbox.meta
               }`}

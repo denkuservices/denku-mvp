@@ -85,9 +85,9 @@ export async function POST(req: NextRequest) {
     supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
     supabaseAdmin
       .from("profiles")
-      .select("full_name")
+      .select("full_name, ui_locale")
       .eq("id", profileId)
-      .maybeSingle<{ full_name: string | null }>(),
+      .maybeSingle<{ full_name: string | null; ui_locale: "en" | "es" | "de" | "tr" | null }>(),
   ]);
   const orgName = org?.name || "your Denku workspace";
   const signupUrl = `${getBaseUrl()}/signup?email=${encodeURIComponent(email)}`;
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   // Non-fatal: the invite exists even if the email fails; report truthfully.
   const mail = await sendMemberInviteEmail(
     email,
-    memberInviteTemplate({ orgName, inviterName: actor?.full_name ?? null, signupUrl })
+    memberInviteTemplate({ orgName, inviterName: actor?.full_name ?? null, signupUrl, locale: actor?.ui_locale ?? "en" })
   );
 
   if (result.id) {

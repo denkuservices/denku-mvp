@@ -25,6 +25,7 @@
  */
 
 import { EMAIL_COLORS as C, EMAIL_FONTS as F, EMAIL_LINKS, EMAIL_LOGO_URL, esc } from "./brand";
+import { emailText, normalizeEmailLocale, type EmailLocale } from "./i18n";
 
 /**
  * The emotional register of a message, which picks the accent colour used by the
@@ -195,8 +196,14 @@ export function codeBlock(code: string): string {
 }
 
 /** The "or paste this link" fallback that keeps a mail usable when the button fails. */
-export function linkFallback(url: string): string {
-  return `<p style="margin:0 0 8px 0;font-family:${F.body};font-size:12px;line-height:1.6;color:${C.muted};">Or paste this link into your browser:</p>
+export function linkFallback(url: string, locale?: EmailLocale): string {
+  const label = emailText(locale, {
+    en: "Or paste this link into your browser:",
+    es: "O pega este enlace en tu navegador:",
+    de: "Oder fügen Sie diesen Link in Ihren Browser ein:",
+    tr: "Ya da bu bağlantıyı tarayıcınıza yapıştırın:",
+  });
+  return `<p style="margin:0 0 8px 0;font-family:${F.body};font-size:12px;line-height:1.6;color:${C.muted};">${esc(label)}</p>
   <p style="margin:0 0 24px 0;font-family:${F.mono};font-size:12px;line-height:1.6;color:${C.teal};word-break:break-all;">${esc(
     url
   )}</p>`;
@@ -237,6 +244,8 @@ function secondaryLink(label: string, url: string): string {
  * ------------------------------------------------------------------ */
 
 export interface RenderEmailInput {
+  /** Recipient language. English remains the legacy fallback. */
+  locale?: EmailLocale;
   /** `<title>` — also what a screen reader announces first. */
   title: string;
   /** The inbox preview line. Never leave this to chance: without it clients scrape the masthead. */
@@ -280,7 +289,22 @@ export function renderEmail(input: RenderEmailInput): string {
     secondary,
     reason,
     signoff,
+    locale: localeInput,
   } = input;
+
+  const locale = normalizeEmailLocale(localeInput);
+  const footer = {
+    dashboard: emailText(locale, { en: "Dashboard", es: "Panel", de: "Dashboard", tr: "Kontrol paneli" }),
+    support: emailText(locale, { en: "Support", es: "Soporte", de: "Support", tr: "Destek" }),
+    privacy: emailText(locale, { en: "Privacy", es: "Privacidad", de: "Datenschutz", tr: "Gizlilik" }),
+    terms: emailText(locale, { en: "Terms", es: "Términos", de: "Bedingungen", tr: "Koşullar" }),
+    tagline: emailText(locale, {
+      en: "AI employees that answer every call, message and email.",
+      es: "Empleados de IA que responden cada llamada, mensaje y correo.",
+      de: "KI-Mitarbeiter, die jeden Anruf, jede Nachricht und jede E-Mail beantworten.",
+      tr: "Her aramayı, mesajı ve e-postayı yanıtlayan yapay zekâ çalışanları.",
+    }),
+  };
 
   const accent = TONE_ACCENT[tone];
   const year = new Date().getUTCFullYear();
@@ -307,7 +331,7 @@ export function renderEmail(input: RenderEmailInput): string {
     : "";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="${locale}">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -389,16 +413,16 @@ export function renderEmail(input: RenderEmailInput): string {
         <tr>
           <td class="pad" style="padding:28px 40px 0 40px;" align="center">
             <p style="margin:0 0 10px 0;font-family:${F.body};font-size:12px;line-height:1.8;color:${C.muted};">
-              <a href="${EMAIL_LINKS.dashboard}" style="color:${C.muted};text-decoration:none;">Dashboard</a>
+              <a href="${EMAIL_LINKS.dashboard}" style="color:${C.muted};text-decoration:none;">${esc(footer.dashboard)}</a>
               &nbsp;·&nbsp;
-              <a href="${EMAIL_LINKS.support}" style="color:${C.muted};text-decoration:none;">Support</a>
+              <a href="${EMAIL_LINKS.support}" style="color:${C.muted};text-decoration:none;">${esc(footer.support)}</a>
               &nbsp;·&nbsp;
-              <a href="${EMAIL_LINKS.privacy}" style="color:${C.muted};text-decoration:none;">Privacy</a>
+              <a href="${EMAIL_LINKS.privacy}" style="color:${C.muted};text-decoration:none;">${esc(footer.privacy)}</a>
               &nbsp;·&nbsp;
-              <a href="${EMAIL_LINKS.terms}" style="color:${C.muted};text-decoration:none;">Terms</a>
+              <a href="${EMAIL_LINKS.terms}" style="color:${C.muted};text-decoration:none;">${esc(footer.terms)}</a>
             </p>
             <p style="margin:0;font-family:${F.body};font-size:11px;line-height:1.8;color:${C.muted};letter-spacing:0.04em;">
-              © ${year} Denku · AI employees that answer every call, message and email.
+              © ${year} Denku · ${esc(footer.tagline)}
             </p>
           </td>
         </tr>

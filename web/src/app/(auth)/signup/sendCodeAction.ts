@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/utils/url";
 import { emailAlreadyRegistered } from "@/lib/auth/emailAlreadyRegistered";
+import { resolveRequestEmailLocale } from "@/lib/email/locale.server";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -44,6 +45,7 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
     }
 
     const supabase = await createSupabaseServerClient();
+    const locale = await resolveRequestEmailLocale();
 
     // Send OTP code via Supabase
     /*
@@ -64,6 +66,7 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
       options: {
         shouldCreateUser: true,
         emailRedirectTo: `${getBaseUrl()}/auth/callback`,
+        data: { ui_locale: locale },
       },
     });
 

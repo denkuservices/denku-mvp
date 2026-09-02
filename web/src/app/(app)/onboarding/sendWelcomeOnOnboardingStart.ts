@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { ensureDefaultOrgForUser } from "@/lib/org/ensureDefaultOrg";
 import { sendWelcomeEmail } from "@/lib/email/send";
+import { normalizeEmailLocale } from "@/lib/email/i18n";
 
 export type WelcomeStage =
   | "no_session"
@@ -73,7 +74,10 @@ export async function sendWelcomeOnOnboardingStart(): Promise<SendWelcomeResult>
     return { ok: false, stage: "already_sent" };
   }
 
-  const result = await sendWelcomeEmail(user.email);
+  const result = await sendWelcomeEmail(
+    user.email,
+    normalizeEmailLocale(user.user_metadata?.ui_locale),
+  );
 
   if (!result.ok) {
     await supabaseAdmin

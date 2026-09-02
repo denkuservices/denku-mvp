@@ -3,6 +3,7 @@ import "server-only";
 import { getBaseUrl } from "@/lib/utils/url";
 import { sendOnce } from "@/lib/email/dispatch";
 import { passwordChangedTemplate } from "@/lib/email/templates/passwordChanged";
+import { resolveUserEmailLocale } from "@/lib/email/locale.server";
 
 /**
  * Security notifications — currently the password-change confirmation.
@@ -36,6 +37,7 @@ export async function notifyPasswordChanged(params: {
       device: device ?? null,
       orgName: orgName ?? null,
       recoveryUrl: `${getBaseUrl()}/forgot-password`,
+      locale: await resolveUserEmailLocale(userId),
     });
 
     await sendOnce({
