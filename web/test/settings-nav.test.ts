@@ -59,12 +59,25 @@ describe("settings navigation contract", () => {
 });
 
 describe("settings is three sections, not nine pages", () => {
-  it("the rail lists exactly the three settings destinations", () => {
-    expect(SETTINGS_ITEMS.map((i) => i.label)).toEqual(["Workspace", "Billing & usage", "Account"]);
+  /**
+   * Four now, not three — and the fourth had to earn it.
+   *
+   * Integrations was a redirect stub for two sprints precisely so Settings would not advertise a
+   * destination that could not be used. It became a section the day IdeaSoft shipped a real
+   * connect flow behind it. The test still guards the thing that matters: the list is EXACT, so a
+   * section cannot appear without someone changing this line and saying why.
+   */
+  it("the rail lists exactly the settings destinations, and no aspirational ones", () => {
+    expect(SETTINGS_ITEMS.map((i) => i.label)).toEqual([
+      "Workspace",
+      "Billing & usage",
+      "Account",
+      "Integrations",
+    ]);
   });
 
   it("nothing in the rail proper leaves Settings, and everything in 'elsewhere' does", () => {
-    // The distinction is what stops the rail implying five sections where there are three.
+    // The distinction is what stops the rail implying sections where there are only pointers.
     expect(SETTINGS_ITEMS.every((i) => !i.external)).toBe(true);
     expect(SETTINGS_ITEMS.every((i) => i.href.startsWith("/dashboard/settings/"))).toBe(true);
     expect(SETTINGS_ELSEWHERE.every((i) => i.external)).toBe(true);
@@ -145,11 +158,12 @@ describe("settings navigation lives in the sidebar", () => {
   const settingsRoute = platformNavRoutes.find((r) => r.name === "Settings");
   const children = settingsRoute?.items ?? [];
 
-  it("Settings carries the three sections plus Channels, in order", () => {
+  it("Settings carries every section plus Channels, in order", () => {
     expect(children.map((c) => c.name)).toEqual([
       "Workspace",
       "Billing & usage",
       "Account",
+      "Integrations",
       "Channels",
     ]);
   });

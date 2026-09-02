@@ -41,6 +41,19 @@ export const DENKU_TOOL_IDS = [
   // "Am I speaking with Jack?", which would name the customer to whoever picked up. Change the
   // two together — contract at the top of app/api/tools/identify-caller/route.ts.
   "f7dba1e6-3e3b-4b22-9dfa-48708a39bc12", // identify_caller
+  /**
+   * find_product (2026-09-02) — the voice half of the commerce catalogue lookup.
+   *
+   * Attached to EVERY assistant, like the others, and harmless on a workspace with no store: the
+   * route resolves the org, finds no connected store, and answers "could not check" — which the
+   * assistant will not reach anyway, because a business with no catalogue never gets asked.
+   *
+   * Unlike the tools above, this one carries `x-vapi-assistant-id` as well as `x-vapi-call-id`.
+   * That is deliberate: a caller can ask about stock in the first ten seconds, before the webhook
+   * has written a `calls` row, and `agents.vapi_assistant_id` is true from the moment the call
+   * connects. Change the two together — contract at the top of app/api/tools/find-product/route.ts.
+   */
+  "570001ee-df3c-4af4-be4b-be3f12b523ed", // find_product
 ] as const;
 
 // R-052 — per-assistant call caps (owner-decided). Applied on EVERY config path so no

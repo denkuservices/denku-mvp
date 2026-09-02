@@ -39,7 +39,7 @@
  * plain node environment, and a data file that has to pull in an icon library to be read is a
  * data file with a dependency it doesn't need. A renderer maps keys to `lucide` icons.
  */
-export type SettingsIcon = "workspace" | "billing" | "account" | "employees" | "channels";
+export type SettingsIcon = "workspace" | "billing" | "account" | "employees" | "channels" | "integrations";
 
 export interface SettingsNavItem {
   label: string;
@@ -78,6 +78,20 @@ export const SETTINGS_ITEMS: SettingsNavItem[] = [
     href: "/dashboard/settings/account",
     description: "Your details and how you sign in.",
     icon: "account",
+  },
+  /**
+   * Integrations became a real section when IdeaSoft shipped — it was a redirect stub before, kept
+   * empty on purpose rather than filled with "coming soon" cards.
+   *
+   * It is a settings SECTION rather than a peer of Channels because an integration is not a place
+   * customers reach you; it is a system your AI reads. Same reasoning as
+   * `skills/commerce-integrations.md` §1.
+   */
+  {
+    label: "Integrations",
+    href: "/dashboard/settings/integrations",
+    description: "Connect your store so your AI can answer about products, prices and stock.",
+    icon: "integrations",
   },
 ];
 

@@ -1,8 +1,15 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { parseSpokenTime, parseLocalDateTime } from "@/lib/time/spokenTime";
+import {
+  COMMERCE_TOOL_DEFINITIONS,
+  COMMERCE_TOOL_NAMES,
+  executeCommerceTool,
+  hasCommerceTools,
+} from "@/lib/commerce/tools";
 import type { ReplyArtifact, ReplyEmployee } from "@/lib/platform/reply/types";
 
 /**
@@ -281,6 +288,44 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     case "create_ticket":
       return executeCreateTicket(args, ctx);
     default:
+      /**
+       * Commerce tools, when the workspace has connected a store.
+       *
+       * They live in `lib/commerce/tools.ts` rather than here because they are not domain
+       * writes — they read someone else's system and return facts. Routed through this one
+       * switch so the engine keeps a single `executeTool` and never learns that some tools come
+       * from an integration.
+       *
+       * They produce no artifact by design: looking up a price is not a thing that happened to
+       * the business, and putting it in the Inbox as one would bury the bookings.
+       */
+      if (COMMERCE_TOOL_NAMES.has(name)) {
+        const outcome = await executeCommerceTool(name, args, { orgId: ctx.orgId });
+        return { ok: outcome.ok, message: outcome.message };
+      }
       return { ok: false, message: `Unknown tool: ${name}` };
   }
+}
+
+/**
+ * The tools this workspace's AI may use, resolved per reply.
+ *
+ * Static until now. It has to be dynamic because a workspace with no store must not be told it
+ * can look products up — a model offered a tool will use it, and a tool that always answers
+ * "the store could not be reached" trains the AI to apologise for an integration nobody bought.
+ *
+ * One indexed read. A workspace with no connection gets exactly the array that used to be a
+ * constant, so nothing about the existing behaviour moves.
+ */
+export async function toolDefinitionsFor(orgId: string): Promise<ChatCompletionTool[]> {
+  try {
+    if (await hasCommerceTools(orgId)) {
+      return [...CHAT_TOOL_DEFINITIONS, ...COMMERCE_TOOL_DEFINITIONS];
+    }
+  } catch (err) {
+    // A failed lookup means "no commerce tools", never "no tools at all": booking and handover
+    // must survive an integration being down.
+    console.warn("[REPLY][TOOLS][COMMERCE][LOOKUP_FAILED]", err instanceof Error ? err.message : String(err));
+  }
+  return CHAT_TOOL_DEFINITIONS;
 }

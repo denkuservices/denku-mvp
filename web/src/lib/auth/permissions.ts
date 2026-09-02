@@ -53,6 +53,15 @@ export type Capability =
   | "view_audit_log"
   /** Connect/disconnect channels, rotate channel secrets. */
   | "manage_channels"
+  /**
+   * Connect/disconnect an e-commerce backend (IdeaSoft and its successors).
+   *
+   * Its own row rather than a reuse of `manage_channels`, because an integration is not a channel
+   * (skills/commerce-integrations.md) and because the credentials differ in kind: a channel token
+   * lets us answer messages, these credentials read a business's entire catalogue — and, on the
+   * same grant, its orders, with customer names and addresses in them.
+   */
+  | "manage_integrations"
   /** Delete the workspace and everything in it. */
   | "delete_workspace";
 
@@ -65,6 +74,7 @@ const MATRIX: Record<Capability, readonly Role[]> = {
   manage_workspace_state: ["owner", "admin"],
   view_audit_log: ["owner", "admin"],
   manage_channels: ["owner", "admin"],
+  manage_integrations: ["owner", "admin"],
   delete_workspace: ["owner"],
 };
 
@@ -190,6 +200,7 @@ const DENIAL_COPY: Record<Capability, string> = {
   manage_workspace_state: "Only owners and admins can pause or resume the workspace.",
   view_audit_log: "Only owners and admins can view the audit log.",
   manage_channels: "Only owners and admins can manage channels.",
+  manage_integrations: "Only owners and admins can connect a store or other integration.",
   delete_workspace: "Only the workspace owner can delete this workspace.",
 };
 

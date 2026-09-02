@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveLlmProvider } from "@/lib/llm/provider";
 import { channelMeta } from "@/lib/platform/channels";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
-import { CHAT_TOOL_DEFINITIONS, executeTool, type ToolContext } from "@/lib/platform/reply/tools";
+import { executeTool, toolDefinitionsFor, type ToolContext } from "@/lib/platform/reply/tools";
+import { COMMERCE_TOOL_NAMES } from "@/lib/commerce/tools";
 import type { ReplyArtifact, ReplyRequest, ReplyResult } from "@/lib/platform/reply/types";
 
 /**
@@ -209,6 +210,12 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
   };
 
   try {
+    // Which tools exist is a per-workspace fact now: a store connection adds catalogue lookups.
+    // Resolved before the call rather than inside it so the timing log shows what it cost.
+    const tTooldefs = Date.now();
+    const toolDefinitions = await toolDefinitionsFor(req.orgId);
+    mark.tooldefs = since(tTooldefs);
+
     const tLlm1 = Date.now();
     const first = await withOneRetry("first", () =>
       client.chat.completions.create({
@@ -216,7 +223,7 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
         temperature: 0.3,
         max_tokens: 400,
         messages,
-        tools: CHAT_TOOL_DEFINITIONS,
+        tools: toolDefinitions,
       })
     );
     mark.llm1 = since(tLlm1);
@@ -281,12 +288,23 @@ export async function generateReply(req: ReplyRequest, db: SupabaseClient = supa
       ...toolMessages,
     ];
 
+    /**
+     * A confirmation is one sentence; a catalogue answer is a short list.
+     *
+     * 160 tokens is right for "that's booked for Thursday" and wrong for "we have it in red (3
+     * left), blue (12) and black (out of stock)" — which arrives truncated mid-variant, i.e. as a
+     * stock answer the customer would act on and we cut in half.
+     */
+    const answeringFromCatalog = toolCalls.some(
+      (c) => c.type === "function" && COMMERCE_TOOL_NAMES.has(c.function.name)
+    );
+
     const tLlm2 = Date.now();
     const second = await withOneRetry("second", () =>
       client.chat.completions.create({
         model: provider.model,
         temperature: 0.3,
-        max_tokens: 160,
+        max_tokens: answeringFromCatalog ? 500 : 160,
         messages: secondPass,
         // No tools on the second pass: its job is to speak, and offering the tools again is what
         // turns "book it" into a loop that books it four times.

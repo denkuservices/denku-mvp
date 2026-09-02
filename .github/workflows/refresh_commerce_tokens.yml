@@ -1,0 +1,23 @@
+name: Refresh Commerce Tokens
+
+# IdeaSoft's refresh token is single-use and expires after two months of not being used. A store
+# nobody asks a question about for two months would silently lose its connection and need the owner
+# to re-authorize by hand. This sweep keeps every grant fresh, so that never happens.
+#
+# Daily, and deliberately not more often: the access token is good for 24 hours and the endpoint
+# only refreshes what expires within a day, so one run per day is one refresh per connection.
+
+on:
+  schedule:
+    - cron: "20 3 * * *" # Daily at 03:20 UTC — quiet hours in TR (06:20 local)
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call refresh endpoint
+        run: |
+          curl -sS --fail-with-body -X GET \
+            "https://denku-mvp.vercel.app/api/internal/refresh-commerce-tokens" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
