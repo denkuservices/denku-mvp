@@ -450,8 +450,9 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     to someone else. Vapi artifacts and prod rows are created by scripts, never by hand:
     `scripts/register-denku-agent.mts` (re-run after any channel/price/corpus change — the prompt
     is a snapshot) and `scripts/provision-denku-workspace.mts`. ⚠️ **`VAPI_AGENT_ID` is dead** and
-    no longer read; it is still set in Vercel to the old assistant, which is exactly why the new
-    variable has a different name. Giving a person access to that workspace's Inbox is an
+    no longer read, and was DELETED from Vercel on 2026-09-03. It held the old assistant, which is
+    exactly why the replacement has a different name — reading the old one would have made
+    repointing the landing page a silent no-op in production. Never reintroduce that name. Giving a person access to that workspace's Inbox is an
     **UPDATE of their existing `profiles` row, never a second row** — done for the owner
     2026-09-03. A second row splits the two resolvers: `getViewer()` (authorization) matches on
     `id` first, `getActiveOrgId()` on `auth_user_id` by `updated_at`, so the dashboard would show
