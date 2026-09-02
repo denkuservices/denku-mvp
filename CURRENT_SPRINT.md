@@ -596,7 +596,7 @@ Afterwards, say so and the next session can verify the whole chain from the data
 
 ---
 
-## Next up — Voice and Chat as two products (opened 2026-09-02)
+## ✅ DONE — Voice and Chat as two products (opened and shipped 2026-09-02)
 
 > Asked by the owner after hitting "No active Stripe subscription found" while buying a chat
 > channel: **"voice planları ve chat planları — bunların her biri farklı ürünler. Voice alan biri
@@ -661,8 +661,30 @@ tier. Only **one org** is on it in production, so the backfill is a single row.
 - **`chat_only` is retired rather than kept as a legacy value.** With one row, carrying it forever
   would cost more in explanation than in migration.
 
-### Definition of done
+### Definition of done — met
 
 A workspace can buy chat with no voice plan, buy voice later, and hold both — with the dashboard,
 preview-mode gating, activation and the billing page all telling the truth at every step. No screen
-mentions `chat_only`.
+mentions `chat_only`. Verified on production: a workspace holding `growth` + `chat_standard` shows
+both, priced, in the right order.
+
+### What it cost, and what that bought
+
+Shipping this broke something first, and the break is worth keeping written down.
+
+`startChatCheckout` was written for the signup wizard and **hardcoded its Stripe return to
+`/onboarding`**. Moving the billing page onto that action without changing where it returns dropped
+a paying customer into the signup flow, which re-ran activation on a workspace that had been live
+for months, which saw a voice plan and did what activation is for: **bought a US phone line.** One
+hardcoded URL, one real number, billed monthly.
+
+Two fixes, and the second is the one that matters: the return path is now chosen from an allowlist,
+**and activation refuses a workspace that is already live** (step 6 is Live; there is no work left
+at 6). The routing bug was mine and is fixed. That a routing mistake could reach a payment
+processor at all was the real defect, so the refusal lives where the spending does.
+
+Three more things surfaced by using it, all now fixed: `addons.active` in the billing summary was a
+literal naming two add-on keys, so a workspace that had bought chat was reported as owning none of
+it; the forecast showed a single "Add-ons $608.00" with no way to tell what was in it; and the
+dashboard chrome asked `profiles` for a non-existent `avatar_url`, which made PostgREST reject the
+whole request and quietly gave every user the neutral fallback instead of their own name.
