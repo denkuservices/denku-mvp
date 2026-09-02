@@ -10,6 +10,13 @@ import {
   executeCommerceTool,
   hasCommerceTools,
 } from "@/lib/commerce/tools";
+import {
+  DENKU_KNOWLEDGE_TOOL_NAME,
+  denkuKnowledgeToolDefinition,
+  executeDenkuKnowledge,
+  isDenkuSelfOrg,
+  type DenkuKnowledgeArgs,
+} from "@/lib/denku-agent/tools";
 import type { ReplyArtifact, ReplyEmployee } from "@/lib/platform/reply/types";
 
 /**
@@ -303,6 +310,24 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         const outcome = await executeCommerceTool(name, args, { orgId: ctx.orgId });
         return { ok: outcome.ok, message: outcome.message };
       }
+      /**
+       * Denku's own knowledge, when the workspace IS Denku.
+       *
+       * Denku runs as its own customer, so its sales assistant reaches the visitor through this
+       * same engine. The org check is repeated here rather than trusted from
+       * `toolDefinitionsFor`: a model can name a tool it was never offered, and this is the
+       * layer that actually executes.
+       *
+       * Like the commerce tools it produces no artifact — a prospect asking what Denku costs is
+       * not a thing that happened to the business, and filing it as one would bury the real
+       * enquiries.
+       */
+      if (name === DENKU_KNOWLEDGE_TOOL_NAME) {
+        if (!isDenkuSelfOrg(ctx.orgId)) {
+          return { ok: false, message: `Unknown tool: ${name}` };
+        }
+        return { ok: true, message: await executeDenkuKnowledge(args as DenkuKnowledgeArgs) };
+      }
       return { ok: false, message: `Unknown tool: ${name}` };
   }
 }
@@ -318,14 +343,27 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
  * constant, so nothing about the existing behaviour moves.
  */
 export async function toolDefinitionsFor(orgId: string): Promise<ChatCompletionTool[]> {
+  const extra: ChatCompletionTool[] = [];
+
+  /**
+   * Denku's own workspace gets the knowledge lookup, and no other workspace ever does.
+   *
+   * Not a feature flag — an identity check. Handing this to a customer's AI would let a
+   * plumber's assistant quote Denku's pricing to the plumber's callers, which is the same class
+   * of mistake as offering commerce tools to a workspace with no store, but louder.
+   */
+  if (isDenkuSelfOrg(orgId)) {
+    extra.push(denkuKnowledgeToolDefinition());
+  }
+
   try {
     if (await hasCommerceTools(orgId)) {
-      return [...CHAT_TOOL_DEFINITIONS, ...COMMERCE_TOOL_DEFINITIONS];
+      return [...CHAT_TOOL_DEFINITIONS, ...COMMERCE_TOOL_DEFINITIONS, ...extra];
     }
   } catch (err) {
     // A failed lookup means "no commerce tools", never "no tools at all": booking and handover
     // must survive an integration being down.
     console.warn("[REPLY][TOOLS][COMMERCE][LOOKUP_FAILED]", err instanceof Error ? err.message : String(err));
   }
-  return CHAT_TOOL_DEFINITIONS;
+  return [...CHAT_TOOL_DEFINITIONS, ...extra];
 }
