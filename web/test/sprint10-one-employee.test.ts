@@ -287,7 +287,24 @@ describe("write paths are preserved exactly", () => {
     expect(knowledge).toMatch(/updateAgentConfiguration/);
     for (const body of [setup, knowledge]) {
       expect(body).not.toMatch(/supabase|\.from\(["'`]agents/);
-      expect(body).not.toMatch(/fetch\(/);
+    }
+
+    /*
+     * No fetch may WRITE the employee — that is what this guard is for, and the blanket ban on
+     * `fetch(` was how it was expressed while no editor had any reason to call an endpoint.
+     *
+     * Knowledge now uploads a document to `/api/knowledge/document`, which stores the file, reads
+     * it and returns SUGGESTIONS. It persists nothing to the employee: the owner reviews the
+     * fields and saves through `updateAgentConfiguration` like every other edit on the page. So
+     * the route is named here rather than the rule being dropped — a new endpoint appearing in
+     * either editor still has to be argued for in this test.
+     */
+    const ALLOWED_FETCHES = ["/api/knowledge/document"];
+    for (const body of [setup, knowledge]) {
+      const fetchTargets = [...body.matchAll(/fetch\(\s*["'`]([^"'`]+)/g)].map((m) => m[1]);
+      for (const target of fetchTargets) {
+        expect(ALLOWED_FETCHES).toContain(target);
+      }
     }
   });
 });
