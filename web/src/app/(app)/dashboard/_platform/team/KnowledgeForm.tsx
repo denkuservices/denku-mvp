@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, Sparkles, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, Sparkles, Loader2, Upload } from "lucide-react";
 import {
   updateAgentConfiguration,
   type UpdateAgentConfigResult,
@@ -48,6 +48,8 @@ export default function KnowledgeForm({
    */
   const [justSaved, setJustSaved] = React.useState(false);
   const [drafting, setDrafting] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   /**
    * The placeholder examples.
    *
@@ -130,6 +132,68 @@ export default function KnowledgeForm({
     });
   };
 
+  /**
+   * Learn the business from a document the owner already has.
+   *
+   * The same fill rule as "Draft with AI", for the same reason: only EMPTY fields are filled, so
+   * the button is never dangerous to press and uploading a second document adds to the picture
+   * instead of rewriting it. The owner's own words outrank a machine reading of a PDF, always.
+   *
+   * Nothing is saved by the upload. What comes back is shown in the fields for a person to read
+   * before it becomes something their customers hear spoken aloud.
+   */
+  const handleUpload = (file: File) => {
+    if (uploading || paused) return;
+    setUploading(true);
+    setStatus(null);
+
+    startTransition(async () => {
+      try {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("agentId", employee.id);
+
+        const res = await fetch("/api/knowledge/document", { method: "POST", body });
+        const data = await res.json().catch(() => null);
+        setUploading(false);
+
+        if (!res.ok || !data?.ok) {
+          setStatus({ type: "error", text: data?.error || "We couldn't read that file." });
+          return;
+        }
+
+        const fields = (data.suggestion?.fields ?? {}) as Partial<BusinessContext>;
+        let filled = 0;
+        setContext((prev) => {
+          const next = { ...prev };
+          for (const [key, value] of Object.entries(fields)) {
+            const k = key as keyof BusinessContext;
+            if (!String(prev[k] ?? "").trim() && String(value ?? "").trim()) {
+              next[k] = String(value);
+              filled += 1;
+            }
+          }
+          return next;
+        });
+        setDraftLoaded(true);
+
+        const missing = (data.suggestion?.missing ?? []).length as number;
+        setStatus({
+          type: "success",
+          text:
+            filled > 0
+              ? `Read ${data.filename}${data.pageCount ? ` (${data.pageCount} pages)` : ""} and filled ${filled} ${
+                  filled === 1 ? "field" : "fields"
+                }.${missing > 0 ? ` ${missing} left blank — the document did not say.` : ""} Read it over; nothing is saved until you press Save.`
+              : `Read ${data.filename}, but it did not state anything for these fields. Nothing was changed.`,
+        });
+      } catch {
+        setUploading(false);
+        setStatus({ type: "error", text: "We couldn't read that file. Please try again." });
+      }
+    });
+  };
+
   const handleSave = () => {
     if (!isDirty || isPending || paused) return;
     startTransition(async () => {
@@ -188,10 +252,47 @@ export default function KnowledgeForm({
       ) : null}
 
       <Surface>
-        <p className="mb-5 text-sm text-gray-600 dark:text-gray-300">
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
           What you write here is what your AI can say. It will never invent a fact it was not
           given, so anything left blank becomes a ticket for you instead of an answer.
         </p>
+
+        <div className="mb-5 rounded-xl border border-dashed border-gray-300 p-4 dark:border-white/15">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-navy-700 dark:text-white">
+                Have this written down already?
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                Upload a price list, a services page or a policy document (PDF or text, up to
+                10&nbsp;MB). We fill in what it says and leave the rest blank — nothing is saved
+                until you press Save.
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                // Cleared so choosing the same file twice fires again — the second attempt is
+                // usually the interesting one, after a failure.
+                e.target.value = "";
+                if (file) handleUpload(file);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || paused || isPending}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-navy-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:text-white dark:hover:bg-white/5"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploading ? "Reading…" : "Upload a document"}
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {BUSINESS_CONTEXT_FIELDS.map((field) => (
             <div key={field.key} className={field.multiline ? "sm:col-span-2" : undefined}>

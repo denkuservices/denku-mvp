@@ -5,6 +5,8 @@ import { logEvent } from "@/lib/observability/logEvent";
 import { VOICE_PLAN_CODES } from "@/lib/billing/chatPlanKeys";
 import { guard } from "@/lib/auth/permissions";
 import { logAuditEvent } from "@/lib/audit/log";
+import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
+import { findActiveSubscriptionId, findPlanSubscriptionItem } from "@/lib/billing/subscription";
 
 const RequestSchema = z.object({
   // Voice plans only, on purpose: moving an existing workspace onto `chat_only` would
@@ -64,7 +66,146 @@ export async function POST(req: NextRequest) {
 
     const { plan_code } = parseResult.data;
 
-    // 4) Upsert org_plan_overrides
+    /*
+     * 4) Move the money BEFORE moving the entitlement.
+     *
+     * This route used to write `org_plan_overrides` and stop. `org_plan_limits` is a VIEW straight
+     * over that table, so the new plan's limits took effect the instant the row was written — while
+     * the Stripe subscription carried on billing the old price. An owner on starter could put
+     * themselves on scale and hold 3600 minutes and ten concurrent calls for $149 a month, forever.
+     * The most expensive action in the product was the only one that never reached Stripe.
+     *
+     * So Stripe first, and the override only if Stripe agreed. A failure here leaves the workspace
+     * on the plan it is actually paying for, which is the safe direction to fail in.
+     *
+     * Proration is Stripe's to compute and is the honest answer to "do my remaining minutes carry
+     * over?": they do not — minutes are metered per calendar month and are not a balance — but the
+     * unused part of the old plan's fee is credited against the new one, so nobody pays twice for
+     * the same days.
+     */
+    const { data: planData } = await supabaseAdmin
+      .from("billing_plan_catalog")
+      .select("display_name, monthly_fee_usd")
+      .eq("plan_code", plan_code)
+      .maybeSingle<{ display_name: string | null; monthly_fee_usd: number | null }>();
+
+    if (!planData?.monthly_fee_usd && planData?.monthly_fee_usd !== 0) {
+      return NextResponse.json(
+        { ok: false, error: "That plan is not available" },
+        { status: 400 }
+      );
+    }
+
+    const { data: customerRow } = await supabaseAdmin
+      .from("billing_stripe_customers")
+      .select("stripe_customer_id")
+      .eq("org_id", org_id)
+      .maybeSingle<{ stripe_customer_id: string | null }>();
+
+    if (!customerRow?.stripe_customer_id) {
+      // No customer means nothing has ever been paid. Granting a plan here would be the same free
+      // upgrade by a different door.
+      return NextResponse.json(
+        { ok: false, error: "Start a subscription before changing plan" },
+        { status: 409 }
+      );
+    }
+
+    try {
+      const stripe = getStripeClient();
+      const subscriptionId = await findActiveSubscriptionId(
+        stripe,
+        org_id,
+        customerRow.stripe_customer_id
+      );
+
+      if (!subscriptionId) {
+        return NextResponse.json(
+          { ok: false, error: "No active subscription to change" },
+          { status: 409 }
+        );
+      }
+
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ["items.data.price"],
+      });
+      const planItem = await findPlanSubscriptionItem(subscription);
+
+      if (!planItem) {
+        // Ambiguous rather than absent: refusing beats charging the wrong line item.
+        logEvent({
+          tag: "[BILLING][PLAN_CHANGE][ITEM_AMBIGUOUS]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id,
+          severity: "error",
+          details: { subscription_id: subscriptionId, item_count: subscription.items.data.length },
+        });
+        return NextResponse.json(
+          { ok: false, error: "Could not identify the plan on this subscription. Contact support." },
+          { status: 409 }
+        );
+      }
+
+      // Keep the Stripe Product and change only its price. A subscription item update takes a
+      // product id, not a product to create — and reusing it is right anyway: this is the same
+      // subscription line for the same thing, at a different rate. A new product each time would
+      // scatter one workspace's plan across a dozen products in the Stripe dashboard.
+      const currentPrice = typeof planItem.price === "string" ? null : planItem.price;
+      const productId =
+        typeof currentPrice?.product === "string" ? currentPrice.product : currentPrice?.product?.id;
+
+      if (!productId) {
+        return NextResponse.json(
+          { ok: false, error: "Could not read the current plan price. Contact support." },
+          { status: 409 }
+        );
+      }
+
+      await stripe.subscriptionItems.update(
+        planItem.id,
+        {
+          price_data: {
+            currency: "usd",
+            product: productId,
+            unit_amount: Math.round(Number(planData.monthly_fee_usd) * 100),
+            recurring: { interval: "month" },
+          },
+          quantity: 1,
+          proration_behavior: "create_prorations",
+        },
+        { idempotencyKey: `plan_change:${org_id}:${plan_code}:${getCurrentMonthStart()}` }
+      );
+
+      logEvent({
+        tag: "[BILLING][PLAN_CHANGE][STRIPE_UPDATED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id,
+        severity: "info",
+        details: { plan_code, subscription_id: subscriptionId, item_id: planItem.id },
+      });
+    } catch (stripeErr) {
+      const message = stripeErr instanceof Error ? stripeErr.message : "Unknown Stripe error";
+      logEvent({
+        tag: "[BILLING][PLAN_CHANGE][STRIPE_ERROR]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id,
+        severity: "error",
+        details: { plan_code, error: message },
+      });
+      // Deliberately not falling through: the entitlement must never move without the price.
+      return NextResponse.json(
+        { ok: false, error: "Could not update your subscription. Nothing was changed." },
+        { status: 502 }
+      );
+    }
+
+    // 5) Upsert org_plan_overrides
     const { error: overrideError } = await supabaseAdmin
       .from("org_plan_overrides")
       .upsert(

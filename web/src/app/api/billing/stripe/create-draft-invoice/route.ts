@@ -815,17 +815,11 @@ export async function POST(req: NextRequest) {
 
       stripeInvoiceId = invoice.id;
 
-      // Add invoice item for monthly fee (always use custom amount, not recurring price)
-      if (preview.monthly_fee_usd && preview.monthly_fee_usd > 0) {
-        const planCodeUpper = preview.plan_code?.toUpperCase() || "PLAN";
-        await stripe.invoiceItems.create({
-          customer: stripeCustomerId,
-          invoice: invoice.id,
-          amount: Math.round(preview.monthly_fee_usd * 100), // Convert to cents
-          currency: "usd",
-          description: `${planCodeUpper} Plan – Monthly fee`,
-        });
-      }
+      /*
+       * The plan fee is NOT invoiced here — it is already a recurring item on the Stripe
+       * subscription, so adding it would bill the same month twice. See the same note in
+       * `cron/close-month`. This invoice exists for what a subscription cannot express: usage.
+       */
 
       // Add overage invoice item if applicable
       if (
