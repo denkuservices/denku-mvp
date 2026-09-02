@@ -44,18 +44,54 @@ const SAMPLE_TEXT: Record<LanguageCode, string> = {
 
 const OUT_DIR = join(process.cwd(), "public", "voice-samples");
 
+/**
+ * ElevenLabs voice ids, resolved by NAME once per run.
+ *
+ * The catalogue stores the names Vapi uses for its bundled voices ("sarah"), and the ElevenLabs
+ * API addresses a voice by an opaque id ("EXAVITQu4vr4xnSDxMaL"). Hardcoding a table of ids would
+ * be a list of magic strings that silently renders the WRONG voice the day one changes — worse
+ * than an error, because the sample would still play. Asking the account which voice is called
+ * what is one request, and a name the account does not have fails loudly instead.
+ */
+let elevenVoiceIds: Map<string, string> | null = null;
+
+async function loadElevenVoiceIds(key: string): Promise<Map<string, string>> {
+  if (elevenVoiceIds) return elevenVoiceIds;
+
+  const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+  if (!res.ok) {
+    console.warn(`  ! ElevenLabs /v1/voices: ${res.status}`);
+    elevenVoiceIds = new Map();
+    return elevenVoiceIds;
+  }
+
+  const body = (await res.json()) as { voices?: { name?: string; voice_id?: string }[] };
+  elevenVoiceIds = new Map(
+    (body.voices ?? [])
+      .filter((v) => v.name && v.voice_id)
+      .map((v) => [v.name!.trim().toLowerCase(), v.voice_id!])
+  );
+  return elevenVoiceIds;
+}
+
 async function renderElevenLabs(voice: VoiceOption, text: string): Promise<Buffer | null> {
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) return null;
 
-  const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.voiceId)}`,
-    {
-      method: "POST",
-      headers: { "xi-api-key": key, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: voice.model ?? "eleven_turbo_v2_5" }),
-    }
-  );
+  const ids = await loadElevenVoiceIds(key);
+  const voiceId = ids.get(voice.voiceId.trim().toLowerCase());
+  if (!voiceId) {
+    console.warn(
+      `  ! ElevenLabs has no voice named "${voice.voiceId}" on this account — add it from the voice library, or change the catalogue`
+    );
+    return null;
+  }
+
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: { "xi-api-key": key, "Content-Type": "application/json" },
+    body: JSON.stringify({ text, model_id: voice.model ?? "eleven_turbo_v2_5" }),
+  });
   if (!res.ok) {
     console.warn(`  ! ElevenLabs ${voice.id}: ${res.status} ${await res.text().catch(() => "")}`);
     return null;
