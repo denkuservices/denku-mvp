@@ -1113,6 +1113,48 @@ export async function runActivation(): Promise<
   }
 
   /**
+   * A workspace that already finished onboarding has nothing to activate — and re-activating it
+   * SPENDS MONEY.
+   *
+   * This guard exists because it happened. A chat purchase returned the customer to `/onboarding`
+   * instead of the page they bought from; the wizard ran activation on a workspace that had been
+   * live for months; and because the org had a voice plan, activation did what it is for and
+   * bought a brand-new US phone line — plus an extra AI Employee to assign it to. Nothing was
+   * broken. Every step did its job. The workspace simply should never have been here.
+   *
+   * The routing bug is fixed above, but a mistake in ANY caller must not be able to buy a phone
+   * number again, so the refusal lives here too. Step 6 is Live; there is no work left at 6.
+   *
+   * Reported as success, not as an error: the caller asked for a live workspace and there is one.
+   */
+  const { data: onboardingState } = await supabaseAdmin
+    .from("organization_settings")
+    .select("onboarding_step")
+    .eq("org_id", orgId)
+    .maybeSingle<{ onboarding_step: number | null }>();
+
+  if ((onboardingState?.onboarding_step ?? 0) >= 6) {
+    logEvent({
+      tag: "[ONBOARDING][ACTIVATION][ALREADY_LIVE]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "warn",
+      details: { reason: "activation asked for a workspace that is already live — refused" },
+    });
+    // Shaped like a successful activation with nothing provisioned, so every caller reads it the
+    // same way an already-finished run reads.
+    return {
+      ok: true as const,
+      phoneNumberE164: null,
+      phoneNumberSipUri: null,
+      vapiPhoneNumberId: null,
+      vapiAssistantId: null,
+    };
+  }
+
+  /**
    * A workspace with no VOICE plan has nothing to provision.
    *
    * Activation exists to create a Vapi assistant and provision a phone number. A chat customer
@@ -2191,7 +2233,7 @@ export async function startPlanCheckout(
  * Fails CLOSED on a missing `stripe_price_id` — the same rule as the add-on route. An offer we
  * cannot charge for must not reach a checkout page.
  */
-export async function startChatCheckout(addonKey: string) {
+export async function startChatCheckout(addonKey: string, returnTo?: string) {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -2276,6 +2318,19 @@ export async function startChatCheckout(addonKey: string) {
 
     const appUrl = getBaseUrl();
 
+    /**
+     * Where Stripe sends the customer back.
+     *
+     * An allowlist, not the caller's string: this value is interpolated into a redirect URL, and
+     * accepting an arbitrary path is how a redirect becomes someone else's. Two callers, two
+     * destinations — the signup wizard and the billing page.
+     */
+    const returnPath =
+      returnTo === "/dashboard/settings/workspace/billing"
+        ? "/dashboard/settings/workspace/billing"
+        : "/onboarding";
+
+
     let checkoutSession: Stripe.Checkout.Session;
     try {
       checkoutSession = await stripe.checkout.sessions.create({
@@ -2283,8 +2338,20 @@ export async function startChatCheckout(addonKey: string) {
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: addonCatalog.stripe_price_id, quantity: 1 }],
-        success_url: `${appUrl}/onboarding?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/onboarding?checkout=cancel`,
+        /**
+         * Back where the customer started, not always onboarding.
+         *
+         * This action was written for the signup wizard and hardcoded a return to `/onboarding`.
+         * When the billing page began calling it, a customer buying chat from their dashboard was
+         * dropped into the signup flow — which re-ran activation and, because their workspace had
+         * a voice plan, **provisioned a phone number they had not asked for and would be billed
+         * for**. One hardcoded URL, one real US line.
+         *
+         * The path is chosen from a fixed set rather than taken as given: this string ends up in a
+         * redirect, and a caller-supplied one is an open redirect waiting to happen.
+         */
+        success_url: `${appUrl}${returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}${returnPath}?checkout=cancel`,
         metadata: {
           org_id: orgId,
           /**

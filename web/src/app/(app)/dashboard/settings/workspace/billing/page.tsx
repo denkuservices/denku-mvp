@@ -952,7 +952,9 @@ export default function WorkspaceBillingPage() {
        * subscription that does not exist.
        */
       if (data.code === "no_subscription" && isChatAddonKey(addonKey) && newQty > 0) {
-        const started = await startChatCheckout(addonKey);
+        // Come back HERE, not to the signup wizard. Sending a dashboard purchase into onboarding
+        // is what re-ran activation and bought a phone number nobody asked for.
+        const started = await startChatCheckout(addonKey, "/dashboard/settings/workspace/billing");
         if (started.ok && started.url) {
           window.location.href = started.url;
           return;
