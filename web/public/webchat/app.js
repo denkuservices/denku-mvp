@@ -26,6 +26,31 @@
   var visitorId = null;
   var context = { pageUrl: null, referrer: null, locale: null };
   var lastAt = null;
+  /**
+   * Whether the panel is showing, and what the visitor has missed while it was not.
+   *
+   * The widget cannot see its own launcher — that lives on the customer's page, outside this
+   * frame — so it cannot draw the badge. What it CAN do is be the only thing that knows a reply
+   * arrived, and say so. The loader owns the pixel; this owns the fact.
+   *
+   * Starts closed: the loader opens the frame before it sends `open`, and a first reply that
+   * landed in that gap should still be counted rather than silently swallowed.
+   */
+  var panelOpen = false;
+  var unread = 0;
+  /**
+   * When this visitor last had the panel open, as an ISO timestamp.
+   *
+   * Held by the LOADER, in the customer's own first-party storage, and handed here on init —
+   * storage inside a third-party iframe is partitioned or blocked, so keeping it on this side
+   * would forget it between page loads. Without it, reopening the site would replay the whole
+   * thread through `render` and count every past reply as unread: a returning visitor greeted by
+   * "(7)" for a conversation they read yesterday.
+   *
+   * With it, the rule is one line and the same in every case — a reply is unread when it is
+   * newer than the last time they looked.
+   */
+  var seenAt = null;
   var sending = false;
   /**
    * Files the visitor has attached but not yet sent.
@@ -157,8 +182,10 @@
    * is what makes that safe, and it is why nothing here builds a bubble out of an HTML string.
    */
   function addMessage(role, content, key, pending) {
+    // Returns true when this message is new to the widget, which is what makes the unread count
+    // idempotent under a poll that re-reports the same reply.
     if (key) {
-      if (seen[key]) return seen[key];
+      if (seen[key]) return false;
       seen[key] = true;
     }
     var el = document.createElement("div");
@@ -166,7 +193,7 @@
     el.textContent = content;
     log.appendChild(el);
     scroll();
-    return el;
+    return true;
   }
 
   function addNote(text) {
@@ -196,11 +223,41 @@
 
   function render(messages) {
     if (!messages || !messages.length) return;
+    var arrived = 0;
+    var newest = null;
+
     for (var i = 0; i < messages.length; i++) {
       var m = messages[i];
-      addMessage(m.role, m.content, m.id);
+      // `addMessage` returns true only for a message this widget had not already shown, so a
+      // poll that re-reports something cannot be counted twice.
+      var isNew = addMessage(m.role, m.content, m.id);
       if (!lastAt || m.createdAt > lastAt) lastAt = m.createdAt;
+      if (!newest || m.createdAt > newest) newest = m.createdAt;
+
+      // Only the business's replies count. A badge that appeared because the visitor typed
+      // something would be noise the first time and ignored every time after.
+      if (!isNew || m.role !== "assistant" || panelOpen) continue;
+      if (!seenAt || m.createdAt > seenAt) arrived++;
     }
+
+    // Reading it while it is open is still reading it.
+    if (panelOpen && newest) markSeen(newest);
+    if (arrived > 0) setUnread(unread + arrived);
+  }
+
+  /** Tell the loader what to draw on the launcher. It owns the pixel; this owns the fact. */
+  function setUnread(next) {
+    var value = Math.max(0, next);
+    if (value === unread) return;
+    unread = value;
+    tell({ type: "unread", count: unread });
+  }
+
+  /** Remember how far the visitor has read, on the side that can actually keep it. */
+  function markSeen(at) {
+    if (!at || (seenAt && at <= seenAt)) return;
+    seenAt = at;
+    tell({ type: "seen", at: seenAt });
   }
 
   // ------------------------------------------------------------------ network
@@ -466,13 +523,24 @@
 
     if (data.type === "init") {
       visitorId = data.visitorId || null;
+      seenAt = typeof data.seenAt === "string" ? data.seenAt : null;
       context.pageUrl = data.pageUrl || null;
       context.referrer = data.referrer || null;
       context.locale = data.locale || null;
       start();
       return;
     }
-    if (data.type === "open" && input) input.focus();
+    if (data.type === "open") {
+      // Seeing the conversation IS reading it. Cleared here rather than on the loader's side, so
+      // there is one owner for the fact and one for the pixel.
+      panelOpen = true;
+      setUnread(0);
+      markSeen(lastAt || new Date().toISOString());
+      if (input) input.focus();
+      // A reply may have landed between the last poll and this click.
+      poll();
+    }
+    if (data.type === "closed") panelOpen = false;
 
     /**
      * Live theming from the dashboard preview.
