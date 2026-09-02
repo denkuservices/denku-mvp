@@ -251,8 +251,8 @@ export function ConnectOwnNumberFlow({ onCancel, onConnected }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
                 SIP server IP
               </label>
@@ -276,7 +276,7 @@ export function ConnectOwnNumberFlow({ onCancel, onConnected }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
                 SIP username

@@ -61,7 +61,21 @@ function HorizonShellInner({ children, platformUx = false }: HorizonShellProps) 
       {/* Main Content Column - This is the scroll container */}
       <div className="flex min-h-screen flex-1 flex-col min-w-0 h-full w-full font-dm dark:bg-navy-900">
         {/* Scrollable main content area - matches Horizon layout structure */}
-        <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative focus:outline-none">
+        {/*
+        `overflow-x-auto`, not `overflow-x-hidden`.
+        
+        Hidden was quietly destructive on a phone: anything wider than a 375px screen was CLIPPED,
+        with no scrollbar and no sign that something had been cut — which is exactly what a
+        customer reports as "the information slides off". On a desktop nothing was ever wide enough
+        to notice, so the flaw only existed where nobody testing it was looking.
+        
+        Auto changes nothing in the normal case (no overflow, no scrollbar) and turns the failure
+        from lost into reachable. It is a safety net, not the fix: a component that is genuinely
+        too wide should carry its OWN horizontal scroller, the way the request calendar
+        (`min-w-[760px]` inside `overflow-x-auto`) and the opening-hours table already do. This
+        only makes sure the ones nobody has found yet degrade into a scroll rather than a hole.
+      */}
+      <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 overflow-y-auto overflow-x-auto mx-2.5 transition-all dark:bg-navy-900 md:pr-2 xl:ml-[323px] relative focus:outline-none">
           {/* Routes wrapper - matches Horizon structure */}
           <div>
             {/* Old mobile hamburger removed - now in ProfileWidget */}
