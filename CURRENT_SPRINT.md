@@ -66,6 +66,66 @@ workspace. Working as intended; documented here because the question was asked.
 | 3 | **`MODEL_TIERS_ENABLED`** | Stays off until the Advanced tier has been heard on a real call. |
 | 4 | **Mobile, on a real session** | The audit that shipped is static plus four rules now enforced by `mobile-layout.test.ts`; the dashboard itself was never walked through at 375px, because that needs a login. Worth one pass by someone who can sign in. |
 | 5 | **Knowledge extraction, on a real document** | The path is built and tested; no customer PDF has been through it yet. |
+| 6 | **Email: finish the `minosandco.com` round trip** | Receiving, drafting and approval are proven on production. Sending as the customer's own domain is not — it is blocked on DNS records the owner has to publish. See below. |
+
+---
+
+## Email channel — what is proven, and the four things left
+
+Built 2026-08-28, migration applied and verified on production the same day. `adopted: true`,
+**`productionReady: false`** — and it stays false until a reply leaves from a customer's own
+domain, on Telegram's standard: observed, not assumed.
+
+### Proven on production
+
+A real Gmail → Hotmail → forwarding → Denku round trip, verified in the database afterwards:
+the sender was read from the `From:` header (Outlook preserves it), a customer's reply landed in
+the **same conversation** rather than opening a second one, the AI drafted in the customer's own
+language, a person approved it, the mail left, and — the part that was least certain — approving
+a draft did **not** flip the conversation to human handling, so the AI kept it. The appointment
+existed before the sentence promising it was sent.
+
+### What is left
+
+| # | Item | Why it is not done |
+|---|---|---|
+| E-1 | **Publish the DNS records for `minosandco.com`** | Owner step. The records now render in the connection card with per-value copy buttons; add them at the registrar, then press **Check again**. Until the provider says `verified`, nothing sends — deliberately. |
+| E-2 | **Set the reply address** | Once verified, set `info@minosandco.com`. `minosandco@gmail.com` cannot be DKIM-signed by anyone, which is the whole reason the reply-address setting exists. |
+| E-3 | **Confirm Gmail forwarding** | The auto-confirmation has **never actually run** — the parser it depends on never matched until it was fixed, so `completeGmailForwarding` is written and unproven. The card now shows the link as a manual fallback; if it is still there, click it. |
+| E-4 | **Then flip `productionReady`** | Only after E-1..E-3 and one real customer mail answered from `info@minosandco.com`. |
+
+### Bugs this channel's first real use exposed
+
+Each was found by running it, not by reading it, and each is fixed and on `main`:
+
+- **A customer told Monday was booked for Saturday.** `chrono` is English-only: given "Pazartesi
+  saat 13:00" it read the `13:00`, ignored the weekday it could not spell, and fell back to today.
+  Never an email bug — **every channel that answers in the customer's own language**, Telegram
+  included, was booking non-English requests on the wrong day, silently, with the reply text and
+  the calendar row disagreeing. The model now hands over a resolved `YYYY-MM-DD HH:mm`; the
+  regression test pins the broken behaviour as well as the fixed one.
+- **A tenant could have claimed Denku's own sending domain.** Denku runs one Resend account for
+  every workspace, so "already verified in the account" was being read as "this business owns it".
+  Reserved-domain and cross-tenant guards now run before the provider is called at all.
+- **Gmail's forwarding handshake reached a business owner's Inbox as a customer enquiry.** Gmail
+  sends that mail in the recipient's language; the parser matched English subjects. Detection now
+  keys on the verification link, which is identical in every language — and on the `vf-` prefix
+  specifically, because the same mail also carries a `uf-` link that *cancels* the request.
+- **The DNS step told customers to open a dashboard they have no login for.** The records were
+  already being fetched and thrown away by the action.
+
+### Known gaps, accepted for now
+
+- **One connection per workspace in the UI.** The table allows several; `page.tsx` renders
+  `connections[0]`. A second address would exist and be invisible.
+- **The auto-confirmation is unproven**, as above.
+- **Attachments are recorded, not carried** — metadata only, same deliberate gap as Telegram's
+  photos.
+- **Voice's `create-appointment` route** takes `start_at` already but reads it with `new Date()`,
+  which resolves a bare local string in the server's zone. Same class of bug as the Monday one,
+  different path, not fixed here.
+
+Full reasoning in [skills/email-integration.md](skills/email-integration.md).
 
 ---
 
