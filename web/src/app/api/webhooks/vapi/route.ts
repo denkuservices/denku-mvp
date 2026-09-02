@@ -15,6 +15,7 @@ import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
 import { parseSpokenTime } from "@/lib/time/spokenTime";
 import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
+import { summarizeCallForTicket, type CallTicketSummary } from "@/lib/tickets/summarize";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
 import { ensureCurrentRevision } from "@/lib/platform/manifest/revisions";
@@ -731,11 +732,12 @@ async function createAbuseTicket(
         },
         body: JSON.stringify({
           to_phone: toPhone,
-          lead_phone: fromPhone,
+          // `requester_phone`, not `lead_phone` — see the deterministic path below for the story.
+          requester_phone: fromPhone,
           subject,
           description,
           call_id: callId,
-          priority: "normal",
+          priority: "high",
         }),
       });
 
@@ -1095,11 +1097,58 @@ async function ensureTicketForCall(
 
     // Detect if this is a web call
     const isWebCallType = isWebCall(rawPayload);
-    
+
+    /*
+     * Every call leaves a RECORD. Only some calls are a TASK.
+     *
+     * The platform's first rule is that a call is never dead-ended, and that rule is kept: the
+     * call row, its transcript, its contact and its conversation are written whatever happens
+     * here. What changed is that the rule used to be satisfied by manufacturing a TICKET for
+     * every finished call — so a business with fifty calls a day opened fifty identical
+     * "Support Request" rows, which is the same as having none, because nobody triages a list
+     * where every line looks alike.
+     *
+     * A ticket now means what the word means: a person still has to do something. The judgement
+     * comes from the same kind of model pass that already classifies intent, and it fails toward
+     * KEEPING the ticket — no model, a timeout, bad JSON, all resolve to actionable, because an
+     * unread ticket is a smaller failure than a customer request nobody ever sees.
+     */
+    const summary = await summarizeCallForTicket(transcript);
+
+    if (!summary.actionable) {
+      logEvent({
+        tag: "[ARTIFACT][TICKET_NOT_NEEDED]",
+        ts: Date.now(),
+        stage: "FALLBACK",
+        source: "vapi_webhook",
+        org_id: orgId,
+        call_id: callId,
+        vapi_call_id: vapiCallId,
+        severity: "info",
+        details: {
+          reason: "nothing for a person to do",
+          subject: summary.subject,
+          summary_source: summary.source,
+        },
+      });
+      return;
+    }
+
     // Create ticket (support intent)
-    await createTicketForCall(callId, orgId, fromPhone, toPhone, transcript, "support", isWebCallType, rawPayload, vapiCallId);
-    
-    console.log("[DETERMINISTIC] Ticket ensured for call", { callId });
+    await createTicketForCall(
+      callId,
+      orgId,
+      fromPhone,
+      toPhone,
+      transcript,
+      "support",
+      isWebCallType,
+      rawPayload,
+      vapiCallId,
+      summary
+    );
+
+    console.log("[DETERMINISTIC] Ticket ensured for call", { callId, subject: summary.subject });
   } catch (err) {
     console.error("[DETERMINISTIC] Exception ensuring ticket for call:", { callId, orgId, error: err });
     // Never throw - allow call finalization to continue
@@ -1255,11 +1304,30 @@ async function createTicketForCall(
   intentType: "appointment" | "support",
   isWebCallType: boolean,
   rawPayload?: any,
-  vapiCallId?: string
+  vapiCallId?: string,
+  /** What the call was about, when a summariser has already read it. */
+  summary?: CallTicketSummary | null
 ): Promise<void> {
-  // Build subject using heuristic (for support) or appointment label
-  const subject = intentType === "appointment" ? "Appointment Request" : buildTicketSubject(transcript);
+  // Title, in the caller's own language when a summary produced one.
+  //
+  // `buildTicketSubject` remains only as the last resort. It matches ENGLISH keywords, so on a
+  // Turkish call it can never fire and every ticket it names is called "Support Request".
+  const subject =
+    intentType === "appointment"
+      ? "Appointment Request"
+      : summary?.subject?.trim() || buildTicketSubject(transcript);
+  const priority = summary?.priority ?? "normal";
   const hasCallerPhone = !!fromPhone && fromPhone.trim().length > 0;
+
+  // The caller's name, if they actually said it — the summariser is told never to invent one.
+  // Falls back to whatever the telephony payload carried.
+  const requesterName =
+    summary?.requesterName?.trim() ||
+    (rawPayload
+      ? asString(rawPayload?.message?.call?.customer?.name) ??
+        asString(rawPayload?.message?.customer?.name) ??
+        null
+      : null);
   
   // Fetch call row to get metadata for description header
   let callRowData: {
@@ -1293,7 +1361,7 @@ async function createTicketForCall(
   }
   
   // Build premium description with metadata header
-  const description = buildTicketDescription({
+  const metaDescription = buildTicketDescription({
     isWebCall: isWebCallType,
     fromPhone,
     personaKey: callRowData?.persona_key ?? null,
@@ -1303,6 +1371,15 @@ async function createTicketForCall(
     endedAt: callRowData?.ended_at ?? null,
     transcript: transcript || `Call artifact created for ${intentType} intent.`,
   });
+
+  // A colleague opening this should learn what happened before they learn the Vapi call id.
+  const description = summary?.summary?.trim()
+    ? `${summary.summary.trim()}
+
+---
+
+${metaDescription}`
+    : metaDescription;
 
   // Skip tool route for web calls or when caller phone is missing
   if (isWebCallType || !hasCallerPhone) {
@@ -1342,11 +1419,16 @@ async function createTicketForCall(
         },
         body: JSON.stringify({
           to_phone: toPhone,
-          lead_phone: fromPhone,
+          // `requester_phone` is the name the tool route reads. This said `lead_phone` for as long
+          // as the route has existed: zod's passthrough kept the key, nothing ever looked at it,
+          // and so every deterministic ticket was written with a null phone AND a null lead —
+          // while the call row two tables away held the number all along.
+          requester_phone: fromPhone,
+          requester_name: requesterName,
           subject,
           description,
           call_id: callId,
-          priority: "normal",
+          priority,
         }),
       });
 

@@ -217,6 +217,15 @@ const RequestSchema = z.object({
   requester_phone: z.string().optional().nullable(),
   requester_email: z.string().email().optional().nullable(),
   requester_name: z.string().optional().nullable(),
+  /**
+   * What the call was about, in the caller's own language.
+   *
+   * Optional because a live tool call from the assistant may not supply one; when it is absent the
+   * ticket falls back to a generic title. It used to be IGNORED even when supplied — the insert
+   * hard-coded "Support Request" — which is why every ticket in production carries that title.
+   */
+  subject: z.string().min(1).max(120).optional().nullable(),
+  priority: z.enum(["low", "normal", "high"]).optional().nullable(),
 }).passthrough();
 
 export async function POST(request: NextRequest) {
@@ -490,6 +499,39 @@ export async function POST(request: NextRequest) {
     // Normalize phone for storage
     const normalizedPhone = normalizePhone(input.requester_phone);
 
+    // Put the ticket where the rest of the CRM can see it.
+    //
+    // `tickets` has carried `conversation_id` and `contact_id` since the platform model landed, and
+    // this route left both null on every row it ever wrote. The effect was a ticket that knew a
+    // phone number and nothing else: no channel it arrived on, no person to hang it under, no way
+    // to show "this customer called three times last month". The data was one join away the whole
+    // time.
+    let conversationId: string | null = null;
+    let contactId: string | null = null;
+    try {
+      const { data: callRow } = await supabaseAdmin
+        .from("calls")
+        .select("conversation_id")
+        .eq("id", callId)
+        .eq("org_id", orgId)
+        .maybeSingle<{ conversation_id: string | null }>();
+
+      conversationId = callRow?.conversation_id ?? null;
+
+      if (conversationId) {
+        const { data: conv } = await supabaseAdmin
+          .from("conversations")
+          .select("contact_id")
+          .eq("id", conversationId)
+          .eq("org_id", orgId)
+          .maybeSingle<{ contact_id: string | null }>();
+        contactId = conv?.contact_id ?? null;
+      }
+    } catch {
+      // The platform tables are additive and may be inert in an older environment. A ticket
+      // without its links is worse than one with them and better than none at all.
+    }
+
     // Create ticket
     const { data: ticket, error: insertErr } = await supabaseAdmin
       .from("tickets")
@@ -497,10 +539,12 @@ export async function POST(request: NextRequest) {
         org_id: orgId,
         call_id: callId,
         lead_id: leadId,
-        subject: "Support Request",
+        conversation_id: conversationId,
+        contact_id: contactId,
+        subject: input.subject?.trim() || "Support Request",
         description: input.description,
         status: "open",
-        priority: "normal",
+        priority: input.priority ?? "normal",
         requester_phone: normalizedPhone,
         requester_email: input.requester_email?.trim() || null,
         requester_name: input.requester_name?.trim() || null,

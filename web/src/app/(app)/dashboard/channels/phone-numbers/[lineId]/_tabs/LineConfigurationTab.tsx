@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 interface LineConfigurationTabProps {
   line: {
     id: string;
-    language_mode: string | null;
     tools_create_ticket: boolean | null;
     tools_book_appointment: boolean | null;
   };
@@ -17,19 +16,29 @@ interface LineConfigurationTabProps {
   onSaveError?: () => void;
 }
 
+/**
+ * What belongs to a LINE, and what belongs to the EMPLOYEE answering it.
+ *
+ * This tab used to carry a "Language routing" select (Auto-detect / English / Turkish). It was a
+ * second door onto the employee's own `language`, and the two could disagree with nothing to
+ * reconcile them. It was also a hand-written list: the language registry has Spanish and German
+ * too, so a workspace could configure an employee this screen was unable to show.
+ *
+ * The deeper reason it is gone: language is a property of the employee, and one employee answers
+ * on several channels. Offering it per line promises a per-line setting the data model does not
+ * keep. What stays here is what is genuinely the line's own — its tools, and (elsewhere on the
+ * page) its assignment and pause state.
+ */
 export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveError }: LineConfigurationTabProps) {
-  const [languageMode, setLanguageMode] = useState(line.language_mode || "auto");
   const [toolsCreateTicket, setToolsCreateTicket] = useState(line.tools_create_ticket ?? true);
   const [toolsBookAppointment, setToolsBookAppointment] = useState(line.tools_book_appointment ?? true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const savedLanguage = line.language_mode || "auto";
   const savedToolsCreateTicket = line.tools_create_ticket ?? true;
   const savedToolsBookAppointment = line.tools_book_appointment ?? true;
 
   const isDirty =
-    languageMode !== savedLanguage ||
     toolsCreateTicket !== savedToolsCreateTicket ||
     toolsBookAppointment !== savedToolsBookAppointment;
 
@@ -40,17 +49,15 @@ export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveErro
 
   // Sync local state when line props change (e.g. after refresh)
   useEffect(() => {
-    setLanguageMode(savedLanguage);
     setToolsCreateTicket(savedToolsCreateTicket);
     setToolsBookAppointment(savedToolsBookAppointment);
-  }, [savedLanguage, savedToolsCreateTicket, savedToolsBookAppointment]);
+  }, [savedToolsCreateTicket, savedToolsBookAppointment]);
 
   const handleSaveClick = useCallback(async () => {
     if (!isDirty || isSaving) return;
     setSaveError(null);
     setIsSaving(true);
     const updates: Record<string, unknown> = {};
-    if (languageMode !== savedLanguage) updates.language_mode = languageMode;
     if (toolsCreateTicket !== savedToolsCreateTicket) updates.tools_create_ticket = toolsCreateTicket;
     if (toolsBookAppointment !== savedToolsBookAppointment) updates.tools_book_appointment = toolsBookAppointment;
     if (Object.keys(updates).length === 0) {
@@ -79,8 +86,6 @@ export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveErro
   }, [
     isDirty,
     isSaving,
-    languageMode,
-    savedLanguage,
     toolsCreateTicket,
     savedToolsCreateTicket,
     toolsBookAppointment,
@@ -120,22 +125,6 @@ export function LineConfigurationTab({ line, onUpdate, onDirtyChange, onSaveErro
                 Opening hours in Settings
               </Link>
             </p>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
-              Language routing
-            </label>
-            <select
-              value={languageMode}
-              onChange={(e) => setLanguageMode(e.target.value)}
-              disabled={isSaving}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
-            >
-              <option value="auto">Auto-detect</option>
-              <option value="en">English</option>
-              <option value="tr">Turkish</option>
-            </select>
           </div>
 
           <div>
