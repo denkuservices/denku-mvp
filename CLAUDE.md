@@ -386,6 +386,27 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     provider URL expires. Web Chat is the one channel with a visitor upload endpoint; its limits in
     `lib/webchat/uploads.ts` are what stand in for identity. See `skills/media-perception.md`.
 
+19. **An e-commerce backend is NOT a channel — and the first one is IdeaSoft.** Designed
+    2026-09-02, **nothing built** (`adopted: false`). A channel is where a customer *talks*;
+    IdeaSoft is the business's *system of record*. The customer messaging on Telegram has an order
+    that lives in IdeaSoft — channel Telegram, source IdeaSoft. Adding `"ideasoft"` to
+    `lib/platform/channels.ts` would make every surface that iterates channels (Channels page,
+    Inbox filters, onboarding, usage metering, `test/channel-contract.test.ts`) render a "channel"
+    nobody can message. It is a new noun — **Integration** — with a provider registry
+    (`lib/commerce/`) so the tool layer never learns a provider's name. Five facts drive the whole
+    design and each has a failure attached: (a) the **refresh token is single-use** — two
+    concurrent refreshes kill the connection, so refresh is claimed with a conditional UPDATE like
+    `sendOnce()`; (b) it **expires after 2 months of silence**, so a proactive refresh cron is not
+    an optimisation but the thing that stops the owner re-authorizing by hand; (c) **webhooks carry
+    only changed fields** — they are a trigger, re-fetch by `id`, and enough failed deliveries make
+    IdeaSoft **delete the subscription**, which is why a reconcile cron is mandatory; (d) the
+    webhook HMAC is keyed with our app's `client_secret`, so it proves IdeaSoft sent it but **not
+    which store** — the connection id goes in the URL path exactly as Telegram does it, addressing
+    not credential; (e) there is **no published rate limit**. And the one that is not an API fact:
+    an anonymous visitor must never read a stranger's order, so a lookup needs an order number
+    **plus** a matching field, and anonymous channels get status/carrier/tracking and nothing else.
+    **Any IdeaSoft or commerce-API work starts at `skills/commerce-integrations.md`.**
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,
@@ -442,6 +463,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, and the transport that delivers by storing
 - `skills/media-perception.md` — how the AI sees and hears on every chat channel: the shared perception stage, why the description lives in `messages.content`, the resolver-per-channel split, and the limits that make an anonymous upload endpoint defensible
 - `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
+- `skills/commerce-integrations.md` — **IdeaSoft and any future e-commerce backend** (İkas, Ticimax, Shopify): why an integration is not a channel, the OAuth/token traps, webhook addressing, and the identity rule that stops a stranger reading someone else's order. **DESIGN ONLY — not built.** Read this before writing a line of IdeaSoft API code.
 - `skills/transactional-email.md` — **what Denku sends to a customer's inbox**: the 19-email estate + the 5 Supabase-Auth ones, the shared `renderEmail()` chrome, the send-once claim ledger, and the rules for adding an email
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
