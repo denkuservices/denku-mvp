@@ -5,6 +5,7 @@ import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { isWorkspacePaused } from "@/lib/workspace-status";
+import { getEffectiveLimits } from "@/lib/billing/limits";
 import { logEvent } from "@/lib/observability/logEvent";
 import { randomUUID } from "crypto";
 
@@ -109,29 +110,65 @@ export async function POST(req: NextRequest) {
     const currentQty = currentAddon?.qty ? Number(currentAddon.qty) : 0;
     const newQty = currentQty + 1;
 
-    // 6) Stripe step: increase extra_phone by +1 via addons/update endpoint
     const addonUpdateUrl = new URL("/api/billing/addons/update", req.url);
-    const addonUpdateRes = await fetch(addonUpdateUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: req.headers.get("Cookie") || "",
-      },
-      body: JSON.stringify({
-        addon_key: "extra_phone",
-        qty: newQty,
-      }),
+
+    // 6) Spend the plan's own line slot before selling another one.
+    //
+    // Every voice plan includes one number. This route used to add a paid `extra_phone` on EVERY
+    // purchase, unconditionally — so a workspace with no lines at all was charged $10/month for
+    // the number its plan already included, and the included slot was never spendable. The BYO
+    // route has always counted correctly (it consumes a slot and charges nothing), which made the
+    // two doors disagree about the same quota.
+    //
+    // `included_phones` is plan base + any `extra_phone` already held, so this asks the only
+    // question that matters: is there a free slot right now? A number is charged only when there
+    // is not.
+    const limits = await getEffectiveLimits(org_id);
+    const { count: existingLineCount } = await supabaseAdmin
+      .from("phone_lines")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", org_id);
+
+    const linesUsed = existingLineCount ?? 0;
+    const needsPaidSlot = linesUsed >= limits.included_phones;
+
+    logEvent({
+      tag: needsPaidSlot ? "[PHONE_LINES][PURCHASE][SLOT_CHARGED]" : "[PHONE_LINES][PURCHASE][SLOT_INCLUDED]",
+      ts: Date.now(),
+      stage: "CALL",
+      source: "system",
+      org_id,
+      severity: "info",
+      details: { lines_used: linesUsed, included_phones: limits.included_phones, extra_phone_qty: currentQty },
     });
 
-    if (!addonUpdateRes.ok) {
-      const addonData = await addonUpdateRes.json().catch(() => ({}));
-      return NextResponse.json(
-        { ok: false, error: addonData.error || "Failed to update billing" },
-        { status: addonUpdateRes.status }
-      );
+    if (needsPaidSlot) {
+      const addonUpdateRes = await fetch(addonUpdateUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: req.headers.get("Cookie") || "",
+        },
+        body: JSON.stringify({
+          addon_key: "extra_phone",
+          qty: newQty,
+        }),
+      });
+
+      if (!addonUpdateRes.ok) {
+        const addonData = await addonUpdateRes.json().catch(() => ({}));
+        return NextResponse.json(
+          { ok: false, error: addonData.error || "Failed to update billing" },
+          { status: addonUpdateRes.status }
+        );
+      }
+
+      stripeSuccess = true;
     }
 
-    stripeSuccess = true;
+    // NOTE for the rollback blocks below: they all reset `extra_phone` to `currentQty`. When no
+    // slot was charged that is the quantity already stored, so they stay correct — they simply
+    // write back what is there. Only the cost of a redundant call on an already-failing path.
 
     // 7) Create backing agent and provision phone number
     // Wrap in try/catch for rollback on failure

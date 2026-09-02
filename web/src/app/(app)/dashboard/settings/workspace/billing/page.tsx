@@ -14,7 +14,6 @@ import {
   Clock,
   CreditCard,
   Gauge,
-  Hash,
   Layers,
   Loader2,
   Lock,
@@ -1146,8 +1145,8 @@ export default function WorkspaceBillingPage() {
                           <StatusPill tone={monthlyPrice > 0 ? "brand" : "neutral"} icon={Wallet}>
                             {monthlyPrice > 0 ? `+${formatUsd(monthlyPrice)}/mo` : "Not in use"}
                           </StatusPill>
-                          <StatusPill tone="neutral" icon={Hash}>
-                            {formatUsd(addon.price_usd_month)} per {addon.unit}
+                          <StatusPill tone="neutral" icon={Icon}>
+                            {formatUsd(addon.price_usd_month)}/mo per {addon.unit}
                           </StatusPill>
                           {!hasPlan ? (
                             <StatusPill tone="warn" icon={AlertTriangle}>
