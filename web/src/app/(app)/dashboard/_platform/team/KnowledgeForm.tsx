@@ -3,13 +3,14 @@
 import * as React from "react";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, Sparkles, Loader2, Upload } from "lucide-react";
+import { AlertTriangle, Sparkles, Loader2, Upload } from "lucide-react";
 import {
   updateAgentConfiguration,
   type UpdateAgentConfigResult,
 } from "@/app/(app)/dashboard/settings/_actions/agents";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
+import SaveButton, { useSavedFlash } from "../ui/SaveButton";
 import { draftKnowledgeAction } from "./_actions/draftKnowledge";
 import { knowledgeExamples } from "./knowledgeExamples";
 import {
@@ -44,9 +45,11 @@ export default function KnowledgeForm({
    *
    * After filling eight fields the eye is at the bottom of the form; a success message that
    * appears above the fold is a message that gets missed, and the customer sits waiting for
-   * something that already happened.
+   * something that already happened. Shared with Setup, so every tab confirms the same way.
    */
-  const [justSaved, setJustSaved] = React.useState(false);
+  const { saved: justSaved, flashSaved } = useSavedFlash();
+  /** True only while the Save write is in flight — drafting and uploading share the transition. */
+  const [saving, setSaving] = React.useState(false);
   const [drafting, setDrafting] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -62,12 +65,6 @@ export default function KnowledgeForm({
   const examples = knowledgeExamples();
   /** True once a draft has been loaded, so the form can say these words are not saved yet. */
   const [draftLoaded, setDraftLoaded] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!justSaved) return;
-    const t = setTimeout(() => setJustSaved(false), 2500);
-    return () => clearTimeout(t);
-  }, [justSaved]);
 
   const initial = React.useMemo(
     () =>
@@ -196,11 +193,13 @@ export default function KnowledgeForm({
 
   const handleSave = () => {
     if (!isDirty || isPending || paused) return;
+    setSaving(true);
     startTransition(async () => {
       setStatus(null);
       const result: UpdateAgentConfigResult = await updateAgentConfiguration(
         toUpdateAgentConfigPayload(employee.id, { ...initial, businessContext: context })
       );
+      setSaving(false);
       if (result.ok) {
         setStatus({
           type: "success",
@@ -211,7 +210,7 @@ export default function KnowledgeForm({
                   .trim()}`
               : "Saved. Your AI employee knows this now.",
         });
-        setJustSaved(true);
+        flashSaved();
         setDraftLoaded(false);
         router.refresh();
       } else {
@@ -329,28 +328,14 @@ export default function KnowledgeForm({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-          <button
-            type="button"
+          <SaveButton
             onClick={handleSave}
-            disabled={!isDirty || isPending || paused}
+            saving={saving}
+            saved={justSaved}
+            dirty={isDirty}
+            disabled={isPending || paused}
             title={paused ? "Workspace is paused" : undefined}
-            className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed ${
-              justSaved
-                ? "bg-green-600 disabled:opacity-100"
-                : "bg-brand-500 hover:bg-brand-600 disabled:opacity-50"
-            }`}
-          >
-            {isPending ? (
-              "Saving…"
-            ) : justSaved ? (
-              <>
-                <Check className="h-4 w-4" />
-                Saved
-              </>
-            ) : (
-              "Save changes"
-            )}
-          </button>
+          />
           <button
             type="button"
             onClick={handleDraft}

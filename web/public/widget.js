@@ -43,6 +43,7 @@
   if (!base) return;
 
   var STORAGE_KEY = "denku_chat_visitor";
+  var SEEN_KEY = "denku_chat_seen_at";
   var side = config.position === "left" ? "left" : "right";
 
   /**
@@ -91,6 +92,30 @@
     }
   }
 
+  /**
+   * How far this visitor has read, kept on the CUSTOMER's origin.
+   *
+   * First-party storage, for the same reason the visitor id is: an iframe on our domain is
+   * third-party here, and its storage is partitioned or blocked outright. Kept there, the widget
+   * would forget between page loads and greet a returning visitor with a badge for a reply they
+   * read yesterday.
+   */
+  function seenAt() {
+    try {
+      return window.localStorage.getItem(SEEN_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function rememberSeen(at) {
+    try {
+      window.localStorage.setItem(SEEN_KEY, at);
+    } catch (e) {
+      /* private mode: the badge simply resets with the page */
+    }
+  }
+
   var styles =
     ".denku-launcher{position:fixed;bottom:20px;" +
     side +
@@ -105,6 +130,14 @@
     "box-shadow:0 12px 48px rgba(0,0,0,.22);z-index:2147483000;background:#fff;display:none;" +
     "color-scheme:light}" +
     ".denku-frame.denku-open{display:block}" +
+    /* The badge. Sits on the launcher, not in the panel — the whole point is to be visible when
+       the panel is not. Its colours are fixed rather than themed: a business could otherwise
+       pick an accent that renders its own unread count invisible. */
+    ".denku-badge{position:absolute;top:-2px;" +
+    (side === "left" ? "left" : "right") +
+    ":-2px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#E5484D;color:#fff;" +
+    "font:600 11px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;" +
+    "box-shadow:0 0 0 2px #fff;pointer-events:none}" +
     "@media (max-width:480px){.denku-frame{width:calc(100vw - 24px);height:calc(100vh - 108px);" +
     side +
     ":12px;bottom:80px}}";
@@ -115,6 +148,10 @@
 
   var launcher = document.createElement("button");
   launcher.className = "denku-launcher";
+  // Inline, not only in the class: the badge is positioned against the launcher, and a customer
+  // stylesheet that happens to reset `position` on buttons would otherwise send it to the corner
+  // of the page. An inline style is the one thing their CSS cannot outrank.
+  launcher.style.position = "fixed";
   launcher.type = "button";
   launcher.setAttribute("aria-label", config.launcherLabel || "Open chat");
   launcher.innerHTML =
@@ -123,6 +160,33 @@
 
   var frame = null;
   var open = false;
+  var badge = null;
+
+  /**
+   * Draw (or clear) the unread count on the launcher.
+   *
+   * Capped at 9+ because the number stops being information past that — what a visitor needs to
+   * know is "somebody answered", not how many sentences it took.
+   */
+  function setBadge(count) {
+    var n = typeof count === "number" && count > 0 ? count : 0;
+    if (!n) {
+      if (badge) {
+        badge.parentNode.removeChild(badge);
+        badge = null;
+      }
+      launcher.setAttribute("aria-label", open ? "Close chat" : "Open chat");
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "denku-badge";
+      launcher.appendChild(badge);
+    }
+    badge.textContent = n > 9 ? "9+" : String(n);
+    // Screen readers get the count in words; the badge itself is decorative to them.
+    launcher.setAttribute("aria-label", n === 1 ? "Open chat, 1 new message" : "Open chat, " + n + " new messages");
+  }
   // Where the iframe actually lives. Starts as the origin the snippet named and is corrected to
   // the real one the moment the iframe speaks.
   var frameOrigin = base;
@@ -158,8 +222,11 @@
       post({ type: "open" });
     } else {
       el.classList.remove("denku-open");
+      // The widget stops counting while it is showing, and starts again from here.
+      post({ type: "closed" });
     }
-    launcher.setAttribute("aria-label", next ? "Close chat" : "Open chat");
+    if (next) setBadge(0);
+    else launcher.setAttribute("aria-label", "Open chat");
   }
 
   function post(message) {
@@ -187,6 +254,7 @@
       post({
         type: "init",
         visitorId: visitorId(),
+        seenAt: seenAt(),
         pageUrl: location.href,
         referrer: document.referrer || null,
         locale: navigator.language || null,
@@ -194,11 +262,36 @@
       return;
     }
     if (data.type === "close") setOpen(false);
+    if (data.type === "unread") setBadge(data.count);
+    if (data.type === "seen" && typeof data.at === "string") rememberSeen(data.at);
   });
 
   function mount() {
     document.body.appendChild(launcher);
-    if (config.autoOpen === true) setOpen(true);
+    if (config.autoOpen === true) {
+      setOpen(true);
+      return;
+    }
+
+    /**
+     * A visitor who has chatted here before gets the frame loaded quietly, closed.
+     *
+     * Without this the widget only starts polling once someone clicks it, so a reply the shop
+     * owner typed from the Inbox last night would be invisible until the visitor happened to open
+     * the chat — which is precisely the moment they no longer need telling. Loading it lets the
+     * badge be there when they arrive.
+     *
+     * Only for a returning visitor, and never for a first-time one: someone who has never spoken
+     * to this business has no reply waiting, and their first page load should not pay for an
+     * iframe to discover that.
+     */
+    var returning = false;
+    try {
+      returning = Boolean(window.localStorage.getItem(STORAGE_KEY));
+    } catch (e) {
+      returning = false;
+    }
+    if (returning) ensureFrame();
   }
 
   if (document.readyState === "loading") {

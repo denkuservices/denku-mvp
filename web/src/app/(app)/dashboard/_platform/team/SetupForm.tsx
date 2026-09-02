@@ -15,6 +15,7 @@ import { voicesForLanguage, voiceSamplePath } from "@/lib/voice/catalogue";
 import { MODEL_TIERS, resolveModelTier } from "@/lib/llm/modelTiers";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
+import SaveButton, { useSavedFlash } from "../ui/SaveButton";
 import TimezoneField from "../TimezoneField";
 import {
   ADDITIONAL_LANGUAGE_OPTIONS,
@@ -61,6 +62,15 @@ export default function SetupForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  /**
+   * Which of the two saves is in flight.
+   *
+   * One `useTransition` drives both buttons, so without this the override button read "Saving…"
+   * while someone saved the settings above it — two things appearing to happen when one did.
+   */
+  const [savingWhat, setSavingWhat] = React.useState<"config" | "override" | null>(null);
+  const configSaved = useSavedFlash();
+  const overrideSaved = useSavedFlash();
 
   const initial = React.useMemo(
     () =>
@@ -130,6 +140,7 @@ export default function SetupForm({
 
   const handleSave = () => {
     if (!isDirty || isPending || paused) return;
+    setSavingWhat("config");
     startTransition(async () => {
       setStatus(null);
       // business_context is owned by the Knowledge tab; send what is stored so a Setup save
@@ -137,8 +148,13 @@ export default function SetupForm({
       const result: UpdateAgentConfigResult = await updateAgentConfiguration(
         toUpdateAgentConfigPayload(employee.id, { ...form, businessContext: initial.businessContext })
       );
+      setSavingWhat(null);
       if (result.ok) {
         setStatus({ type: "success", text: syncNote(result.data.vapiSyncStatus) });
+        // Confirm on the button as well as in the banner: the banner is above the fold, the
+        // button is where the click happened, and a save that only clears the dirty flag looks
+        // from down here like a control that froze.
+        configSaved.flashSaved();
         router.refresh();
       } else {
         setStatus({ type: "error", text: result.error });
@@ -148,14 +164,17 @@ export default function SetupForm({
 
   const handleSaveOverride = () => {
     if (!overrideDirty || isPending || paused) return;
+    setSavingWhat("override");
     startTransition(async () => {
       setStatus(null);
       const result: UpdateAgentPromptOverrideResult = await updateAgentPromptOverride({
         agentId: employee.id,
         system_prompt_override: override.trim() || null,
       });
+      setSavingWhat(null);
       if (result.ok) {
         setStatus({ type: "success", text: syncNote(result.data.vapiSyncStatus) });
+        overrideSaved.flashSaved();
         router.refresh();
       } else {
         setStatus({ type: "error", text: result.error });
@@ -490,15 +509,14 @@ export default function SetupForm({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-          <button
-            type="button"
+          <SaveButton
             onClick={handleSave}
-            disabled={!isDirty || isPending || paused}
+            saving={savingWhat === "config"}
+            saved={configSaved.saved}
+            dirty={isDirty}
+            disabled={isPending || paused}
             title={paused ? "Workspace is paused" : undefined}
-            className="inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isPending ? "Saving…" : "Save changes"}
-          </button>
+          />
           {isDirty && !paused ? <span className="text-xs text-gray-500">Unsaved changes</span> : null}
           <span className="ml-auto text-xs text-gray-400">{syncLabel(employee)}</span>
         </div>
@@ -540,14 +558,16 @@ export default function SetupForm({
             />
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
+              <SaveButton
                 onClick={handleSaveOverride}
-                disabled={!overrideDirty || isPending || paused}
-                className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
-              >
-                {isPending ? "Saving…" : "Save override"}
-              </button>
+                saving={savingWhat === "override"}
+                saved={overrideSaved.saved}
+                dirty={overrideDirty}
+                disabled={isPending || paused}
+                variant="secondary"
+                label="Save override"
+                savedLabel="Override saved"
+              />
               {override.trim() && !paused ? (
                 <button
                   type="button"
