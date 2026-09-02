@@ -10,11 +10,18 @@
  * Owner decision 2026-08-29: Voice, Telegram and Email are presented as live;
  * Instagram as receive-only; the rest carry a Beta badge and are not purchasable.
  *
- * ⚠️ One known disagreement: the runtime registry still has Email at
- * `productionReady: false`. The owner states it is working. That flag is left
- * alone — flipping it would change product gating on the strength of a marketing
- * decision. If Email really is production-ready, an engineer should flip it in the
- * registry deliberately, and this note should come out.
+ * The ⚠️ note that used to sit here recorded a disagreement — the runtime registry
+ * had Email at `productionReady: false` while this file called it live — and asked
+ * an engineer to flip the registry deliberately if Email really was ready. That
+ * happened on 2026-09-03: Email is `productionReady: true` in the registry, so the
+ * two agree and the note is gone.
+ *
+ * ⚠️ The disagreement has MOVED, not disappeared. Web chat is `productionReady:
+ * true` in the runtime registry as of the same day, but still carries a Beta badge
+ * and "Not included in any plan yet" here. So the product will now offer a channel
+ * this page says nobody can buy. That is a pricing decision, not an engineering
+ * one: either web chat belongs in a plan and this entry becomes `live`, or it does
+ * not and the registry flag was premature.
  */
 
 export type ChannelStatus = "live" | "limited" | "beta";

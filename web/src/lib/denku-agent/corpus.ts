@@ -233,6 +233,26 @@ export const CORPUS: readonly CorpusChunk[] = [
       "give a range rather than a promise, and offer to walk them through it.",
   },
   {
+    id: "email-sending-limit",
+    title: "How the Email channel works, and the one thing it needs from the customer",
+    tags: ["email", "mail", "forward", "inbox", "dns", "domain", "send", "reply by email"],
+    body:
+      "Email works by forwarding, not by handing Denku the customer's mailbox password. The " +
+      "business forwards a published address such as info@ to an address Denku issues them, and " +
+      "from that moment new mail arrives in the same Inbox as everything else. The AI reads it, " +
+      "understands the thread, and writes the reply. By default a person approves the reply " +
+      "before it goes out; that can be changed.\n\n" +
+      "Two things to be honest about, both of which surprise people:\n" +
+      "- Forwarding brings NOTHING from the past. Only mail arriving after the rule is switched " +
+      "on appears. Never say their existing unread mail will show up.\n" +
+      "- To send as their OWN domain, the business must publish DNS records for it. Until they " +
+      "do, Denku will not send on their behalf — there is no fallback to a Denku address, " +
+      "because a customer receiving a reply from a stranger's domain is worse than no reply. " +
+      "Receiving, reading and drafting all work the day they forward; automatic sending waits on " +
+      "their DNS. If they ask how long that takes, it is usually minutes of work for whoever " +
+      "manages their domain, plus propagation.",
+  },
+  {
     id: "web-chat-widget",
     title: "Putting the AI on the business's own website",
     tags: ["website", "widget", "embed", "web chat", "site", "snippet", "script"],

@@ -220,10 +220,22 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     connection: "credentials",
     capabilities: chat({ outbound: true }),
     /**
-     * Not production-ready yet: the pipeline exists but no real mail has made the round trip.
-     * Flipped only on live evidence, exactly as Telegram was.
+     * Production-ready as of 2026-09-03 (owner decision).
+     *
+     * The evidence bar was "a real round trip", and it was met: a real Gmail → Hotmail →
+     * forwarding → Denku round trip was verified in the database, with the AI drafting and a
+     * person approving. `lib/marketing/content/channels.ts` had carried a ⚠️ note asking an
+     * engineer to flip this deliberately if Email really was ready — this is that flip, and the
+     * note is gone with it.
+     *
+     * **One real limit survives the flag, and it must not be forgotten.** Denku sends nothing
+     * from an unverified domain and there is no fallback to a Denku address, so a workspace
+     * cannot send as itself until its owner publishes DNS records. Receiving, drafting and human
+     * approval work the day they forward; automatic sending waits on their DNS. Anything that
+     * SELLS this channel has to say so — see the `email-sending-limit` chunk in
+     * `lib/denku-agent/corpus.ts`.
      */
-    productionReady: false,
+    productionReady: true,
     adopted: true,
   },
   sms: {
@@ -261,11 +273,17 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
      */
     capabilities: chat({ outbound: true }),
     /**
-     * Not production-ready yet: the channel is built end to end, but nobody has held a real
-     * conversation through a widget on a real customer's site. Flipped only on live evidence,
-     * exactly as Telegram was — see that entry for what "evidence" meant there.
+     * Production-ready as of 2026-09-03 (owner decision).
+     *
+     * This one is flipped on a DECISION rather than the live evidence the other entries required:
+     * the channel is built end to end and running on production, but at the time of the flip
+     * nobody had held a conversation through a widget on a real customer's site. The owner took
+     * that risk knowingly when Denku's own assistant needed to be able to offer it.
+     *
+     * Recorded plainly because the bar was different here, and a later reader comparing this to
+     * Telegram's entry deserves to know which kind of flip this was.
      */
-    productionReady: false,
+    productionReady: true,
     adopted: true,
   },
 });

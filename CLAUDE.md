@@ -261,8 +261,13 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     forbids claiming a booking without the matching tool call. See `skills/telegram-integration.md`.
 
 13. **Email is a FORWARDING channel** (built 2026-08-28, `adopted: true`,
-    `productionReady: false` — migration applied to prod 2026-08-28 and verified, but no real mail
-    has round-tripped yet and sending needs a per-org verified domain). The customer forwards a published address
+    **`productionReady: true` since 2026-09-03** — flipped on the evidence the bar asked for: a
+    real Gmail → Hotmail → forwarding → Denku round trip verified in the DB, AI drafting, human
+    approving. ⚠️ **The flag does not remove the sending limit**: nothing goes out from an
+    unverified domain and there is NO fallback to a Denku address, so a workspace cannot send as
+    itself until its owner publishes DNS. Receiving/reading/drafting work the day they forward;
+    automatic sending waits on their DNS — anything that SELLS this channel must say so, which is
+    why `lib/denku-agent/corpus.ts` carries an `email-sending-limit` chunk). The customer forwards a published address
     (`info@`) to one Denku issues (`<slug>-<rand>@EMAIL_INBOUND_DOMAIN`); we never hold their
     mailbox password and never see anything they do not forward. **Do not "upgrade" this to
     Gmail OAuth casually** — every Gmail *read* scope (`gmail.readonly`/`modify`/`compose`/
@@ -286,8 +291,13 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     approval silently costs the business its automation. See `skills/email-integration.md`.
 
 14. **Web Chat runs in a stranger's browser, so the site key is an ADDRESS, not a password.**
-    Built 2026-09-01 (`adopted: true`, `productionReady: false` — migration not yet applied, no
-    widget embedded on a real site yet). The customer pastes a public key into their page source;
+    Built 2026-09-01 (`adopted: true`, **`productionReady: true` since 2026-09-03** — flipped on an
+    owner DECISION, not on the live evidence every other channel needed: it runs on production but
+    at flip time no conversation had ever happened through a widget on a real customer's site, and
+    the owner took that risk knowingly. ⚠️ The marketing site still badges Web chat **Beta / "Not
+    included in any plan yet"**, so the product now offers a channel that page says nobody can buy
+    — a pricing decision that is still open, flagged in `lib/marketing/content/channels.ts`). The
+    customer pastes a public key into their page source;
     access control is their **origin allowlist**, and it can only be enforced where the browser
     tells the truth — the `Referer` on the iframe document request at `/embed/chat`. The widget's
     own `fetch` calls are same-origin (`Origin: https://denku.io`), so checking the allowlist there

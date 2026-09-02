@@ -18,14 +18,16 @@ describe("platform channel registry", () => {
     expect(isKnownChannel(42)).toBe(false);
   });
 
-  it("only channels proven live are production-ready (no over-claim)", () => {
-    expect(productionChannels()).toEqual(["voice", "telegram"]);
+  it("only channels the owner has cleared to sell are production-ready (no over-claim)", () => {
+    expect(productionChannels()).toEqual(["voice", "telegram", "email", "web"]);
     expect(CHANNELS.voice.productionReady).toBe(true);
+    // Email cleared 2026-09-03 on a verified real round trip; Web Chat the same day on an
+    // owner decision rather than live evidence. See the registry entries for the difference.
+    expect(CHANNELS.email.productionReady).toBe(true);
+    expect(CHANNELS.web.productionReady).toBe(true);
+    // Receive-only. It can never be production-ready while it cannot reply.
     expect(CHANNELS.instagram.productionReady).toBe(false);
     expect(CHANNELS.whatsapp.productionReady).toBe(false);
-    expect(CHANNELS.email.productionReady).toBe(false);
-    // Built end to end, never yet embedded on a real customer site.
-    expect(CHANNELS.web.productionReady).toBe(false);
   });
 
   it("adopted channels are exactly the ones with an adapter", () => {
