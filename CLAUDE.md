@@ -96,7 +96,8 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 | Rule | Source of truth |
 |---|---|
 | Plans: starter $149/400min/conc 1 · growth $399/1200/4 · scale $899/3600/10 — **1 included number on every voice plan** (corrected 2026-08-31; the catalogue said 1/2/5 while the site said 1 everywhere, extras are the `extra_phone` add-on); overage 0.22/0.18/0.13 $/min | `billing_plan_catalog` table (seeded in `supabase/migrations/20250127…`) |
-| Preview mode (no plan) = `org_plan_limits.plan_code IS NULL` → gate destructive/paid features, CTA to billing | `web/src/lib/billing/isPreviewMode.ts` |
+| **Voice and chat are two independent products** (corrected 2026-09-02). A workspace may hold either, both, or neither: voice = `org_plan_limits.plan_code` (`starter`/`growth`/`scale`, NULL = no voice), chat = a tier in `billing_org_addons`. The `chat_only` $0 voice plan is **retired** — a chat customer simply has no voice plan | `web/src/lib/billing/planState.ts` |
+| Preview mode = **bought nothing at all** (not "no voice plan" — that was the old rule and it read a paying chat customer as unpaid) → gate destructive/paid features, CTA to billing | `web/src/lib/billing/isPreviewMode.ts` → `planState.ts` |
 | Dashboard access requires `organization_settings.onboarding_step >= 6` (plan alone is NOT enough) | middleware + `lib/auth/checkOnboarding.ts` |
 | Onboarding DB steps: 0 init · 1 Goal · 2 Language · 3 Phone intent · 4 Plan · 5 Activating · 6 Live. **UI step = DB step − 1** (UI 5 = Live) — do not mix them | `skills/onboarding-flow.md` |
 | Workspace pause: `workspace_status ∈ {active,paused}`, `paused_reason ∈ {manual,hard_cap,past_due}`. Pause overrides everything (webhooks ignored, leases denied, rebind blocked) | `lib/billing/limits.ts`, `lib/workspace/*` |
