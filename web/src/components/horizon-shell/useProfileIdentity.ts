@@ -67,7 +67,13 @@ export function useProfileIdentity(): ProfileIdentity {
 
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('full_name, email, avatar_url')
+          /**
+           * `profiles` has no `avatar_url` column, and asking for one made PostgREST reject the
+           * whole request with a 400 — so nobody's name or initials ever loaded in the dashboard
+           * chrome. The failure was invisible because the catch below keeps the shell rendering:
+           * everyone quietly got the neutral fallback instead of their own name.
+           */
+          .select('full_name, email')
           .eq('auth_user_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(1);
@@ -80,7 +86,9 @@ export function useProfileIdentity(): ProfileIdentity {
         setIdentity({
           firstName: deriveFirstName(profile?.full_name),
           initials: deriveInitials(profile?.full_name, email),
-          avatarUrl: profile?.avatar_url || null,
+          // No column to read one from. Null is the honest answer, and the shell already renders
+          // initials when there is no picture.
+          avatarUrl: null,
         });
       } catch {
         // Chrome must render regardless — keep the neutral defaults.

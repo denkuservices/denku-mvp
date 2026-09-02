@@ -436,10 +436,16 @@ export async function GET(req: NextRequest) {
       },
       addons: {
         available: availableAddons,
-        active: {
-          extra_concurrency: activeAddons["extra_concurrency"] || 0,
-          extra_phone: activeAddons["extra_phone"] || 0,
-        },
+        /**
+         * Every active add-on, not a hardcoded pair.
+         *
+         * This used to name `extra_concurrency` and `extra_phone` and nothing else. Chat tiers are
+         * add-ons too, so a workspace that had bought chat was reported as owning none of it: the
+         * forecast could not itemise it, and the chat cards kept offering "Add channel" for a
+         * channel the customer was already paying for. The catalogue decides what exists; this
+         * reports what is held, and a new add-on is carried the day it is sold.
+         */
+        active: activeAddons,
         effective_limits: {
           max_concurrent_calls: maxConcurrentCalls,
           included_phones: includedPhones,
