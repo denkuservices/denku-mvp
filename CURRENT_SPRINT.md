@@ -9,12 +9,12 @@ motivates them, so nobody has to re-derive it.
 
 ---
 
-## ⛔ Billing findings — open, and the most serious thing on this list
+## Billing findings — ✅ FIXED 2026-09-02 (PR #12)
 
-These were found on 2026-09-02 while answering "what happens when I upgrade my plan?". They are
-recorded before the fix so the reasoning survives it.
+Found while answering "what happens when I upgrade my plan?". Recorded in full because the
+reasoning is worth more than the diff.
 
-### B-1 · A plan upgrade charges nothing (exploitable)
+### B-1 · A plan upgrade charged nothing (exploitable) — fixed
 
 `POST /api/billing/plan/change` writes `org_plan_overrides` and **never touches Stripe**.
 `org_plan_limits` is a VIEW straight over that table:
@@ -36,7 +36,7 @@ discipline as the phone-line purchase. Note plans are created with inline `price
 checkout rather than catalogue price ids, so there is no `stripe_price_id` on
 `billing_plan_catalog` to move to yet.
 
-### B-2 · The plan fee is billed twice
+### B-2 · The plan fee was billed twice — fixed
 
 Checkout creates a recurring monthly **subscription** for the plan. The monthly close-month cron
 (`.github/workflows/close_month.yml`, 00:10 UTC on the 1st) *also* adds a `monthly_fee_usd`
@@ -61,13 +61,11 @@ workspace. Working as intended; documented here because the question was asked.
 
 | # | Item | Note |
 |---|---|---|
-| 1 | **B-1 / B-2 above** | Money. Do first. |
-| 2 | **Mobile UI pass over every page** | Reported: content shifts and overflows on some pages. Needs a page-by-page audit at 375px, not a spot fix. |
-| 3 | **PDF → employee knowledge** | Owner uploads a document; the AI learns the business from it. Should fill the Knowledge fields it can and leave the rest blank rather than guessing, with the document kept for retrieval. Method to be chosen and written down before building. |
-| 4 | **Customer recall across conversations** | Verify what already exists (contact/lead linking is in place; conversation history reaching the prompt is not confirmed) and close the gap. |
-| 5 | **Voice samples** | Picker ships without audio until `ELEVENLABS_API_KEY` / `AZURE_SPEECH_KEY` are set and `scripts/render-voice-samples.mts` runs once. |
-| 6 | **Netgsm concurrent channel count** | Unknown, and the likely cause of a busy signal on 2026-09-01. A caller who hears busy never reaches Vapi, so Denku cannot even count the loss. |
-| 7 | **`MODEL_TIERS_ENABLED`** | Stays off until the Advanced tier has been heard on a real call. |
+| 1 | **Voice samples** | The picker ships without audio until `ELEVENLABS_API_KEY` / `AZURE_SPEECH_KEY` are set and `scripts/render-voice-samples.mts` is run once. Until then it shows descriptions and a silent player rather than promising audio it does not have. |
+| 2 | **Netgsm concurrent channel count** | Still unknown, and the likely cause of a busy signal on 2026-09-01. A caller who hears busy never reaches Vapi, so Denku cannot even count the loss. Ask Netgsm. |
+| 3 | **`MODEL_TIERS_ENABLED`** | Stays off until the Advanced tier has been heard on a real call. |
+| 4 | **Mobile, on a real session** | The audit that shipped is static plus four rules now enforced by `mobile-layout.test.ts`; the dashboard itself was never walked through at 375px, because that needs a login. Worth one pass by someone who can sign in. |
+| 5 | **Knowledge extraction, on a real document** | The path is built and tested; no customer PDF has been through it yet. |
 
 ---
 
@@ -84,6 +82,11 @@ workspace. Working as intended; documented here because the question was asked.
 | Model tiers | Standard/Advanced, upgrade-only, flag-gated. **No minute multiplier** — a real call costs ~$0.09/min against $0.37 of revenue. |
 | Onboarding Back | Screen-only; never lowers `onboarding_step`, which gates dashboard access. |
 | Add-on panel | The `#` beside the price was a `Hash` icon; prices now say `/mo`. |
+| Plan change reaches Stripe | B-1 above. Stripe moves first; the entitlement follows only if it agreed. |
+| Plan fee billed once | B-2 above. Both invoice paths bill usage only. |
+| PDF → Knowledge | An owner uploads a document and the fields fill from what it says, leaving blank what it does not. Nothing saves until a person has read it. |
+| Recall has data | 19 tickets reconnected to the customer they already belonged to; `recall.ts` was correct and had nothing to read. |
+| Mobile does not clip | The dashboard shell destroyed anything wider than a phone. Four rules now enforced by a test. |
 
 ---
 
