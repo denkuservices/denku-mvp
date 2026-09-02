@@ -5,15 +5,22 @@
 > This file covers a layer that is **not** a channel, and getting that distinction wrong is the
 > single most expensive mistake available here.
 
-**Status (2026-09-02): DESIGN ONLY — `adopted: false`, `productionReady: false`. Nothing in this
-file is built.** There is no `lib/commerce/`, no `commerce_connections` table, no route. Every path
-below is a proposal. This breaks the `skills/README.md` rule that these docs describe the repo as it
-is, and it does so deliberately and temporarily: the design was worked out against the live API
-documentation before the customer granted access, and losing it would mean deriving it twice. **The
-moment the first line ships, rewrite this file in the past tense and mark what actually got built.**
+**Status (2026-09-02): BUILT, unproven.** `adopted: true`, `productionReady: false`.
+
+What exists: `lib/commerce/*`, the `commerce_connections` table (applied to prod as
+`20260902205405`), the connect/callback/status routes, the Settings → Integrations screen, the
+`find_product` / `search_catalog` chat tools, the voice tool route, and a daily refresh cron.
+1416 tests pass and the production build is clean.
+
+What has NOT happened: **no real IdeaSoft store has ever been connected.** Every line below was
+written against the published documentation, not against a live response. Flip `productionReady`
+only when a real store has answered a real customer — the same bar Telegram and Web Chat are held
+to. Two specific things are documented but unobserved, and both are called out where they matter:
+whether `client_id`/`client_secret` are per-store (§11) and whether the product LIST payload
+carries `children` (§8).
 
 Driver: a BYON customer (their own Netgsm line, see [[byon-netgsm-live]]) runs their store on
-IdeaSoft and wants the AI to answer "where is my order" and "do you have this in stock".
+IdeaSoft and wants the AI to answer about products, stock, and colour/size variants.
 
 Source of truth for the API: <https://apidoc.ideasoft.dev> — three projects (Admin API v3.2.0,
 Store API, Webhooks). Support: `apisupport@ideasoft.com.tr`.
@@ -40,6 +47,8 @@ What it *does* copy from the channel work is the shape, because that shape is pr
 encrypted credentials, a service-role-only table with RLS enabled and no policies, a provider
 registry that makes the second provider cheap, and a connection-health story.
 
+This is what got built:
+
 ```
 web/src/lib/commerce/
   registry.ts               provider lookup (ideasoft | ikas | ticimax | shopify …)
@@ -48,11 +57,19 @@ web/src/lib/commerce/
   tokens.ts                 single-flight refresh + lock
   providers/ideasoft/
     oauth.ts  http.ts  orders.ts  products.ts  webhooks.ts  map.ts
+  tools.ts                  find_product / search_catalog, provider-agnostic
+  errors.ts                 CommerceReadError — "could not check" vs "we do not carry that"
+  storeUrl.ts               the SSRF guard on a customer-typed URL
 web/src/app/api/integrations/ideasoft/
-  connect/route.ts          mint state, redirect to /panel/auth
-  callback/route.ts         code -> tokens, store connection, subscribe webhooks
-web/src/app/api/webhooks/ideasoft/[connectionId]/route.ts
+  connect/route.ts          store credentials + a state nonce, return the authorize URL
+  callback/route.ts         code -> tokens -> verify -> redirect back with a result
+  status/route.ts           GET list · POST live test · DELETE disconnect
+web/src/app/api/tools/find-product/route.ts        the voice transport (shared secret)
+web/src/app/api/internal/refresh-commerce-tokens/  the daily cron
+web/src/app/(app)/dashboard/settings/integrations/ the screen
 ```
+
+Not built: `web/src/app/api/webhooks/ideasoft/[connectionId]/route.ts` — §6 is still a design.
 
 **The tool layer must never see a provider name.** `lookupOrder(orgId, {...}) -> CommerceOrder`. When
 İkas or Ticimax arrives, [`lib/platform/reply/tools.ts`](../web/src/lib/platform/reply/tools.ts)
@@ -170,7 +187,11 @@ registered template in [`lib/email/previewSamples.ts`](../web/src/lib/email/prev
 through `sendOnce()`), and the AI's commerce tools disappear from the tool list. They must vanish
 silently — an AI that offers to check an order and then cannot is worse than one that never offered.
 
-## 6. Webhooks
+## 6. Webhooks — DESIGNED, NOT BUILT
+
+Nothing in this section exists yet. It is the next phase, and it is written down because the two
+facts that shape it (the HMAC does not name the store; a failing subscription is deleted) are not
+things to rediscover under time pressure.
 
 The HMAC does not identify the store (fact #4). The fix is the one Telegram already uses:
 
@@ -202,22 +223,32 @@ and their v8 field sets are listed at <https://apidoc.ideasoft.dev/docs/webhooks
 
 ## 7. What the AI gets — and the identity problem
 
-Three tools, appended to `CHAT_TOOL_DEFINITIONS` **only when the org has a healthy connection**, so a
-workspace without one sees byte-for-byte the current behaviour:
+**Two** tools shipped, not three — appended by `toolDefinitionsFor(orgId)` in
+`lib/platform/reply/tools.ts` **only when the org has a `connected` store**, so a workspace without
+one is handed byte-for-byte the array that used to be a constant:
 
 | Tool | Answers | Reads |
 |---|---|---|
-| `lookup_order` | status, order date, carrier, tracking code | `GET /admin-api/orders` |
-| `check_stock` | is it available, what does it cost | `GET /api/products?sku=` / `?name=` |
-| `find_product` | search the catalogue | same |
+| `find_product` | price, stock count, and every variant with its own stock and SKU | `GET /admin-api/products` (+ a `GET /products/{id}` to hydrate variants) |
+| `search_catalog` | a short list of matches when the customer is browsing | `GET /admin-api/products?s=` |
 
-**Now the part that needs a moment.** On Web Chat and Telegram the visitor is a stranger. If
-`lookup_order` accepts "my email is X", then **anyone can read anyone's order** — name, address,
-phone, amount, payment method. IdeaSoft's `customerEmail` filter makes that a one-line query. The
-weak-identity problem is already acknowledged in this codebase: recall is suppressed on channels
-where identity is too weak to trust (R-139).
+They are two rather than four because a model given `search`, `get`, `check_stock` and
+`list_variants` chains them and spends three round trips answering "do you have this in red".
+`find_product` returns the variants *in the same result*, so the common question is one call.
 
-Three layers, all required:
+**`lookup_order` was deliberately NOT built.** Here is why:
+
+On Web Chat and Telegram the visitor is a stranger. If `lookup_order` accepted "my email is X",
+then **anyone could read anyone's order** — name, address, phone, amount, payment method.
+IdeaSoft's `customerEmail` filter makes that a one-line query. The weak-identity problem is already
+acknowledged in this codebase: recall is suppressed on channels where identity is too weak to trust
+(R-139).
+
+Doing it safely needs all three layers below. None of them is needed by a catalogue lookup, which
+reads data the store already publishes on its own website — so shipping the two together would have
+meant either delaying the easy half or rushing the dangerous one.
+
+Three layers, all required **before `lookup_order` may exist**:
 
 1. **Never act on a single claim.** Require an **order number *plus* one matching field** (email, or
    the last four digits of the phone). Expressible in one request via `q[]` filters.
@@ -273,25 +304,37 @@ authorization question: a row in the capability matrix
 audit-log entry — never a tool the AI simply has. Ask the customer to grant the API app
 **Katalog + Siparişler → read only** when they create it.
 
-## 10. Phases
+## 10. What shipped, and what is left
 
-| Phase | Ships | Done when |
+| Phase | State | Evidence |
 |---|---|---|
-| **0 · Connection** | OAuth connect/callback, `commerce_connections`, refresh + lock + cron, an Integrations card in Settings | A token is still valid 48 h later with no human touch |
-| **1 · Read + tools** | `lookup_order`, `check_stock`, `find_product`; identity rules; volume caps. Web Chat first, then Telegram, then voice | A real customer gets a real tracking code, and a wrong email gets nothing |
-| **2 · Webhooks** | `/api/webhooks/ideasoft/[connectionId]`, HMAC, reconcile cron. Unlocks proactive "your order shipped" | A subscription survives a week, and a deliberate outage is repaired by the cron |
-| **3 · Catalogue sync** | Nightly full sync + webhook deltas into RAG | The AI answers a product question with no live call |
+| **0 · Connection** | ✅ built | OAuth connect/callback, `commerce_connections` on prod, single-flight refresh, daily cron, Settings → Integrations |
+| **1 · Catalogue tools** | ✅ built | `find_product` + `search_catalog` on chat; `/api/tools/find-product` for voice; 30 unit tests on the mapping and the URL guard |
+| **2 · Webhooks** | ⬜ not built | §6 is the design |
+| **3 · Catalogue sync into RAG** | ⬜ not built | §8 is the rule it must follow |
+| **· Order lookup** | ⬜ deliberately not built | §7 — needs the identity design first |
 
-Phase 0 is worth shipping alone, and Phases 0–1 can be **built and tested against the documented
-mock server before the customer grants anything**.
+**Two manual steps stand between this and a working demo**, and neither is code:
+
+1. **The customer creates the API app.** In their panel: Entegrasyonlar → API → Ekle, with our
+   redirect URL pasted in, and **read access to Katalog**. The screen shows them the exact URL to
+   copy, because a `redirect_uri` mismatch is the most common failure and IdeaSoft's error does not
+   say which URL it expected.
+2. **Voice needs a Vapi tool.** `/api/tools/find-product` exists and is authenticated, but Vapi
+   only calls tools that are registered in the Vapi account and attached to the assistant. Create a
+   `find_product` tool there pointing at that URL, then add its id to `DENKU_TOOL_IDS` in
+   `lib/vapi/assistantConfig.ts` — `ensureAssistantConfig` merges `model.toolIds` from there, and
+   hand-rolling a `model` PATCH is landmine #6. **Until that is done, chat can answer product
+   questions and voice cannot.**
 
 ## 11. Open questions — verify before promising a date
 
 1. **Is `client_id`/`client_secret` per store, or one pair for our app across all stores?** The docs
-   describe the *store owner* creating the app in their own panel, which reads as **per store** —
-   materially different from Shopify's single-app model, and it changes onboarding: we would have to
-   ask every customer for a client id and secret rather than shipping one integration. **This is the
-   most important unknown in the file.**
+   describe the *store owner* creating the app in their own panel, which reads as **per store**, and
+   the build committed to that reading: the credentials are per-connection columns and the screen
+   asks the customer to paste them. If it turns out a single Denku-wide app is possible, this is
+   still correct — it just asks the customer for three things where it could have asked for one. The
+   reverse would have been a rewrite, which is why it went this way.
 2. **Does the webhook payload carry a store identifier?** The design above does not depend on it
    (the id is in the path), but it would be a cheap second check. Unknowable without a real delivery.
 3. **The real 429 threshold.** Only measurable against a live store.

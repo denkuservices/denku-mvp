@@ -195,8 +195,22 @@ describe("T4 · the appointment dead end is closed", () => {
 });
 
 describe("T5 · Usage and Integrations are honest", () => {
-  it("Settings advertises no Integrations destination", () => {
-    expect(allSettingsItems().some((i) => /integration/i.test(i.label))).toBe(false);
+  /**
+   * Superseded 2026-09-02, on purpose.
+   *
+   * T5 removed Integrations because it advertised two disabled "Coming soon" cards — a destination
+   * that could not be used. The rule was never "no Integrations section"; it was "nothing in the
+   * nav that does not work". IdeaSoft shipped a real connect flow, so the section is honest now,
+   * and the test guards the rule rather than the absence.
+   */
+  it("Integrations is a destination only because something real lives there", () => {
+    const item = allSettingsItems().find((i) => /integration/i.test(i.label));
+    expect(item).toBeTruthy();
+    const page = readCode("app/(app)/dashboard/settings/integrations/page.tsx");
+    expect(page).not.toMatch(/Coming soon/);
+    // A real connect flow, not a placeholder: the card and the provider registry are both wired.
+    expect(page).toMatch(/IdeaSoftCard/);
+    expect(page).toMatch(/providerMeta/);
   });
 
   it("Usage is part of Billing, never a destination of its own", () => {
@@ -222,11 +236,7 @@ describe("T5 · Usage and Integrations are honest", () => {
     expect(legacy).toMatch(/billing#usage/);
   });
 
-  it("the Integrations URL redirects and no longer shows a stub", () => {
-    const page = readCode("app/(app)/dashboard/settings/integrations/page.tsx");
-    expect(page).toMatch(/redirect\("\/dashboard\/settings"\)/);
-    expect(page).not.toMatch(/Coming soon/);
-  });
+
 
   it("nothing still links to the removed Integrations destination", () => {
     /**

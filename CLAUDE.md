@@ -386,8 +386,10 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     provider URL expires. Web Chat is the one channel with a visitor upload endpoint; its limits in
     `lib/webchat/uploads.ts` are what stand in for identity. See `skills/media-perception.md`.
 
-19. **An e-commerce backend is NOT a channel — and the first one is IdeaSoft.** Designed
-    2026-09-02, **nothing built** (`adopted: false`). A channel is where a customer *talks*;
+19. **An e-commerce backend is NOT a channel — and the first one is IdeaSoft.** Built 2026-09-02
+    (`adopted: true`, `productionReady: false` — migration `20260902205405` applied to prod, but
+    **no real store has ever been connected**, so every behaviour below is documentation-derived,
+    not observed). A channel is where a customer *talks*;
     IdeaSoft is the business's *system of record*. The customer messaging on Telegram has an order
     that lives in IdeaSoft — channel Telegram, source IdeaSoft. Adding `"ideasoft"` to
     `lib/platform/channels.ts` would make every surface that iterates channels (Channels page,
@@ -403,9 +405,15 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     webhook HMAC is keyed with our app's `client_secret`, so it proves IdeaSoft sent it but **not
     which store** — the connection id goes in the URL path exactly as Telegram does it, addressing
     not credential; (e) there is **no published rate limit**. And the one that is not an API fact:
-    an anonymous visitor must never read a stranger's order, so a lookup needs an order number
-    **plus** a matching field, and anonymous channels get status/carrier/tracking and nothing else.
-    **Any IdeaSoft or commerce-API work starts at `skills/commerce-integrations.md`.**
+    an anonymous visitor must never read a stranger's order, so **`lookup_order` was deliberately
+    not built** — the shipped tools (`find_product`, `search_catalog`) read only the catalogue,
+    which the store already publishes on its own website. Do not add an order tool without the
+    identity rules in §7 of the skill. Two other things worth knowing: the tools appear ONLY for a
+    workspace with a `connected` store (`toolDefinitionsFor`), so every other workspace gets the
+    array that used to be a constant; and **voice will not answer product questions until a
+    `find_product` tool is created in Vapi and its id added to `DENKU_TOOL_IDS`** — the route
+    exists, the registration does not. **Any IdeaSoft or commerce-API work starts at
+    `skills/commerce-integrations.md`.**
 
 ## Design system (per-surface, do not cross-contaminate)
 
@@ -463,7 +471,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, and the transport that delivers by storing
 - `skills/media-perception.md` — how the AI sees and hears on every chat channel: the shared perception stage, why the description lives in `messages.content`, the resolver-per-channel split, and the limits that make an anonymous upload endpoint defensible
 - `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
-- `skills/commerce-integrations.md` — **IdeaSoft and any future e-commerce backend** (İkas, Ticimax, Shopify): why an integration is not a channel, the OAuth/token traps, webhook addressing, and the identity rule that stops a stranger reading someone else's order. **DESIGN ONLY — not built.** Read this before writing a line of IdeaSoft API code.
+- `skills/commerce-integrations.md` — **IdeaSoft and any future e-commerce backend** (İkas, Ticimax, Shopify): why an integration is not a channel, the OAuth/token traps, the catalogue tools, and the identity rule that stops a stranger reading someone else's order. Built 2026-09-02, **never run against a real store.** Read this before writing a line of IdeaSoft API code.
 - `skills/transactional-email.md` — **what Denku sends to a customer's inbox**: the 19-email estate + the 5 Supabase-Auth ones, the shared `renderEmail()` chrome, the send-once claim ledger, and the rules for adding an email
 - `skills/billing-and-stripe.md` — plans, checkout, add-ons, overage, pause, close-month
 - `skills/onboarding-flow.md` — step machine, gating, activation, checkout dual-path
