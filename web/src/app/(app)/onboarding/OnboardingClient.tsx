@@ -712,6 +712,31 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
   const progressPct = Math.min(100, Math.round((currentStep / (STEPS.length - 1)) * 100));
 
+  /**
+   * Going back a step — and why it only moves the SCREEN.
+   *
+   * Someone three steps in who wants to change the workspace name or the goal they picked had no
+   * way to do it but to abandon setup, and every answer they had already given was still on this
+   * page. So this walks `currentStep` back and nothing else: the DB's `onboarding_step` is never
+   * decremented.
+   *
+   * That is deliberate, not laziness. `onboarding_step` is what the middleware reads to decide
+   * whether someone may reach the dashboard at all (>= 6), and it is resumed from on a reload. A
+   * back button that lowered it could strand a customer outside their own workspace over a
+   * mistyped name. Moving forward re-submits the step normally and writes the same row again, so
+   * the two never disagree for longer than a click.
+   *
+   * The last two steps are excluded on purpose: step 4 is activation actually running against
+   * Vapi and Stripe, and step 5 is a workspace that is already live. Neither has a "before" to
+   * return to.
+   */
+  const canGoBack = currentStep > 0 && currentStep < 4;
+  const goBack = () => {
+    if (!canGoBack) return;
+    setError(null);
+    setCurrentStep((step) => Math.max(0, step - 1));
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* LEFT RAIL */}
@@ -825,6 +850,19 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
         <div className="flex flex-1 items-start justify-center px-5 py-10 lg:items-center lg:px-16">
           <div className="w-full max-w-2xl">
+            {canGoBack && (
+              <button
+                type="button"
+                onClick={goBack}
+                className="mb-5 -ml-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-brand-mono text-xs text-[#6B7888] transition hover:bg-[#0A1A2F]/[0.04] hover:text-[#0A1A2F]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                Back{STEPS[currentStep - 1]?.label ? ` to ${STEPS[currentStep - 1].label}` : ""}
+              </button>
+            )}
+
             {error && error !== "BILLING_PAUSED" && error !== "NO_PLAN" && (
               <div className="mb-6 rounded-[12px] border border-red-200 bg-red-50 p-4">
                 <p className="text-sm text-red-800">{error}</p>
