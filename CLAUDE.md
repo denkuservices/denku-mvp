@@ -291,13 +291,15 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     approval silently costs the business its automation. See `skills/email-integration.md`.
 
 14. **Web Chat runs in a stranger's browser, so the site key is an ADDRESS, not a password.**
-    Built 2026-09-01 (`adopted: true`, **`productionReady: true` since 2026-09-03** — flipped on an
-    owner DECISION, not on the live evidence every other channel needed: it runs on production but
-    at flip time no conversation had ever happened through a widget on a real customer's site, and
-    the owner took that risk knowingly. ⚠️ The marketing site still badges Web chat **Beta / "Not
-    included in any plan yet"**, so the product now offers a channel that page says nobody can buy
-    — a pricing decision that is still open, flagged in `lib/marketing/content/channels.ts`). The
-    customer pastes a public key into their page source;
+    Built 2026-09-01, **`productionReady: true` since 2026-09-03** — proven the way every other
+    channel had to be: the owner embedded the snippet on **minosandco.com**, opened the widget as a
+    visitor, and the AI answered. That proof covers the two things that matter here — the origin
+    allowlist admitted a genuine third-party domain, and the reply engine drove a conversation over
+    the store-and-fetch transport. It also proved the **entitlement gate from both sides**: with a
+    chat plan the AI replied; without one the widget still opened and displayed the thread but
+    produced no reply, which is the intended shape (never show a visitor a broken widget because
+    the business has not paid). Web chat is now sold as a chat channel like Telegram and email.
+    The customer pastes a public key into their page source;
     access control is their **origin allowlist**, and it can only be enforced where the browser
     tells the truth — the `Referer` on the iframe document request at `/embed/chat`. The widget's
     own `fetch` calls are same-origin (`Origin: https://denku.io`), so checking the allowlist there

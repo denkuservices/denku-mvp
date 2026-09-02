@@ -979,7 +979,7 @@
     "headline": "Sohbet mesajla değil, kanalla satılır.",
     "sub": "AI'ınızın hangi kanallarda yanıt vereceğini siz seçersiniz. Tükenecek bir mesaj sayacı yok.",
     "availableTitle": "Bugün seçebileceğiniz kanallar",
-    "available": "Telegram ve e-posta. Diğerlerini şimdiden bağlayıp mesajların geldiğini görebilirsiniz — AI, o kanallar yayına girdiğinde yanıtlamaya başlar.",
+    "available": "Telegram, e-posta ve web sohbeti. Diğerlerini şimdiden bağlayıp mesajların geldiğini görebilirsiniz — AI, o kanallar yayına girdiğinde yanıtlamaya başlar.",
     "slotOne": "Seçeceğiniz 1 kanal",
     "slotTwo": "Seçeceğiniz 2 kanal",
     "custom": "Özel",

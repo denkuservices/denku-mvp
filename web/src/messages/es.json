@@ -979,7 +979,7 @@
     "headline": "El chat se vende por canal, no por mensaje.",
     "sub": "Tú eliges en qué canales responde tu IA. No hay contador de mensajes que se agote.",
     "availableTitle": "Canales que puedes elegir hoy",
-    "available": "Telegram y correo. Puedes conectar los demás ya y ver llegar los mensajes — la IA empezará a responder en ellos cuando estén listos.",
+    "available": "Telegram, correo y chat web. Puedes conectar los demás ya y ver llegar los mensajes — la IA empezará a responder en ellos cuando estén listos.",
     "slotOne": "1 canal a tu elección",
     "slotTwo": "2 canales a tu elección",
     "custom": "A medida",

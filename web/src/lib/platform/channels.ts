@@ -273,15 +273,18 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
      */
     capabilities: chat({ outbound: true }),
     /**
-     * Production-ready as of 2026-09-03 (owner decision).
+     * Production-ready as of 2026-09-03, on the same bar every other channel here had to meet:
+     * a real conversation, on a real site, observed.
      *
-     * This one is flipped on a DECISION rather than the live evidence the other entries required:
-     * the channel is built end to end and running on production, but at the time of the flip
-     * nobody had held a conversation through a widget on a real customer's site. The owner took
-     * that risk knowingly when Denku's own assistant needed to be able to offer it.
+     * The owner embedded the snippet on minosandco.com, opened the widget as a visitor, and the
+     * AI answered. Two things that proof establishes beyond "it renders": the origin allowlist
+     * admitted a genuine third-party domain (this channel's whole access model), and the reply
+     * engine drove a conversation through the store-and-fetch transport.
      *
-     * Recorded plainly because the bar was different here, and a later reader comparing this to
-     * Telegram's entry deserves to know which kind of flip this was.
+     * It also proved the entitlement gate, from both sides — with a chat plan the AI replied;
+     * without one the widget still opened and displayed the thread but no reply was produced.
+     * That is the intended shape (a visitor is never shown a broken widget because the business
+     * has not paid) and it is the half nobody tests deliberately.
      */
     productionReady: true,
     adopted: true,

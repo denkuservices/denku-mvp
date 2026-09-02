@@ -259,9 +259,13 @@ export const CORPUS: readonly CorpusChunk[] = [
     body:
       "There is a chat widget the business pastes into their own website as a short snippet, and " +
       "it appears as a launcher in the corner of their pages. Access is controlled by the list of " +
-      "domains the business says it will be used on, so the widget only runs on their own site. " +
-      "Human takeover works there like every other chat channel. Note honestly that this channel " +
-      "is built but not yet proven on a live customer site.",
+      "domains the business says it will be used on, so the widget only runs on their own site — " +
+      "which means they must tell us their domain when they install it. Human takeover works " +
+      "there like every other chat channel, and the AI can see photos a visitor uploads.\n\n" +
+      "Web chat counts as one of the channels on a chat plan, the same as Telegram or email. If " +
+      "a business has no chat plan the widget still appears and the conversation is visible in " +
+      "their Inbox for a person to answer, but the AI does not reply — so a visitor never meets a " +
+      "broken widget.",
   },
   {
     id: "ecommerce-integration",

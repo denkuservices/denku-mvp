@@ -142,14 +142,26 @@ describe("corpus", () => {
   });
 
   it("marks what has never been proven as unproven", () => {
-    // Both of these are `productionReady: false` in the codebase. Selling them as finished is how
-    // a demo becomes a refund.
+    // The commerce integration is `productionReady: false` and has never touched a real store.
+    // Selling it as finished is how a demo becomes a refund.
     expect(renderChunk(CORPUS.find((c) => c.id === "ecommerce-integration")!, CTX)).toMatch(
       /never been run against a real store/,
     );
-    expect(renderChunk(CORPUS.find((c) => c.id === "web-chat-widget")!, CTX)).toMatch(
-      /not yet proven on a live customer site/,
-    );
+  });
+
+  it("states the two limits a customer only discovers after paying", () => {
+    // Email: forwarding brings no history, and nothing is sent from an unverified domain — a
+    // business that forwarded its mail and cannot work out why nothing goes out.
+    const email = renderChunk(CORPUS.find((c) => c.id === "email-sending-limit")!, CTX);
+    expect(email).toMatch(/brings NOTHING from the past/);
+    expect(email).toMatch(/publish DNS records/);
+    expect(email).toMatch(/no fallback to a Denku address/);
+
+    // Web chat: no chat plan means the widget works but the AI stays silent. A prospect told
+    // "just paste the snippet" and nothing else will report it as broken.
+    const web = renderChunk(CORPUS.find((c) => c.id === "web-chat-widget")!, CTX);
+    expect(web).toMatch(/no chat plan/);
+    expect(web).toMatch(/the AI does not reply/);
   });
 
   it("forbids a certification claim wherever security is discussed", () => {

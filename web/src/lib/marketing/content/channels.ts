@@ -13,15 +13,11 @@
  * The ⚠️ note that used to sit here recorded a disagreement — the runtime registry
  * had Email at `productionReady: false` while this file called it live — and asked
  * an engineer to flip the registry deliberately if Email really was ready. That
- * happened on 2026-09-03: Email is `productionReady: true` in the registry, so the
- * two agree and the note is gone.
- *
- * ⚠️ The disagreement has MOVED, not disappeared. Web chat is `productionReady:
- * true` in the runtime registry as of the same day, but still carries a Beta badge
- * and "Not included in any plan yet" here. So the product will now offer a channel
- * this page says nobody can buy. That is a pricing decision, not an engineering
- * one: either web chat belongs in a plan and this entry becomes `live`, or it does
- * not and the registry flag was premature.
+ * happened on 2026-09-03, and Web chat moved to `live` the same day after the owner
+ * ran the snippet on minosandco.com and the AI answered a real visitor. Registry and
+ * marketing now agree on every row, which is the state this file is supposed to be
+ * in. If they ever diverge again, write the note back rather than picking a side
+ * quietly.
  */
 
 export type ChannelStatus = "live" | "limited" | "beta";
@@ -99,12 +95,14 @@ export const MARKETING_CHANNELS: MarketingChannel[] = [
     caveat: "Not included in any plan yet.",
   },
   {
+    // Live since 2026-09-03: the snippet was embedded on a real third-party site
+    // (minosandco.com) and the AI answered a visitor there. It is a chat channel like
+    // Telegram and email, so it counts against a chat plan's channel allowance.
     id: "webchat",
     label: "Web chat",
     line: "A widget on your site.",
-    status: "beta",
-    statusLabel: "Beta",
-    caveat: "Not included in any plan yet.",
+    status: "live",
+    statusLabel: "Live",
   },
 ];
 
