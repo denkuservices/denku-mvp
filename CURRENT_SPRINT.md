@@ -68,14 +68,23 @@ workspace. Working as intended; documented here because the question was asked.
 | 5 | **Knowledge extraction, on a real document** | The path is built and tested; no customer PDF has been through it yet. |
 | 6 | **Email: finish the `minosandco.com` round trip** | Receiving, drafting and approval are proven on production. Sending as the customer's own domain is not — it is blocked on DNS records the owner has to publish. See below. |
 | 7 | **Web Chat: write the tests the live proof stood in for** | The owner embedded the snippet on `minosandco.com` on 2026-09-03, opened it as a visitor, and the AI answered — so `productionReady` is now `true` and it is sold as a chat channel. But that was **one manual pass by the person who built it**, and it is now the only thing standing behind a channel we charge for. Three things it proved and nothing re-checks: (a) the origin allowlist admits a genuine third-party domain and refuses one it was not given — the refusal half was never exercised; (b) the frame-token → session-token exchange survives a real cross-origin iframe, which no unit test can simulate; (c) **the entitlement gate from both sides** — with a chat plan the AI replies, without one the widget still opens and displays the thread but produces no reply. (c) is the one to write first: it is the half nobody tests deliberately, and the failure mode is silent and customer-visible. Owner-run repeat on a second domain would also be worth an hour. |
+| 8 | **Denku's own Inbox is unreadable** | The `Denku` workspace (`286b7738`) now receives real prospect conversations from the landing page widget, and **nobody can open it**: it has no `profiles` row. That is deliberate — `getActiveOrgId` picks a user's most recently updated profile and there is no workspace switcher in the UI, so adding one MOVES that person into this workspace permanently. Owner decision; `scripts/provision-denku-workspace.mts` prints the statement. Until then, read it with SQL. |
+| 9 | **Re-run the agent script after any channel, price or corpus change** | `scripts/register-denku-agent.mts`. The assistant's Vapi system prompt is a SNAPSHOT taken at registration; the registries move underneath it. (Live prices always reach it through the tool at call time, so only the snapshot goes stale, not the answer.) |
+| 10 | **A real voice call to Denku's own assistant** | Verified so far: the assistant carries the generated prompt and 5 tools, the tool route answers on production, and the landing page starts the right assistant. Nobody has actually spoken to it. Same bar every other channel had to meet. |
+| 11 | **Remove `VAPI_AGENT_ID` from Vercel** | Dead since 2026-09-03 and no longer read anywhere. Harmless if left; it is listed so nobody later "fixes" the code to read it again and silently repoints the landing page at the old stale assistant. |
 
 ---
 
 ## Email channel — what is proven, and the four things left
 
 Built 2026-08-28, migration applied and verified on production the same day. `adopted: true`,
-**`productionReady: false`** — and it stays false until a reply leaves from a customer's own
-domain, on Telegram's standard: observed, not assumed.
+and **`productionReady: true` since 2026-09-03** — flipped on the round trip below, which is the
+standard every channel here has to meet: observed, not assumed.
+
+⚠️ The flag does not remove the sending limit. Nothing goes out from an unverified domain and
+there is no fallback to a Denku address, so a workspace cannot send as itself until its owner
+publishes DNS. Receiving, reading and drafting work the day they forward — E-1 and E-2 below are
+still open, and anything that SELLS this channel has to say so.
 
 ### Proven on production
 
