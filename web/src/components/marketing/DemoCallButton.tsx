@@ -25,7 +25,7 @@ let Vapi: any = null;
  * `api/vapi/start/route.ts` (whose own comment says it must not reach the client bundle) and
  * made it the one Vapi-account-coupled value with NO environment override. Switching Vapi
  * accounts would leave this button rendering normally and failing silently on every click.
- * Now the server owns it, so `VAPI_AGENT_ID` alone is enough to repoint the demo.
+ * Now the server owns it, so `VAPI_DENKU_ASSISTANT_ID` alone is enough to repoint the demo.
  */
 type DemoSession = { assistantId: string; assistantOverrides?: Record<string, unknown> };
 
@@ -256,7 +256,7 @@ export function DemoCallButton({ onStateChange }: DemoCallButtonProps = {}) {
       // Reset ending flag when starting new call
       isEndingRef.current = false;
 
-      // Start call with the server-provided assistant ID (honours VAPI_AGENT_ID) and the
+      // Start call with the server-provided assistant ID (honours VAPI_DENKU_ASSISTANT_ID) and the
       // per-call language overrides. Overrides are passed as the second argument so the shared
       // demo assistant — which also answers a real phone number — is never modified.
       vapi.start(session.assistantId, session.assistantOverrides);

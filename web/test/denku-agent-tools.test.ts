@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: { from: vi.fn(), rpc: vi.fn() } }));
 vi.mock("@/lib/commerce/tools", () => ({
@@ -136,6 +138,28 @@ describe("chat tool execution", () => {
     );
     expect(out.ok).toBe(true);
     expect(out.message.length).toBeGreaterThan(50);
+  });
+});
+
+describe("the landing page calls Denku's own assistant", () => {
+  const route = fs
+    .readFileSync(path.join(process.cwd(), "src/app/api/vapi/start/route.ts"), "utf8")
+    // Strip comments: the old id and the dead variable are DISCUSSED there on purpose.
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it("does not read VAPI_AGENT_ID, which is set in Vercel to the old assistant", () => {
+    // The trap this pins: `VAPI_AGENT_ID=155b21ad…` is configured in production. Reading it
+    // would have made repointing the landing page a silent no-op there while the diff looked
+    // correct. The rename is the fix, so reading the old name again must fail loudly here.
+    expect(route).not.toMatch(/VAPI_AGENT_ID/);
+    expect(route).toMatch(/VAPI_DENKU_ASSISTANT_ID/);
+  });
+
+  it("does not fall back to the customer-shaped pilot assistant", () => {
+    // 155b21ad is "Denku Inbound MVP" — a customer template filled in as though Denku were a
+    // client, still answering +13213369681. It keeps that job; it must not keep this one.
+    expect(route).not.toMatch(/155b21ad/);
   });
 });
 

@@ -11,8 +11,11 @@
 - Error-status parsing convention used by callers: `msg.match(/Vapi error (\d+):/)` → map 400 → 400
   response, anything else → 502.
 - Browser demo calls use `@vapi-ai/web` with `NEXT_PUBLIC_VAPI_PUBLIC_KEY`; the assistant ID comes
-  from `POST /api/vapi/start` (returns `VAPI_AGENT_ID` env or hardcoded fallback
-  `155b21ad-2f8b-4593-b33c-c5021e644328`).
+  from `POST /api/vapi/start` (returns `VAPI_DENKU_ASSISTANT_ID` env or the fallback
+  `a7846579-78b9-451a-8821-2c5764a3fc6f` — **Denku's own assistant**, whose prompt is generated
+  from the registries by `scripts/register-denku-agent.mts` rather than typed). The old
+  `155b21ad…` is a customer-shaped assistant that keeps the pilot phone line; `VAPI_AGENT_ID` is
+  dead and no longer read.
 
 ## Assistants — creation rules (hard-won)
 

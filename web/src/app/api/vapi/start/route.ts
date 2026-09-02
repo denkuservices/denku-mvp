@@ -6,7 +6,12 @@ import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
  *
  * Environment Variables Required (Server-side only):
  * - VAPI_API_KEY: Private API key for server-side Vapi operations (never exposed)
- * - VAPI_AGENT_ID: Marketing agent ID (can also be hardcoded constant)
+ * - VAPI_DENKU_ASSISTANT_ID: Denku's own assistant (optional — falls back to the literal below)
+ *
+ * ⚠️ `VAPI_AGENT_ID` is DEAD as of 2026-09-03 and is deliberately no longer read. It is set in
+ * Vercel to `155b21ad…`, the old customer-shaped demo assistant, so continuing to read it would
+ * have made repointing the landing page a silent no-op in production while looking correct in
+ * the diff. Remove it from the environment when convenient; leaving it set does nothing.
  *
  * Client-side Requirements:
  * - NEXT_PUBLIC_VAPI_PUBLIC_KEY: Public key from Vapi dashboard (safe to expose)
@@ -22,10 +27,26 @@ import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
  * decision should not be restatable — or contradictable — by client code.
  */
 
-// Marketing demo agent ID - server-side only
-// NEVER expose this to the client bundle
-// Can also use process.env.VAPI_AGENT_ID if preferred
-const MARKETING_AGENT_ID = process.env.VAPI_AGENT_ID || '155b21ad-2f8b-4593-b33c-c5021e644328';
+/**
+ * Denku's OWN assistant — server-side only, never in the client bundle.
+ *
+ * Until 2026-09-03 this pointed at `155b21ad…`, which is a customer-shaped assistant called
+ * "Denku Inbound MVP" belonging to the pilot org, filled in as though Denku were a client named
+ * "Pilot Client". It was doing three jobs at once: the landing page demo, a real phone line
+ * (+13213369681), and Denku's salesperson. Its prompt was typed by hand and had gone stale where
+ * nobody could see — four languages reported as two, and no knowledge of Telegram, Email, Web
+ * Chat, BYON, the commerce integration, or three of the four things Denku sells.
+ *
+ * `a7846579…` is a dedicated assistant whose prompt is GENERATED from the registries and whose
+ * product knowledge comes from `search_denku_knowledge` at call time, so neither can go stale.
+ * `155b21ad…` keeps its phone line and is untouched — splitting the jobs is most of the fix.
+ *
+ * Regenerate it with `scripts/register-denku-agent.mts` after a channel flips or a price changes.
+ * The env var wins so an environment can point at its own copy without a deploy; the literal is
+ * the id that script created, kept here so the demo works with nothing configured.
+ */
+const MARKETING_AGENT_ID =
+  process.env.VAPI_DENKU_ASSISTANT_ID || 'a7846579-78b9-451a-8821-2c5764a3fc6f';
 
 export async function POST(req: NextRequest) {
   try {

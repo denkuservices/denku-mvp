@@ -75,7 +75,7 @@ Delete your own login too. You want to walk the real signup path tomorrow, not a
 |---|---|---|
 | `VAPI_API_KEY` | New account → **private** key | Server-side REST. Never exposed |
 | `NEXT_PUBLIC_VAPI_PUBLIC_KEY` | New account → **public** key | Browser Web SDK (marketing demo call) |
-| `VAPI_AGENT_ID` | New marketing demo assistant's id | Overrides the stale hardcoded fallback |
+| `VAPI_DENKU_ASSISTANT_ID` | Run `scripts/register-denku-agent.mts` in the new account; use the id it prints | Denku's own assistant. Overrides the hardcoded fallback, which points at the old account |
 | `VAPI_WEBHOOK_SECRET` | **You invent it** | Any long random string. Reconcile pushes it into the new assistants as the `x-vapi-secret` header |
 | `VAPI_WEBHOOK_BASE_URL` | unchanged | Only changes if your domain changes. Never localhost (R-077) |
 
@@ -107,8 +107,9 @@ environment override, and duplicating the constant in `api/vapi/start/route.ts` 
 says it must not reach the client bundle. Switching accounts would have left the button rendering
 normally and failing silently on every click.
 
-It now fetches the id from `POST /api/vapi/start`, which honours `VAPI_AGENT_ID`. **Setting that
-env var is all the demo needs.**
+It now fetches the id from `POST /api/vapi/start`, which honours `VAPI_DENKU_ASSISTANT_ID`.
+**Setting that env var is all the demo needs.** (`VAPI_AGENT_ID` is dead and no longer read —
+see `skills/deployment-and-environments.md` for why it was renamed rather than reused.)
 
 ### 3c. After switching
 

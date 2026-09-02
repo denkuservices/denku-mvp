@@ -44,8 +44,13 @@ Both fire monthly at 00:10 UTC on the 1st — redundant by accident, safe via
 ### Vapi
 - `VAPI_API_KEY` — server REST calls (never exposed).
 - `NEXT_PUBLIC_VAPI_PUBLIC_KEY` — browser Web SDK (marketing demo).
-- `VAPI_AGENT_ID` — marketing demo assistant (falls back to hardcoded
-  `155b21ad-2f8b-4593-b33c-c5021e644328` in `api/vapi/start`).
+- `VAPI_DENKU_ASSISTANT_ID` — Denku's OWN assistant, the one the landing page calls (falls back
+  to `a7846579-78b9-451a-8821-2c5764a3fc6f` in `api/vapi/start`). Regenerate its prompt with
+  `scripts/register-denku-agent.mts`.
+- ⚠ `VAPI_AGENT_ID` is **dead** since 2026-09-03 and is no longer read anywhere. It is still set in
+  Vercel to `155b21ad…` (the old customer-shaped demo assistant), which is exactly why the new
+  variable has a different name: continuing to read the old one would have made repointing the
+  landing page a silent no-op in production. Safe to delete; harmless if left.
 - ⚠ Not env but env-coupled: tool IDs `6c9b0279…`/`5373add8…` hardcoded in onboarding actions —
   tied to the specific Vapi account.
 

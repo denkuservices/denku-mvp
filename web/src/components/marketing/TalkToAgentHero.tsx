@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from 'react';
  * 
  * Server-side (never exposed):
  * - VAPI_API_KEY: Private API key for server-side Vapi operations
- * - VAPI_AGENT_ID: Marketing agent ID (returned from /api/vapi/start)
+ * - VAPI_DENKU_ASSISTANT_ID: Denku's own assistant (returned from /api/vapi/start)
  */
 
 // Dynamic import for Vapi Web SDK to avoid SSR issues
