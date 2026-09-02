@@ -48,6 +48,49 @@ GET→merge→PATCH, always keeping `model.toolIds` merged (never replaced) and 
    language/timezone + the mandatory fallback sentence "I'll notify our team…"). Sync status is
    tracked on `agents.vapi_sync_status` / `vapi_synced_at`.
 
+## The voice a caller hears
+
+Three files, one chain, and every link is testable:
+
+```
+agents.voice (a catalogue id)                  ← what the customer picked in Setup
+  → lib/voice/catalogue.ts   findVoiceOption   ← the offer: which voices, for which languages
+  → lib/vapi/assistantConfig resolveVoice…     ← the Vapi object (provider + id + model/version)
+  → PATCH /assistant/{id}    voice: {...}      ← what Vapi stores and speaks with
+```
+
+- **`lib/language/registry.ts` says what Denku can speak at all.** Each language names ONE default
+  voice, and that default is the whole answer for a customer who never opens the picker.
+- **`lib/voice/catalogue.ts` is the offer** — the registry default plus the alternatives that also
+  speak that language. Each entry carries the languages it covers, one line of character, a
+  `provenCall` flag (true only where a person listened to a real call), and a **`humanness` 1–5
+  rating that is OURS, not the vendor's**: Vapi's API publishes no such number (verified 2026-09-02
+  against `GET /voice-library/{provider}` and the OpenAPI schema), so inventing a vendor score would
+  be exactly the fabrication R-018 bans. Nothing is rated 5 on purpose.
+- **A chosen voice replaces the WHOLE voice object**, provider included. Spreading the default and
+  swapping only the id is how you ask ElevenLabs for an Azure voice. An id the catalogue does not
+  know falls back to the language default rather than being forwarded.
+- **The default must be IN the catalogue.** Until 2026-09-02 it was not, so the picker highlighted
+  the first ElevenLabs row and an English workspace was told it used "Sarah" while every caller
+  heard Elliot. `test/voice-catalogue.test.ts` pins the round trip; the ids of the default entries
+  are the provider's own (`Elliot`, `nova`) because `dashboard/agents/new/actions.ts` writes
+  `resolveVoice(language).voiceId` into `agents.voice` at creation.
+- **Proving it end to end:** `npx vite-node --config vitest.config.ts scripts/verify-vapi-voices.mts`
+  creates a throwaway assistant, PATCHes every language × voice onto it, reads each back and deletes
+  it. Last run 2026-09-02: **21/21 accepted**. Two things it taught: Vapi stores `version: 2` back
+  as the string `"2"`, and it echoes defaults (`chunkPlan`, `speed`) we never sent — so compare
+  loosely and only on the keys you sent. It proves the config LANDS, not how a voice sounds; only
+  `provenCall` claims that.
+- **No audio preview — owner's decision, 2026-09-02.** Two attempts are now deleted: a
+  `render-voice-samples.mts` script (needed ElevenLabs + Azure keys nobody holds, and its output
+  directory never existed, so every `<audio>` in the old picker was silent) and an
+  `/api/voice-preview` route that proxied vendor clips. The clip a vendor publishes is generic
+  English, which is not what a Turkish business is judging, and the honest version costs two keys
+  and a build step for a feature nobody asked for. **The picker therefore carries the whole
+  argument in text** — description, humanness, `provenCall` — so none of those three may overstate.
+  Changing a voice is a save, not a deploy; the loop is pick → save → hear the next real call. Do
+  not reintroduce a player without first solving the per-language sample.
+
 ## Phone numbers
 
 - Provision: `POST /phone-number` with `{ provider: "vapi", numberDesiredAreaCode, assistantId }`.
@@ -144,6 +187,6 @@ post-hoc only (no pre-call gating besides in-memory rate limiting, which is inef
   same `ensureAssistantConfig` helper, so they stay consistent by construction.
 - **Any new assistant config field (tools, server, voice, transcriber, duration caps…) → add it to
   `buildAssistantConfigPatch` in `lib/vapi/assistantConfig.ts`**, not to individual call sites.
-  That single helper is where R-051 (voice/transcriber) and R-052 (duration caps) should land next.
+  R-051 (voice/transcriber) and R-052 (duration caps) already live there — follow them.
 - Any webhook change → preserve return-200-on-ignore semantics (Vapi retries on non-200; we rely
   on 200 + `ignored`/`rejected` JSON).

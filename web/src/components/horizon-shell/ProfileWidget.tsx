@@ -7,6 +7,7 @@ import GlobalSearch from './GlobalSearch';
 import NotificationsBell from './NotificationsBell';
 import HelpMenu from './HelpMenu';
 import { useProfileIdentity } from './useProfileIdentity';
+import DashboardLanguageSwitcher from '@/components/dashboard-i18n/DashboardLanguageSwitcher';
 
 interface ProfileWidgetProps {
   onToggleMobileNav?: () => void;
@@ -103,6 +104,8 @@ export default function ProfileWidget({ onToggleMobileNav }: ProfileWidgetProps)
         <GlobalSearch />
 
         <NotificationsBell />
+
+        <DashboardLanguageSwitcher />
 
         <button
           type="button"

@@ -15,6 +15,7 @@ import { isKnownChannel } from "@/lib/platform/channels";
 import PageHeader from "../PageHeader";
 import BarList, { type BarItem } from "../BarList";
 import TrendChart from "../charts/TrendChart";
+import OutcomeDonut from "../charts/OutcomeDonut";
 import Avatar from "../Avatar";
 import ChannelBadge from "../ChannelBadge";
 import { formatWhen, titleCase } from "../format";
@@ -378,7 +379,9 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
           </Surface>
           <Surface>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">By outcome</p>
-            <BarList
+            {/* Outcomes partition the window — every conversation lands in exactly one bucket —
+                so they read as shares of a whole, not as a ranking. */}
+            <OutcomeDonut
               items={Object.entries(agg.byIntent)
                 .sort((a, b) => b[1] - a[1])
                 .map(([intent, n]) => ({ key: intent, value: n, label: titleCase(intent) }))}

@@ -11,12 +11,13 @@ import {
   type UpdateAgentPromptOverrideResult,
 } from "@/app/(app)/dashboard/settings/_actions/agents";
 import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
-import { voicesForLanguage, voiceSamplePath } from "@/lib/voice/catalogue";
+import { HUMANNESS_LEGEND } from "@/lib/voice/catalogue";
 import { MODEL_TIERS, resolveModelTier } from "@/lib/llm/modelTiers";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import SaveButton, { useSavedFlash } from "../ui/SaveButton";
 import TimezoneField from "../TimezoneField";
+import VoicePicker from "./VoicePicker";
 import {
   ADDITIONAL_LANGUAGE_OPTIONS,
   AGENT_TYPES,
@@ -110,9 +111,6 @@ export default function SetupForm({
   // language re-offers the voices that speak it, and a choice that no longer applies falls back
   // to the new language's default rather than being carried across.
   const primaryCode = toLanguageCode(form.language) ?? "en";
-  const voiceOptions = React.useMemo(() => voicesForLanguage(primaryCode), [primaryCode]);
-  const selectedVoice =
-    voiceOptions.find((v) => v.id === form.voice) ?? voiceOptions[0] ?? null;
 
   const isDirty =
     form.language !== initial.language ||
@@ -307,67 +305,28 @@ export default function SetupForm({
 
           {/*
             The voice, chosen by the business rather than by us.
-            
+
             Three voices were tried on the first Turkish line before one was right, and every round
             cost a deploy. The person who can actually judge is the one whose customers hear it, so
-            the list is theirs — and the sample is what makes handing it over safe. Nobody picks a
-            voice here without hearing it.
+            the list is theirs — and handing it over is what makes the loop cheap: pick, save, hear
+            it on the next real call.
+
+            A listbox rather than the old stack of always-open cards (2026-09-02): the fact a reader
+            needs first is which voice their business is running right now, and a list of six cards
+            answered that last. `VoicePicker` also lists what each voice can speak and rates how
+            lifelike it is, so the choice is made on something more than a first name.
           */}
           <Field
             label="Voice"
-            hint={`Voices that speak ${primaryLanguageLabel}. Listen before you choose — this is what every caller hears.`}
+            hint={`Voices that speak ${primaryLanguageLabel} — this is what every caller hears. ${HUMANNESS_LEGEND}`}
           >
-            <div className="space-y-2">
-              {voiceOptions.map((v) => {
-                const checked = (selectedVoice?.id ?? null) === v.id;
-                return (
-                  <label
-                    key={v.id}
-                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
-                      checked
-                        ? "border-brand-500 bg-brand-50/60 dark:border-brand-400 dark:bg-brand-400/10"
-                        : "border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20"
-                    } ${paused ? "cursor-not-allowed opacity-60" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="voice"
-                      className="mt-1 h-4 w-4 shrink-0 text-brand-500 focus:ring-brand-500"
-                      checked={checked}
-                      disabled={paused}
-                      onChange={() => set("voice", v.id)}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-navy-700 dark:text-white">
-                          {v.label}
-                        </span>
-                        <span className="text-xs text-gray-400">{v.timbre}</span>
-                        {v.provenCall ? (
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                            Heard on a real call
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                        {v.description}
-                      </span>
-                      {/*
-                        A sample only when one has been rendered for this exact pair. The browser
-                        shows nothing if the file is absent, which is the honest outcome: a silent
-                        player is better than a control that promises audio and plays none.
-                      */}
-                      <audio
-                        className="mt-2 h-8 w-full max-w-[260px]"
-                        controls
-                        preload="none"
-                        src={voiceSamplePath(primaryCode, v.id)}
-                      />
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+            <VoicePicker
+              language={primaryCode}
+              languageLabel={primaryLanguageLabel}
+              value={form.voice}
+              onChange={(voiceId) => set("voice", voiceId)}
+              disabled={paused}
+            />
           </Field>
 
           {modelTiersEnabled ? (

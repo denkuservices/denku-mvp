@@ -9,6 +9,8 @@ import {
   artifactNotificationTemplate,
   type ArtifactKind,
 } from "@/lib/email/templates/artifactNotification";
+import { resolveOrgEmailLocale } from "@/lib/email/locale.server";
+import type { EmailLocale } from "@/lib/email/i18n";
 
 /**
  * R-008 — Notify the workspace owner when the AI captures a new ticket/appointment.
@@ -68,6 +70,7 @@ interface Recipient {
   email: string;
   orgName: string | null;
   callerPhone: string | null;
+  locale: EmailLocale;
 }
 
 /**
@@ -121,6 +124,7 @@ async function resolveRecipient(orgId: string, callId: string | null): Promise<R
     email,
     orgName: org?.name ?? null,
     callerPhone: call.data?.from_phone ?? null,
+    locale: await resolveOrgEmailLocale(orgId, email),
   };
 }
 
@@ -139,6 +143,7 @@ async function claimAndSend(params: {
   snippet: string | null;
   orgName: string | null;
   deepLink: string;
+  locale: EmailLocale;
 }): Promise<void> {
   const { table, id, orgId } = params;
 
@@ -165,6 +170,7 @@ async function claimAndSend(params: {
     snippet: params.snippet,
     deepLink: params.deepLink,
     orgName: params.orgName,
+    locale: params.locale,
   });
 
   const result = await sendArtifactNotificationEmail(params.recipient, { subject, html });
@@ -217,6 +223,7 @@ export async function notifyNewArtifactsForCall(callId: string, orgId: string): 
         snippet: cleanSnippet(t.description),
         orgName: recipient.orgName,
         deepLink: `${deepBase}/dashboard/tickets/${t.id}`,
+        locale: recipient.locale,
       });
     }
 
@@ -244,6 +251,7 @@ export async function notifyNewArtifactsForCall(callId: string, orgId: string): 
         deepLink: platformUxEnabled()
           ? `${deepBase}${appointmentHref(a.id)}`
           : `${deepBase}/dashboard/appointments`,
+        locale: recipient.locale,
       });
     }
   } catch (err) {
@@ -314,6 +322,7 @@ export async function notifyNewArtifactsForConversation(conversationId: string, 
         snippet: cleanSnippet(t.description),
         orgName: recipient.orgName,
         deepLink: `${deepBase}/dashboard/tickets/${t.id}`,
+        locale: recipient.locale,
       });
     }
 
@@ -338,6 +347,7 @@ export async function notifyNewArtifactsForConversation(conversationId: string, 
         deepLink: platformUxEnabled()
           ? `${deepBase}${appointmentHref(a.id)}`
           : `${deepBase}/dashboard/appointments`,
+        locale: recipient.locale,
       });
     }
   } catch (err) {

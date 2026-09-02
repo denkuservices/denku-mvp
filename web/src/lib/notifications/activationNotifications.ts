@@ -5,6 +5,7 @@ import { getBaseUrl } from "@/lib/utils/url";
 import { resolveOrgOwnerEmail } from "@/lib/notifications/recipient";
 import { sendOnce } from "@/lib/email/dispatch";
 import { aiLiveTemplate } from "@/lib/email/templates/aiLive";
+import { resolveOrgEmailLocale } from "@/lib/email/locale.server";
 
 /**
  * "Your AI is live" — sent once per workspace, when activation binds a real number.
@@ -37,6 +38,7 @@ export async function notifyAiLive(orgId: string, phoneNumberE164: string): Prom
       phoneNumberE164,
       orgName: org?.name ?? null,
       dashboardUrl: `${getBaseUrl()}/dashboard`,
+      locale: await resolveOrgEmailLocale(orgId, to),
     });
 
     await sendOnce({

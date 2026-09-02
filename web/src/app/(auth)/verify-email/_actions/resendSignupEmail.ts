@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/utils/url";
+import { resolveRequestEmailLocale } from "@/lib/email/locale.server";
 
 export type ResendSignupEmailResult =
   | { ok: true; message: string }
@@ -23,6 +24,7 @@ export async function resendSignupEmailAction(
 
   try {
     const supabase = await createSupabaseServerClient();
+    const locale = await resolveRequestEmailLocale();
 
     // Resend OTP code via Supabase
     // Names the callback for the same reason `sendCodeAction` does: whether the customer gets a
@@ -33,6 +35,7 @@ export async function resendSignupEmailAction(
       options: {
         shouldCreateUser: true,
         emailRedirectTo: `${getBaseUrl()}/auth/callback`,
+        data: { ui_locale: locale },
       },
     });
 
@@ -72,4 +75,3 @@ export async function resendSignupEmailAction(
     return { ok: false, error: "An unexpected error occurred. Please try again." };
   }
 }
-

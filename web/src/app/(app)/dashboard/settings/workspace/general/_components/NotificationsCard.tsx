@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { AlertCircle, Bell, CheckCircle2, Loader2, Mail, Save } from "lucide-react";
 import { useToast } from "@/components/ui/toast/ToastProvider";
+import { useDashboardLocale } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 import {
   FieldLabel,
   INPUT_WITH_ICON_CLASS,
@@ -82,6 +83,7 @@ export function NotificationsCard({
   canEdit: boolean;
 }) {
   const { success, error: toastError } = useToast();
+  const { translate } = useDashboardLocale();
   const [prefs, setPrefs] = useState<NotificationPrefs>(initial);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -165,7 +167,9 @@ export function NotificationsCard({
                     onChange={() => toggleThreshold(t)}
                     className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                   />
-                  {t}% of included minutes
+                  <span data-dashboard-no-translate="true">
+                    {translate(`${t}% of included minutes`)}
+                  </span>
                 </label>
               ))}
             </div>

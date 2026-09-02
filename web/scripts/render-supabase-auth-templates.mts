@@ -24,7 +24,8 @@ import { join } from "node:path";
 
 process.env.NEXT_PUBLIC_SITE_URL ||= "https://www.denku.io";
 
-const { renderEmail, codeBlock, linkFallback, notice } = await import("../src/lib/email/layout");
+const { renderEmail, linkFallback } = await import("../src/lib/email/layout");
+const { getOtpEmailHtml } = await import("../src/lib/email/templates");
 
 const CONFIRMATION_URL = "{{ .ConfirmationURL }}";
 const TOKEN = "{{ .Token }}";
@@ -32,85 +33,56 @@ const TOKEN = "{{ .Token }}";
 const outDir = join(process.cwd(), "..", "docs", "email", "supabase-auth");
 mkdirSync(outDir, { recursive: true });
 
-const files: Array<{ name: string; supabaseTemplate: string; html: string }> = [
-  {
-    name: "confirm-signup.html",
-    supabaseTemplate: "Confirm sign up",
-    html: renderEmail({
-      title: "Your Denku sign-up code",
-      preheader: "Enter this code to confirm your email and start setting up your AI.",
-      eyebrow: "Confirm your account",
-      heading: "Your sign-up code",
-      intro:
-        "Welcome to Denku. Enter this code on the confirmation screen and we'll take you straight to setting up the AI that answers for your business.",
-      blocks: [
-        codeBlock(TOKEN),
-        notice("This code expires in **1 hour** and can be used once.", "neutral"),
-      ],
-      reason:
-        "You're receiving this because this address was used to create a Denku account. If that wasn't you, ignore this email — nothing is activated until it's confirmed.",
-    }),
-  },
-  {
-    name: "magic-link-or-otp.html",
-    supabaseTemplate: "Magic link or OTP",
-    html: renderEmail({
-      title: "Your verification code — Denku",
-      preheader: `Your Denku verification code is ${TOKEN}. It expires in 1 hour.`,
-      eyebrow: "Verification code",
-      heading: "Your sign-in code",
-      intro: "Enter this code to confirm your email address:",
-      blocks: [
-        codeBlock(TOKEN),
-        notice("This code expires in **1 hour** and can be used once.", "neutral"),
-      ],
-      reason:
-        "You're receiving this because someone requested a verification code for this address on Denku. If it wasn't you, no action is needed — the code alone gives no access to an existing account.",
-    }),
-  },
-  {
-    name: "reset-password.html",
-    supabaseTemplate: "Reset Password",
-    html: renderEmail({
-      title: "Reset your password — Denku",
-      preheader: "Choose a new password for your Denku account. The link expires in 1 hour.",
-      eyebrow: "Account security",
-      heading: "Reset your password",
-      intro: "We received a request to reset the password for your Denku account.",
-      cta: { label: "Choose a new password", url: CONFIRMATION_URL },
-      postCta: [linkFallback(CONFIRMATION_URL)],
-      signoff:
-        "This link expires in **1 hour**. If you didn't ask for it, you can ignore this email — your current password stays active.",
-      reason:
-        "You're receiving this because a password reset was requested for this address. This is a security email, not marketing.",
-    }),
-  },
-  {
-    name: "change-email.html",
-    supabaseTemplate: "Change Email Address",
-    html: renderEmail({
-      title: "Confirm your new email — Denku",
-      preheader: "Confirm this address to finish moving your Denku account to it.",
-      eyebrow: "Account security",
-      heading: "Confirm your new email address",
-      intro:
-        "A request was made to change the email address on your Denku account to this one. Confirm it to finish the change.",
-      cta: { label: "Confirm this address", url: CONFIRMATION_URL },
-      postCta: [linkFallback(CONFIRMATION_URL)],
-      blocks: [
-        notice(
-          "**If you didn't request this**, do not confirm — and reset your password, because someone may have access to your account.",
-          "critical"
-        ),
-      ],
-      reason:
-        "You're receiving this because this address was given as the new email for a Denku account.",
-    }),
-  },
+type Locale = "en" | "es" | "de" | "tr";
+const locales: Locale[] = ["tr", "es", "de", "en"];
+const SUBJECTS = {
+  code: '{{ if eq .Data.ui_locale "tr" }}Doğrulama kodunuz — Denku{{ else if eq .Data.ui_locale "es" }}Tu código de verificación — Denku{{ else if eq .Data.ui_locale "de" }}Ihr Bestätigungscode – Denku{{ else }}Your verification code — Denku{{ end }}',
+  reset: '{{ if eq .Data.ui_locale "tr" }}Parolanızı sıfırlayın — Denku{{ else if eq .Data.ui_locale "es" }}Restablece tu contraseña — Denku{{ else if eq .Data.ui_locale "de" }}Passwort zurücksetzen – Denku{{ else }}Reset your password — Denku{{ end }}',
+  change: '{{ if eq .Data.ui_locale "tr" }}Yeni e-postanızı doğrulayın — Denku{{ else if eq .Data.ui_locale "es" }}Confirma tu nuevo correo — Denku{{ else if eq .Data.ui_locale "de" }}Neue E-Mail bestätigen – Denku{{ else }}Confirm new email — Denku{{ end }}',
+} as const;
+
+function byMetadata(render: (locale: Locale) => string): string {
+  return locales
+    .map((locale, index) => {
+      const condition = index === 0
+        ? '{{ if eq .Data.ui_locale "tr" }}'
+        : locale === "en"
+          ? "{{ else }}"
+          : `{{ else if eq .Data.ui_locale "${locale}" }}`;
+      return `${condition}\n${render(locale)}`;
+    })
+    .join("\n") + "\n{{ end }}";
+}
+
+const resetCopy = {
+  en: ["Reset your password — Denku", "Choose a new password for your Denku account. The link expires in 1 hour.", "Account security", "Reset your password", "We received a request to reset the password for your Denku account.", "Choose a new password", "This link expires in **1 hour**. If you didn't ask for it, you can ignore this email — your current password stays active.", "You're receiving this because a password reset was requested for this address. This is a security email, not marketing."],
+  es: ["Restablece tu contraseña — Denku", "Elige una nueva contraseña para tu cuenta Denku. El enlace caduca en 1 hora.", "Seguridad de la cuenta", "Restablece tu contraseña", "Recibimos una solicitud para restablecer la contraseña de tu cuenta Denku.", "Elegir nueva contraseña", "Este enlace caduca en **1 hora**. Si no lo solicitaste, ignora el correo; tu contraseña actual seguirá activa.", "Recibes este correo porque se solicitó restablecer la contraseña de esta dirección. Es un correo de seguridad, no de marketing."],
+  de: ["Passwort zurücksetzen – Denku", "Wählen Sie ein neues Passwort für Ihr Denku-Konto. Der Link läuft in 1 Stunde ab.", "Kontosicherheit", "Passwort zurücksetzen", "Wir haben eine Anfrage zum Zurücksetzen des Passworts für Ihr Denku-Konto erhalten.", "Neues Passwort wählen", "Dieser Link läuft in **1 Stunde** ab. Wenn Sie ihn nicht angefordert haben, ignorieren Sie diese E-Mail – Ihr aktuelles Passwort bleibt aktiv.", "Sie erhalten diese E-Mail, weil für diese Adresse ein Zurücksetzen des Passworts angefordert wurde. Dies ist eine Sicherheits-E-Mail, keine Werbung."],
+  tr: ["Parolanızı sıfırlayın — Denku", "Denku hesabınız için yeni bir parola seçin. Bağlantı 1 saat içinde sona erer.", "Hesap güvenliği", "Parolanızı sıfırlayın", "Denku hesabınızın parolasını sıfırlama isteği aldık.", "Yeni parola seç", "Bu bağlantı **1 saat** içinde sona erer. Siz istemediyseniz e-postayı yok sayabilirsiniz; mevcut parolanız etkin kalır.", "Bu e-postayı bu adres için parola sıfırlama isteği yapıldığı için alıyorsunuz. Bu bir güvenlik e-postasıdır, pazarlama değildir."],
+} as const;
+
+const changeCopy = {
+  en: ["Confirm your new email — Denku", "Confirm this address to finish moving your Denku account to it.", "Account security", "Confirm your new email address", "A request was made to change the email address on your Denku account to this one. Confirm it to finish the change.", "Confirm this address", "You're receiving this because this address was given as the new email for a Denku account."],
+  es: ["Confirma tu nuevo correo — Denku", "Confirma esta dirección para terminar de trasladar tu cuenta Denku.", "Seguridad de la cuenta", "Confirma tu nueva dirección de correo", "Se solicitó cambiar el correo de tu cuenta Denku por esta dirección. Confírmala para completar el cambio.", "Confirmar esta dirección", "Recibes este correo porque esta dirección se indicó como el nuevo correo de una cuenta Denku."],
+  de: ["Neue E-Mail-Adresse bestätigen – Denku", "Bestätigen Sie diese Adresse, um Ihr Denku-Konto darauf umzustellen.", "Kontosicherheit", "Neue E-Mail-Adresse bestätigen", "Für Ihr Denku-Konto wurde ein Wechsel zu dieser E-Mail-Adresse angefordert. Bestätigen Sie sie, um die Änderung abzuschließen.", "Adresse bestätigen", "Sie erhalten diese E-Mail, weil diese Adresse als neue E-Mail-Adresse für ein Denku-Konto angegeben wurde."],
+  tr: ["Yeni e-posta adresinizi doğrulayın — Denku", "Denku hesabınızı bu adrese taşımayı tamamlamak için adresi doğrulayın.", "Hesap güvenliği", "Yeni e-posta adresinizi doğrulayın", "Denku hesabınızın e-posta adresini bu adresle değiştirme isteği yapıldı. Değişikliği tamamlamak için doğrulayın.", "Bu adresi doğrula", "Bu e-postayı bu adres bir Denku hesabının yeni e-posta adresi olarak verildiği için alıyorsunuz."],
+} as const;
+
+const renderLinkMail = (locale: Locale, c: readonly string[]) => renderEmail({
+  locale, title: c[0], preheader: c[1], eyebrow: c[2], heading: c[3], intro: c[4],
+  cta: { label: c[5], url: CONFIRMATION_URL }, postCta: [linkFallback(CONFIRMATION_URL, locale)], reason: c[c.length - 1],
+});
+
+const files: Array<{ name: string; supabaseTemplate: string; subject: string; html: string }> = [
+  { name: "confirm-signup.html", supabaseTemplate: "Confirm sign up", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale })) },
+  { name: "magic-link-or-otp.html", supabaseTemplate: "Magic link or OTP", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale })) },
+  { name: "reset-password.html", supabaseTemplate: "Reset Password", subject: SUBJECTS.reset, html: byMetadata((locale) => renderLinkMail(locale, resetCopy[locale])) },
+  { name: "change-email.html", supabaseTemplate: "Change Email Address", subject: SUBJECTS.change, html: byMetadata((locale) => renderLinkMail(locale, changeCopy[locale])) },
 ];
 
 for (const file of files) {
-  writeFileSync(join(outDir, file.name), file.html, "utf8");
+  if (file.subject.length > 255) throw new Error(`${file.name} subject exceeds Supabase's 255-character limit`);
+  writeFileSync(join(outDir, file.name), file.html.replace(/[ \t]+$/gm, ""), "utf8");
 }
 
 const readme = `# Supabase Auth email templates
@@ -142,10 +114,11 @@ file into **Message body** and set the subject:
 
 | File | Supabase template | Subject |
 |---|---|---|
-| \`confirm-signup.html\` | Confirm sign up | Your Denku sign-up code |
-| \`magic-link-or-otp.html\` | Magic link or OTP | Your verification code — Denku |
-| \`reset-password.html\` | Reset password | Reset your password — Denku |
-| \`change-email.html\` | Change email address | Confirm your new email — Denku |
+${files.map((file) => `| \`${file.name}\` | ${file.supabaseTemplate} | \`${file.subject}\` |`).join("\n")}
+
+Each body branches on \`.Data.ui_locale\` (\`en\`, \`es\`, \`de\`, \`tr\`; unknown values fall
+back to English). Use
+the same Go-template conditional in the Supabase **Subject** field.
 
 **Invite user** and **Reauthentication** are deliberately not provided: Denku sends its own
 workspace invitations through Resend (\`lib/email/templates/memberInvite.ts\`), and nothing in

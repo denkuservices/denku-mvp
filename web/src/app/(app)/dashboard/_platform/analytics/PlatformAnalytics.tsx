@@ -13,6 +13,7 @@ import BarList, { type BarItem } from "../BarList";
 import ChannelBadge from "../ChannelBadge";
 import TrendChart from "../charts/TrendChart";
 import HourlyChart from "../charts/HourlyChart";
+import OutcomeDonut, { type OutcomeSlice } from "../charts/OutcomeDonut";
 import { titleCase } from "../format";
 import { Surface, SectionHeader, Pill } from "../ui";
 import RequestsAnalytics from "./RequestsAnalytics";
@@ -68,7 +69,7 @@ export default async function PlatformAnalytics({
     label: e.name,
   }));
 
-  const intentItems: BarItem[] = Object.entries(agg.byIntent)
+  const intentItems: OutcomeSlice[] = Object.entries(agg.byIntent)
     .sort((a, b) => b[1] - a[1])
     .map(([intent, n]) => ({ key: intent, value: n, label: titleCase(intent) }));
 
@@ -157,7 +158,8 @@ export default async function PlatformAnalytics({
         </Surface>
         <Surface>
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">By outcome</p>
-          <BarList items={intentItems} emptyLabel="No outcomes recorded" />
+          {/* Shares of one whole, unlike the two rankings beside it — see OutcomeDonut. */}
+          <OutcomeDonut items={intentItems} emptyLabel="No outcomes recorded" />
         </Surface>
       </div>
 

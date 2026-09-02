@@ -1,5 +1,17 @@
 import type { ContactListView } from "@/lib/platform/readModel/contacts";
 import { EMPTY_INSIGHT, type ContactInsight } from "@/lib/platform/readModel/contactInsights";
+export {
+  CONTACTS_PAGE_SIZE,
+  SEGMENTS,
+  SORTS,
+  contactsHref,
+  isSegment,
+  isSort,
+  parseContactsQuery,
+  type ContactsQuery,
+  type SegmentValue,
+  type SortValue,
+} from "./contactQuery";
 
 /**
  * The Contacts list, as data rules rather than JSX.
@@ -17,47 +29,6 @@ export function withInsights(
   insights: Map<string, ContactInsight>
 ): ContactRow[] {
   return contacts.map((c) => ({ ...c, insight: insights.get(c.id) ?? EMPTY_INSIGHT }));
-}
-
-/* ------------------------------------------------------------------- segments */
-
-export const SEGMENTS = [
-  {
-    value: "",
-    label: "All",
-    hint: "Everyone your AI team has spoken to.",
-  },
-  {
-    value: "attention",
-    label: "Needs attention",
-    hint: "Has at least one request still open.",
-  },
-  {
-    value: "upcoming",
-    label: "Upcoming",
-    hint: "Has an appointment still to come.",
-  },
-  {
-    value: "new",
-    label: "New",
-    hint: "Heard from, not yet followed up.",
-  },
-  {
-    value: "qualified",
-    label: "Qualified",
-    hint: "Worth your team's time.",
-  },
-  {
-    value: "quiet",
-    label: "Gone quiet",
-    hint: "Nothing from them in 30 days, and nothing open.",
-  },
-] as const;
-
-export type SegmentValue = (typeof SEGMENTS)[number]["value"];
-
-export function isSegment(value: string): value is SegmentValue {
-  return SEGMENTS.some((s) => s.value === value);
 }
 
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
@@ -97,22 +68,6 @@ export function matchesSearch(row: ContactRow, term: string): boolean {
     .join(" ")
     .toLowerCase()
     .includes(q);
-}
-
-/* -------------------------------------------------------------------- sorting */
-
-export const SORTS = [
-  { value: "recent", label: "Recent activity" },
-  { value: "attention", label: "Most open requests" },
-  { value: "upcoming", label: "Soonest appointment" },
-  { value: "calls", label: "Most calls" },
-  { value: "name", label: "Name (A–Z)" },
-] as const;
-
-export type SortValue = (typeof SORTS)[number]["value"];
-
-export function isSort(value: string): value is SortValue {
-  return SORTS.some((s) => s.value === value);
 }
 
 function time(iso: string | null): number {
@@ -156,43 +111,6 @@ export function sortRows(rows: ContactRow[], sort: string): ContactRow[] {
     default:
       return copy.sort(byRecent);
   }
-}
-
-/* ---------------------------------------------------------------------- shape */
-
-export interface ContactsQuery {
-  q: string;
-  segment: string;
-  sort: string;
-  page: number;
-}
-
-export const CONTACTS_PAGE_SIZE = 25;
-
-export function parseContactsQuery(params: Record<string, string | undefined>): ContactsQuery {
-  const segment = (params.segment ?? "").trim();
-  const sort = (params.sort ?? "").trim();
-  const page = Number.parseInt(params.page ?? "1", 10);
-  return {
-    q: (params.q ?? "").trim().slice(0, 120),
-    segment: isSegment(segment) ? segment : "",
-    sort: isSort(sort) ? sort : "recent",
-    page: Number.isFinite(page) && page > 0 ? page : 1,
-  };
-}
-
-/** Build a querystring that preserves everything except what the caller overrides. */
-export function contactsHref(current: ContactsQuery, patch: Partial<ContactsQuery>): string {
-  const next = { ...current, ...patch };
-  const params = new URLSearchParams();
-  if (next.q) params.set("q", next.q);
-  if (next.segment) params.set("segment", next.segment);
-  if (next.sort && next.sort !== "recent") params.set("sort", next.sort);
-  // A page reset is the right default for every filter change, so `page` is only kept when the
-  // caller explicitly asks for one.
-  if (next.page > 1) params.set("page", String(next.page));
-  const qs = params.toString();
-  return `/dashboard/crm/contacts${qs ? `?${qs}` : ""}`;
 }
 
 /* ------------------------------------------------------------------------ csv */

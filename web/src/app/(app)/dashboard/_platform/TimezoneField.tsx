@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CONTROL_CLASS } from "./ui";
+import { useDashboardLocale } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 
 /**
  * Pick the timezone, starting from the one the browser is already in.
@@ -71,9 +72,9 @@ function listZones(): string[] {
   return FALLBACK_ZONES;
 }
 
-function localTimeIn(zone: string): string | null {
+function localTimeIn(zone: string, locale: string): string | null {
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(locale, {
       timeZone: zone,
       hour: "2-digit",
       minute: "2-digit",
@@ -103,6 +104,7 @@ export default function TimezoneField({
   disabled?: boolean;
   label?: string;
 }) {
+  const { locale, translate } = useDashboardLocale();
   const controlled = value !== undefined;
   // Server and first client render must agree, so detection happens after mount. Until then the
   // saved value, or UTC, stands.
@@ -134,12 +136,18 @@ export default function TimezoneField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const now = localTimeIn(zone);
+  const localeTag = locale === "tr" ? "tr-TR" : locale === "es" ? "es-ES" : locale === "de" ? "de-DE" : "en-US";
+  const now = localTimeIn(zone, localeTag);
+  const timezoneHelp = [
+    "Used whenever it says “today”, “tomorrow” or books a time.",
+    now ? `It is ${now} there now.` : "",
+    detected && detected === zone ? "Detected from your browser." : "",
+  ].filter(Boolean).join(" ");
 
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-navy-700 dark:text-white">
-        {label}
+        {translate(label)}
       </label>
       <select
         id={id}
@@ -155,10 +163,8 @@ export default function TimezoneField({
           </option>
         ))}
       </select>
-      <p className="mt-1 text-xs text-gray-500">
-        Used whenever it says &ldquo;today&rdquo;, &ldquo;tomorrow&rdquo; or books a time.
-        {now ? ` It is ${now} there now.` : ""}
-        {detected && detected === zone ? " Detected from your browser." : ""}
+      <p className="mt-1 text-xs text-gray-500" data-dashboard-no-translate="true">
+        {translate(timezoneHelp)}
       </p>
     </div>
   );

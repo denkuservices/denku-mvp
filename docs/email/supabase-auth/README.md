@@ -27,10 +27,14 @@ file into **Message body** and set the subject:
 
 | File | Supabase template | Subject |
 |---|---|---|
-| `confirm-signup.html` | Confirm sign up | Your Denku sign-up code |
-| `magic-link-or-otp.html` | Magic link or OTP | Your verification code — Denku |
-| `reset-password.html` | Reset password | Reset your password — Denku |
-| `change-email.html` | Change email address | Confirm your new email — Denku |
+| `confirm-signup.html` | Confirm sign up | `{{ if eq .Data.ui_locale "tr" }}Doğrulama kodunuz — Denku{{ else if eq .Data.ui_locale "es" }}Tu código de verificación — Denku{{ else if eq .Data.ui_locale "de" }}Ihr Bestätigungscode – Denku{{ else }}Your verification code — Denku{{ end }}` |
+| `magic-link-or-otp.html` | Magic link or OTP | `{{ if eq .Data.ui_locale "tr" }}Doğrulama kodunuz — Denku{{ else if eq .Data.ui_locale "es" }}Tu código de verificación — Denku{{ else if eq .Data.ui_locale "de" }}Ihr Bestätigungscode – Denku{{ else }}Your verification code — Denku{{ end }}` |
+| `reset-password.html` | Reset Password | `{{ if eq .Data.ui_locale "tr" }}Parolanızı sıfırlayın — Denku{{ else if eq .Data.ui_locale "es" }}Restablece tu contraseña — Denku{{ else if eq .Data.ui_locale "de" }}Passwort zurücksetzen – Denku{{ else }}Reset your password — Denku{{ end }}` |
+| `change-email.html` | Change Email Address | `{{ if eq .Data.ui_locale "tr" }}Yeni e-postanızı doğrulayın — Denku{{ else if eq .Data.ui_locale "es" }}Confirma tu nuevo correo — Denku{{ else if eq .Data.ui_locale "de" }}Neue E-Mail bestätigen – Denku{{ else }}Confirm new email — Denku{{ end }}` |
+
+Each body branches on `.Data.ui_locale` (`en`, `es`, `de`, `tr`; unknown values fall
+back to English). Use
+the same Go-template conditional in the Supabase **Subject** field.
 
 **Invite user** and **Reauthentication** are deliberately not provided: Denku sends its own
 workspace invitations through Resend (`lib/email/templates/memberInvite.ts`), and nothing in

@@ -35,7 +35,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   notifyUsageAlerts: true,
   notifyBillingEvents: true,
   notificationEmail: null,
-  usageAlertThresholds: [50, 75, 90],
+  usageAlertThresholds: [75, 90],
 };
 
 /** The thresholds a customer may choose between. */

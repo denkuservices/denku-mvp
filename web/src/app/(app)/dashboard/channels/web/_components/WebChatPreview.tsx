@@ -3,6 +3,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import { DEFAULT_THEME, type WebChatTheme } from "@/lib/webchat/theme";
+import { useDashboardLocale } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 
 /**
  * The widget, as the owner's own visitors will see it — repainting as they choose colours.
@@ -45,6 +46,7 @@ export default function WebChatPreview({
    */
   reloadKey?: number;
 }) {
+  const { locale } = useDashboardLocale();
   const frame = React.useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = React.useState(false);
 
@@ -80,7 +82,7 @@ export default function WebChatPreview({
             ref={frame}
             key={reloadKey}
             title="Web chat preview"
-            src={`${origin}/embed/chat?k=${encodeURIComponent(siteKey)}`}
+            src={`${origin}/embed/chat?k=${encodeURIComponent(siteKey)}&locale=${locale}`}
             onLoad={() => setReady(true)}
             className="block h-[460px] w-full bg-white"
           />

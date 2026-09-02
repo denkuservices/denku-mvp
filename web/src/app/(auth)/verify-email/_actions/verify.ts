@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/utils/url";
+import { resolveRequestEmailLocale } from "@/lib/email/locale.server";
 
 export type VerifyOtpResult =
   | { ok: true; needsPassword: boolean }
@@ -24,6 +25,9 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
     return { ok: false, error: "Verification failed. Please try again." };
   }
 
+  const locale = await resolveRequestEmailLocale();
+  await supabase.auth.updateUser({ data: { ui_locale: locale } });
+
   // When using OTP sign-in with shouldCreateUser: true, user is created without password
   // So user always needs to set password after OTP verification
   // We no longer depend on email_confirmed_at via link; OTP is primary verification
@@ -32,6 +36,7 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
 
 export async function resendCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createSupabaseServerClient();
+  const locale = await resolveRequestEmailLocale();
 
   const baseUrl = getBaseUrl();
   const emailRedirectTo = `${baseUrl}/auth/callback`;
@@ -42,6 +47,7 @@ export async function resendCodeAction(email: string): Promise<{ ok: boolean; er
     options: {
       emailRedirectTo,
       shouldCreateUser: true,
+      data: { ui_locale: locale },
     },
   });
 

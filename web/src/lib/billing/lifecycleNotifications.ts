@@ -11,6 +11,8 @@ import { paymentFailedTemplate } from "@/lib/email/templates/paymentFailed";
 import { subscriptionCanceledTemplate } from "@/lib/email/templates/subscriptionCanceled";
 import { addonPurchasedTemplate, type AddonKey } from "@/lib/email/templates/addonPurchased";
 import { workspaceResumedTemplate, type ResumeReason } from "@/lib/email/templates/workspaceResumed";
+import { resolveOrgEmailLocale } from "@/lib/email/locale.server";
+import { emailText, type EmailLocale } from "@/lib/email/i18n";
 
 /**
  * The billing lifecycle emails — purchase, receipt, dunning, cancellation, add-ons, and
@@ -37,6 +39,7 @@ const onboardingUrl = () => `${getBaseUrl()}/onboarding`;
 interface OrgContact {
   email: string;
   orgName: string | null;
+  locale: EmailLocale;
 }
 
 /** Recipient + display name for an org, or null when we have nobody to write to. */
@@ -50,7 +53,7 @@ async function orgContact(orgId: string): Promise<OrgContact | null> {
     .eq("id", orgId)
     .maybeSingle<{ name: string | null }>();
 
-  return { email, orgName: org?.name ?? null };
+  return { email, orgName: org?.name ?? null, locale: await resolveOrgEmailLocale(orgId, email) };
 }
 
 /**
@@ -170,7 +173,10 @@ export async function notifyPlanActivated(
       orgName: contact.orgName,
       invoiceUrl: params.invoiceUrl ?? null,
       ctaUrl: live ? dashboardUrl() : onboardingUrl(),
-      ctaLabel: live ? "Open your dashboard" : "Continue setup",
+      ctaLabel: live
+        ? emailText(contact.locale, { en: "Open your dashboard", es: "Abrir el panel", de: "Dashboard öffnen", tr: "Kontrol panelini aç" })
+        : undefined,
+      locale: contact.locale,
     });
 
     await sendOnce({
@@ -219,6 +225,7 @@ export async function notifyPaymentReceipt(
       orgName: contact.orgName,
       invoiceUrl: params.invoiceUrl ?? null,
       billingUrl: billingUrl(),
+      locale: contact.locale,
     });
 
     await sendOnce({
@@ -268,6 +275,7 @@ export async function notifyPaymentFailed(
       orgName: contact.orgName,
       invoiceUrl: params.invoiceUrl ?? null,
       billingUrl: billingUrl(),
+      locale: contact.locale,
     });
 
     await sendOnce({
@@ -316,6 +324,7 @@ export async function notifySubscriptionCanceled(
       effectiveAt: params.effectiveAt ?? null,
       orgName: contact.orgName,
       billingUrl: billingUrl(),
+      locale: contact.locale,
     });
 
     await sendOnce({
@@ -364,6 +373,7 @@ export async function notifyAddonChanged(
       effectiveTotal: params.effectiveTotal ?? null,
       orgName: contact.orgName,
       billingUrl: billingUrl(),
+      locale: contact.locale,
     });
 
     await sendOnce({
@@ -402,6 +412,7 @@ export async function notifyWorkspaceResumed(
       reason: params.reason,
       orgName: contact.orgName,
       dashboardUrl: dashboardUrl(),
+      locale: contact.locale,
     });
 
     await sendOnce({

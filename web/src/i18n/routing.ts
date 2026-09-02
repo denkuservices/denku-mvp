@@ -8,8 +8,8 @@ import { defineRouting } from "next-intl/routing";
  * the site already has — existing links, the sitemap and anything already indexed
  * keep working — while giving the other three languages their own crawlable paths.
  *
- * Only the marketing group is localised. Auth, onboarding, the dashboard and the
- * API stay outside `[locale]` and are unaffected.
+ * Marketing uses locale-prefixed routes. The authenticated dashboard stays outside
+ * `[locale]` and reads the same locale from its persisted cookie/profile preference.
  */
 export const routing = defineRouting({
   locales: ["en", "es", "de", "tr"],

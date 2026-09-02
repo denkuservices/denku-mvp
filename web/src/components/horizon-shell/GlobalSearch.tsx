@@ -246,7 +246,7 @@ export default function GlobalSearch() {
                             className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 dark:text-white/40"
                             aria-hidden="true"
                           />
-                          <span className="min-w-0 flex-1">
+                          <span className="min-w-0 flex-1" data-dashboard-user-content="true">
                             <span className="block truncate text-sm font-medium text-navy-700 dark:text-white">
                               {hit.title}
                             </span>
@@ -257,7 +257,7 @@ export default function GlobalSearch() {
                             )}
                           </span>
                           {hit.meta && (
-                            <span className="shrink-0 pt-0.5 text-[11px] text-gray-400 dark:text-white/40">
+                            <span className="shrink-0 pt-0.5 text-[11px] text-gray-400 dark:text-white/40" data-dashboard-user-content="true">
                               {hit.meta}
                             </span>
                           )}
