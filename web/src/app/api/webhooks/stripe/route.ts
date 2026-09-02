@@ -3,7 +3,8 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { pauseOrgBilling, resumeOrgBilling } from "@/lib/billing/pause";
-import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
+import { readCompletedCheckout } from "@/lib/billing/completedCheckout";
+import { isVoicePlanCode } from "@/lib/billing/chatPlanKeys";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 import {
   notifyPlanActivated,
@@ -237,11 +238,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Extract metadata
-      const orgId = session.metadata?.org_id;
-      const planCode = session.metadata?.plan_code?.toLowerCase();
+      // What this session bought — one shared reader across all four activation paths, so a chat
+      // purchase (which carries no plan code) cannot be accepted here and refused elsewhere.
+      const purchase = readCompletedCheckout(session.metadata);
+      const orgId = purchase.orgId;
+      const planCode = purchase.voicePlanCode;
 
-      if (!orgId || !planCode) {
+      if (!orgId || (!purchase.ok && purchase.reason !== "invalid_plan")) {
         logEvent({
           tag: "[BILLING][WEBHOOK][CHECKOUT_MISSING_METADATA]",
           ts: Date.now(),
@@ -259,8 +262,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Validate plan_code
-      if (!isActivatablePlanCode(planCode)) {
+      // A plan code we do not recognise. Same refusal, same 200 — this is a payment Stripe has
+      // already taken, so it must not become a retry loop.
+      if (purchase.reason === "invalid_plan") {
         logEvent({
           tag: "[BILLING][WEBHOOK][CHECKOUT_INVALID_PLAN]",
           ts: Date.now(),
@@ -278,17 +282,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Write to org_plan_overrides (idempotent upsert)
-      const { error: overrideError } = await supabaseAdmin
-        .from("org_plan_overrides")
-        .upsert(
-          {
-            org_id: orgId,
-            plan_code: planCode,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "org_id" }
-        );
+      /**
+       * Only a VOICE purchase writes a plan. A chat purchase leaves `plan_code` null, which is
+       * the truth: the workspace has no phone service. It used to write the fictional `chat_only`
+       * so the column would not be empty.
+       */
+      const { error: overrideError } = planCode
+        ? await supabaseAdmin
+            .from("org_plan_overrides")
+            .upsert(
+              {
+                org_id: orgId,
+                plan_code: planCode,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "org_id" }
+            )
+        : { error: null };
 
       if (overrideError) {
         logEvent({
@@ -319,7 +329,7 @@ export async function POST(req: NextRequest) {
       //
       // Idempotent, and never throws: this webhook is for a payment Stripe has already taken,
       // so a failure here must be logged and repaired, not turned into a retry loop.
-      const chatAddonKey = session.metadata?.chat_addon_key;
+      const chatAddonKey = purchase.chatAddonKey;
       if (chatAddonKey) {
         const recorded = await recordChatPurchase(orgId, chatAddonKey);
         logEvent({
@@ -369,10 +379,29 @@ export async function POST(req: NextRequest) {
       // Purchase confirmation to the owner. Deduped on the session id (Stripe sends both
       // `completed` and `async_payment_succeeded` for one purchase) and never throws —
       // the money has already moved, so nothing here may turn this into a retry.
-      await notifyPlanActivated(orgId, {
-        planCode,
-        checkoutSessionId: session.id,
-      });
+      if (planCode) {
+        await notifyPlanActivated(orgId, {
+          planCode,
+          checkoutSessionId: session.id,
+        });
+      } else {
+        /**
+         * A chat purchase has no confirmation email yet, and this is the honest gap rather than a
+         * hidden one. `notifyPlanActivated` renders from `billing_plan_catalog`, which describes
+         * voice plans — minutes, concurrency, a phone number. It used to be handed `chat_only` and
+         * would cheerfully send a customer a receipt for a $0 plan with no minutes. Saying nothing
+         * is better than saying that; saying the right thing is a template that does not exist.
+         */
+        logEvent({
+          tag: "[BILLING][WEBHOOK][CHAT_PURCHASE][NO_RECEIPT_EMAIL]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: orgId,
+          severity: "info",
+          details: { session_id: session.id, addon_key: chatAddonKey },
+        });
+      }
 
       // Return 200 OK
       return NextResponse.json({ received: true });
@@ -454,11 +483,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Validate plan_code. Kept in step with the other activation paths. No chat write here:
-      // this handler reads metadata off the SUBSCRIPTION, and the chat checkout sets metadata
-      // on the session, so there is no `chat_addon_key` to act on — a write would be code that
-      // cannot run.
-      if (!isActivatablePlanCode(planCode)) {
+      /**
+       * A VOICE plan is the only thing this handler can activate.
+       *
+       * It reads metadata off the SUBSCRIPTION, and the chat checkout sets its metadata on the
+       * session — so there is no `chat_addon_key` here to act on, and a chat tier can never
+       * legitimately arrive through this path. `isActivatablePlanCode` would also have accepted
+       * the retired `chat_only`, which is now exactly the value that must not create a plan.
+       */
+      if (!isVoicePlanCode(planCode ?? "")) {
         logEvent({
           tag: "[BILLING][WEBHOOK][SUBSCRIPTION_INVALID_PLAN]",
           ts: Date.now(),

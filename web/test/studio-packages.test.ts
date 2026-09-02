@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
+import { readCompletedCheckout } from "@/lib/billing/completedCheckout";
 import path from "node:path";
 
 // The transport registry imports the Telegram transport, which reaches the service-role client,
@@ -20,7 +21,7 @@ import {
   isVoicePlanCode,
   isActivatablePlanCode,
   VOICE_PLAN_CODES,
-  CHAT_ONLY_PLAN_CODE,
+  RETIRED_CHAT_ONLY_PLAN_CODE,
 } from "@/lib/billing/chatPlanKeys";
 
 /**
@@ -191,16 +192,16 @@ describe("chat plan keys", () => {
   it("knows which plans come with a phone line", () => {
     expect([...VOICE_PLAN_CODES]).toEqual(["starter", "growth", "scale"]);
     for (const code of VOICE_PLAN_CODES) expect(isVoicePlanCode(code)).toBe(true);
-    expect(isVoicePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    expect(isVoicePlanCode(RETIRED_CHAT_ONLY_PLAN_CODE)).toBe(false);
     expect(isVoicePlanCode("enterprise")).toBe(false);
   });
 
-  it("lets a completed checkout activate chat-only, but never a plan switch", () => {
+  it("still accepts the retired chat-only code on the way in, but never offers or switches to it", () => {
     // The webhook and the redirect fallback must accept `chat_only` — that is how a chat
     // purchase lands. The plan-change route must not: moving an existing workspace onto it
     // would strand the phone number it is already paying for.
-    expect(isActivatablePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(true);
-    expect(isVoicePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    expect(isActivatablePlanCode(RETIRED_CHAT_ONLY_PLAN_CODE)).toBe(true);
+    expect(isVoicePlanCode(RETIRED_CHAT_ONLY_PLAN_CODE)).toBe(false);
     for (const code of VOICE_PLAN_CODES) expect(isActivatablePlanCode(code)).toBe(true);
     expect(isActivatablePlanCode("nonsense")).toBe(false);
   });
@@ -209,7 +210,7 @@ describe("chat plan keys", () => {
     // It carries zero minutes, zero concurrency and zero numbers. Offered beside the voice
     // plans it is a $0 card a paying customer could click to downgrade themselves out of
     // their phone service.
-    expect(isOfferablePlanCode(CHAT_ONLY_PLAN_CODE)).toBe(false);
+    expect(isOfferablePlanCode(RETIRED_CHAT_ONLY_PLAN_CODE)).toBe(false);
     for (const code of ["starter", "growth", "scale"]) {
       expect(isOfferablePlanCode(code), code).toBe(true);
     }
@@ -252,5 +253,52 @@ describe("refuseChatPurchase", () => {
     expect(
       refuseChatPurchase({ addonKey: "chat_basic", qty: 0, isIncreasing: false, otherChatQty: 1 })
     ).toBeNull();
+  });
+});
+
+describe("what a completed checkout bought", () => {
+  /**
+   * The four activation paths — webhook, onboarding success page, /checkout/complete and
+   * /stripe/sync-checkout — must agree completely. A purchase that activates on one and is
+   * refused on another is a customer charged for something they did not receive, which is why
+   * this decision is one function rather than four copies of a plan-code check.
+   */
+  it("activates a voice purchase", () => {
+    const out = readCompletedCheckout({ org_id: "o1", plan_code: "growth" });
+    expect(out.ok).toBe(true);
+    expect(out.voicePlanCode).toBe("growth");
+    expect(out.chatAddonKey).toBeNull();
+  });
+
+  it("activates a chat purchase that carries no plan code at all", () => {
+    // The point of the change: chat no longer needs a fictional voice plan to be activatable.
+    const out = readCompletedCheckout({ org_id: "o1", chat_addon_key: "chat_basic" });
+    expect(out.ok).toBe(true);
+    expect(out.voicePlanCode).toBeNull();
+    expect(out.chatAddonKey).toBe("chat_basic");
+  });
+
+  it("still accepts a session created before the change", () => {
+    // A checkout created with `chat_only` may be sitting in a customer's browser right now.
+    // Refusing it would take the money and give nothing back.
+    const out = readCompletedCheckout({ org_id: "o1", plan_code: "chat_only", chat_addon_key: "chat_basic" });
+    expect(out.ok).toBe(true);
+    expect(out.voicePlanCode).toBeNull();
+    expect(out.chatAddonKey).toBe("chat_basic");
+  });
+
+  it("activates both products from one session", () => {
+    const out = readCompletedCheckout({ org_id: "o1", plan_code: "scale", chat_addon_key: "chat_standard" });
+    expect(out.voicePlanCode).toBe("scale");
+    expect(out.chatAddonKey).toBe("chat_standard");
+  });
+
+  it("refuses what it cannot name", () => {
+    expect(readCompletedCheckout({ plan_code: "growth" }).reason).toBe("missing_org");
+    expect(readCompletedCheckout({ org_id: "o1" }).reason).toBe("nothing_bought");
+    expect(readCompletedCheckout({ org_id: "o1", plan_code: "enterprise" }).reason).toBe("invalid_plan");
+    // An unknown addon key is not a purchase either — it would grant capacity nobody priced.
+    expect(readCompletedCheckout({ org_id: "o1", chat_addon_key: "chat_unlimited" }).reason).toBe("nothing_bought");
+    expect(readCompletedCheckout(null).reason).toBe("missing_org");
   });
 });

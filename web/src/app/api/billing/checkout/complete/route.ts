@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "../../stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
-import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
+import { readCompletedCheckout } from "@/lib/billing/completedCheckout";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
@@ -40,11 +41,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract metadata
-    const orgId = session.metadata?.org_id;
-    const planCode = session.metadata?.plan_code?.toLowerCase();
+    /**
+     * What did this session buy? One reader, shared by all four activation paths, so they cannot
+     * drift apart — see lib/billing/completedCheckout.ts.
+     */
+    const purchase = readCompletedCheckout(session.metadata);
+    const orgId = purchase.orgId;
+    const planCode = purchase.voicePlanCode;
 
-    if (!orgId || !planCode) {
+    if (!orgId || (!purchase.ok && purchase.reason !== "invalid_plan")) {
       logEvent({
         tag: "[BILLING][CHECKOUT_COMPLETE][MISSING_METADATA]",
         ts: Date.now(),
@@ -64,11 +69,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate plan_code. One of FOUR paths that activate a completed checkout (the webhook,
-    // the onboarding success page and /api/billing/stripe/sync-checkout are the others). They
-    // must accept the same set — a purchase that completes on one and is refused on another
-    // is a customer charged for something they did not receive.
-    if (!isActivatablePlanCode(planCode)) {
+    // A plan code we do not recognise. The shared reader already told us; refusing here keeps
+    // the same log and the same status this path has always returned.
+    if (purchase.reason === "invalid_plan") {
       logEvent({
         tag: "[BILLING][CHECKOUT_COMPLETE][INVALID_PLAN]",
         ts: Date.now(),
@@ -89,22 +92,31 @@ export async function POST(req: NextRequest) {
 
     // A session carrying `chat_addon_key` bought a chat TIER — alone, or alongside a voice
     // plan. Same write the other three paths do, idempotent on (org_id, addon_key).
-    const chatAddonKey = session.metadata?.chat_addon_key;
+    const chatAddonKey = purchase.chatAddonKey;
     if (chatAddonKey) {
       await recordChatPurchase(orgId, chatAddonKey);
     }
 
-    // Upsert org_plan_overrides (idempotent - safe to run multiple times)
-    const { error: overrideError } = await supabaseAdmin
-      .from("org_plan_overrides")
-      .upsert(
-        {
-          org_id: orgId,
-          plan_code: planCode,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "org_id" }
-      );
+    /**
+     * Only a VOICE purchase writes a plan.
+     *
+     * A chat purchase leaves `org_plan_limits.plan_code` null, which is now simply the truth: the
+     * workspace has no phone service. It used to write `chat_only` here so that something would
+     * be in the column, and everything downstream then had to know that one of the plans was not
+     * really a plan.
+     */
+    const { error: overrideError } = planCode
+      ? await supabaseAdmin
+          .from("org_plan_overrides")
+          .upsert(
+            {
+              org_id: orgId,
+              plan_code: planCode,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "org_id" }
+          )
+      : { error: null };
 
     if (overrideError) {
       logEvent({
@@ -126,14 +138,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify plan is now active by checking org_plan_limits
-    const { data: planLimits } = await supabaseAdmin
-      .from("org_plan_limits")
-      .select("plan_code")
-      .eq("org_id", orgId)
-      .maybeSingle<{ plan_code: string | null }>();
-
-    const isPlanActive = !!planLimits?.plan_code;
+    // Did the purchase land? Asked of what was actually bought — a chat purchase has no voice
+    // plan to verify, and checking for one would report every chat sale as a failure.
+    const isPlanActive = await hasAnyPaidPlan(orgId);
 
     if (isPlanActive) {
       logEvent({

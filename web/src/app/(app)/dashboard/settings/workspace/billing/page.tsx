@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { formatUsd } from "@/lib/utils";
 import { isChatAddonKey, isOfferablePlanCode } from "@/lib/billing/chatPlanKeys";
+import { startChatCheckout } from "@/app/(app)/onboarding/_actions";
 import {
   Dialog,
   DialogContent,
@@ -918,6 +919,7 @@ export default function WorkspaceBillingPage() {
     try {
       setConfirmLoading(true);
       setConfirmError(null);
+
       const res = await fetch("/api/billing/addons/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -928,9 +930,38 @@ export default function WorkspaceBillingPage() {
         // Close dialog and refresh summary
         setConfirmDialogOpen(false);
         await fetchSummary();
-      } else {
-        setConfirmError(data.error || "Failed to update add-on");
+        return;
       }
+
+      /**
+       * Buying chat has two routes, and this is where we learn which one applies.
+       *
+       * An add-on is a line item on a subscription. A workspace that already pays Stripe monthly
+       * gets one more item, which is what the request above just did. A workspace with **no**
+       * subscription has nothing to add to — the "No active Stripe subscription found" dead end,
+       * hit by anyone whose plan was set without a completed checkout and by every chat-only
+       * workspace by definition.
+       *
+       * `startChatCheckout` is the other route, and it always existed: it creates a subscription
+       * whose line item IS the chat tier. It was only reachable from onboarding, so this page
+       * could not offer it. Neither path is new — only the choosing is.
+       *
+       * The choice is made from the server's answer rather than predicted from the summary,
+       * which would have meant a Stripe call on every billing page load to forecast something we
+       * find out for free by asking. Removals never come here: there is nothing to remove from a
+       * subscription that does not exist.
+       */
+      if (data.code === "no_subscription" && isChatAddonKey(addonKey) && newQty > 0) {
+        const started = await startChatCheckout(addonKey);
+        if (started.ok && started.url) {
+          window.location.href = started.url;
+          return;
+        }
+        setConfirmError(started.error || "Could not start checkout");
+        return;
+      }
+
+      setConfirmError(data.error || "Failed to update add-on");
     } catch (err) {
       setConfirmError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -1289,7 +1320,9 @@ export default function WorkspaceBillingPage() {
                     type="button"
                     variant={isActive ? "secondary" : "primary"}
                     className={`mt-6 w-full !rounded-2xl ${isActive ? "!border-white/15 !bg-white/10 !text-white hover:!bg-white/15" : ""}`}
-                    disabled={isUpdating || !hasPlan || !canManageBilling || (!isActive && (Boolean(blockedBy) || isBillingPaused))}
+                    /* No `hasPlan` here, deliberately: chat is a product of its own, and
+                       requiring a voice plan to buy it is the fiction this replaced. */
+                    disabled={isUpdating || !canManageBilling || (!isActive && (Boolean(blockedBy) || isBillingPaused))}
                     title={!isActive && blockedBy ? `Remove ${blockedBy.label} first` : undefined}
                     onClick={() => handleAddonUpdate(tier.key, isActive ? 0 : 1)}
                   >

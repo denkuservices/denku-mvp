@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getStripeClient } from "../create-draft-invoice-helpers";
 import { logEvent } from "@/lib/observability/logEvent";
-import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
+import { readCompletedCheckout } from "@/lib/billing/completedCheckout";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 
 /**
@@ -110,7 +111,9 @@ export async function POST(req: NextRequest) {
 
     // 7) Extract metadata
     const sessionOrgId = session.metadata?.org_id;
-    const planCode = session.metadata?.plan_code?.toLowerCase();
+    // Shared reader across all four activation paths — see lib/billing/completedCheckout.ts.
+    const purchase = readCompletedCheckout(session.metadata);
+    const planCode = purchase.voicePlanCode;
 
     if (!sessionOrgId || !planCode) {
       logEvent({
@@ -153,8 +156,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 9) Validate plan_code
-    if (!isActivatablePlanCode(planCode)) {
+    // 9) A plan code we do not recognise.
+    if (purchase.reason === "invalid_plan" || purchase.reason === "nothing_bought") {
       logEvent({
         tag: "[BILLING][SYNC_CHECKOUT][INVALID_PLAN]",
         ts: Date.now(),
@@ -173,17 +176,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 10) Upsert org_plan_overrides (idempotent - same as webhook)
-    const { error: overrideError } = await supabaseAdmin
-      .from("org_plan_overrides")
-      .upsert(
-        {
-          org_id: org_id,
-          plan_code: planCode,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "org_id" }
-      );
+    // 10) Only a VOICE purchase writes a plan (idempotent — same as the webhook). A chat purchase
+    // leaves `plan_code` null, which is the truth: this workspace has no phone service.
+    const { error: overrideError } = planCode
+      ? await supabaseAdmin
+          .from("org_plan_overrides")
+          .upsert(
+            {
+              org_id: org_id,
+              plan_code: planCode,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "org_id" }
+          )
+      : { error: null };
 
     if (overrideError) {
       logEvent({
@@ -209,7 +215,7 @@ export async function POST(req: NextRequest) {
     //      plan. The webhook does the same thing; this is the path a refreshed success page takes
     //      when the webhook is slow, and the two must agree — otherwise whether chat works would
     //      depend on which arrived first. Idempotent on (org_id, addon_key).
-    const chatAddonKey = session.metadata?.chat_addon_key;
+    const chatAddonKey = purchase.chatAddonKey;
     if (chatAddonKey) {
       const recorded = await recordChatPurchase(org_id, chatAddonKey);
       logEvent({

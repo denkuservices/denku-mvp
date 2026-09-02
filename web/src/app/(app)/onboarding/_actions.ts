@@ -19,7 +19,6 @@ import { canReplyOn } from "@/lib/platform/transports/registry";
 import {
   isVoicePlanCode,
   isChatAddonKey,
-  CHAT_ONLY_PLAN_CODE,
   CHAT_ADDON_SLOTS,
   VOICE_PLAN_CODES,
 } from "@/lib/billing/chatPlanKeys";
@@ -2288,9 +2287,15 @@ export async function startChatCheckout(addonKey: string) {
         cancel_url: `${appUrl}/onboarding?checkout=cancel`,
         metadata: {
           org_id: orgId,
-          // The base plan the workspace lands on — read by the webhook and the redirect fallback.
-          plan_code: CHAT_ONLY_PLAN_CODE,
-          // What was actually bought. Both completion paths write this into billing_org_addons.
+          /**
+           * No `plan_code`, deliberately.
+           *
+           * This used to send `chat_only` — a $0 voice plan invented so the field would not be
+           * empty — and every screen downstream then had to know that one of the plans was not
+           * really a plan. A chat purchase buys chat; the workspace has no voice plan, and now
+           * says so by having none. `readCompletedCheckout` accepts a session with no plan code
+           * as long as it names what WAS bought.
+           */
           chat_addon_key: addonKey,
           kind: "onboarding_chat_purchase",
         },
