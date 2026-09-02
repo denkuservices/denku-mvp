@@ -195,8 +195,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle<{ stripe_customer_id: string | null }>();
 
     if (!stripeCustomer?.stripe_customer_id) {
+      // Same reasoning as the subscription case below: this sentence reaches a shop owner as-is.
+      console.warn("[BILLING][ADDON][NO_CUSTOMER]", { org_id, addon_key });
       return NextResponse.json(
-        { ok: false, error: "Stripe customer not found" },
+        {
+          ok: false,
+          error:
+            "This workspace is not set up with our payment provider yet, so add-ons cannot be purchased. Choose a plan first, or contact support.",
+        },
         { status: 409 }
       );
     }
@@ -207,50 +213,56 @@ export async function POST(req: NextRequest) {
     try {
       const stripe = getStripeClient();
 
-      // Find active subscription: first check DB for stored subscription_id
-      // Check billing_stripe_customers for stripe_subscription_id
-      const { data: customerRow } = await supabaseAdmin
-        .from("billing_stripe_customers")
-        .select("stripe_subscription_id")
-        .eq("org_id", org_id)
-        .maybeSingle<{ stripe_subscription_id: string | null }>();
+      /**
+       * Which subscription is this add-on going onto?
+       *
+       * Asked of Stripe every time, deliberately. There used to be a cache in front of this: read
+       * `billing_stripe_customers.stripe_subscription_id`, and write it back "for future use".
+       * **That column does not exist.** The read errored into a discarded `data`, the write failed
+       * silently, and every request fell through to the Stripe call anyway — so the cache never
+       * cached anything and its only effect was two pointless round trips and a misleading
+       * comment. Stripe is the source of truth for what a customer is subscribed to; asking it is
+       * the correct thing to do, not the fallback.
+       */
+      const subscriptions = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: "active",
+        limit: 10,
+      });
 
-      let subscriptionId: string | null = customerRow?.stripe_subscription_id ?? null;
-
-      // If not in DB, fetch from Stripe API
-      if (!subscriptionId) {
-        const subscriptions = await stripe.subscriptions.list({
+      // A subscription still inside its trial can take a line item just like an active one.
+      if (subscriptions.data.length === 0) {
+        const trialingSubs = await stripe.subscriptions.list({
           customer: stripeCustomerId,
-          status: "active",
+          status: "trialing",
           limit: 10,
         });
-
-        // Also check trialing subscriptions
-        if (subscriptions.data.length === 0) {
-          const trialingSubs = await stripe.subscriptions.list({
-            customer: stripeCustomerId,
-            status: "trialing",
-            limit: 10,
-          });
-          subscriptions.data.push(...trialingSubs.data);
-        }
-
-        // Pick the newest subscription (by created timestamp)
-        if (subscriptions.data.length > 0) {
-          subscriptions.data.sort((a: Stripe.Subscription, b: Stripe.Subscription) => b.created - a.created);
-          subscriptionId = subscriptions.data[0].id;
-
-          // Persist subscription_id to DB for future use
-          await supabaseAdmin
-            .from("billing_stripe_customers")
-            .update({ stripe_subscription_id: subscriptionId })
-            .eq("org_id", org_id);
-        }
+        subscriptions.data.push(...trialingSubs.data);
       }
 
+      // Newest wins: an org that re-subscribed has an old cancelled one lying around.
+      subscriptions.data.sort((a: Stripe.Subscription, b: Stripe.Subscription) => b.created - a.created);
+      const subscriptionId: string | null = subscriptions.data[0]?.id ?? null;
+
       if (!subscriptionId) {
+        /**
+         * A plan in our database with no subscription in Stripe.
+         *
+         * Real, and reachable: a workspace whose plan was set without a completed checkout — a
+         * support action, an abandoned payment, a plan granted during development. Add-ons are
+         * sold as line items on a subscription, so there is genuinely nothing to add this to.
+         *
+         * The message says that in words, because it is shown to a shop owner verbatim in the
+         * confirmation dialog. "No active Stripe subscription found" is an error code wearing a
+         * sentence's clothes: true, unactionable, and indistinguishable from a bug.
+         */
+        console.warn("[BILLING][ADDON][NO_SUBSCRIPTION]", { org_id, addon_key });
         return NextResponse.json(
-          { ok: false, error: "No active Stripe subscription found" },
+          {
+            ok: false,
+            error:
+              "This workspace has a plan but no active subscription in our payment provider, so there is nothing to add this to. Contact support and we will sort the billing out.",
+          },
           { status: 409 }
         );
       }
