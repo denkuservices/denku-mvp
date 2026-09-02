@@ -456,10 +456,24 @@ function ForecastCard({
   preview,
   invoiceRun,
   hasPlan,
+  planName,
+  addonLines,
 }: {
   preview: NonNullable<BillingSummary["pricing_preview"]>;
   invoiceRun: BillingSummary["invoice_run"] | undefined;
   hasPlan: boolean;
+  /** What the plan half of the total is called. */
+  planName: string | null;
+  /**
+   * What the add-on half is made of, itemised.
+   *
+   * The card used to show one number — "Add-ons $608.00" — which is a total, not an answer. A
+   * customer looking at their own bill could not tell whether that was chat, an extra number, extra
+   * concurrency, or all three, and the first question anyone asks of a forecast is *what am I
+   * paying for*. Every value here is already in the summary the page has loaded; nothing new is
+   * fetched to say it.
+   */
+  addonLines: { key: string; label: string; qty: number; monthly: number }[];
 }) {
   const total = hasPlan ? preview.estimated_monthly_total_usd : 0;
   const parts = [
@@ -504,6 +518,40 @@ function ForecastCard({
             </div>
           ))}
         </dl>
+
+        {/* The itemisation. Only rendered when there is something to itemise — a workspace with no
+            add-ons should see the three-part split and nothing more. */}
+        {hasPlan && (planName || addonLines.length > 0) ? (
+          <ul className="mt-5 space-y-2 border-t border-gray-100 pt-4 dark:border-white/10">
+            {planName ? (
+              <li className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-300">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
+                  <span className="truncate">{planName}</span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-navy-700 dark:text-white">
+                  {formatUsd(preview.plan_base_usd)}
+                </span>
+              </li>
+            ) : null}
+            {addonLines.map((line) => (
+              <li key={line.key} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-300">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                  {/* The quantity is shown only when there is more than one — "Extra phone number ×1"
+                      is noise on a line that already says what it is. */}
+                  <span className="truncate">
+                    {line.label}
+                    {line.qty > 1 ? ` ×${line.qty}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-navy-700 dark:text-white">
+                  {formatUsd(line.monthly)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         {invoiceRun?.stripe_invoice_id ? (
           <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/10">
@@ -982,6 +1030,26 @@ export default function WorkspaceBillingPage() {
   // is also why the grid above filters itself down to the two per-piece add-ons.
   const chatTiers = (summary?.addons?.available ?? []).filter((a) => isChatAddonKey(a.key));
 
+  /**
+   * Every add-on this workspace actually pays for, priced.
+   *
+   * Built from the catalogue the page already loaded, so the forecast can say what its add-on
+   * total is made of instead of stating a number and leaving the customer to guess. A chat tier
+   * is a choice rather than a quantity, so its line never multiplies — the qty column exists for
+   * extra numbers and extra concurrency, which genuinely stack.
+   */
+  const addonLines = (summary?.addons?.available ?? [])
+    .map((addon) => {
+      const qty = summary?.addons?.active[addon.key as keyof NonNullable<typeof summary.addons>["active"]] || 0;
+      return {
+        key: addon.key,
+        label: addon.label,
+        qty,
+        monthly: addon.price_usd_month * (isChatAddonKey(addon.key) ? Math.min(qty, 1) : qty),
+      };
+    })
+    .filter((line) => line.qty > 0);
+
   // Find current plan object from summary.plans (only if plan exists)
   const currentPlan = hasPlan
     ? summary?.plans?.find((p) => p.plan_code === currentPlanCode) || null
@@ -1191,7 +1259,13 @@ export default function WorkspaceBillingPage() {
                 month={summary?.month ? formatMonth(summary.month) : "Current month"}
               />
               {summary?.pricing_preview ? (
-                <ForecastCard preview={summary.pricing_preview} invoiceRun={invoiceRun} hasPlan={hasPlan} />
+                <ForecastCard
+                  preview={summary.pricing_preview}
+                  invoiceRun={invoiceRun}
+                  hasPlan={hasPlan}
+                  planName={currentPlan?.display_name ?? currentPlanCode ?? null}
+                  addonLines={addonLines}
+                />
               ) : (
                 <Panel className="!rounded-[28px]">
                   <EmptyState icon={TrendingUp} title="Forecast pending" description="Your live estimate will appear here." />
