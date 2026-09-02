@@ -109,7 +109,10 @@ describe("T2 · no decorative global search", () => {
       // Inbox v2 moved the Inbox's search into the persistent list panel of its split view;
       // it is the same shared field, one file along.
       "app/(app)/dashboard/inbox/_components/ConversationList.tsx",
-      "app/(app)/dashboard/crm/contacts/page.tsx",
+      // Contacts did the same when its search became interactive: the field moved out of the
+      // server page and into the client filter bar beside the segment tabs. Still one shared
+      // `SearchField`, still on the page — this list follows the file, not the layout.
+      "app/(app)/dashboard/_platform/crm/ContactsFilters.tsx",
       "app/(app)/dashboard/crm/requests/page.tsx",
     ]) {
       expect(read(p)).toMatch(/SearchField/);
