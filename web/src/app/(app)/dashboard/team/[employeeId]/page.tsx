@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, AlertTriangle, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
+import { modelTiersEnabled } from "@/lib/llm/modelTiers";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { getEmployeeView, listEmployeeViews } from "@/lib/platform/readModel/employees";
 import { listConnectedChannelViews } from "@/lib/platform/readModel/channels";
@@ -257,7 +258,11 @@ export default async function EmployeeDetailPage({
 
       {tab === "setup" ? (
         config ? (
-          <SetupForm employee={config} workspaceStatus={workspaceStatus} />
+          <SetupForm
+            employee={config}
+            workspaceStatus={workspaceStatus}
+            modelTiersEnabled={modelTiersEnabled()}
+          />
         ) : (
           <Card>
             <p className="text-sm text-gray-500">Couldn&apos;t load this employee&apos;s setup.</p>

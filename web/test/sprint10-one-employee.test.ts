@@ -219,6 +219,11 @@ describe("transformation parity · the collapse rules are unchanged", () => {
       first_message: "Hola",
       emphasis_points: ["be warm"],
       business_context: { ...EMPTY_BUSINESS_CONTEXT, businessName: "Acme" },
+      // A row written before the voice picker existed has neither field, and both collapse the
+      // same way every other unset value does: null means "whatever this language sounds like",
+      // and an unrecognised tier is Standard rather than an error at the edge.
+      voice: null,
+      model_tier: "standard",
     });
   });
 

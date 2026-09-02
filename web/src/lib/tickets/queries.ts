@@ -362,3 +362,58 @@ export async function getDistinctPriorities(orgId: string): Promise<string[]> {
   return sorted.map(([, value]) => value);
 }
 
+
+/** One earlier request from the same customer, as the detail page shows it. */
+export interface CustomerRequestHistoryItem {
+  id: string;
+  subject: string;
+  status: string | null;
+  priority: string | null;
+  createdAt: string;
+}
+
+/**
+ * What else this customer has asked for.
+ *
+ * The single most useful thing a person opening a ticket can know is whether they have heard from
+ * this caller before — a first-time question and the fourth chase for the same unresolved order
+ * look identical on a page that shows one row. The detail screen has always linked out to the
+ * contact; this puts the answer on the page, which is where the decision is made.
+ *
+ * Matched on `lead_id` first because voice has populated it the longest, falling back to
+ * `contact_id` for artifacts that arrived through the platform channels. Never throws: a history
+ * panel is worth less than the ticket it sits beside.
+ */
+export async function listCustomerRequestHistory(
+  orgId: string,
+  opts: { leadId: string | null; contactId: string | null; excludeTicketId: string; limit?: number }
+): Promise<CustomerRequestHistoryItem[]> {
+  const { leadId, contactId, excludeTicketId, limit = 5 } = opts;
+  if (!leadId && !contactId) return [];
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    let query = supabase
+      .from("tickets")
+      .select("id,subject,status,priority,created_at")
+      .eq("org_id", orgId)
+      .neq("id", excludeTicketId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    query = leadId ? query.eq("lead_id", leadId) : query.eq("contact_id", contactId as string);
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    return data.map((r) => ({
+      id: r.id as string,
+      subject: (r.subject as string) || "Request",
+      status: (r.status as string | null) ?? null,
+      priority: (r.priority as string | null) ?? null,
+      createdAt: r.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}

@@ -60,14 +60,14 @@ export async function readAuditPage(
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const offset = (safePage - 1) * pageSize;
 
-  const base = supabaseAdmin
-    .from("audit_log")
-    .select(SELECT_COLUMNS, { count: "exact" })
-    .eq("org_id", orgId);
+  const term = searchTerm(filters.q);
+  const actorIds = term ? await actorIdsMatching(orgId, term) : [];
 
-  const filtered = await applyFilters(base, filters, orgId);
-
-  const { data, error, count } = await filtered
+  const { data, error, count } = await applyFilters(
+    supabaseAdmin.from("audit_log").select(SELECT_COLUMNS, { count: "exact" }).eq("org_id", orgId),
+    filters,
+    actorIds
+  )
     .order("created_at", { ascending: false })
     .range(offset, offset + pageSize - 1);
 
@@ -89,10 +89,14 @@ export async function readAuditPage(
 }
 
 export async function readAuditForExport(orgId: string, filters: AuditFilters): Promise<AuditEntry[]> {
-  const base = supabaseAdmin.from("audit_log").select(SELECT_COLUMNS).eq("org_id", orgId);
-  const filtered = await applyFilters(base, filters, orgId);
+  const term = searchTerm(filters.q);
+  const actorIds = term ? await actorIdsMatching(orgId, term) : [];
 
-  const { data, error } = await filtered
+  const { data, error } = await applyFilters(
+    supabaseAdmin.from("audit_log").select(SELECT_COLUMNS).eq("org_id", orgId),
+    filters,
+    actorIds
+  )
     .order("created_at", { ascending: false })
     .limit(AUDIT_EXPORT_LIMIT);
 
@@ -106,15 +110,60 @@ export async function readAuditForExport(orgId: string, filters: AuditFilters): 
 
 /* ------------------------------------------------------------------ internals */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PostgrestQuery = any;
+/**
+ * The shape of a PostgREST query builder, structurally.
+ *
+ * This was `any`, and `any` cost a production outage: `applyFilters` used to be `async` and
+ * `return q`, where `q` is a query BUILDER. A builder is a thenable, so the async machinery awaited
+ * it — which EXECUTES the query — and the caller received a response object instead of a builder.
+ * The next `.order(...)` was `undefined`, the page threw, and every audit log read failed with
+ * "We couldn't load the audit log".
+ *
+ * Typed structurally and returned synchronously, the compiler now rejects that mistake: a
+ * `Promise<T>` cannot be chained with `.order()`.
+ */
+interface AuditQuery {
+  like(column: string, pattern: string): AuditQuery;
+  eq(column: string, value: string): AuditQuery;
+  gte(column: string, value: string): AuditQuery;
+  lte(column: string, value: string): AuditQuery;
+  or(filters: string): AuditQuery;
+}
 
-async function applyFilters(
-  query: PostgrestQuery,
-  filters: AuditFilters,
-  orgId: string
-): Promise<PostgrestQuery> {
-  let q = query;
+/**
+ * Ids of members whose name or email matches the search term.
+ *
+ * Searching for a person means searching a different table, so their ids are resolved first and
+ * folded into the audit query's `or` — otherwise typing a colleague's name into the search box
+ * would silently match nothing. Separated from `applyFilters` so that function can stay
+ * synchronous; see the note above for why that matters.
+ */
+async function actorIdsMatching(orgId: string, term: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("org_id", orgId)
+    .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+    .limit(50);
+
+  return (data ?? []).map((a) => (a as { id: string }).id);
+}
+
+/**
+ * PostgREST's `or` is a comma-separated string, so a term containing a comma, a paren or a percent
+ * would change the meaning of the filter rather than be searched for. Strip them.
+ */
+function searchTerm(raw: string | undefined): string {
+  return (raw ?? "").replace(/[%,().*]/g, " ").trim();
+}
+
+/**
+ * Generic in the builder so the RETURN TYPE is the builder itself — that is the part carrying the
+ * safety. The narrowing casts are internal: constraining `T` structurally instead sends the
+ * compiler into an infinite instantiation on PostgREST's own recursive generics.
+ */
+function applyFilters<T>(query: T, filters: AuditFilters, actorIds: string[]): T {
+  let q = query as unknown as AuditQuery;
 
   if (filters.category) q = q.like("action", `${filters.category}.%`);
   if (filters.actorId) q = q.eq("actor_user_id", filters.actorId);
@@ -122,29 +171,14 @@ async function applyFilters(
   // Inclusive of the chosen day: the reader picked a date, not an instant.
   if (filters.to) q = q.lte("created_at", `${filters.to}T23:59:59.999Z`);
 
-  if (filters.q) {
-    // PostgREST's `or` is a comma-separated string, so a term containing a comma, a paren or a
-    // percent would change the meaning of the filter rather than be searched for. Strip them.
-    const term = filters.q.replace(/[%,().*]/g, " ").trim();
-    if (term) {
-      // Searching for a person by name means searching a different table, so their ids are
-      // resolved first and folded into the same `or` — otherwise typing a colleague's name into
-      // the search box would silently match nothing.
-      const { data: actors } = await supabaseAdmin
-        .from("profiles")
-        .select("id")
-        .eq("org_id", orgId)
-        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
-        .limit(50);
-
-      const actorIds = (actors ?? []).map((a) => (a as { id: string }).id);
-      const clauses = [`action.ilike.%${term}%`, `entity_type.ilike.%${term}%`];
-      if (actorIds.length > 0) clauses.push(`actor_user_id.in.(${actorIds.join(",")})`);
-      q = q.or(clauses.join(","));
-    }
+  const term = searchTerm(filters.q);
+  if (term) {
+    const clauses = [`action.ilike.%${term}%`, `entity_type.ilike.%${term}%`];
+    if (actorIds.length > 0) clauses.push(`actor_user_id.in.(${actorIds.join(",")})`);
+    q = q.or(clauses.join(","));
   }
 
-  return q;
+  return q as unknown as T;
 }
 
 async function hydrate(rows: RawRow[]): Promise<AuditEntry[]> {

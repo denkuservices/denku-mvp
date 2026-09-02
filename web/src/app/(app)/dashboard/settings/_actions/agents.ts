@@ -36,6 +36,9 @@ const UpdateAgentConfigSchema = z.object({
   first_message: z.string().nullable(),
   emphasis_points: z.array(z.string()).nullable(),
   business_context: BusinessContextSchema,
+  /** Catalogue id of the chosen voice; null means the language's own default. */
+  voice: z.string().max(80).nullable().optional(),
+  model_tier: z.enum(["standard", "advanced"]).nullable().optional(),
 });
 
 type UpdateAgentConfigInput = z.infer<typeof UpdateAgentConfigSchema>;
@@ -199,6 +202,14 @@ export async function updateAgentConfiguration(
     effective_system_prompt: effectivePrompt,
     updated_at: new Date().toISOString(),
   };
+
+  // `voice` is NOT NULL in the schema with an `alloy` default, so "use the language default" is
+  // stored as the empty string rather than null — and only written when the caller actually sent
+  // the field, so a partial save never silently resets someone's chosen voice.
+  if (validated.voice !== undefined) updatePayload.voice = validated.voice ?? "";
+  if (validated.model_tier !== undefined) {
+    updatePayload.model_tier = validated.model_tier ?? "standard";
+  }
   // R-013: only overwrite business_context when the caller sent it (avoid wiping on partial saves).
   if (validated.business_context !== undefined) {
     updatePayload.business_context = validated.business_context;
@@ -338,6 +349,8 @@ export async function updateAgentConfiguration(
         firstMessage: validated.first_message || updatedAgent.first_message || null,
         language: validated.language || updatedAgent.language || null,
         additionalLanguages: validated.additional_languages ?? [],
+        voiceId: (updatedAgent as { voice?: string | null }).voice || null,
+        modelTier: (updatedAgent as { model_tier?: string | null }).model_tier || null,
       });
 
       // Update sync status on success
@@ -416,6 +429,8 @@ async function syncAgentToVapi(input: {
   systemPrompt: string;
   firstMessage: string | null;
   language: string | null;
+  voiceId?: string | null;
+  modelTier?: string | null;
 }): Promise<void> {
   const result = await ensureAssistantConfig({
     assistantId: input.assistantId,
@@ -423,6 +438,8 @@ async function syncAgentToVapi(input: {
     firstMessage: input.firstMessage,
     language: input.language,
     additionalLanguages: input.additionalLanguages ?? null,
+    voiceId: input.voiceId ?? null,
+    modelTier: input.modelTier ?? null,
   });
   if (!result.ok) {
     throw new Error(result.error || "Failed to sync assistant configuration to Vapi");

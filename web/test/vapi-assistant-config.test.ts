@@ -126,11 +126,35 @@ describe("buildAssistantConfigPatch — voice/transcriber/caps (R-051 + R-052)",
     expect((patch.transcriber as { language: string }).language).toBe("es");
   });
 
-  it("an explicit voiceId overrides the language default", () => {
+  it("a chosen voice replaces the whole voice object, provider included", () => {
+    // The customer picks from a catalogue, and an entry names its own provider and model. Keeping
+    // the default provider and swapping only the id is how you ask ElevenLabs for an Azure voice.
+    const patch = buildAssistantConfigPatch({ model: {} }, { language: "tr", voiceId: "tr-TR-EmelNeural" }, PROD);
+    expect(patch.voice).toEqual({ provider: "azure", voiceId: "tr-TR-EmelNeural" });
+  });
+
+  it("carries the TTS model, because with ElevenLabs the model is what speaks the language", () => {
+    const patch = buildAssistantConfigPatch({ model: {} }, { language: "tr", voiceId: "matilda" }, PROD);
+    expect(patch.voice).toEqual({
+      provider: "11labs",
+      voiceId: "matilda",
+      model: "eleven_turbo_v2_5",
+    });
+  });
+
+  it("falls back to the language default rather than passing an unknown voice through", () => {
+    // A voice we cannot describe is a voice we cannot promise. Forwarding a bare id we have never
+    // heard of is how an assistant ends up unconfigured after a Vapi 400.
     const patch = buildAssistantConfigPatch({ model: {} }, { language: "en", voiceId: "shimmer" }, PROD);
-    // The override replaces the id but keeps the provider's shape — a bare id sent to the
-    // wrong provider is a 400 from Vapi, which would leave the assistant unconfigured.
-    expect(patch.voice).toEqual({ provider: "vapi", voiceId: "shimmer", version: 2, language: "auto" });
+    expect(patch.voice).toEqual({ provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" });
+  });
+
+  it("leaves the assistant's model alone unless a tier was asked for", () => {
+    const untouched = buildAssistantConfigPatch({ model: { model: "gpt-4o" } }, { language: "en" }, PROD);
+    expect((untouched.model as { model?: string }).model).toBe("gpt-4o");
+
+    const upgraded = buildAssistantConfigPatch({ model: {} }, { language: "en", modelTier: "advanced" }, PROD);
+    expect((upgraded.model as { model?: string }).model).toBe("gpt-4.1");
   });
 });
 
@@ -146,7 +170,13 @@ describe("language / voice / transcriber resolvers (R-051)", () => {
   it("resolveVoice returns a language default or the explicit override", () => {
     expect(resolveVoice("en")).toEqual({ provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" });
     expect(resolveVoice("es")).toEqual({ provider: "openai", voiceId: "nova" });
-    expect(resolveVoice("en", "echo")).toEqual({ provider: "vapi", voiceId: "echo", version: 2, language: "auto" });
+    // An id the catalogue knows replaces the object outright; one it does not is ignored.
+    expect(resolveVoice("tr", "sarah")).toEqual({
+      provider: "11labs",
+      voiceId: "sarah",
+      model: "eleven_turbo_v2_5",
+    });
+    expect(resolveVoice("en", "echo")).toEqual({ provider: "vapi", voiceId: "Elliot", version: 2, language: "auto" });
   });
 
   it("resolveTranscriber is Deepgram, nova-3 for English and nova-2 for Spanish", () => {

@@ -11,6 +11,8 @@ import {
   type UpdateAgentPromptOverrideResult,
 } from "@/app/(app)/dashboard/settings/_actions/agents";
 import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
+import { voicesForLanguage, voiceSamplePath } from "@/lib/voice/catalogue";
+import { MODEL_TIERS, resolveModelTier } from "@/lib/llm/modelTiers";
 import type { EmployeeConfig } from "@/lib/platform/readModel/employeeProfile";
 import { Surface, CONTROL_CLASS } from "../ui";
 import TimezoneField from "../TimezoneField";
@@ -45,9 +47,16 @@ import {
 export default function SetupForm({
   employee,
   workspaceStatus,
+  modelTiersEnabled = false,
 }: {
   employee: EmployeeConfig;
   workspaceStatus: "active" | "paused";
+  /**
+   * Read on the server and passed down, because a flag lives in the environment and this form runs
+   * in the browser. Off means the tier picker is not rendered at all: Advanced has not been heard
+   * on a real call yet, and a menu whose second option is unverified is worse than no menu.
+   */
+  modelTiersEnabled?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -65,6 +74,8 @@ export default function SetupForm({
         firstMessage: employee.firstMessage,
         emphasisPoints: employee.emphasisPoints,
         businessContext: employee.businessContext,
+        voice: employee.voice,
+        modelTier: employee.modelTier,
       }),
     [employee]
   );
@@ -85,6 +96,14 @@ export default function SetupForm({
   const primaryLanguageLabel =
     LANGUAGES[toLanguageCode(form.language) ?? "en"]?.label ?? form.language;
 
+  // The voice list follows the language, because that is what a voice is FOR. Changing the
+  // language re-offers the voices that speak it, and a choice that no longer applies falls back
+  // to the new language's default rather than being carried across.
+  const primaryCode = toLanguageCode(form.language) ?? "en";
+  const voiceOptions = React.useMemo(() => voicesForLanguage(primaryCode), [primaryCode]);
+  const selectedVoice =
+    voiceOptions.find((v) => v.id === form.voice) ?? voiceOptions[0] ?? null;
+
   const isDirty =
     form.language !== initial.language ||
     JSON.stringify([...form.additionalLanguages].sort()) !==
@@ -93,6 +112,8 @@ export default function SetupForm({
     form.behaviorPresetId !== initial.behaviorPresetId ||
     form.agentType !== initial.agentType ||
     form.firstMessage !== initial.firstMessage ||
+    form.voice !== initial.voice ||
+    form.modelTier !== initial.modelTier ||
     JSON.stringify(form.emphasisPoints) !== JSON.stringify(initial.emphasisPoints);
 
   const overrideDirty = override !== (employee.systemPromptOverride ?? "");
@@ -264,6 +285,91 @@ export default function SetupForm({
               In chat it replies in whichever language the customer writes in.
             </p>
           </Field>
+
+          {/*
+            The voice, chosen by the business rather than by us.
+            
+            Three voices were tried on the first Turkish line before one was right, and every round
+            cost a deploy. The person who can actually judge is the one whose customers hear it, so
+            the list is theirs — and the sample is what makes handing it over safe. Nobody picks a
+            voice here without hearing it.
+          */}
+          <Field
+            label="Voice"
+            hint={`Voices that speak ${primaryLanguageLabel}. Listen before you choose — this is what every caller hears.`}
+          >
+            <div className="space-y-2">
+              {voiceOptions.map((v) => {
+                const checked = (selectedVoice?.id ?? null) === v.id;
+                return (
+                  <label
+                    key={v.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                      checked
+                        ? "border-brand-500 bg-brand-50/60 dark:border-brand-400 dark:bg-brand-400/10"
+                        : "border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20"
+                    } ${paused ? "cursor-not-allowed opacity-60" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="voice"
+                      className="mt-1 h-4 w-4 shrink-0 text-brand-500 focus:ring-brand-500"
+                      checked={checked}
+                      disabled={paused}
+                      onChange={() => set("voice", v.id)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-navy-700 dark:text-white">
+                          {v.label}
+                        </span>
+                        <span className="text-xs text-gray-400">{v.timbre}</span>
+                        {v.provenCall ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                            Heard on a real call
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                        {v.description}
+                      </span>
+                      {/*
+                        A sample only when one has been rendered for this exact pair. The browser
+                        shows nothing if the file is absent, which is the honest outcome: a silent
+                        player is better than a control that promises audio and plays none.
+                      */}
+                      <audio
+                        className="mt-2 h-8 w-full max-w-[260px]"
+                        controls
+                        preload="none"
+                        src={voiceSamplePath(primaryCode, v.id)}
+                      />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </Field>
+
+          {modelTiersEnabled ? (
+            <Field
+              label="Model"
+              hint="Standard is what every Denku line runs today. Both cost the same per minute."
+            >
+              <select
+                value={resolveModelTier(form.modelTier)}
+                onChange={(e) => set("modelTier", e.target.value)}
+                disabled={paused}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-navy-900 dark:text-white"
+              >
+                {(Object.keys(MODEL_TIERS) as Array<keyof typeof MODEL_TIERS>).map((tier) => (
+                  <option key={tier} value={tier}>
+                    {MODEL_TIERS[tier].label} — {MODEL_TIERS[tier].description}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
 
           {/* A real list rather than a free-text box: this value decides what "tomorrow" means
               when the AI books, and a typo here is a mis-booked appointment nobody can see. */}

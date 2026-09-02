@@ -134,6 +134,10 @@ export interface EmployeeConfig {
   emphasisPoints: unknown;
   businessContext: unknown;
   systemPromptOverride: string | null;
+  /** Catalogue id of the chosen voice; empty/null means the language's own default. */
+  voice: string | null;
+  /** "standard" | "advanced". Absent on a row written before the tier column existed. */
+  modelTier: string | null;
   effectiveSystemPrompt: string | null;
   vapiSyncStatus: string | null;
   vapiSyncedAt: string | null;
@@ -141,7 +145,8 @@ export interface EmployeeConfig {
 
 const CONFIG_COLUMNS =
   "id, name, language, timezone, behavior_preset, agent_type, first_message, emphasis_points, " +
-  "business_context, system_prompt_override, effective_system_prompt, vapi_sync_status, vapi_synced_at";
+  "business_context, system_prompt_override, effective_system_prompt, vapi_sync_status, " +
+  "vapi_synced_at, voice, model_tier";
 
 /**
  * `additional_languages` is read separately from everything else (2026-08-28).
@@ -210,6 +215,8 @@ export async function getEmployeeConfig(
       emphasisPoints: data.emphasis_points,
       businessContext: data.business_context,
       systemPromptOverride: data.system_prompt_override,
+      voice: (data as { voice?: string | null }).voice ?? null,
+      modelTier: (data as { model_tier?: string | null }).model_tier ?? null,
       effectiveSystemPrompt: data.effective_system_prompt,
       vapiSyncStatus: data.vapi_sync_status,
       vapiSyncedAt: data.vapi_synced_at,

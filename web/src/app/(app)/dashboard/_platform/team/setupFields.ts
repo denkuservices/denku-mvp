@@ -1,4 +1,5 @@
 import { LANGUAGES, LANGUAGE_CODES, toLanguageCode, type LanguageCode } from "@/lib/language/registry";
+import { resolveModelTier, type ModelTier } from "@/lib/llm/modelTiers";
 
 /**
  * The employee configuration field contract (Sprint 10 / R-094).
@@ -223,6 +224,10 @@ export interface SetupFormState {
   firstMessage: string;
   emphasisPoints: string[];
   businessContext: BusinessContext;
+  /** Catalogue id of the chosen voice. Null means the language's own default. */
+  voice: string | null;
+  /** "standard" | "advanced". Standard is what every line already runs. */
+  modelTier: string;
 }
 
 /**
@@ -239,6 +244,8 @@ export interface UpdateAgentConfigPayload {
   first_message: string | null;
   emphasis_points: string[] | null;
   business_context: BusinessContext | null;
+  voice: string | null;
+  model_tier: ModelTier | null;
 }
 
 /** Every field this editor can write. The parity test compares this to the action's schema. */
@@ -251,6 +258,8 @@ export const EDITABLE_CONFIG_FIELDS = [
   "first_message",
   "emphasis_points",
   "business_context",
+  "voice",
+  "model_tier",
 ] as const;
 
 /**
@@ -279,6 +288,12 @@ export function toUpdateAgentConfigPayload(agentId: string, state: SetupFormStat
     first_message: state.firstMessage || null,
     emphasis_points: state.emphasisPoints.length > 0 ? state.emphasisPoints : null,
     business_context: state.businessContext,
+    // Null means "whatever this language sounds like by default" — the same collapse rule the
+    // other fields use, so a customer who never opens the picker is not pinned to today's answer.
+    voice: state.voice || null,
+    // Narrowed rather than passed through: the column has a CHECK constraint and the action has an
+    // enum, so an unrecognised stored value becomes Standard here instead of failing at the edge.
+    model_tier: resolveModelTier(state.modelTier),
   };
 }
 
@@ -298,6 +313,8 @@ export function toSetupFormState(row: {
   firstMessage: string | null;
   emphasisPoints: unknown;
   businessContext: unknown;
+  voice?: string | null;
+  modelTier?: string | null;
 }): SetupFormState {
   const language = row.language || DEFAULT_LANGUAGE;
   const primary = toLanguageCode(language);
@@ -312,5 +329,7 @@ export function toSetupFormState(row: {
     firstMessage: row.firstMessage || defaultFirstMessage(row.name),
     emphasisPoints: normalizeEmphasisPoints(row.emphasisPoints),
     businessContext: toBusinessContext(row.businessContext),
+    voice: row.voice || null,
+    modelTier: resolveModelTier(row.modelTier),
   };
 }

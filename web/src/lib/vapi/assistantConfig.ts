@@ -8,6 +8,8 @@ import {
   toLanguageCode,
   type LanguageCode,
 } from "@/lib/language/registry";
+import { findVoiceOption } from "@/lib/voice/catalogue";
+import { modelForTier } from "@/lib/llm/modelTiers";
 import { vapiFetch } from "./server";
 
 /**
@@ -74,14 +76,42 @@ export function resolveLanguage(language?: string | null): SupportedLanguage {
   return toLanguageCode(language) ?? "en";
 }
 
-/** Vapi `voice` object from language + optional explicit voiceId. Pure. */
-export function resolveVoice(language?: string | null, voiceId?: string | null): VoiceConfig {
-  const base = LANGUAGES[resolveLanguage(language)].voice;
+/**
+ * Apply a customer's chosen voice on top of a language default.
+ *
+ * A chosen voice replaces the WHOLE voice object, not just its id. The old code spread the default
+ * and overwrote `voiceId`, which was harmless while every language had exactly one voice from one
+ * provider. It stopped being harmless the moment a customer could choose: picking Azure's Turkish
+ * Emel while the default is ElevenLabs Sarah would have produced
+ * `{ provider: "11labs", voiceId: "tr-TR-EmelNeural" }` — one provider asked for another's voice.
+ *
+ * Only an id the catalogue knows is honoured. An unknown value falls back to the default rather
+ * than being passed through: a voice we cannot describe is a voice we cannot promise.
+ */
+function applyVoiceChoice(
+  base: VoiceConfig,
+  language: LanguageCode,
+  voiceId?: string | null
+): VoiceConfig {
   const id = (voiceId ?? "").trim();
-  return id ? { ...base, voiceId: id } : base;
+  if (!id) return base;
+
+  const chosen = findVoiceOption(language, id);
+  if (!chosen) return base;
+
+  const resolved: VoiceConfig = { provider: chosen.provider, voiceId: chosen.voiceId };
+  if (chosen.model) resolved.model = chosen.model;
+  if (chosen.version) resolved.version = chosen.version;
+  if (chosen.language) resolved.language = chosen.language;
+  return resolved;
 }
 
-/** Vapi `transcriber` object (Deepgram) for the language. Pure. */
+/** Vapi `voice` object from language + optional explicit voiceId. Pure. */
+export function resolveVoice(language?: string | null, voiceId?: string | null): VoiceConfig {
+  const lang = resolveLanguage(language);
+  return applyVoiceChoice(LANGUAGES[lang].voice, lang, voiceId);
+}
+
 export function resolveTranscriber(language?: string | null): { provider: string; model: string; language: SupportedLanguage } {
   const lang = resolveLanguage(language);
   return { provider: "deepgram", model: LANGUAGES[lang].transcriberModel, language: lang };
@@ -128,8 +158,7 @@ export function resolveVoiceForLanguages(
     rest.length === 0 || LANGUAGES[primary].voiceFollowsCaller
       ? LANGUAGES[primary].voice
       : MULTILINGUAL_VOICE;
-  const id = (voiceId ?? "").trim();
-  return id ? { ...base, voiceId: id } : base;
+  return applyVoiceChoice(base, primary, voiceId);
 }
 
 /**
@@ -151,8 +180,17 @@ export type AssistantConfigInput = {
   firstMessage?: string | null;
   /** Agent language (drives transcriber + default voice). Default en. (R-051) */
   language?: string | null;
-  /** Explicit voiceId override (R-038 territory); otherwise a language default is used. */
+  /**
+   * A voice the customer chose, by its catalogue id. Absent means the language's own default.
+   * An id the catalogue does not know is ignored rather than passed through — see
+   * `resolveVoiceForLanguages`.
+   */
   voiceId?: string | null;
+  /**
+   * Which model tier answers. Absent leaves the assistant's current model untouched, which is
+   * what every caller written before tiers existed expects.
+   */
+  modelTier?: string | null;
   /**
    * Languages this employee should ALSO understand, beyond `language` (2026-08-28).
    *
@@ -175,7 +213,7 @@ export function buildAssistantConfigPatch(
   current: CurrentAssistant,
   input: Pick<
     AssistantConfigInput,
-    "systemPrompt" | "firstMessage" | "language" | "voiceId" | "additionalLanguages"
+    "systemPrompt" | "firstMessage" | "language" | "voiceId" | "additionalLanguages" | "modelTier"
   >,
   env: NodeJS.ProcessEnv = process.env
 ): Record<string, unknown> {
@@ -184,6 +222,11 @@ export function buildAssistantConfigPatch(
   const toolIds = Array.from(new Set([...existingToolIds, ...DENKU_TOOL_IDS]));
 
   const model: Record<string, unknown> = { ...existingModel, toolIds };
+
+  // Only when a tier was asked for. Omitting it leaves whatever the assistant already runs, which
+  // is what every existing caller expects and what keeps this patch safe to re-apply.
+  if (input.modelTier) model.model = modelForTier(input.modelTier);
+
   if (input.systemPrompt) {
     model.messages = [{ role: "system", content: input.systemPrompt }];
   }

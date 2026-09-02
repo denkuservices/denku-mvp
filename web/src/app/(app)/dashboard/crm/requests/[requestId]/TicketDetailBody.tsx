@@ -4,7 +4,12 @@ import { ArrowLeft, ArrowUpRight, Clock, DollarSign, Phone } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
-import { getTicketDetail, getDistinctStatuses, getDistinctPriorities } from "@/lib/tickets/queries";
+import {
+  getTicketDetail,
+  getDistinctStatuses,
+  getDistinctPriorities,
+  listCustomerRequestHistory,
+} from "@/lib/tickets/queries";
 import { formatDateInTZ, formatTimeAgo } from "@/lib/tickets/utils.client";
 import { getOrgTimezone } from "@/lib/tickets/utils.server";
 import { TicketDetailQuickActions } from "@/components/tickets/TicketDetailQuickActions";
@@ -67,6 +72,14 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
   ]);
 
   const { ticket, lead, call, agent } = ticketDetail;
+
+  // Whether this caller has been here before is the first thing a person needs and the last thing
+  // the page used to say. Loaded after the ticket because it depends on its links.
+  const history = await listCustomerRequestHistory(orgId, {
+    leadId: ticket.lead_id ?? null,
+    contactId: (ticket as { contact_id?: string | null }).contact_id ?? null,
+    excludeTicketId: ticket.id,
+  });
 
   /** Brand-safe: the provider's name is never a thing a customer reads (CLAUDE.md). */
   const formatLeadSource = (source: string | null): string => {
@@ -264,6 +277,40 @@ export default async function TicketDetailBody({ ticketId }: { ticketId: string 
               >
                 View full history <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
+            </Surface>
+          )}
+
+          {history.length > 0 && (
+            <Surface>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Earlier from this customer
+              </p>
+              <p className="mb-3 text-xs text-gray-400">
+                {history.length === 1
+                  ? "One earlier request."
+                  : `${history.length} earlier requests.`}
+              </p>
+              <ul className="space-y-2">
+                {history.map((h) => (
+                  <li key={h.id}>
+                    <Link
+                      href={`/dashboard/crm/requests/${h.id}?type=ticket`}
+                      className="group flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 -mx-2 transition hover:bg-gray-50 dark:hover:bg-white/5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-navy-700 dark:text-white">
+                          {h.subject}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-gray-400">
+                          {formatTimeAgo(h.createdAt)}
+                          {h.status ? ` · ${h.status}` : ""}
+                        </span>
+                      </span>
+                      <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-300 transition group-hover:text-brand-500" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </Surface>
           )}
 
