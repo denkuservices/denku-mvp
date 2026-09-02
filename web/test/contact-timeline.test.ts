@@ -11,6 +11,7 @@ import { LIFECYCLE_STAGES, isLifecycleStage, lifecycleMeta } from "@/lib/platfor
 import type { ConversationView } from "@/lib/platform/readModel/types";
 import type { RequestView } from "@/lib/platform/readModel/requests";
 import type { ContactNote } from "@/lib/platform/contactNotes";
+import type { TimelineCall } from "@/lib/platform/readModel/timeline";
 
 function conversation(id: string, at: string | null, over: Partial<ConversationView> = {}): ConversationView {
   return {
@@ -50,6 +51,18 @@ function request(id: string, createdAt: string, over: Partial<RequestView> = {})
 
 function note(id: string, createdAt: string, body = "Prefers mornings"): ContactNote {
   return { id, body, authorId: null, createdAt };
+}
+
+function call(id: string, startedAt: string | null, over: Partial<TimelineCall> = {}): TimelineCall {
+  return {
+    id,
+    startedAt,
+    durationSeconds: 95,
+    direction: "inbound",
+    outcome: "completed",
+    intent: "support",
+    ...over,
+  };
 }
 
 /**
@@ -266,5 +279,109 @@ describe("contact scoping is pushed into the query", () => {
     for (const q of queries) {
       expect(q.eq.some(([col]) => col === "lead_id")).toBe(false);
     }
+  });
+});
+
+
+/**
+ * CALLS ON THE TIMELINE.
+ *
+ * A call used to reach the timeline only if it produced a request. Once a ticket came to mean "a
+ * person still has to do something", that left the best outcome — an answered call that resolved
+ * everything — as the one thing a customer's history did not record.
+ */
+describe("a call is an event in its own right", () => {
+  it("shows a call that produced nothing", () => {
+    const entries = buildTimeline({
+      conversations: [],
+      calls: [call("call-1", "2026-09-01T10:00:00Z")],
+      requests: [],
+      notes: [],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].kind).toBe("call");
+    expect(entries[0].title).toBe("Called in");
+    expect(entries[0].channel).toBe("voice");
+    expect(entries[0].href).toBe("/dashboard/calls/call-1");
+  });
+
+  it("folds a request into the call that produced it, rather than listing both", () => {
+    // One phone call is one thing that happened. Two rows a second apart describing it is noise,
+    // and the call is the event — the ticket is its outcome.
+    const at = "2026-09-01T10:00:00Z";
+    const entries = buildTimeline({
+      conversations: [],
+      calls: [call("call-1", at)],
+      requests: [request("r1", at, { callId: "call-1", title: "Uniform pricing" })],
+      notes: [],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].kind).toBe("call");
+    expect(entries[0].detail).toContain("Uniform pricing");
+    // The request is the more useful destination: it carries the transcript.
+    expect(entries[0].href).toBe("/dashboard/tickets/r1");
+  });
+
+  it("still shows a request whose call is not on this timeline", () => {
+    // Truncated history, or a request linked to a call that belongs elsewhere. Folding is an
+    // optimisation; losing the request is not acceptable.
+    const entries = buildTimeline({
+      conversations: [],
+      calls: [],
+      requests: [request("r1", "2026-09-01T10:00:00Z", { callId: "call-missing" })],
+      notes: [],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].kind).toBe("request");
+  });
+
+  it("drops a call with no timestamp instead of guessing one", () => {
+    const entries = buildTimeline({
+      conversations: [],
+      calls: [call("call-1", null)],
+      requests: [],
+      notes: [],
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("says how long the call was, and says nothing when it was nothing", () => {
+    const mins = buildTimeline({
+      conversations: [],
+      calls: [call("c1", "2026-09-01T10:00:00Z", { durationSeconds: 95 })],
+      requests: [],
+      notes: [],
+    });
+    expect(mins[0].detail).toBe("2 min");
+
+    const secs = buildTimeline({
+      conversations: [],
+      calls: [call("c2", "2026-09-01T10:00:00Z", { durationSeconds: 21 })],
+      requests: [],
+      notes: [],
+    });
+    expect(secs[0].detail).toBe("21 sec");
+
+    // "0:00" reads as a bug rather than as a call that never connected.
+    const zero = buildTimeline({
+      conversations: [],
+      calls: [call("c3", "2026-09-01T10:00:00Z", { durationSeconds: 0 })],
+      requests: [],
+      notes: [],
+    });
+    expect(zero[0].detail).toBeNull();
+  });
+
+  it("orders calls among everything else, newest first", () => {
+    const entries = buildTimeline({
+      conversations: [conversation("cv", "2026-09-01T08:00:00Z")],
+      calls: [call("c1", "2026-09-01T12:00:00Z")],
+      requests: [request("r1", "2026-09-01T10:00:00Z")],
+      notes: [note("n1", "2026-09-01T09:00:00Z")],
+    });
+    expect(entries.map((e) => e.kind)).toEqual(["call", "request", "note", "conversation"]);
   });
 });

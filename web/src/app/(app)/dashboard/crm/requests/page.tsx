@@ -11,6 +11,9 @@ import {
   TimerReset,
 } from "lucide-react";
 import { platformUxEnabled } from "@/lib/platform/flags";
+import { getViewer } from "@/lib/auth/permissions";
+import { listSavedViews } from "@/lib/platform/savedViews";
+import SavedViewsBar from "../../_platform/crm/SavedViewsBar";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { listRequestViews } from "@/lib/platform/readModel/requests";
 import CrmMetricCard from "../../_platform/crm/CrmMetricCard";
@@ -56,6 +59,23 @@ export default async function RequestsPage({
   }
 
   const orgId = await resolveActiveOrgId();
+
+  /*
+   * Saved views.
+   *
+   * The bar is fed this page's OWN search params, so what gets saved is exactly what the reader
+   * is looking at. `view` never goes in (normalizeViewQuery strips it) — a view that stored its
+   * own id would re-select itself forever.
+   */
+  const viewer = await getViewer();
+  const savedViews = orgId ? await listSavedViews(orgId, "requests", viewer.profileId) : [];
+
+  const currentParams = new URLSearchParams();
+  for (const key of ["status", "q"] as const) {
+    const value = one(sp?.[key]);
+    if (value) currentParams.set(key, value);
+  }
+  const activeViewId = one(sp?.view) ?? null;
   const { items, counts } = orgId
     ? await listRequestViews(orgId, { type: "ticket", status, search })
     : { items: [], counts: { all: 0, ticket: 0, appointment: 0 } };
@@ -88,6 +108,14 @@ export default async function RequestsPage({
         <CrmMetricCard label="High priority" value={urgentItems.length} detail="Requires faster attention" icon={AlertCircle} tone="amber" />
         <CrmMetricCard label="Resolved" value={resolvedItems.length} detail="Completed in this view" icon={CheckCircle2} tone="teal" />
       </div>
+
+      <SavedViewsBar
+        surface="requests"
+        views={savedViews}
+        currentQuery={currentParams.toString()}
+        activeViewId={activeViewId}
+        basePath="/dashboard/crm/requests"
+      />
 
       <section className="mb-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-navy-800">
         <form method="get" className="flex flex-col gap-3 p-4 md:flex-row">
