@@ -260,6 +260,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             ok: false,
+            /**
+             * A machine-readable name for the one refusal a caller can recover from.
+             *
+             * Chat can still be sold here — through its own checkout, which creates the
+             * subscription this workspace is missing. The billing page routes on this code rather
+             * than on the sentence, because matching on prose is how a copy edit becomes an
+             * outage. The sentence stays for everything else, which has no recovery.
+             */
+            code: "no_subscription",
             error:
               "This workspace has a plan but no active subscription in our payment provider, so there is nothing to add this to. Contact support and we will sort the billing out.",
           },

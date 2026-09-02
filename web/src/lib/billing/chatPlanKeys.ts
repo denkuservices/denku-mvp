@@ -26,14 +26,18 @@ export function isChatAddonKey(key: string): boolean {
 }
 
 /**
- * The $0 base plan a chat-only workspace sits on.
+ * RETIRED 2026-09-02. Kept as a name so nothing silently re-invents it.
  *
- * `org_plan_limits` holds exactly one `plan_code` per org, so buying chat without voice
- * still needs a base plan to point at. It carries zero minutes, zero concurrency and zero
- * phone numbers — which is also how voice stays off for these workspaces with no new code,
- * since the existing lease check rejects every call at a concurrency limit of 0.
+ * It was the $0 base plan a chat-only workspace sat on: zero minutes, zero concurrency, zero
+ * numbers — a voice plan standing in for the absence of one, because `org_plan_limits` holds
+ * exactly one plan per org and `plan_code IS NULL` meant "bought nothing". Voice and chat are two
+ * products now (`lib/billing/planState.ts`), so a chat customer simply has no voice plan.
+ *
+ * Nothing writes this any more. `readCompletedCheckout` still READS it, because a checkout session
+ * created before the change may still be sitting in a customer's browser, and refusing it would
+ * take money and give nothing back.
  */
-export const CHAT_ONLY_PLAN_CODE = "chat_only";
+export const RETIRED_CHAT_ONLY_PLAN_CODE = "chat_only";
 
 /**
  * The three plans that come with a phone line.
@@ -56,13 +60,13 @@ export function isVoicePlanCode(planCode: string): planCode is VoicePlanCode {
 /**
  * A plan code a completed checkout may activate.
  *
- * Wider than `isVoicePlanCode` by exactly one: a chat-only purchase lands the workspace on
- * `chat_only`. Deliberately NOT used by the plan-change route — moving an existing workspace
- * onto `chat_only` would strand the phone number it is already paying for, and that is a
- * migration, not a plan switch.
+ * **Superseded by `lib/billing/completedCheckout.ts`.** Deciding what a checkout bought is no
+ * longer a question about a plan code alone — a chat purchase carries none — and four copies of
+ * this check across four activation paths was exactly the shape where three get updated and one
+ * does not. Kept only for the one caller that genuinely asks about a plan code and nothing else.
  */
 export function isActivatablePlanCode(planCode: string): boolean {
-  return isVoicePlanCode(planCode) || planCode === CHAT_ONLY_PLAN_CODE;
+  return isVoicePlanCode(planCode) || planCode === RETIRED_CHAT_ONLY_PLAN_CODE;
 }
 
 /**
@@ -78,7 +82,7 @@ export function isActivatablePlanCode(planCode: string): boolean {
  * questions.
  */
 export function isOfferablePlanCode(planCode: string): boolean {
-  return planCode !== CHAT_ONLY_PLAN_CODE;
+  return planCode !== RETIRED_CHAT_ONLY_PLAN_CODE;
 }
 
 /** The other chat tier, for the one-plan-at-a-time rule. */

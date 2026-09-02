@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getPlanState } from "@/lib/billing/planState";
 
 function mustString(v: FormDataEntryValue | null, field: string) {
   if (!v || typeof v !== "string" || !v.trim()) throw new Error(`Missing ${field}`);
@@ -72,29 +73,21 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     let redirectTo: "dashboard" | "onboarding" = "dashboard";
     if (profiles && profiles.length > 0 && profiles[0].org_id) {
       const orgId = profiles[0].org_id;
-      // Check plan active status (plan is active if org_plan_limits.plan_code exists)
-      const { data: planRow, error: planErr } = await supabaseAdmin
-        .from("org_plan_limits")
-        .select("plan_code")
-        .eq("org_id", orgId)
-        .single<{ plan_code: string | null }>();
-
-      // Temporary server logs to confirm plan detection
-      console.log("[loginAction] orgId", orgId, "plan_code", planRow?.plan_code, "planErr", planErr?.message);
-
-      let planActive = false;
-      if (planErr) {
-        // If error indicates "no rows", treat as plan inactive
-        if (planErr.code === "PGRST116" || planErr.message?.includes("No rows")) {
-          planActive = false;
-        } else {
-          // Other error - log it and default to dashboard (do not block user)
-          console.error("[loginAction] Plan check error (defaulting to dashboard):", planErr.message);
-          planActive = true; // Default to dashboard on unexpected errors
-        }
-      } else {
-        // No error - check if plan_code exists
-        planActive = Boolean(planRow?.plan_code);
+      /**
+       * Has this workspace bought anything — voice, chat, or both?
+       *
+       * It used to ask only whether a VOICE plan existed, which sent a chat-only customer back
+       * into onboarding at every sign-in. See `lib/billing/planState.ts`.
+       *
+       * The fail-open behaviour below is deliberate and preserved: this decides between the
+       * dashboard and a signup flow, which is gating, and a broken query must never trap a paying
+       * customer in onboarding. `resolved` is exactly what distinguishes "this workspace has no
+       * plan" from "we could not find out".
+       */
+      const planState = await getPlanState(orgId);
+      const planActive = planState.resolved ? planState.hasAnyPlan : true;
+      if (!planState.resolved) {
+        console.error("[loginAction] Plan check unresolved — defaulting to dashboard", { orgId });
       }
 
       if (!planActive) {

@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
+import { getPlanState } from "@/lib/billing/planState";
 import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
@@ -18,7 +19,6 @@ import { canReplyOn } from "@/lib/platform/transports/registry";
 import {
   isVoicePlanCode,
   isChatAddonKey,
-  CHAT_ONLY_PLAN_CODE,
   CHAT_ADDON_SLOTS,
   VOICE_PLAN_CODES,
 } from "@/lib/billing/chatPlanKeys";
@@ -278,16 +278,17 @@ export async function getOnboardingState() {
   const workspaceStatus = (settings as any)?.workspace_status || "active";
   const pausedReason = (settings as any)?.paused_reason || null;
 
-  // 7) Get current plan (check org_plan_limits - canonical source for active plan)
-  // Plan is active if org_plan_limits.plan_code exists
-  const { data: planLimits } = await supabaseAdmin
-    .from("org_plan_limits")
-    .select("plan_code")
-    .eq("org_id", orgId)
-    .maybeSingle<{ plan_code: string | null }>();
-
-  const planCode = planLimits?.plan_code || null;
-  const isPlanActive = !!planCode;
+  /**
+   * 7) What has this workspace bought?
+   *
+   * Two different questions that used to share one answer. `planCode` is the VOICE plan and stays
+   * null for a chat customer — the wizard uses it to decide whether there is a phone line coming.
+   * `isPlanActive` asks whether anything was bought at all, which is what moves the wizard on;
+   * reading it off `plan_code` sent a chat customer back to the plan step they had just paid on.
+   */
+  const planState = await getPlanState(orgId);
+  const planCode = planState.voicePlanCode;
+  const isPlanActive = planState.hasAnyPlan;
 
   // 8) Get onboarding step (safe fallback if column doesn't exist or is null)
   // DB step mapping: 0 = initial, 1 = Goal, 2 = Language, 3 = Phone Intent, 4 = Plan, 5 = Activating, 6 = Live
@@ -949,15 +950,17 @@ export async function activatePhoneNumber(
     return { ok: false, error: "BILLING_PAUSED" };
   }
 
-  // Strict plan check: plan is active only if org_plan_limits.plan_code exists
-  // Do NOT check org_plan_overrides - that's just a preference, not active plan
-  const { data: planLimits } = await supabaseAdmin
-    .from("org_plan_limits")
-    .select("plan_code")
-    .eq("org_id", orgId)
-    .maybeSingle<{ plan_code: string | null }>();
-
-  if (!planLimits?.plan_code) {
+  /**
+   * A phone number needs a VOICE plan specifically — not merely "a plan".
+   *
+   * This is the one gate that must NOT widen now that chat is a product of its own. Chat carries
+   * no minutes, no concurrency and no included numbers, so a chat customer reaching this would
+   * buy a US line, monthly, against capacity they do not have. `hasAnyPlan` would have let them.
+   *
+   * Deliberately still ignores `org_plan_overrides`: that is a preference, not a purchase.
+   */
+  const planState = await getPlanState(orgId);
+  if (!planState.voicePlanCode) {
     return { ok: false, error: "NO_PLAN" };
   }
 
@@ -1096,24 +1099,30 @@ export async function runActivation(): Promise<
 
   const orgId = profile.org_id;
 
-  // Check plan is active (org_plan_limits.plan_code must exist)
-  const { data: planLimits } = await supabaseAdmin
-    .from("org_plan_limits")
-    .select("plan_code")
-    .eq("org_id", orgId)
-    .maybeSingle<{ plan_code: string | null }>();
+  /**
+   * Something must have been bought — voice, chat, or both.
+   *
+   * Asked of `planState` rather than of `plan_code`, because a chat customer has no voice plan at
+   * all now that `chat_only` is retired, and reading the column directly would refuse to activate
+   * the workspace they just paid for.
+   */
+  const planState = await getPlanState(orgId);
 
-  if (!planLimits?.plan_code) {
+  if (!planState.hasAnyPlan) {
     return { ok: false, error: "Plan not active yet. Please wait for payment confirmation." };
   }
 
   /**
-   * A chat-only workspace has nothing to activate.
+   * A workspace with no VOICE plan has nothing to provision.
    *
-   * Activation exists to create a Vapi assistant and provision a phone number. `chat_only`
-   * carries zero minutes, zero concurrency and zero numbers — running any of that would buy a
-   * US phone line, every month, for a customer who bought chat. So this path skips straight to
-   * Live.
+   * Activation exists to create a Vapi assistant and provision a phone number. A chat customer
+   * has neither minutes nor concurrency nor numbers — running any of that would buy a US phone
+   * line, every month, for someone who bought chat. So this path skips straight to Live.
+   *
+   * The condition used to be `plan_code === "chat_only"`, which was the same test wearing a
+   * fiction: it asked whether the workspace was on a $0 voice plan invented to mean "no voice".
+   * Asking for the absence of a voice plan says the same thing and survives the fiction's
+   * retirement.
    *
    * The wizard needs no special handling for it: the phone-status poll on the Live step is
    * guarded on `vapiPhoneNumberId`, which stays null here, so it never starts and never waits
@@ -1122,7 +1131,7 @@ export async function runActivation(): Promise<
    * Idempotent like the rest of activation — `completeOnboarding` writes step 6, and steps only
    * ever move forward.
    */
-  if (planLimits.plan_code === CHAT_ONLY_PLAN_CODE) {
+  if (!planState.voicePlanCode) {
     /**
      * A chat-only workspace still needs an AI EMPLOYEE — it just does not need a Vapi
      * assistant or a phone number.
@@ -2278,9 +2287,15 @@ export async function startChatCheckout(addonKey: string) {
         cancel_url: `${appUrl}/onboarding?checkout=cancel`,
         metadata: {
           org_id: orgId,
-          // The base plan the workspace lands on — read by the webhook and the redirect fallback.
-          plan_code: CHAT_ONLY_PLAN_CODE,
-          // What was actually bought. Both completion paths write this into billing_org_addons.
+          /**
+           * No `plan_code`, deliberately.
+           *
+           * This used to send `chat_only` — a $0 voice plan invented so the field would not be
+           * empty — and every screen downstream then had to know that one of the plans was not
+           * really a plan. A chat purchase buys chat; the workspace has no voice plan, and now
+           * says so by having none. `readCompletedCheckout` accepts a session with no plan code
+           * as long as it names what WAS bought.
+           */
           chat_addon_key: addonKey,
           kind: "onboarding_chat_purchase",
         },

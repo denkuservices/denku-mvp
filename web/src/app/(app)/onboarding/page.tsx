@@ -4,8 +4,9 @@ import { OnboardingClient } from "./OnboardingClient";
 import { sendWelcomeOnOnboardingStart } from "./sendWelcomeOnOnboardingStart";
 import { getStripeClient } from "@/app/api/billing/stripe/create-draft-invoice-helpers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { hasAnyPaidPlan } from "@/lib/billing/planState";
 import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
-import { isActivatablePlanCode } from "@/lib/billing/chatPlanKeys";
+import { readCompletedCheckout } from "@/lib/billing/completedCheckout";
 import { recordChatPurchase } from "@/lib/billing/chatEntitlement";
 import Stripe from "stripe";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
@@ -36,11 +37,13 @@ async function handleCheckoutSuccess(sessionId: string) {
       return;
     }
 
-    // Extract metadata
-    const orgId = session.metadata?.org_id;
-    const planCode = session.metadata?.plan_code?.toLowerCase();
+    // What this session bought — the same reader the other three activation paths use, so a chat
+    // purchase (which carries no plan code) cannot land on one and be refused on another.
+    const purchase = readCompletedCheckout(session.metadata);
+    const orgId = purchase.orgId;
+    const planCode = purchase.voicePlanCode;
 
-    if (!orgId || !planCode) {
+    if (!orgId || (!purchase.ok && purchase.reason !== "invalid_plan")) {
       console.warn("[onboarding/page] Checkout session missing metadata", {
         session_id: sessionId,
         has_org_id: !!orgId,
@@ -49,10 +52,8 @@ async function handleCheckoutSuccess(sessionId: string) {
       return;
     }
 
-    // Validate plan_code. This is the THIRD path that activates a completed checkout — the
-    // webhook and /api/billing/stripe/sync-checkout are the other two — and all three must
-    // accept the same set, or a purchase completes on one and is silently refused on another.
-    if (!isActivatablePlanCode(planCode)) {
+    // A plan code we do not recognise.
+    if (purchase.reason === "invalid_plan") {
       console.warn("[onboarding/page] Invalid plan_code in checkout session", {
         session_id: sessionId,
         org_id: orgId,
@@ -61,17 +62,19 @@ async function handleCheckoutSuccess(sessionId: string) {
       return;
     }
 
-    // Upsert org_plan_overrides (idempotent - safe to run multiple times)
-    const { error: overrideError } = await supabaseAdmin
-      .from("org_plan_overrides")
-      .upsert(
-        {
-          org_id: orgId,
-          plan_code: planCode,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "org_id" }
-      );
+    // Only a VOICE purchase writes a plan; a chat purchase leaves it null, which is the truth.
+    const { error: overrideError } = planCode
+      ? await supabaseAdmin
+          .from("org_plan_overrides")
+          .upsert(
+            {
+              org_id: orgId,
+              plan_code: planCode,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "org_id" }
+          )
+      : { error: null };
 
     if (overrideError) {
       console.error("[onboarding/page] Error upserting org_plan_overrides", {
@@ -87,7 +90,7 @@ async function handleCheckoutSuccess(sessionId: string) {
     // voice plan. Same write the webhook does, and idempotent on (org_id, addon_key) so both
     // running is harmless — this page is the one the customer actually lands on, so it must not
     // depend on the webhook winning.
-    const chatAddonKey = session.metadata?.chat_addon_key;
+    const chatAddonKey = purchase.chatAddonKey;
     if (chatAddonKey) {
       const recorded = await recordChatPurchase(orgId, chatAddonKey);
       if (!recorded.ok) {
@@ -100,14 +103,10 @@ async function handleCheckoutSuccess(sessionId: string) {
       }
     }
 
-    // Verify plan is now active by checking org_plan_limits
-    const { data: planLimits } = await supabaseAdmin
-      .from("org_plan_limits")
-      .select("plan_code")
-      .eq("org_id", orgId)
-      .maybeSingle<{ plan_code: string | null }>();
-
-    const isPlanActive = !!planLimits?.plan_code;
+    // Verify something was actually bought — voice, chat, or both. A chat purchase leaves no
+    // voice plan behind, so reading `plan_code` alone would send a paying customer back round the
+    // onboarding loop. See lib/billing/planState.ts.
+    const isPlanActive = await hasAnyPaidPlan(orgId);
 
     if (isPlanActive) {
       // Plan is active - set onboarding_step = 5 (Activating, DB step 5 = UI step 4) if current step < 5

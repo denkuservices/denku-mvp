@@ -12,6 +12,14 @@
  * minute. (Summing seconds first then dividing would bill materially less.)
  */
 
+/**
+ * `chat_only` remains here and only here.
+ *
+ * It is retired as a product (see `lib/billing/chatPlanKeys.ts`) and no longer written anywhere,
+ * but this module is the golden-master mirror of the billing views, and a historical invoice row
+ * computed while a workspace carried that code must still resolve to the same numbers it did then
+ * — zero of everything. Removing it would make the mirror disagree with the past.
+ */
 export type PlanCode = "starter" | "growth" | "scale" | "chat_only";
 
 export interface PlanPricing {
