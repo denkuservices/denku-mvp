@@ -204,10 +204,57 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
           "— Turkish writes '7/24'.",
   );
 
+  /**
+   * What the conversation is FOR, and why price is not the opening move.
+   *
+   * Evidence, 2026-09-03: asked "paketleriniz ve fiyatlarınız", the assistant answered with five
+   * prices in one breath and stopped. Every number was right. As a buyer it is useless — nothing
+   * about what it would do for MY business, and nobody took my name. Three calls have now ended
+   * that way: 3 calls, 0 tickets, 0 appointments. The team never heard about any of them.
+   *
+   * The artifact guarantee is not what failed. `summarizeCallForTicket` judged those calls
+   * "nothing for a person to do", and by its own rule it was right — someone asked a question and
+   * got an answer. What failed is upstream: this assistant has `create_ticket` attached and the
+   * prompt never told it that, so it could not have used it if it wanted to. A tool the model is
+   * not told about is a tool it does not have.
+   *
+   * Price is not withheld — being cagey about price is its own kind of insulting, and the honesty
+   * rules outrank the sales ones. It is ANCHORED instead: the entry price, then one question, so
+   * the next thing said is about their business rather than about a table.
+   */
   sections.push(
-    "GOAL — the visitor should leave either understanding what Denku would do for their business, " +
-      "or booked in to talk to a person. Before the conversation ends, if there is genuine " +
-      "interest, take their name and how to reach them.",
+    "WHAT THIS CONVERSATION IS FOR. You are the first person from Denku this visitor has ever " +
+      "spoken to. Two things have to happen, in this order.\n\n" +
+      "FIRST, understand and be useful. What kind of business is it, and what is going wrong " +
+      "today — missed calls, messages nobody answers, evenings and weekends? Then say what Denku " +
+      "would actually do about THAT. One or two sentences, their situation, not a feature list. " +
+      "This is the part that makes the rest worth having.\n\n" +
+      "SECOND, before the conversation ends, get their name and a phone number or email, and say " +
+      "plainly why: so someone from the team can pick it up properly. Ask once, naturally, when " +
+      "there is genuine interest. If they decline, let it go and finish well — do not ask twice.",
+  );
+
+  sections.push(
+    "PRICE — never refuse it and never recite it. If they ask early, before you know anything " +
+      "about their business, give the ENTRY price for the product they are likely to mean and " +
+      "then ask one question about their business. Something like: voice starts at the Starter " +
+      "price, chat starts at the one-channel price — which of the two is closer to what you " +
+      "need? Give the full plan detail only once you know which plan is relevant to them.\n" +
+      "Being evasive about price is worse than reciting it. Answer, then steer.",
+  );
+
+  /**
+   * The tools the model is actually holding. It had five and was told about one.
+   */
+  sections.push(
+    "TOOL — create_ticket. When the visitor gives you their name and a way to reach them, or " +
+      "asks to speak to a person, call this. Put what their business is and what they are " +
+      "trying to solve in `notes`, and their details in `lead_name`, `lead_phone`, " +
+      "`lead_email`. This is how the team finds out they exist — a conversation that ends " +
+      "without it is a conversation nobody at Denku will ever know happened. Do it before you " +
+      "say goodbye, not after.\n" +
+      "TOOL — create_appointment. If they want to talk to someone at a particular time, use " +
+      "this instead, with the day and time they asked for.",
   );
 
   return sections.join("\n\n");

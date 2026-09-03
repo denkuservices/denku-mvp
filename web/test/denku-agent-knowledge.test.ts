@@ -233,16 +233,56 @@ describe("retrieval", () => {
   });
 });
 
+describe("the conversation is a sale, not a price list", () => {
+  const spoken = buildDenkuCorePrompt({ ...CTX, surface: "a phone call", spoken: true });
+
+  it("understands the business before it quotes a table", () => {
+    // Asked "paketleriniz ve fiyatlarınız", it answered with five prices and stopped. Every
+    // number was right and it was useless: nothing about the caller's business, and no name.
+    expect(spoken).toMatch(/FIRST, understand and be useful/);
+    expect(spoken).toMatch(/what is going wrong today/);
+  });
+
+  it("anchors a price instead of refusing or reciting it", () => {
+    // Being cagey about price is its own kind of insulting, and the honesty rules outrank the
+    // sales ones. Answer, then steer.
+    expect(spoken).toMatch(/never refuse it and never recite it/);
+    expect(spoken).toMatch(/give the ENTRY price/);
+    expect(spoken).toMatch(/Being evasive about price is worse than reciting it/);
+  });
+
+  it("names create_ticket, which was attached but never described", () => {
+    // Three calls, zero tickets. The artifact guarantee did not fail — `summarizeCallForTicket`
+    // correctly judged "nothing for a person to do". What failed is that the assistant held five
+    // tools and the prompt described one, so it could not have captured the lead if it wanted to.
+    expect(spoken).toMatch(/TOOL — create_ticket/);
+    expect(spoken).toMatch(/lead_name/);
+    expect(spoken).toMatch(/lead_phone/);
+    expect(spoken).toMatch(/TOOL — create_appointment/);
+  });
+
+  it("asks for contact details once, and explains why", () => {
+    expect(spoken).toMatch(/get their name and a phone number or email/);
+    expect(spoken).toMatch(/do not ask twice/);
+  });
+});
+
 describe("core prompt", () => {
   const spoken = buildDenkuCorePrompt({ ...CTX, surface: "a phone call", spoken: true });
   const written = buildDenkuCorePrompt({ ...CTX, surface: "the website chat", spoken: false });
 
   it("stays small enough to send on every turn", () => {
-    // The bound guards against inlining the corpus, which alone is ~6,600 tokens. It has grown
-    // from ~890 as each round of real calls showed something that had to be said explicitly —
-    // the product shape, the tone, how much of a price list to read aloud. Spelling numbers as
-    // words costs tokens too, and buys a price the caller can trust.
-    expect(Math.round(spoken.length / 4)).toBeLessThan(2200);
+    // The bound guards against inlining the corpus, which alone is ~6,600 tokens and stays out.
+    //
+    // This has grown from ~890 to ~2,250 across three rounds of real calls, and the growth is
+    // worth understanding rather than just capping: FACTS can be fetched on demand, BEHAVIOUR
+    // cannot. Every increase has been a rule the model had to be holding while it spoke — how to
+    // describe the product, how long a turn is, how to say a number, when to take a name. None of
+    // it could have lived in the corpus.
+    //
+    // If this bound is ever hit again, the question to ask is whether a rule earned its place on
+    // call evidence, not whether the prompt is too long in the abstract.
+    expect(Math.round(spoken.length / 4)).toBeLessThan(2600);
   });
 
   it("spells numbers rather than leaving numerals to be converted", () => {
