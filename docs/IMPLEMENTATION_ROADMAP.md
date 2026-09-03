@@ -2398,3 +2398,31 @@ busy-signal investigation.
 **Also fix in the same change:** `CLAUDE.md` philosophy #3 and `skills/billing-and-stripe.md`
 currently describe the behaviour this finding says does not exist. Whichever way the fix lands, the
 docs must stop claiming enforcement the code does not perform.
+
+---
+
+### R-152 — Every AI is created with a voice id that does not exist
+**Priority:** Low · **Status:** Open · **Effort:** S · **Found:** 2026-09-03 (adding the language
+question to onboarding)
+> All three paths that create a backing AI write `voice: "jennifer"` onto the `agents` row —
+> onboarding activation (`web/src/app/(app)/onboarding/_actions.ts:1594`), phone-line purchase
+> (`web/src/app/api/phone-lines/purchase/route.ts:291`) and BYO connect
+> (`web/src/lib/phone-lines/connectByo.ts:145`). **There is no voice called `jennifer` in
+> `lib/voice/catalogue.ts`** — it is a string from an earlier product that outlived the catalogue.
+>
+> Nothing breaks at Vapi: `applyVoiceChoice` only honours an id the catalogue knows and otherwise
+> falls back to the language's own default, so the assistant genuinely speaks with the right voice.
+> The damage is on the screen. `agents.voice` is what Team → Setup renders as the owner's chosen
+> voice, so every workspace shows a selection it never made and that does not exist — and the moment
+> the owner saves that form, whatever the picker resolved that stale value to becomes their real
+> stored choice.
+>
+> It became visible with the onboarding language question (2026-09-03): a workspace born speaking
+> Turkish now carries an English-era voice id it never picked.
+
+**Fix:** write the empty string, which is the convention this codebase already uses for "use the
+language's own default" (`settings/_actions/agents.ts` documents it — `voice` is NOT NULL with a
+default, so unset is `""`, not null). Three one-word changes plus a backfill decision for existing
+rows: leave them (harmless, still resolves to the default) or normalise `voice = ''` where it is a
+value the catalogue does not know. Prefer the backfill — a stored lie that renders as a choice is
+the whole finding.
