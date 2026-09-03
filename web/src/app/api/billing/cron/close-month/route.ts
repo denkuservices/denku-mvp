@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { getStripeClient, ensureStripeCustomer } from "../../stripe/create-draft-invoice-helpers";
+import { applyDueAddonSchedules } from "@/lib/billing/applyDueAddonSchedules";
 
 /**
  * Verify CRON_SECRET for security.
@@ -290,6 +291,26 @@ async function closeMonthHandler(req: NextRequest): Promise<NextResponse> {
         month: targetMonth,
       },
     });
+
+    /**
+     * 2b) Settle add-on downgrades whose paid period has ended.
+     *
+     * Runs BEFORE the invoices are built, because an add-on that expired during the month closing
+     * here should not appear as capacity the workspace still holds when someone reads the row
+     * afterwards. It cannot change what is charged — the customer paid for the period in full and
+     * is deliberately not credited — so a failure is logged and the month still closes.
+     */
+    const addonSweep = await applyDueAddonSchedules();
+    if (!addonSweep.ok) {
+      logEvent({
+        tag: "[BILLING][ADDON_SCHEDULE][SWEEP_FAILED]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        severity: "warn",
+        details: { error: addonSweep.error ?? "unknown" },
+      });
+    }
 
     // 3) Initialize Stripe
     const stripe = getStripeClient();

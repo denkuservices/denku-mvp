@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { effectiveAddonQty } from "@/lib/billing/addonSchedule";
 
 /**
  * Get effective limits for an organization (plan base + add-ons).
@@ -40,18 +41,26 @@ export async function getEffectiveLimits(orgId: string): Promise<{
   const baseConcurrency = planCatalog?.concurrency_limit ? Number(planCatalog.concurrency_limit) : 0;
   const basePhones = planCatalog?.included_phone_numbers ? Number(planCatalog.included_phone_numbers) : 0;
 
-  // 3) Get active add-on quantities from billing_org_addons
+  /**
+   * 3) Add-on quantities — as of NOW, not as of the last sweep.
+   *
+   * A dropped add-on keeps its capacity until the period the customer paid for ends (2026-09-03),
+   * which is recorded on the row as `ends_at` + `scheduled_qty` rather than performed. `status` is
+   * no longer enough to answer "how much do they have": a row can be active and already past its
+   * end date, because the only scheduled job here runs monthly and Stripe periods are not
+   * calendar-aligned. `effectiveAddonQty` applies the date, so the entitlement is right the second
+   * it changes and a late sweep can only leave a row untidy, never over-granted.
+   */
   const { data: orgAddons } = await supabaseAdmin
     .from("billing_org_addons")
-    .select("addon_key, qty")
-    .eq("org_id", orgId)
-    .eq("status", "active");
+    .select("addon_key, qty, status, ends_at, scheduled_qty")
+    .eq("org_id", orgId);
 
   let extraConcurrency = 0;
   let extraPhone = 0;
 
   for (const row of orgAddons || []) {
-    const qty = Number(row.qty || 0);
+    const qty = effectiveAddonQty(row);
     if (row.addon_key === "extra_concurrency") {
       extraConcurrency = qty;
     } else if (row.addon_key === "extra_phone") {

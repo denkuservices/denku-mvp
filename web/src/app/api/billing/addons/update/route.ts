@@ -13,6 +13,7 @@ import { notifyAddonChanged } from "@/lib/billing/lifecycleNotifications";
 import { getEffectiveLimits } from "@/lib/billing/limits";
 import { guard } from "@/lib/auth/permissions";
 import { logAuditEvent } from "@/lib/audit/log";
+import { planAddonChange, phoneDowngradeBlocked } from "@/lib/billing/addonSchedule";
 
 /**
  * Get current month start in UTC (YYYY-MM-01 format).
@@ -33,6 +34,16 @@ const RequestSchema = z.object({
   // and the invoice-staleness marking are all already correct for them.
   addon_key: z.enum(["extra_concurrency", "extra_phone", "chat_basic", "chat_standard"]),
   qty: z.number().int().min(0).max(100),
+  /**
+   * How many phone lines the caller is in the middle of releasing.
+   *
+   * Only the phone-line DELETE path sends it, and only ever `1`. That path gives a slot back while
+   * the line it is deleting is STILL in the table — it decrements billing before the row is gone
+   * so a Stripe failure can abort — so a naive "you still use 2 numbers" check would refuse the
+   * very operation that frees one. Not a credential: anyone who can send this can delete the line
+   * outright, which is the same outcome by a longer road.
+   */
+  releasing_lines: z.number().int().min(0).max(10).optional(),
 });
 
 /**
@@ -86,7 +97,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { addon_key, qty } = parseResult.data;
+    const { addon_key, qty, releasing_lines: releasingLines = 0 } = parseResult.data;
 
     // 5) Get current quantity
     const { data: currentAddon } = await supabaseAdmin
@@ -130,6 +141,67 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { ok: false, error: refusal.error },
           { status: refusal.status }
+        );
+      }
+    }
+
+    /**
+     * 5b) Refuse to sell back a phone slot the workspace is still standing on.
+     *
+     * A line is a number a business has published; nothing in this codebase may delete one to make
+     * the books balance, and letting the slot go anyway would leave a line nobody pays for — the
+     * kind of quiet inconsistency that surfaces months later as a support ticket. So the refusal
+     * happens here, while the owner is still on the screen and can delete the line themselves.
+     *
+     * Counted against the quantity being REQUESTED, not the one held, because the question is what
+     * the workspace looks like after this change.
+     */
+    if (addon_key === "extra_phone" && qty < currentQty) {
+      const { count: linesInUse } = await supabaseAdmin
+        .from("phone_lines")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", org_id);
+
+      // The plan's own included numbers, recovered from the effective limit rather than read from
+      // the catalogue a second time — `getEffectiveLimits` is the one place that knows how a plan
+      // and its add-ons add up, and two readers of that sum eventually disagree.
+      const limitsNow = await getEffectiveLimits(org_id);
+      const basePhones = Math.max(0, limitsNow.included_phones - limitsNow.addons.extra_phone);
+
+      const verdict = phoneDowngradeBlocked({
+        basePhones,
+        requestedExtraPhones: qty,
+        linesInUse: linesInUse ?? 0,
+        releasingLines,
+      });
+
+      if (verdict.blocked) {
+        logEvent({
+          tag: "[BILLING][ADDON_UPDATE][BLOCKED_IN_USE]",
+          ts: Date.now(),
+          stage: "COST",
+          source: "system",
+          org_id: org_id,
+          severity: "warn",
+          details: {
+            addon_key,
+            current_qty: currentQty,
+            requested_qty: qty,
+            lines_after: verdict.linesAfter,
+            slots_after: verdict.slotsAfter,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "phone_lines_in_use",
+            error:
+              verdict.linesAfter === 1
+                ? "You are still using 1 phone number, and this change would leave you no slot for it. Delete the number first, then remove the extra slot."
+                : `You are still using ${verdict.linesAfter} phone numbers, and this change would leave you ${verdict.slotsAfter}. Delete the numbers you no longer need first.`,
+          },
+          { status: 409 }
         );
       }
     }
@@ -208,6 +280,19 @@ export async function POST(req: NextRequest) {
     }
 
     const stripeCustomerId = stripeCustomer.stripe_customer_id;
+
+    /**
+     * Decided inside the Stripe block (it needs the subscription's period end) and read after it
+     * (the DB write is what the decision is FOR). Declared here so the two halves cannot drift:
+     * the row must never say "keeps it until the 14th" while Stripe was told to credit it back.
+     */
+    let periodEnd: Date | null = null;
+    let changePlan = planAddonChange({
+      addonKey: addon_key,
+      currentQty,
+      requestedQty: qty,
+      periodEnd: null,
+    });
 
     // 9) Update Stripe subscription items (BEFORE DB update)
     try {
@@ -292,12 +377,48 @@ export async function POST(req: NextRequest) {
       // Generate idempotency key
       const idempotencyKey = `addon_update:${org_id}:${addon_key}:${qty}`;
 
+      /**
+       * When does the money they have already paid stop covering anything?
+       *
+       * This is the date the customer is promised, so it comes from Stripe rather than from a
+       * month's arithmetic — a subscription that started on the 14th ends on the 14th, and a
+       * calendar guess would hand a shop owner a date their own invoice contradicts. Read BEFORE
+       * the item is touched, because a deleted item has no period left to report.
+       */
+      const periodEndUnix =
+        typeof subscription.current_period_end === "number" ? subscription.current_period_end : null;
+      periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000) : null;
+
+      changePlan = planAddonChange({
+        addonKey: addon_key,
+        currentQty,
+        requestedQty: qty,
+        periodEnd,
+      });
+
+      /**
+       * A downgrade is never a refund.
+       *
+       * `proration_behavior: "none"` is the whole policy on the Stripe side: the current period
+       * stays paid in full and no credit is written, so the capacity the customer keeps until
+       * `ends_at` is capacity they actually paid for. Stripe's DEFAULT is `create_prorations`,
+       * which is what used to hand the unused days back — silently, because the parameter was
+       * simply absent.
+       *
+       * Increases keep the default on purpose: adding capacity mid-month should be charged
+       * pro-rata, which is the same arithmetic working in the customer's favour.
+       */
+      const decreaseOptions =
+        changePlan.kind === "scheduled_decrease"
+          ? ({ proration_behavior: "none" } as const)
+          : ({} as const);
+
       if (qty > 0) {
         if (existingItem) {
           // Update existing item quantity
           await stripe.subscriptionItems.update(
             existingItem.id,
-            { quantity: qty },
+            { quantity: qty, ...(qty < currentQty ? decreaseOptions : {}) },
             { idempotencyKey }
           );
         } else {
@@ -315,6 +436,7 @@ export async function POST(req: NextRequest) {
         // qty == 0: delete the subscription item
         if (existingItem) {
           await stripe.subscriptionItems.del(existingItem.id, {
+            ...decreaseOptions,
             idempotencyKey,
           });
         }
@@ -343,19 +465,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 10) Upsert billing_org_addons (AFTER Stripe succeeds)
+    /**
+     * 10) Upsert billing_org_addons (AFTER Stripe succeeds).
+     *
+     * On a scheduled downgrade `qty` is deliberately NOT changed. It keeps meaning "what this
+     * workspace is entitled to", which is what every existing reader assumes, and the downgrade
+     * lives beside it as a date plus the quantity it becomes. Writing the new quantity here and
+     * "remembering" the old one somewhere else would put the entitlement in two places, and the
+     * one that disagreed would be the one enforcing concurrency limits at 2am.
+     *
+     * Every other outcome clears the schedule: an increase is a customer changing their mind, and
+     * an immediate decrease has nothing left to wait for.
+     */
     const upsertData: {
       org_id: string;
       addon_key: string;
       qty: number;
       status: string;
       updated_at: string;
+      ends_at: string | null;
+      scheduled_qty: number | null;
     } = {
       org_id: org_id,
       addon_key: addon_key,
-      qty: qty,
-      status: qty > 0 ? "active" : "inactive",
+      qty: changePlan.kind === "scheduled_decrease" ? changePlan.keepQty : qty,
+      status:
+        changePlan.kind === "scheduled_decrease"
+          ? "active"
+          : qty > 0
+            ? "active"
+            : "inactive",
       updated_at: new Date().toISOString(),
+      ends_at: changePlan.kind === "scheduled_decrease" ? changePlan.endsAt : null,
+      scheduled_qty: changePlan.kind === "scheduled_decrease" ? changePlan.scheduledQty : null,
     };
 
     const { error: upsertError } = await supabaseAdmin
@@ -442,6 +584,10 @@ export async function POST(req: NextRequest) {
         qty,
         previousQty: currentQty,
         effectiveTotal,
+        // The date is the point of the mail on a downgrade. "We removed your extra number" with
+        // no "…on the 14th" reads as a cancellation that already happened, and the customer stops
+        // using capacity they are still paying for.
+        endsAt: changePlan.kind === "scheduled_decrease" ? changePlan.endsAt : null,
       });
     } catch (notifyErr) {
       console.error("[BILLING][ADDON_UPDATE] Confirmation email failed (non-fatal)", notifyErr);
@@ -467,6 +613,21 @@ export async function POST(req: NextRequest) {
       ok: true,
       addon_key: addon_key,
       qty: qty,
+      /**
+       * What the customer keeps, and until when.
+       *
+       * Returned rather than left for the next summary fetch because the confirmation the owner
+       * reads is the one immediately after they click — "removed" and "removed, and yours until
+       * the 14th" are different products, and only one of them is what they paid for.
+       */
+      scheduled:
+        changePlan.kind === "scheduled_decrease"
+          ? {
+              ends_at: changePlan.endsAt,
+              qty_after: changePlan.scheduledQty,
+              qty_until_then: changePlan.keepQty,
+            }
+          : null,
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";

@@ -356,6 +356,8 @@ export async function notifyAddonChanged(
     qty: number;
     previousQty?: number | null;
     effectiveTotal?: number | null;
+    /** Set when the drop takes effect at the end of the paid period rather than now. */
+    endsAt?: string | null;
   }
 ): Promise<void> {
   try {
@@ -371,6 +373,7 @@ export async function notifyAddonChanged(
       qty: params.qty,
       previousQty: params.previousQty ?? null,
       effectiveTotal: params.effectiveTotal ?? null,
+      endsAt: params.endsAt ?? null,
       orgName: contact.orgName,
       billingUrl: billingUrl(),
       locale: contact.locale,
@@ -378,7 +381,9 @@ export async function notifyAddonChanged(
 
     await sendOnce({
       kind: "addon_changed",
-      dedupeKey: `${orgId}:${params.addonKey}:${params.qty}`,
+      // The end date joins the key so a customer who drops, re-adds and drops again is told the
+      // NEW date instead of being silenced by the claim from the first drop.
+      dedupeKey: `${orgId}:${params.addonKey}:${params.qty}${params.endsAt ? `:${params.endsAt}` : ""}`,
       to: contact.email,
       subject,
       html,

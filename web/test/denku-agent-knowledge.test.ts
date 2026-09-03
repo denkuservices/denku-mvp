@@ -238,18 +238,20 @@ describe("core prompt", () => {
   const written = buildDenkuCorePrompt({ ...CTX, surface: "the website chat", spoken: false });
 
   it("stays small enough to send on every turn", () => {
-    // The bound is generous because the thing it guards against is inlining the corpus, which
-    // alone is ~6,600 tokens. It grew from ~890 to ~1,240 when the first real call showed the
-    // product description and the tone both needed spelling out.
-    expect(Math.round(spoken.length / 4)).toBeLessThan(1600);
+    // The bound guards against inlining the corpus, which alone is ~6,600 tokens. It has grown
+    // from ~890 as each round of real calls showed something that had to be said explicitly —
+    // the product shape, the tone, how much of a price list to read aloud. Spelling numbers as
+    // words costs tokens too, and buys a price the caller can trust.
+    expect(Math.round(spoken.length / 4)).toBeLessThan(2200);
   });
 
-  it("reads large numbers as quantities, not digit strings", () => {
-    // The first real Turkish call said "uc alti sifir sifir" for 3600 — three, six, zero, zero —
-    // while 149 and 1200 came out fine. A thousands separator is what makes it unambiguous.
-    expect(spoken).toMatch(/3,600 minutes/);
-    expect(spoken).toMatch(/1,200 minutes/);
+  it("spells numbers rather than leaving numerals to be converted", () => {
+    // A thousands separator did NOT fix "üç altı sıfır sıfır" — the next call said it again, and
+    // invented "sekiz yüz otuz dokuz" for $899. Numbers already spelled always came out right.
+    expect(spoken).toMatch(/three thousand six hundred minutes/);
+    expect(spoken).toMatch(/one thousand two hundred minutes/);
     expect(spoken).not.toMatch(/3600/);
+    expect(spoken).not.toMatch(/3,600/);
   });
 
   it("never leaves a bare 24/7 for the model to read out", () => {
@@ -296,7 +298,7 @@ describe("core prompt", () => {
     // phone number: 407-555-1234 is not four hundred and seven billion.
     expect(spoken).toMatch(/is an IDENTIFIER, not a quantity/);
     expect(spoken).toMatch(/read those digit by digit in small groups/);
-    expect(spoken).toMatch(/3,600 is 'three thousand six hundred'/);
+    expect(spoken).toMatch(/a figure like three thousand six hundred is said that way/);
   });
 
   it("keeps chat prices out of the voice list", () => {
@@ -318,8 +320,11 @@ describe("core prompt", () => {
   });
 
   it("carries prices, because almost every conversation asks and a lookup would be wasted", () => {
-    expect(spoken).toMatch(/\$149/);
-    expect(spoken).toMatch(/\$899/);
+    // Spelled, not printed — the spoken prompt has no price numerals at all.
+    expect(spoken).toMatch(/one hundred forty-nine dollars a month/);
+    expect(spoken).toMatch(/eight hundred ninety-nine dollars a month/);
+    expect(written).toMatch(/\$149/);
+    expect(written).toMatch(/\$899/);
   });
 
   it("carries the availability boundaries, so an over-promise is blocked before a tool call", () => {
