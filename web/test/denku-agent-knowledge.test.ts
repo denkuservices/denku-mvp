@@ -265,6 +265,28 @@ describe("the conversation is a sale, not a price list", () => {
     expect(spoken).toMatch(/get their name and a phone number or email/);
     expect(spoken).toMatch(/do not ask twice/);
   });
+
+  it("treats the visitor closing the call as the moment to ask, not a reason to skip", () => {
+    // It HAD this instruction on the fourth call and skipped it: a clothing-shop owner described
+    // her problem, said "bilgi aldım, teşekkür ederim", and was let go without being asked for
+    // anything. "Genuine interest" was being read far too narrowly.
+    expect(spoken).toMatch(/told you their trade and their problem IS genuine interest/);
+    expect(spoken).toMatch(/is the moment to ask, NOT a reason to skip it/);
+    expect(spoken).toMatch(/Never let someone hang up without being offered a callback/);
+  });
+
+  it("refuses to shorten a plan figure", () => {
+    // It said the Starter plan includes "her ay dört dakika" — four minutes. It is four hundred.
+    // A dropped word is a different number, and the caller cannot catch it.
+    expect(spoken).toMatch(/four hundred minutes is never 'four minutes'/);
+    expect(spoken).toMatch(/Shortening a number is not brevity, it is a different number/);
+  });
+
+  it("refuses to translate a product noun into the wrong object", () => {
+    // It called a ticket a "bilet" — a bus or cinema ticket in Turkish — on every call.
+    expect(spoken).toMatch(/NEVER a 'bilet'/);
+    expect(spoken).toMatch(/'talep' or a 'destek kaydı'/);
+  });
 });
 
 describe("core prompt", () => {
