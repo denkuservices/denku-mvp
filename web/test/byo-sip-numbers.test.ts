@@ -87,6 +87,50 @@ describe("trunk credential payload", () => {
     expect(p).not.toHaveProperty("outboundAuthenticationPlan");
     expect(p).not.toHaveProperty("port");
   });
+
+  /**
+   * The gateway list is "who we believe", not "where we send" — Vapi matches the SOURCE address
+   * of the carrier's INVITE. Netgsm egresses from two published hosts, and a one-address list
+   * fails invisibly on the second: no Vapi call record, busy tone for the caller (2026-09-03).
+   */
+  it("trusts every address a carrier is known to send from", () => {
+    const p = buildTrunkCredentialPayload({
+      name: "Netgsm",
+      gatewayHost: "185.88.7.189",
+      additionalGatewayHosts: ["185.88.7.196"],
+      gatewayPort: 5060,
+    });
+    const gateways = p.gateways as Array<Record<string, unknown>>;
+    expect(gateways).toHaveLength(2);
+    // The primary stays gateway 0 — it is the one Vapi names in validation errors.
+    expect(gateways.map((g) => g.ip)).toEqual(["185.88.7.189", "185.88.7.196"]);
+    // Every gateway must accept inbound, or the extra one is decoration.
+    expect(gateways.every((g) => g.inboundEnabled === true)).toBe(true);
+    expect(gateways.every((g) => g.port === 5060)).toBe(true);
+  });
+
+  it("pins Netgsm's second host, so a busy tone is never traced to a missing allowlist twice", () => {
+    expect(KNOWN_SIP_CARRIERS.netgsm.additionalGatewayHosts).toContain("185.88.7.196");
+  });
+
+  it("validates every gateway, not just the first", () => {
+    expect(() =>
+      buildTrunkCredentialPayload({
+        name: "Netgsm",
+        gatewayHost: "185.88.7.189",
+        additionalGatewayHosts: ["sip2.netgsm.com.tr"],
+      })
+    ).toThrow(/numeric IPv4/);
+  });
+
+  it("does not send the same gateway twice", () => {
+    const p = buildTrunkCredentialPayload({
+      name: "Netgsm",
+      gatewayHost: "185.88.7.189",
+      additionalGatewayHosts: ["185.88.7.189", " 185.88.7.189 "],
+    });
+    expect(p.gateways as unknown[]).toHaveLength(1);
+  });
 });
 
 describe("byo phone number payload", () => {

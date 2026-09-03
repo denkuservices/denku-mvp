@@ -27,6 +27,15 @@ export interface SipTrunkInput {
   name: string;
   /** Carrier SIP host or IP — Netgsm: `sip.netgsm.com.tr`. */
   gatewayHost: string;
+  /**
+   * Every OTHER address the same carrier may send an INVITE from.
+   *
+   * Vapi matches the SOURCE address of the carrier's INVITE against this list, so the list is not
+   * "where we send" — it is "who we believe". A carrier that egresses from a second host is
+   * refused there, and refused invisibly: no call record on our side at all, and a busy tone for
+   * the caller. Netgsm published exactly this trap (see `KNOWN_SIP_CARRIERS`).
+   */
+  additionalGatewayHosts?: readonly string[] | null;
   /** Usually 5060; omitted when the carrier uses the default. */
   gatewayPort?: number | null;
   /** Carrier SIP username. Not a secret — it identifies the trunk. */
@@ -63,6 +72,27 @@ export const KNOWN_SIP_CARRIERS = {
      * If the first call never reaches Vapi, ask Netgsm for their egress range and widen this.
      */
     gatewayHost: "185.88.7.189",
+    /**
+     * Netgsm's OTHER SIP host — and the reason the first live line went silent.
+     *
+     * Proven 2026-09-03, hours after the line was verified: calls started hitting a busy tone
+     * with **no call record at Vapi at all**. Vapi's SBCs answered OPTIONS, the number, credential
+     * and assistant were untouched, and the workspace was active — so nothing on our side had
+     * refused anything. What had changed was which Netgsm host the call came out of. Netgsm
+     * publishes at least two live SIP hosts in its own DNS: `sip`/`sip3`/`sip5` all resolve to
+     * `185.88.7.189`, while **`sip2.netgsm.com.tr` is `185.88.7.196`**, and both answer SIP
+     * OPTIONS. Netgsm owns the whole `185.88.7.0/24` (RIPE: NETGSM-4).
+     *
+     * A one-address allowlist therefore works until Netgsm routes a call out of the other host,
+     * and then fails in the worst possible way: silently, intermittently, and with the caller
+     * hearing a busy signal that looks exactly like the customer's own line being broken.
+     *
+     * ⚠ This is still a floor, not a ceiling. Two hosts is what Netgsm's DNS admits to; their
+     * documented egress range is what we actually need, and Netgsm has never given us one. If a
+     * busy tone with no Vapi call record happens again, the first suspicion is a third address —
+     * widen this list, do not go looking at the assistant.
+     */
+    additionalGatewayHosts: ["185.88.7.196"],
     /** Human-facing name for the same host. Never sent to Vapi — see `gatewayHost`. */
     gatewayHostname: "sip.netgsm.com.tr",
     gatewayPort: 5060,
@@ -104,26 +134,37 @@ export function isIpv4(value: string): boolean {
  * an empty auth block is not the same as no auth block and carriers reject the difference.
  */
 export function buildTrunkCredentialPayload(input: SipTrunkInput): Record<string, unknown> {
-  const host = input.gatewayHost.trim();
-  if (!isIpv4(host)) {
-    // Caught here rather than at Vapi, whose 400 for this ("gateways.0.ip must be a numeric
-    // IPv4 address when inboundEnabled is true or omitted") reaches the customer as a generic
-    // "could not connect" once `safeErrorMessage` has scrubbed it.
-    throw new Error(
-      `SIP gateway must be a numeric IPv4 address for an inbound trunk, got "${host}"`
-    );
+  // Deduplicated, order preserved: the primary host stays gateway 0, which is the one Vapi names
+  // in its validation errors and the one a human recognises in the panel.
+  const hosts = Array.from(
+    new Set(
+      [input.gatewayHost, ...(input.additionalGatewayHosts ?? [])]
+        .map((h) => (h ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  for (const host of hosts) {
+    if (!isIpv4(host)) {
+      // Caught here rather than at Vapi, whose 400 for this ("gateways.0.ip must be a numeric
+      // IPv4 address when inboundEnabled is true or omitted") reaches the customer as a generic
+      // "could not connect" once `safeErrorMessage` has scrubbed it.
+      throw new Error(
+        `SIP gateway must be a numeric IPv4 address for an inbound trunk, got "${host}"`
+      );
+    }
   }
 
-  const gateway: Record<string, unknown> = {
-    ip: host,
-    inboundEnabled: true,
-  };
-  if (input.gatewayPort) gateway.port = input.gatewayPort;
+  const gateways = hosts.map((ip) => {
+    const gateway: Record<string, unknown> = { ip, inboundEnabled: true };
+    if (input.gatewayPort) gateway.port = input.gatewayPort;
+    return gateway;
+  });
 
   const payload: Record<string, unknown> = {
     provider: "byo-sip-trunk",
     name: input.name.trim().slice(0, 40),
-    gateways: [gateway],
+    gateways,
     // Turkish and European numbers are dialled with the leading +; without this the carrier
     // sees a number it cannot route.
     outboundLeadingPlusEnabled: true,
