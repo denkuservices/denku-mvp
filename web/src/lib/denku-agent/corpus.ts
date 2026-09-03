@@ -189,7 +189,9 @@ export const CORPUS: readonly CorpusChunk[] = [
     tags: ["ticket", "appointment", "transcript", "lead", "inbox", "what happens", "notification"],
     body:
       "Every finished conversation is turned into something actionable: a ticket (a task for the " +
-      "business) or an appointment request, plus a contact record. This is guaranteed — if the AI " +
+      "business — in Turkish call it a 'talep' or 'destek kaydı', never a 'bilet', which means a " +
+      "bus or cinema ticket) or an appointment request, plus a contact record. This is guaranteed " +
+      "— if the AI " +
       "never got round to creating one during the conversation, the system creates it afterwards " +
       "from the transcript, so a conversation is never lost. The owner sees calls, conversations, " +
       "tickets, appointments and contacts in one dashboard, with the recording and transcript " +
