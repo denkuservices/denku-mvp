@@ -5,7 +5,15 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-03 (**R-151 filed** — the concurrency limit records a breach and then
+> **Last updated:** 2026-09-03 (**R-153 · R-154 · R-155 · R-156 fixed.** A customer asked for chat
+> and was sold a phone plan: the wizard threw away the answer they had just given, and the next
+> screen led with three voice cards. Onboarding now asks **what**, then **how much**, then — voice
+> only — **which number**, in three branches that never see each other's prices, with a free-preview
+> card as the third option and BYON as a real choice rather than a card labelled "Later". Activation
+> refuses to provision a phone line against a `chat`/`free` intent whatever the plan says. Also: the
+> brand mark in every email was a remote image that unfamiliar clients refuse, so it was visible to
+> us and invisible to customers — it is now attached to the message.)
+> **Prior:** 2026-09-03 (**R-151 filed** — the concurrency limit records a breach and then
 > lets the call continue. Found while proving a busy signal on the first BYO line was *not* ours: the
 > lease is acquired after Vapi has already answered, and `limit_reached` returns a JSON body on a
 > `status-update` that Vapi ignores. The (N+1)th caller talks to the AI and bills minutes the
@@ -2443,3 +2451,151 @@ default, so unset is `""`, not null). Three one-word changes plus a backfill dec
 rows: leave them (harmless, still resolves to the default) or normalise `voice = ''` where it is a
 value the catalogue does not know. Prefer the backfill — a stored lie that renders as a choice is
 the whole finding.
+
+### R-153 — "I don't need a phone line — I want chat" was discarded, and the next screen sold phone plans
+**Priority:** High · **Status:** Fixed · **Effort:** M · **Found:** 2026-09-03 (a customer
+reported being given a US number after asking for chat) · **Fixed:** 2026-09-03
+> A customer clicked **"I don't need a phone line — I want chat"** during onboarding and finished
+> on a rented US number. Nothing threw, no guard failed, and the money side behaved correctly
+> throughout — `runActivation` has always refused to provision for a workspace with no voice plan,
+> and `startChatCheckout` has carried no `plan_code` since `chat_only` was retired. Three separate
+> things had to line up:
+>
+> 1. **The answer was discarded.** `advanceToPlanAction` moved the step and wrote nothing;
+>    `savePhonePreferences` wrote `phone_desired_area_code`, which is a preference about a US
+>    number and says nothing about whether one was wanted. "No phone line" and "claim me a number
+>    in 415" left the workspace in byte-identical states, so nothing downstream *could* honour the
+>    answer.
+> 2. **The plan step then sold phone service.** It leads with three cards priced
+>    $149 / $399 / $899 — voice plans — with the chat tiers underneath as a footnote headed "Or
+>    answer messages instead of calls". A customer who has just said "chat" reads those three cards
+>    as *the plans*. Selecting one buys exactly what a voice plan buys: a US number, claimed at
+>    activation, billed monthly. **This is the actual mechanism.** `Verified Inc.`
+>    (`3fadfe22-…`, signed up 2026-08-31 22:12) took `starter` and had `+13215218574` nine minutes
+>    later, then bought `chat_standard` the following day.
+> 3. **The wizard's own chat test was dead.** `isChatOnly` was `state.planCode === "chat_only"`,
+>    which stopped being satisfiable when that fiction was retired on 2026-09-02 (see R-149 /
+>    `lib/billing/planState.ts`). Every chat customer was therefore walked through "Claiming your
+>    phone number" and landed on the voice Live screen, told a US line was on its way. Nothing was
+>    provisioned — but for three screens the product said otherwise, which is why the report reads
+>    as "a number was created" even for workspaces where none was.
+
+**Fix (all shipped):** the wizard now asks **what**, then **how much**, then (voice only) **which
+number** — and each answer is recorded before the next question is asked.
+
+- `orgs.phone_provisioning_mode` (`new` | `byo` | `none`, NULL = not asked; migration
+  `20260903163534`, applied) records which KIND of line, and clears a stale area code when the
+  answer is not `new`.
+- `orgs.onboarding_product_intent` (`voice` | `chat` | `free`, NULL = not asked; migration
+  `20260903193000`, applied) records WHICH PRODUCT, and is the one that matters here. Step 2 — which
+  used to ask for a US area code before anything had been bought — is now three cards, nothing
+  pre-selected, Continue disabled until one is picked. See R-156 for the branch it opens.
+- `isChatOnly` asks the question the billing model answers — `isPlanActive && !planCode` — instead
+  of comparing against a plan code that was retired on 2026-09-02 and could never match again.
+- `runActivation` **refuses** to provision a line for a `chat` or `free` intent, whatever
+  `org_plan_limits` says, and logs `[ONBOARDING][ACTIVATION][INTENT_MISMATCH]` at `error` if the two
+  ever disagree. This replaced an earlier, weaker rule ("the plan wins, log a warning, provision
+  anyway") that made sense only while the wizard could genuinely produce the contradiction.
+- NULL intent is never read as a decline: a workspace that started before the column existed keeps
+  the plan-based behaviour it has always had.
+
+Guarded by `test/onboarding-narrative.test.ts`, and walked screen by screen in a browser against a
+fixed state (product chooser → voice plans → number → back → chat → free).
+
+**Not fixed here (owner's call):** `Verified Inc.` still holds `starter` + `+13215218574`. Whether
+that customer keeps the line or is moved to chat and refunded is a billing decision, not a code
+change — releasing a live number is destructive and outward-facing.
+
+### R-154 — The mark was in every email and visible only to us
+**Priority:** Medium · **Status:** Fixed · **Effort:** S · **Found:** 2026-09-03 · **Fixed:** 2026-09-03
+> `renderEmail()`'s masthead pointed at `https://www.denku.io/email/denku-mark.png`. A remote image
+> in an email is not a picture — it is a request the recipient's client decides whether to make, and
+> most refuse it for a sender they have not corresponded with before. So the same email showed the
+> mark in the sender's own Gmail (images auto-load for a known correspondent) and a hole in a
+> customer's Hotmail. The HTML, the file and the host were all correct; the customer's client simply
+> never asked for the picture, and their first impression of Denku was a masthead with a gap in it.
+>
+> The `alt` made it worse: unstyled, it rendered in the client's default near-black **on a masthead
+> that is deliberately near-black**, so the fallback was invisible exactly when it was the only
+> thing left.
+
+**Fix:** the mark is attached to the message (`lib/email/inlineLogo.ts`, cached per lambda, never
+throws — a missing file sends the mail without it) and referenced as `cid:denku-mark`. There is
+nothing left to block. `alt="Denku"` is painted bone at the mark's own line height, so the worst
+case is a wordmark rather than a hole. **The one exception is the four Supabase Auth templates:**
+Supabase renders those from its own dashboard and has no attachment to point at, so
+`renderEmail({ logo: "remote" })` keeps the URL there and `docs/email/supabase-auth/` is
+regenerated (paste them in again — the styled `alt` changed). `test/email-design.test.ts` pins
+both halves, including a source scan asserting that every `resend.emails.send` in a branded path
+carries `brandAttachments()` — now that the reference is a `cid:`, a send that forgets the
+attachment shows no mark to *anyone*, which is worse than the bug it replaced.
+
+### R-155 — "Bring my own number" stayed greyed out for weeks after it shipped
+**Priority:** Medium · **Status:** Fixed · **Effort:** S · **Found:** 2026-09-03 · **Fixed:** 2026-09-03
+> The onboarding phone step offered two cards: "Get a new number", and "Bring my own" — permanently
+> disabled, at 70% opacity, badged **"Later"**. That badge was accurate when it was written. It was
+> still there on 2026-09-03, by which time `/api/phone-lines/connect`, `connectByoNumber`, the SIP
+> trunk recipes and the dashboard's `ConnectOwnNumberFlow` had all shipped **and answered a real
+> customer's calls over their own carrier** (NOTUS, `+90 850 840 6456`, 2026-09-03).
+>
+> The cost is not cosmetic. A business whose number is printed on their van and known to their
+> customers had to complete onboarding on a US number they did not want — paying for it — and then
+> go and undo it from the dashboard. The one thing that would have made them a customer was on the
+> screen, greyed out, labelled as not built.
+
+**Fix:** the card is a real choice, rendered from `byoNumbersEnabled()` — the same flag
+`/api/phone-lines/connect` is gated on, so an environment with the route switched off shows the old
+disabled card rather than a door that answers 404. Choosing it records `phone_provisioning_mode =
+'byo'` (R-153), hides the country/area-code fields (meaningless for a number we are not buying) and
+clears any area code already typed. Activation then builds the employee and **claims no line**
+(`[ONBOARDING][ACTIVATION][BYO_NUMBER_PENDING]`), and the Live step offers the dashboard's own
+connect dialog rather than polling Vapi for a provisioning status that will never exist. The Live
+step reads `phone_lines` as well as `organization_settings`, because a connected number is written
+only to the former — without that it kept asking a customer to connect a number they had already
+connected.
+
+
+### R-156 — The plan step sold three products on one screen, so it sold the wrong one
+**Priority:** High · **Status:** Fixed · **Effort:** M · **Found:** 2026-09-03 · **Fixed:** 2026-09-03
+> The direct cause of R-153, filed separately because it is a different defect and has a different
+> fix. One screen carried everything: three large cards priced $149 / $399 / $899, the chat tiers
+> underneath headed *"Or answer messages instead of calls"*, and a *"Continue without plan"* link at
+> the bottom. The three large cards are **voice plans**. So "the plans" meant phone service to
+> anyone reading the page, chat read as an afterthought, and the free option read as an apology.
+>
+> The first fix (same day) reordered the sections when the customer had declined a phone line, and
+> warned at the checkout button. That was still a screen where the wrong card was one click away —
+> a warning, not a guarantee.
+
+**Fix:** the step is three branches that never see each other's prices.
+- **Voice** → the three voice plans → **then** the number question (new US number with an optional
+  area code, or BYON) → checkout. Asking about the line *after* the plan is the point: asking first
+  is what made every signup a voice signup by default.
+- **Chat** → the chat tiers only. A voice plan is not on the screen to be clicked by mistake.
+- **Free** → no prices at all; finishes setup, charges nothing, and says in as many words that
+  nothing will answer a customer until a plan is bought.
+
+Details that are load-bearing: the voice branch calls `startPlanCheckout(plan, **null**)` at the
+call site rather than trusting that `selectedChat` was cleared; the phone answer is saved **before**
+checkout opens, because Stripe's webhook can land before the browser returns and activation reads
+it; `setOnboardingStepToPlan` now carries `.or("onboarding_step.is.null,onboarding_step.lt.4")`, so
+saving the phone answer from inside step 4 cannot pull a workspace back to "choose a plan" after the
+webhook moved it to 5; the summary line counts only the current branch's selection, so a customer
+who picks voice, presses Back and switches to chat is not told they are about to be charged $399
+(found by walking the flow, not by reading it); and the product chooser is one variable rendered in
+two places, so step 2 and the step-3 fallback can never quote different prices. Prices in the
+chooser are `Math.min` over the live catalogue — a hardcoded "from $149" goes stale silently on the
+screen where someone decides what to buy.
+
+Back navigation walks the sub-step first (*"Back to plans"*) and only then the step, and never
+lowers the DB's `onboarding_step` — the middleware reads it to decide who may reach the dashboard.
+
+`advanceToPlanAction` was deleted rather than left exported: the screen it backed is gone, and an
+unused server action is still a reachable endpoint that wrote to `orgs`.
+
+**Freemium is preview mode, not a metered free tier.** `continueWithoutPlan` completes onboarding,
+records `free`, creates the AI employee (`ensureNonVoiceEmployee` — no Vapi, no Stripe, so the card
+that charges nothing is *unable* to charge anything) and lands on `/dashboard`. The employee matters
+later: buying a chat tier from the billing page grants entitlement and creates no employee, so a
+workspace that arrived without one would pay for chat and still answer nobody. If a real free tier
+with its own allowance is ever wanted, that is a billing change, not this.

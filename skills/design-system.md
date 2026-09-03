@@ -32,6 +32,37 @@
   supported end-user feature yet — don't half-enable it.
 - Rule from Sprint 8: primary CTAs in dashboard = `bg-brand-500` / `Button variant="primary"`.
 
+### The primitives, and the one rule that keeps them honest (2026-09-03)
+
+**A recipe is declared once, in `components/ui-horizon/`, and everything else references it.**
+That rule exists because it was broken by the very pass meant to enforce it: a second
+`CONTROL_CLASS` was created in `app/(app)/dashboard/_platform/ui/` with the same name and a
+different look (`rounded-xl`/`shadow-sm`/`ring-4`/`navy-900` against
+`rounded-lg`/`ring-2`/`navy-800`). Three pages wore one, forty-odd wore the other, and neither the
+type checker nor the build could see it. `test/horizon-ui-consistency.test.ts` now asserts the
+system's shape — one declaration, everything else a re-export — rather than which module a given
+page imports.
+
+| Primitive | Exports | Notes |
+|---|---|---|
+| `card` | `Card` | The panel. `_platform/ui`'s `Surface` wraps it. |
+| `controls` | `CONTROL_CLASS`, `SEARCH_CONTROL_CLASS`, `FILLED_CONTROL_BASE`, `CONTROL_BASE_CLASS`, `FieldLabel`, `SearchControl` | **The only** form-control recipe. Padding is composed, never overridden — `px-*` and `pl-*` are different properties in Tailwind v4 and the winner depends on stylesheet order, which is how a placeholder once rendered under its own magnifier. |
+| `button` | `HorizonButton`, `HorizonLinkButton`, `HorizonAnchorButton`, `horizonButtonClass()` | The class helper is the *same* maps the components compose, for `<button>`/`<a>` elements that already exist. New code uses the component. |
+| `notice` | `Notice`, `DANGER_NOTICE_CLASS` | Same arrangement as button. `<Notice tone="danger">` also carries the icon and `role="alert"`. |
+| `badge` | `Badge` | `_platform/ui`'s `Pill` maps its tone vocabulary onto it. |
+| `empty` | `EmptyState` | `_platform/ui`'s `EmptyState` is a wrapper that turns `action: {label, href}` into a link. |
+| `stat` | `Stat` | `_platform/ui`'s `StatCard` adds "the whole tile is a link". |
+| `table`, `page-header`, `segmented-control`, `toolbar`, `hero`, `loading`, `checkbox`, `CardMenu` | — | |
+
+Two things that look like duplication and are not: `_platform/ui` is a **naming layer** over these
+(its names read better at platform call sites and forty-six files use them), and `_platform/ui/states`
+holds the loading/error skeletons — which already render the real `Card`.
+
+The pre-Horizon palettes are gone from `(app)`: no `zinc-` anywhere, and `indigo-` survives only in
+`_platform/Avatar.tsx`, where it is one of a rotation of tints for initials — colour as identity,
+not chrome. Both are asserted by walking every `.tsx` under `(app)`, not a hand-listed set, because
+the hand-listed version missed a form that sat on the old palette for weeks.
+
 ## System 3 — shadcn primitives (`components/ui/*`)
 
 - oklch token set in `:root`/`.dark` (globals.css), `components.json` present, Radix-based

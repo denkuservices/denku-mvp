@@ -68,14 +68,27 @@ const changeCopy = {
   tr: ["Yeni e-posta adresinizi doğrulayın — Denku", "Denku hesabınızı bu adrese taşımayı tamamlamak için adresi doğrulayın.", "Hesap güvenliği", "Yeni e-posta adresinizi doğrulayın", "Denku hesabınızın e-posta adresini bu adresle değiştirme isteği yapıldı. Değişikliği tamamlamak için doğrulayın.", "Bu adresi doğrula", "Bu e-postayı bu adres bir Denku hesabının yeni e-posta adresi olarak verildiği için alıyorsunuz."],
 } as const;
 
+/**
+ * `logo: "remote"` on everything this script renders.
+ *
+ * Every email THIS REPO sends attaches the mark and references it as `cid:denku-mark`, because a
+ * remote image is a request the recipient's client may refuse — and most do for a sender they do
+ * not know. These four mails are the exception, and it is not a choice: Supabase Auth sends them
+ * from templates pasted into its own dashboard, and there is no attachment to point a `cid:` at.
+ * A `cid:` here would render as nothing at all, in the very first mail a new customer receives.
+ *
+ * So these are the one place `EMAIL_LOGO_URL` is still correct, and the README below says so.
+ */
+const LOGO = "remote" as const;
+
 const renderLinkMail = (locale: Locale, c: readonly string[]) => renderEmail({
-  locale, title: c[0], preheader: c[1], eyebrow: c[2], heading: c[3], intro: c[4],
+  locale, logo: LOGO, title: c[0], preheader: c[1], eyebrow: c[2], heading: c[3], intro: c[4],
   cta: { label: c[5], url: CONFIRMATION_URL }, postCta: [linkFallback(CONFIRMATION_URL, locale)], reason: c[c.length - 1],
 });
 
 const files: Array<{ name: string; supabaseTemplate: string; subject: string; html: string }> = [
-  { name: "confirm-signup.html", supabaseTemplate: "Confirm sign up", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale })) },
-  { name: "magic-link-or-otp.html", supabaseTemplate: "Magic link or OTP", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale })) },
+  { name: "confirm-signup.html", supabaseTemplate: "Confirm sign up", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale, logo: LOGO })) },
+  { name: "magic-link-or-otp.html", supabaseTemplate: "Magic link or OTP", subject: SUBJECTS.code, html: byMetadata((locale) => getOtpEmailHtml({ email: "", token: TOKEN, locale, logo: LOGO })) },
   { name: "reset-password.html", supabaseTemplate: "Reset Password", subject: SUBJECTS.reset, html: byMetadata((locale) => renderLinkMail(locale, resetCopy[locale])) },
   { name: "change-email.html", supabaseTemplate: "Change Email Address", subject: SUBJECTS.change, html: byMetadata((locale) => renderLinkMail(locale, changeCopy[locale])) },
 ];
@@ -159,8 +172,16 @@ number changed, Sign-in method linked/removed, MFA added/removed).
 
 The masthead logo is loaded from \`https://www.denku.io/email/denku-mark.png\`. It must be
 deployed before these go out, or every one of these emails shows a broken image where the brand
-should be. The text fallback is the word "Denku", so nothing breaks — it just looks like a
-phishing attempt, which is the opposite of what an auth email needs.
+should be. The text fallback is the word "Denku" in bone on the dark masthead, so nothing breaks —
+it just looks like a phishing attempt, which is the opposite of what an auth email needs.
+
+**These four are the only Denku emails that load the mark from a URL, and they are the only ones
+that can.** Everything else attaches it to the message (\`cid:denku-mark\`) because a remote image
+is a request the recipient's client decides whether to make — Gmail loads it for a known sender,
+Hotmail blocks it for an unknown one, which is why the same email showed the mark to us and a hole
+to a customer. Supabase renders these from its own dashboard and has no attachment to reference,
+so a \`cid:\` here would show nothing at all. If you ever see the mark missing from one of THESE
+four, the fix is the deployed PNG or a client blocking remote images — not the template.
 `;
 
 writeFileSync(join(outDir, "README.md"), readme, "utf8");

@@ -2,7 +2,23 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
+import { Bot, CircleDollarSign, PhoneCall, Timer } from "lucide-react";
+import { safeErrorMessage } from "@/lib/errors/safeErrorMessage";
+import { Badge, type BadgeProps } from "@/components/ui-horizon/badge";
+import { HorizonLinkButton } from "@/components/ui-horizon/button";
+import { EmptyState } from "@/components/ui-horizon/empty";
+import { Notice } from "@/components/ui-horizon/notice";
+import PageHeader from "@/components/ui-horizon/page-header";
+import { Stat } from "@/components/ui-horizon/stat";
+import {
+  TableBody,
+  TableCard,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRoot,
+  TableRow,
+} from "@/components/ui-horizon/table";
 
 type AgentRow = {
   id: string;
@@ -95,26 +111,12 @@ function pct(rate?: number | null) {
   return `${Math.round(rate * 100)}%`;
 }
 
-function statusLabel(status?: string | null) {
-  const s = (status ?? "active").toLowerCase();
-  if (s === "disabled") return "Disabled";
-  if (s === "draft") return "Draft";
-  return "Active";
-}
-
-function statusBadgeClass(status?: string | null) {
-  const s = (status ?? "active").toLowerCase();
-  if (s === "disabled") return "bg-gray-100 text-gray-800 border-gray-200";
-  if (s === "draft") return "bg-amber-50 text-amber-900 border-amber-200";
-  return "bg-emerald-50 text-emerald-900 border-emerald-200";
-}
-
-function outcomeBadgeClass(outcome?: string | null) {
+function outcomeBadgeVariant(outcome?: string | null): BadgeProps["variant"] {
   const lower = (outcome ?? "").toLowerCase();
-  if (lower.includes("completed") || lower.includes("end-of-call-report")) return "bg-green-100 text-green-800";
-  if (lower.includes("failed") || lower.includes("error") || lower.includes("no-answer")) return "bg-red-100 text-red-800";
-  if (lower.includes("ended")) return "bg-gray-100 text-gray-800";
-  return "bg-blue-100 text-blue-800";
+  if (lower.includes("completed") || lower.includes("end-of-call-report")) return "success";
+  if (lower.includes("failed") || lower.includes("error") || lower.includes("no-answer")) return "destructive";
+  if (lower.includes("ended")) return "default";
+  return "info";
 }
 
 function calcAvgDurationSeconds(calls: CallRow[]) {
@@ -145,16 +147,17 @@ export default async function AgentDetailPage({
   let payload: AdminAgentDetailResponse;
   try {
     payload = await adminGetJSON<AdminAgentDetailResponse>(`/api/admin/agents/${agentId}`);
-  } catch (e: any) {
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[agents] Failed to load AI detail:", error);
+    }
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-2xl font-semibold">Failed to load agent</h1>
-        <p className="mt-2 text-sm text-gray-600">{e?.message ?? "Unknown error"}</p>
-        <div className="mt-4">
-          <Link href="/dashboard/agents" className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50">
-            Back to Agents
-          </Link>
-        </div>
+      <div className="space-y-6 pb-8">
+        <PageHeader title="AI details" subtitle="Review configuration and recent voice activity." />
+        <Notice tone="danger">
+          {safeErrorMessage(error, "We couldn't load this AI profile. Please try again.")}
+        </Notice>
+        <HorizonLinkButton href="/dashboard/agents">Back to AI list</HorizonLinkButton>
       </div>
     );
   }
@@ -165,13 +168,15 @@ export default async function AgentDetailPage({
 
   if (!agent) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-2xl font-semibold">Agent not found</h1>
-        <div className="mt-4">
-          <Link href="/dashboard/agents" className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50">
-            Back to Agents
-          </Link>
-        </div>
+      <div className="space-y-6 pb-8">
+        <PageHeader title="AI details" subtitle="Review configuration and recent voice activity." />
+        <TableCard>
+          <EmptyState
+            title="AI profile not found"
+            description="This profile may have been removed or you may no longer have access to it."
+            action={<HorizonLinkButton href="/dashboard/agents">Back to AI list</HorizonLinkButton>}
+          />
+        </TableCard>
       </div>
     );
   }
@@ -182,99 +187,74 @@ export default async function AgentDetailPage({
   const successRate = calcSuccessRate(calls);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
-      <div className="text-sm text-gray-500">
-        <Link href="/dashboard" className="hover:underline">Dashboard</Link> /{" "}
-        <Link href="/dashboard/agents" className="hover:underline">Agents</Link> /{" "}
-        <span className="text-gray-700">{agent.name ?? "Agent"}</span>
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">{agent.name ?? "Agent"}</h1>
-            <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-900 border-emerald-200">
-  Active
-</span>
-
-          </div>
-          <p className="mt-1 text-sm text-gray-600">KPI snapshot + recent calls (last 7 days).</p>
-        </div>
-
-        <Link href="/dashboard/agents" className="rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
-          Back to Agents
-        </Link>
-      </div>
+    <div className="space-y-6 pb-8">
+      <PageHeader
+        title={agent.name ?? "AI profile"}
+        subtitle="Performance snapshot and recent calls from the last seven days."
+        action={
+          <>
+            <Badge variant="success" dot>Active</Badge>
+            <HorizonLinkButton href="/dashboard/agents">Back to AI list</HorizonLinkButton>
+          </>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-xs text-gray-500">Calls (7d)</div>
-          <div className="mt-1 text-sm font-medium text-gray-900">{callsTotal}</div>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-xs text-gray-500">Cost (7d)</div>
-          <div className="mt-1 text-sm font-medium text-gray-900">{money(totalCost)}</div>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-xs text-gray-500">Avg Duration (7d)</div>
-          <div className="mt-1 text-sm font-medium text-gray-900">{formatDuration(avgDuration)}</div>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-xs text-gray-500">Success Rate (7d)</div>
-          <div className="mt-1 text-sm font-medium text-gray-900">{pct(successRate)}</div>
-        </div>
+        <Stat label="Calls · 7 days" value={callsTotal} icon={<PhoneCall />} />
+        <Stat label="Cost · 7 days" value={money(totalCost)} icon={<CircleDollarSign />} />
+        <Stat label="Avg duration · 7 days" value={formatDuration(avgDuration)} icon={<Timer />} />
+        <Stat label="Success rate · 7 days" value={pct(successRate)} icon={<Bot />} />
       </div>
 
       {payload.calls_error ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Calls warning: {payload.calls_error}
-        </div>
+        <Notice tone="warning">Some recent calls could not be loaded.</Notice>
       ) : null}
 
-      <div className="rounded-lg border bg-white">
-        <div className="flex items-center justify-between border-b p-4">
+      <TableCard>
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-sm font-semibold">Recent Calls</div>
-            <div className="text-xs text-gray-500">Last 10 calls.</div>
+            <h2 className="font-semibold text-navy-700 dark:text-white">Recent calls</h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">The latest 10 calls handled by this AI.</p>
           </div>
-          <Link href="/dashboard/calls" className="text-sm font-medium hover:underline">View all calls</Link>
+          <HorizonLinkButton href="/dashboard/calls" variant="ghost" size="sm">View all calls</HorizonLinkButton>
         </div>
 
         {recent.length === 0 ? (
-          <div className="p-6 text-sm text-gray-700">No calls found for this agent.</div>
+          <EmptyState
+            title="No calls yet"
+            description="Calls handled by this AI will appear here when activity begins."
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Started</th>
-                  <th className="px-4 py-3 font-medium">Duration</th>
-                  <th className="px-4 py-3 font-medium">Cost</th>
-                  <th className="px-4 py-3 font-medium">Outcome</th>
-                  <th className="px-4 py-3 font-medium text-right">Open</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {recent.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">{fmt(c.started_at ?? c.created_at)}</td>
-                    <td className="px-4 py-3">{formatDuration(c.duration_seconds)}</td>
-                    <td className="px-4 py-3">{money(c.cost_usd)}</td>
-                    <td className="px-4 py-3 max-w-[140px] truncate sm:max-w-[220px] md:max-w-[360px]" title={c.outcome ?? ""}>
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${outcomeBadgeClass(c.outcome)}`}>
-                        {c.outcome || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link className="hover:underline" href={`/dashboard/calls/${c.id}`}>View</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TableRoot>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Started</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Cost</TableHead>
+                <TableHead>Outcome</TableHead>
+                <TableHead className="text-right">Open</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recent.map((call) => (
+                <TableRow key={call.id}>
+                  <TableCell>{fmt(call.started_at ?? call.created_at)}</TableCell>
+                  <TableCell>{formatDuration(call.duration_seconds)}</TableCell>
+                  <TableCell>{money(call.cost_usd)}</TableCell>
+                  <TableCell className="max-w-[240px] truncate" title={call.outcome ?? ""}>
+                    <Badge variant={outcomeBadgeVariant(call.outcome)}>{call.outcome || "Unknown"}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <HorizonLinkButton href={`/dashboard/calls/${call.id}`} variant="ghost" size="sm">
+                      View
+                    </HorizonLinkButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </TableRoot>
         )}
-      </div>
+      </TableCard>
     </div>
   );
 }

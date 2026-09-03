@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Download } from "lucide-react";
 import { parseAnalyticsParams, getDateRange, resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import {
   fetchCalls,
@@ -20,17 +20,14 @@ import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
 import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
-import { platformUxEnabled } from "@/lib/platform/flags";
-import PlatformAnalytics from "../_platform/analytics/PlatformAnalytics";
+import Card from "@/components/ui-horizon/card";
+import { HorizonLinkButton } from "@/components/ui-horizon/button";
+import { Notice } from "@/components/ui-horizon/notice";
+import PageHeader from "@/components/ui-horizon/page-header";
+import { SegmentedControl, SegmentedLink } from "@/components/ui-horizon/segmented-control";
 import { resolveRange } from "@/lib/platform/readModel/aggregate";
 
 export const dynamic = "force-dynamic";
-
-function getRangeLabel(range: string): string {
-  if (range === "30d") return "Last 30 days";
-  if (range === "90d") return "Last 90 days";
-  return "Last 7 days";
-}
 
 export default async function AnalyticsPage({
   searchParams,
@@ -124,8 +121,7 @@ export default async function AnalyticsPage({
   });
 
   // Ensure range is normalized (should already be from parseAnalyticsParams, but be explicit)
-  const currentRange: "7d" | "30d" | "90d" = params.range || "7d";
-  const rangeLabel = getRangeLabel(currentRange);
+  const currentRange = `${resolveRange(params.range)}d` as typeof params.range;
   const section = params.section || "calls";
 
   // Fetch tickets analytics if section is tickets
@@ -133,7 +129,7 @@ export default async function AnalyticsPage({
   if (section === "tickets") {
     try {
       // Map calls range to tickets range (tickets supports 24h, but we'll use 7d/30d/90d for now)
-      const ticketsRange: "7d" | "30d" | "90d" = currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d";
+      const ticketsRange: "7d" | "30d" | "90d" = currentRange;
       
       // orgId is already resolved via resolveOrgId() which:
       // 1. Gets authenticated user from supabase.auth.getUser()
@@ -152,63 +148,55 @@ export default async function AnalyticsPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
+      <PageHeader
+        title="Analytics"
+        subtitle="Track demand, outcomes, and response quality across your voice operations."
+      />
+
       {/* Controls */}
-      <div className="flex items-center gap-2 justify-end">
+      <Card className="flex-row flex-wrap items-center justify-between gap-3 p-3">
           {/* Section switch */}
-          <div className="flex items-center gap-2 border-r pr-2">
-            <Link
+          <SegmentedControl label="Analytics section">
+            <SegmentedLink
               href={`/dashboard/analytics?range=${currentRange}&section=calls`}
-              className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
-                section === "calls"
-                  ? "border-zinc-900 bg-zinc-50 font-semibold"
-                  : "border-zinc-200 hover:bg-zinc-50"
-              }`}
+              active={section === "calls"}
             >
               Calls
-            </Link>
-            <Link
+            </SegmentedLink>
+            <SegmentedLink
               href={`/dashboard/analytics?range=${currentRange}&section=tickets`}
-              className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
-                section === "tickets"
-                  ? "border-zinc-900 bg-zinc-50 font-semibold"
-                  : "border-zinc-200 hover:bg-zinc-50"
-              }`}
+              active={section === "tickets"}
             >
               Tickets
-            </Link>
-          </div>
+            </SegmentedLink>
+          </SegmentedControl>
 
           {/* Range switch */}
-          <div className="flex items-center gap-2">
-            {(["7d", "30d", "90d"] as const).map((r) => {
-              const isActive = currentRange === r;
-              return (
-                <Link
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedControl label="Analytics date range">
+              {(["7d", "30d", "90d"] as const).map((r) => (
+                <SegmentedLink
                   key={r}
                   href={`/dashboard/analytics?range=${r}&section=${section}`}
-                  className={`rounded-md border bg-white px-3 py-2 text-xs font-medium transition-colors ${
-                    isActive
-                      ? "border-zinc-900 bg-zinc-50 font-semibold"
-                      : "border-zinc-200 hover:bg-zinc-50"
-                  }`}
+                  active={currentRange === r}
                 >
                   {r.toUpperCase()}
-                </Link>
-              );
-            })}
-          </div>
+                </SegmentedLink>
+              ))}
+            </SegmentedControl>
 
-          {/* Export button (admin/owner only) */}
-          {canExport && section === "calls" && (
-            <Link
-              href={`/api/admin/analytics/export?range=${params.range}${params.agentId ? `&agentId=${params.agentId}` : ""}${params.outcome ? `&outcome=${params.outcome}` : ""}${params.direction ? `&direction=${params.direction}` : ""}`}
-              className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-            >
-              Export CSV
-            </Link>
-          )}
-        </div>
+            {/* Export button (admin/owner only) */}
+            {canExport && section === "calls" ? (
+              <HorizonLinkButton
+                href={`/api/admin/analytics/export?range=${params.range}${params.agentId ? `&agentId=${params.agentId}` : ""}${params.outcome ? `&outcome=${params.outcome}` : ""}${params.direction ? `&direction=${params.direction}` : ""}`}
+                size="sm"
+              >
+                <Download /> Export CSV
+              </HorizonLinkButton>
+            ) : null}
+          </div>
+      </Card>
 
       {/* Render section content */}
       {section === "calls" ? (
@@ -241,9 +229,7 @@ export default async function AnalyticsPage({
               range={currentRange === "7d" ? "7d" : currentRange === "30d" ? "30d" : "90d"}
             />
           ) : (
-            <div className="rounded-xl border border-border bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load tickets analytics.</p>
-            </div>
+            <Notice tone="danger">Tickets analytics could not be loaded. Refresh the page to try again.</Notice>
           )}
         </>
       )}

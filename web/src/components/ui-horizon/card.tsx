@@ -1,25 +1,38 @@
 
 
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Horizon Card component - birebir Horizon'dan kopyalandı
  * Props signature: variant?: string; extra?: string; children?: JSX.Element | any[]; [x: string]: any;
  */
-function Card(props: {
-  variant?: string;
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: "default" | "elevated";
   extra?: string;
-  children?: React.ReactNode;
-  [x: string]: any;
-}) {
-  const { variant, extra, children, ...rest } = props;
+  /** Kept for compatibility with the purchased Horizon template API. */
+  default?: boolean;
+}
+
+function Card({
+  variant = "default",
+  extra,
+  className,
+  children,
+  default: legacyElevated,
+  ...rest
+}: CardProps) {
+  const elevated = legacyElevated || variant === "elevated";
+
   return (
     <div
-      className={`!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-3xl ${
-        props.default
-          ? 'shadow-shadow-500 dark:shadow-none'
-          : 'shadow-shadow-100 dark:shadow-none'
-      }  dark:!bg-navy-800 dark:text-white  ${extra || ''}`}
+      className={cn(
+        "relative z-[5] flex min-w-0 flex-col rounded-[20px] border border-gray-200/70 bg-white bg-clip-border dark:border-white/10 dark:bg-navy-800 dark:text-white",
+        elevated ? "shadow-shadow-500" : "shadow-shadow-100",
+        "dark:shadow-none",
+        extra,
+        className
+      )}
       {...rest}
     >
       {children}

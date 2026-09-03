@@ -24,7 +24,7 @@
  * is not ours.
  */
 
-import { EMAIL_COLORS as C, EMAIL_FONTS as F, EMAIL_LINKS, EMAIL_LOGO_URL, esc } from "./brand";
+import { EMAIL_COLORS as C, EMAIL_FONTS as F, EMAIL_LINKS, EMAIL_LOGO_CID, EMAIL_LOGO_URL, esc } from "./brand";
 import { emailText, normalizeEmailLocale, type EmailLocale } from "./i18n";
 
 /**
@@ -272,6 +272,18 @@ export interface RenderEmailInput {
   reason: string;
   /** Optional closing line under the CTA, before the footer. */
   signoff?: string | null;
+  /**
+   * How the masthead mark is referenced.
+   *
+   * `"inline"` (the default) points at the CID attachment every Denku send carries, so the mark
+   * is part of the message and cannot be blocked. `"remote"` points at denku.io and exists for
+   * exactly one caller: the script that generates the Supabase Auth templates, which Supabase
+   * renders from its own dashboard and which therefore has no attachment to reference.
+   *
+   * Getting this backwards is silent — the mark simply does not appear — so the default is the
+   * one that works for the 19 emails this repo sends itself.
+   */
+  logo?: "inline" | "remote";
 }
 
 export function renderEmail(input: RenderEmailInput): string {
@@ -290,7 +302,24 @@ export function renderEmail(input: RenderEmailInput): string {
     reason,
     signoff,
     locale: localeInput,
+    logo = "inline",
   } = input;
+
+  /**
+   * The masthead mark, and the fallback for when it cannot be shown.
+   *
+   * `cid:` resolves against the attachment every Denku send carries (`lib/email/inlineLogo.ts`);
+   * `"remote"` is for the Supabase-rendered templates, which have no attachment to point at.
+   *
+   * The `<img>` below carries a STYLED `alt`, which is not decoration. An unstyled alt renders in
+   * the client's default colour — near-black — on a masthead that is deliberately near-black, so
+   * on the one occasion the mark cannot be drawn the fallback would be invisible too. Bone, at the
+   * mark's own line height, means the worst case is a wordmark rather than a hole.
+   *
+   * Kept as a TS comment rather than an HTML one: this explains the code, and an HTML comment
+   * would be shipped down the wire in every email, four times over in the Supabase templates.
+   */
+  const logoSrc = logo === "remote" ? EMAIL_LOGO_URL : `cid:${EMAIL_LOGO_CID}`;
 
   const locale = normalizeEmailLocale(localeInput);
   const footer = {
@@ -370,7 +399,7 @@ export function renderEmail(input: RenderEmailInput): string {
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding-right:12px;vertical-align:middle;">
-                  <img src="${EMAIL_LOGO_URL}" width="34" height="34" alt="Denku" style="display:block;width:34px;height:34px;border:0;" />
+                  <img src="${logoSrc}" width="34" height="34" alt="Denku" style="display:block;width:34px;height:34px;border:0;font-family:${F.display};font-size:20px;line-height:34px;color:${C.bone};" />
                 </td>
                 <td style="vertical-align:middle;font-family:${F.display};font-size:24px;line-height:1;letter-spacing:-0.02em;color:${C.bone};">denku</td>
               </tr>

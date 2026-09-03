@@ -29,24 +29,37 @@ import { emailCopy, type EmailLocale } from "./i18n";
  */
 const baseUrl = () => getBaseUrl().replace(/\/+$/, "");
 
+/**
+ * How the masthead mark is referenced — see `renderEmail`'s `logo` option.
+ *
+ * It is threaded through these three functions and no others, because these three are the ones
+ * **Supabase** also renders: `scripts/render-supabase-auth-templates.mts` generates the dashboard
+ * templates from them, and Supabase sends those mails itself with no attachment to point at. Every
+ * other template in the estate is only ever sent by this repo, which always attaches the mark, so
+ * they have no reason to know the option exists.
+ */
+export type EmailLogoMode = "inline" | "remote";
+
 export interface VerificationEmailParams {
   email: string;
   token: string;
   redirectTo?: string;
   locale?: EmailLocale;
+  logo?: EmailLogoMode;
 }
 
 export interface PasswordResetEmailParams {
   email: string;
   token: string;
   locale?: EmailLocale;
+  logo?: EmailLogoMode;
 }
 
 /**
  * Email verification template for signup
  * Uses Supabase's email confirmation flow via callback URL
  */
-export function getVerificationEmailHtml({ email, token, redirectTo, locale = "en" }: VerificationEmailParams): string {
+export function getVerificationEmailHtml({ email, token, redirectTo, locale = "en", logo }: VerificationEmailParams): string {
   // For Supabase email confirmation, the redirectTo is the callback URL
   // Supabase will automatically append the confirmation token when the user clicks
   // If we have a token, use it directly; otherwise use the callback URL
@@ -63,7 +76,7 @@ export function getVerificationEmailHtml({ email, token, redirectTo, locale = "e
     tr: { title: "E-posta adresinizi doğrulayın — Denku", preheader: "Tek tıklamayla Denku çalışma alanınız kuruluma hazır olacak.", eyebrow: "Hesabınızı doğrulayın", heading: "E-posta adresinizi doğrulayın", intro: "Denku'ya hoş geldiniz. Bu adresi doğruladığınızda işletmeniz adına yanıt veren yapay zekâyı kurmaya geçeceksiniz.", cta: "E-postayı doğrula", reason: "Bu e-postayı, bu adresle bir Denku hesabı oluşturulduğu için alıyorsunuz. Bunu siz yapmadıysanız e-postayı yok sayın; doğrulanana kadar hiçbir şey etkinleşmez." },
   });
   return renderEmail({
-    locale, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading,
+    locale, logo, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading,
     intro: t.intro,
     cta: { label: t.cta, url: verifyUrl },
     postCta: [linkFallback(verifyUrl, locale)],
@@ -74,7 +87,7 @@ export function getVerificationEmailHtml({ email, token, redirectTo, locale = "e
 /**
  * OTP code email template (for resend verification code)
  */
-export function getOtpEmailHtml({ token, locale = "en" }: VerificationEmailParams): string {
+export function getOtpEmailHtml({ token, locale = "en", logo }: VerificationEmailParams): string {
   const t = emailCopy(locale, {
     en: { title: "Your verification code — Denku", preheader: `Your Denku verification code is ${token}. It expires in 1 hour.`, eyebrow: "Verification code", heading: "Your sign-in code", intro: "Enter this code to confirm your email address:", notice: "This code expires in **1 hour** and can be used once.", reason: "You're receiving this because someone requested a verification code for this address on Denku. If it wasn't you, no action is needed — the code alone gives no access to an existing account." },
     es: { title: "Tu código de verificación — Denku", preheader: `Tu código de verificación de Denku es ${token}. Caduca en 1 hora.`, eyebrow: "Código de verificación", heading: "Tu código de acceso", intro: "Introduce este código para confirmar tu correo:", notice: "Este código caduca en **1 hora** y solo puede usarse una vez.", reason: "Recibes este correo porque alguien solicitó un código de verificación para esta dirección en Denku. Si no fuiste tú, no tienes que hacer nada; el código por sí solo no permite entrar a una cuenta existente." },
@@ -82,7 +95,7 @@ export function getOtpEmailHtml({ token, locale = "en" }: VerificationEmailParam
     tr: { title: "Doğrulama kodunuz — Denku", preheader: `Denku doğrulama kodunuz ${token}. Kod 1 saat içinde sona erer.`, eyebrow: "Doğrulama kodu", heading: "Giriş kodunuz", intro: "E-posta adresinizi doğrulamak için bu kodu girin:", notice: "Bu kod **1 saat** içinde sona erer ve yalnızca bir kez kullanılabilir.", reason: "Bu e-postayı birisi Denku'da bu adres için doğrulama kodu istediği için alıyorsunuz. Bunu siz yapmadıysanız işlem gerekmez; kod tek başına mevcut bir hesaba erişim sağlamaz." },
   });
   return renderEmail({
-    locale, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading, intro: t.intro,
+    locale, logo, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading, intro: t.intro,
     blocks: [
       codeBlock(token),
       notice(t.notice, "neutral"),
@@ -94,7 +107,7 @@ export function getOtpEmailHtml({ token, locale = "en" }: VerificationEmailParam
 /**
  * Password reset email template
  */
-export function getPasswordResetEmailHtml({ email, token, locale = "en" }: PasswordResetEmailParams): string {
+export function getPasswordResetEmailHtml({ email, token, locale = "en", logo }: PasswordResetEmailParams): string {
   const resetUrl = `${baseUrl()}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
   const t = emailCopy(locale, {
@@ -104,7 +117,7 @@ export function getPasswordResetEmailHtml({ email, token, locale = "en" }: Passw
     tr: { title: "Parolanızı sıfırlayın — Denku", preheader: "Denku hesabınız için yeni bir parola seçin. Bağlantı 1 saat içinde sona erer.", eyebrow: "Hesap güvenliği", heading: "Parolanızı sıfırlayın", intro: "Denku hesabınızın parolasını sıfırlama isteği aldık.", cta: "Yeni parola seç", signoff: "Bu bağlantı **1 saat** içinde sona erer. Siz istemediyseniz e-postayı yok sayabilirsiniz; mevcut parolanız etkin kalır.", reason: "Bu e-postayı bu adres için parola sıfırlama isteği yapıldığı için alıyorsunuz. Bu bir güvenlik e-postasıdır, pazarlama değildir." },
   });
   return renderEmail({
-    locale, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading, intro: t.intro,
+    locale, logo, title: t.title, preheader: t.preheader, eyebrow: t.eyebrow, heading: t.heading, intro: t.intro,
     cta: { label: t.cta, url: resetUrl },
     postCta: [linkFallback(resetUrl, locale)],
     signoff: t.signoff,

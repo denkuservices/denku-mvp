@@ -13,7 +13,8 @@ import { describe, it, expect } from "vitest";
  */
 
 import { emailPreviews } from "@/lib/email/previewSamples";
-import { EMAIL_COLORS, EMAIL_LOGO_URL } from "@/lib/email/brand";
+import { EMAIL_COLORS, EMAIL_LOGO_CID, EMAIL_LOGO_URL } from "@/lib/email/brand";
+import { brandAttachments } from "@/lib/email/inlineLogo";
 import { renderEmail, paragraph } from "@/lib/email/layout";
 import { planActivatedTemplate } from "@/lib/email/templates/planActivated";
 import { paymentFailedTemplate } from "@/lib/email/templates/paymentFailed";
@@ -42,8 +43,17 @@ describe("every transactional email carries the Denku chrome", () => {
   it.each(previews.map((p) => [p.key, p] as const))("%s", (_key, preview) => {
     const { html, subject } = preview;
 
-    // Brand masthead: the mark and the wordmark, on the dark ground.
-    expect(html).toContain(EMAIL_LOGO_URL);
+    /**
+     * Brand masthead: the mark and the wordmark, on the dark ground.
+     *
+     * The mark is referenced as an ATTACHMENT, not as a URL. A remote `<img>` is a request the
+     * recipient's client decides whether to make, and most refuse it for a sender they have not
+     * corresponded with — which is why the same email showed the mark in our own Gmail and a hole
+     * in a customer's Hotmail. Asserted per-email rather than once, because the failure mode is
+     * one template quietly rendering outside the shared chrome.
+     */
+    expect(html).toContain(`cid:${EMAIL_LOGO_CID}`);
+    expect(html).not.toContain(EMAIL_LOGO_URL);
     expect(html).toContain(">denku<");
     expect(html).toContain(EMAIL_COLORS.ink);
     // The copper hairline under the masthead — the estate's signature.
@@ -79,6 +89,100 @@ describe("every transactional email carries the Denku chrome", () => {
     for (const preview of previews) {
       expect(preview.html).toContain('width="600"');
     }
+  });
+});
+
+/**
+ * The mark, and the thing that carries it.
+ *
+ * This is the whole bug: the masthead pointed at `https://www.denku.io/email/denku-mark.png`, and
+ * a remote image in an email is not a picture — it is a request the recipient's client decides
+ * whether to make. Gmail makes it for a sender you already correspond with; Hotmail refuses it for
+ * one you do not. So the same email carried the brand for us and a hole for a customer, with
+ * nothing wrong in the HTML, the file, or the host.
+ *
+ * An attachment is part of the message and cannot be refused. Which means the reference and the
+ * attachment have to agree, in every send path, forever — and a mismatch shows up nowhere except
+ * in someone's inbox. These tests are the only place that notices.
+ */
+describe("the masthead mark is carried inside the message", () => {
+  it("attaches exactly the content id the masthead references", async () => {
+    const attachments = await brandAttachments();
+
+    // The file is committed at web/public/email/denku-mark.png. An empty list here means the
+    // read failed — which the sender tolerates by design, but must not be the normal case.
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].contentId).toBe(EMAIL_LOGO_CID);
+    expect(attachments[0].contentType).toBe("image/png");
+    // Base64, not a path or a URL: Resend embeds the bytes.
+    expect(attachments[0].content).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+
+    // And the reference in the rendered mail resolves to it.
+    const html = renderEmail({ title: "t", preheader: "p", heading: "h", intro: "i", reason: "r" });
+    expect(html).toContain(`cid:${attachments[0].contentId}`);
+  });
+
+  it("still renders a URL for the one caller that cannot attach anything", () => {
+    // Supabase Auth renders four templates from its own dashboard. `logo: "remote"` exists for
+    // that path alone; a `cid:` there would show nothing at all.
+    const remote = renderEmail({
+      title: "t", preheader: "p", heading: "h", intro: "i", reason: "r", logo: "remote",
+    });
+    expect(remote).toContain(EMAIL_LOGO_URL);
+    expect(remote).not.toContain(`cid:${EMAIL_LOGO_CID}`);
+  });
+
+  it("keeps a legible fallback when the client shows no images at all", () => {
+    const html = renderEmail({ title: "t", preheader: "p", heading: "h", intro: "i", reason: "r" });
+    // An unstyled alt renders near-black on a near-black masthead — invisible exactly when it is
+    // the only thing left. It is painted bone deliberately.
+    expect(html).toMatch(new RegExp(`cid:${EMAIL_LOGO_CID}[^>]*alt="Denku"`));
+    expect(html).toMatch(new RegExp(`alt="Denku"[^>]*color:${EMAIL_COLORS.bone}`));
+  });
+
+  /**
+   * Every branded send attaches it — checked against the source, because there is no runtime
+   * signal for a forgotten attachment.
+   *
+   * Now that the masthead references `cid:`, a send that omits the attachment is WORSE than the
+   * remote image it replaced: the mark is missing for everyone rather than for some. There are
+   * nine such sends across three files, and the next one someone adds is the one that breaks it.
+   */
+  it("is attached by every send path that renders the Denku chrome", async () => {
+    const { readFile } = await import("node:fs/promises");
+
+    const BRANDED_SENDERS = [
+      "src/lib/email/send.ts",
+      "src/lib/email/sendVerifyEmail.ts",
+      "src/lib/email/dispatch.ts",
+    ];
+
+    for (const file of BRANDED_SENDERS) {
+      const source = await readFile(file, "utf8");
+      const calls = source.split("resend.emails.send(").slice(1);
+      expect(calls.length, `${file} should call resend.emails.send`).toBeGreaterThan(0);
+
+      for (const [index, call] of calls.entries()) {
+        const body = call.slice(0, call.indexOf("});"));
+        expect(
+          body,
+          `${file}: resend.emails.send call #${index + 1} renders the Denku chrome but attaches no mark`
+        ).toContain("brandAttachments()");
+      }
+    }
+  });
+
+  /**
+   * And the channel transport deliberately does NOT.
+   *
+   * That mail is the BUSINESS writing to their own customer, in their own name, from their own
+   * domain. Attaching Denku's logo to it would put our brand inside someone else's
+   * correspondence — a different kind of bug, and a worse one.
+   */
+  it("is not attached to a business's own outbound channel mail", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile("src/lib/platform/transports/email.ts", "utf8");
+    expect(source).not.toContain("brandAttachments");
   });
 });
 

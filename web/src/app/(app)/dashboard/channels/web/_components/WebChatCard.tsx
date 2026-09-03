@@ -14,6 +14,9 @@ import {
   setWebChatStatusAction,
   updateWebChatAction,
 } from "../_actions";
+import { CONTROL_CLASS } from "@/components/ui-horizon/controls";
+import { horizonButtonClass } from "@/components/ui-horizon/button";
+import { DANGER_NOTICE_CLASS } from "@/components/ui-horizon/notice";
 
 export interface WebChatSummary {
   id: string;
@@ -147,7 +150,7 @@ export function WebChatCard({
                 required
                 rows={2}
                 placeholder={"yourshop.com\nyourshop.myshopify.com"}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS} h-auto py-2`}
               />
               <p className="mt-1.5 text-xs text-gray-500">
                 One per line. The widget only runs on the sites you list here — nobody else can put
@@ -173,7 +176,7 @@ export function WebChatCard({
                 id="site_name"
                 name="site_name"
                 placeholder="Main website"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS}`}
               />
             </div>
 
@@ -186,7 +189,7 @@ export function WebChatCard({
                 <select
                   id="agent_id"
                   name="agent_id"
-                  className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                  className={`mt-1.5 w-full max-w-md ${CONTROL_CLASS}`}
                 >
                   <option value="">Choose an employee</option>
                   {employees.map((e) => (
@@ -201,7 +204,7 @@ export function WebChatCard({
             <button
               type="submit"
               disabled={pending || !canManage}
-              className="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50 sm:w-auto"
+              className={`w-full ${horizonButtonClass("primary")} sm:w-auto`}
             >
               {pending ? "Creating…" : "Create the widget"}
             </button>
@@ -271,7 +274,7 @@ export function WebChatCard({
               onChange={(e) =>
                 run(() => assignWebChatEmployeeAction(connection.id, e.target.value || null), "Saved")
               }
-              className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className={`mt-1.5 w-full max-w-md ${CONTROL_CLASS}`}
             >
               {connection.assignedAgentId ? null : (
                 <option value="">
@@ -336,7 +339,7 @@ export function WebChatCard({
               rows={3}
               defaultValue={connection.allowedOrigins.join("\n")}
               placeholder="yourshop.com"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className={`mt-1.5 w-full ${CONTROL_CLASS} h-auto py-2 font-mono text-xs`}
             />
             <p className="mt-1.5 text-xs text-gray-500">
               One per line. <span className="font-mono">www.</span> is added for you. Use{" "}
@@ -354,7 +357,7 @@ export function WebChatCard({
                 id="site_name"
                 name="site_name"
                 defaultValue={connection.siteName ?? ""}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS}`}
               />
             </div>
             <div>
@@ -366,7 +369,7 @@ export function WebChatCard({
                 name="display_name"
                 defaultValue={connection.displayName ?? ""}
                 placeholder={employees[0]?.name ?? "Assistant"}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS}`}
               />
             </div>
           </div>
@@ -380,7 +383,7 @@ export function WebChatCard({
               name="greeting"
               defaultValue={connection.greeting ?? ""}
               placeholder="Hi! How can we help?"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className={`mt-1.5 w-full ${CONTROL_CLASS}`}
             />
             {/* Said by the widget, not stored as a message — so it never shows up in the Inbox
                 as something the business typed. */}
@@ -436,7 +439,7 @@ export function WebChatCard({
             <button
               type="submit"
               disabled={pending || !canManage}
-              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+              className={`${horizonButtonClass("primary")}`}
             >
               {pending ? "Saving…" : "Save settings"}
             </button>
@@ -467,7 +470,7 @@ export function WebChatCard({
                   connection.status === "connected" ? "Widget switched off" : "Widget switched on"
                 )
               }
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+              className={`${horizonButtonClass("secondary", "sm")}`}
             >
               {connection.status === "connected" ? "Switch off" : "Switch on"}
             </button>
@@ -483,7 +486,7 @@ export function WebChatCard({
                 setConfirmRotate(false);
                 run(() => rotateWebChatKeyAction(connection.id), "New key issued");
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+              className={`inline-flex items-center gap-1.5 ${horizonButtonClass("secondary", "sm")}`}
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {confirmRotate ? "Confirm — old snippet stops working" : "Issue a new key"}
@@ -525,7 +528,7 @@ export function WebChatCard({
 
 function ErrorNote({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+    <div className={`${DANGER_NOTICE_CLASS}`}>
       {text}
     </div>
   );

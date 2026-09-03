@@ -20,13 +20,14 @@ import {
   Mail,
   MessageCircle,
   Instagram,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   bootstrapWorkspaceAction,
   saveWorkspaceAction,
   saveGoalAndLanguageAction,
-  advanceToPlanAction,
+  saveProductIntentAction,
   runActivation,
   startPlanCheckout,
   startChatCheckout,
@@ -40,6 +41,7 @@ import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
 import { LANGUAGES, LANGUAGE_CODES, toLanguageCode } from "@/lib/language/registry";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
 import { ConnectChannelStep } from "./_components/ConnectChannelStep";
+import { ConnectOwnNumberDialog } from "./_components/ConnectOwnNumberDialog";
 import { researchWebsiteAction } from "./_actions/researchWebsite";
 
 
@@ -85,6 +87,22 @@ type OnboardingState = {
     channels: number;
   }>;
   hasPhoneNumber: boolean;
+  /** A line exists — one we provisioned OR one the customer connected themselves. */
+  hasConnectedLine?: boolean;
+  /** The number on that line. The only source for one the customer brought themselves. */
+  connectedLineE164?: string | null;
+  /** What the customer asked for at the phone step. `"new"` when they have not reached it. */
+  phoneProvisioningMode?: "new" | "byo" | "none";
+  /**
+   * Which product they picked: calls, messages, or neither yet.
+   *
+   * `null` means the question has not been answered — a workspace that reached the plan step
+   * before this question existed. It is NOT a fourth value to branch on: the plan step asks it
+   * again rather than guessing, because guessing is what sold a chat customer a phone plan.
+   */
+  productIntent?: "voice" | "chat" | "free" | null;
+  /** Whether this environment offers connecting a number the customer already owns. */
+  byoNumbersEnabled?: boolean;
   phoneNumber: string | null;
   phoneNumberE164?: string | null;
   phoneNumberSipUri?: string | null;
@@ -118,7 +136,11 @@ const CHANNEL_ICONS: Record<string, typeof MessageSquare> = {
 const STEPS = [
   { id: 0, label: "Your business", desc: "Who your AI works for" },
   { id: 1, label: "The role", desc: "What it handles for you" },
-  { id: 2, label: "Its number", desc: "The line it answers" },
+  // Step 2 used to be "Its number" and asked for a US area code before anything had been bought.
+  // Asking about a phone line first is what made every customer a voice customer by default; it
+  // now asks which product they want, and the phone question lives inside the voice branch of
+  // step 3 where it belongs. Renaming a label is safe; renumbering a step is not (see below).
+  { id: 2, label: "What it answers", desc: "Calls, messages, or neither yet" },
   { id: 3, label: "Plan", desc: "How much it can handle" },
   { id: 4, label: "Setting up", desc: "Putting it to work" },
   { id: 5, label: "First day", desc: "Your AI starts answering" },
@@ -219,13 +241,55 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false); // true when starting checkout
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // selected plan_code
-  // Whether this workspace bought chat and no phone line. Read from the plan the DB actually
-  // holds, not from what was clicked, so a refreshed page or a resumed session is still right.
-  const isChatOnly = state.planCode === "chat_only";
+  /**
+   * Whether this workspace bought chat and no phone line.
+   *
+   * ⚠️ This used to read `state.planCode === "chat_only"`, and that comparison went silently dead
+   * the day `chat_only` was retired (2026-09-02). `planCode` is now the VOICE plan and is simply
+   * null for a chat customer, so the test could never be true again — which meant every chat
+   * customer was walked through "Claiming your phone number" and landed on the voice Live screen,
+   * being told a US line was on its way that was never going to arrive. Nothing was provisioned
+   * (activation guards on the voice plan), but the wizard said otherwise for three screens.
+   *
+   * Asked the way the billing model actually answers it: something was bought, and it was not
+   * voice. Before anything is bought both are false, so this stays false — which is right, the
+   * question has no answer yet. A legacy `chat_only` row reads the same way, because
+   * `getPlanState` already maps that value to "no voice plan".
+   */
+  const isChatOnly = state.isPlanActive && !state.planCode;
 
-  // A chat tier, chosen INSTEAD of a voice plan. The two are mutually exclusive — one buys a
-  // phone line, the other buys channels and no phone line at all — so selecting either clears
-  // the other rather than letting a customer think they are buying both.
+  /**
+   * The customer owns their number and will point their carrier at us. Activation claims no US
+   * line for them, so the Live step offers the connect flow instead of a number card.
+   */
+  const isByoNumber = state.phoneProvisioningMode === "byo";
+
+  /**
+   * Which branch of the plan step this customer is in — and the reason the branch exists.
+   *
+   * The plan step used to be one screen carrying everything: three large cards priced
+   * $149/$399/$899, chat tiers underneath as a footnote, and a "continue without plan" link at the
+   * bottom. The three large cards are PHONE plans, so "the plans" meant phone service to anyone
+   * reading the page — and a customer who had just said they wanted chat picked one and was rented
+   * a US number, monthly, for a product they had declined. Nothing was broken. They simply never
+   * understood which question they were answering (R-153).
+   *
+   * So the product is chosen first, on its own screen, and this decides which plans are ever
+   * SHOWN. A chat customer is never offered a voice plan, so they can never buy one by accident.
+   *
+   * `null` is not a fourth branch: it means the question has not been answered — a workspace that
+   * reached this step before the question existed — and the step asks it rather than guessing.
+   */
+  const planBranch: "voice" | "chat" | "free" | null = state.productIntent ?? null;
+
+  /**
+   * A chat tier — on its own, or alongside a voice plan.
+   *
+   * This comment used to say the two were mutually exclusive and cleared each other. They have
+   * not been since chat and voice became independent products, and a stale comment on the state
+   * that decides what a card is charged for is worse than none: the selections are independent,
+   * so both can be true at once and the checkout summary is the only thing that says so.
+   */
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false); // true when polling for plan activation
   const [paramsCleared, setParamsCleared] = useState(false); // track if query params have been cleared
@@ -388,8 +452,23 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
    * a real question, and the answer belongs on the page and not on the Stripe form after it.
    */
   const checkoutSummary = React.useMemo(() => {
-    const plan = selectedPlan ? state.plans.find((p) => p.plan_code === selectedPlan) : null;
-    const chat = selectedChat ? state.chatPlans.find((t) => t.addon_key === selectedChat) : null;
+    /**
+     * Only the current branch's selection counts.
+     *
+     * A customer can select a voice plan, press Back, change their answer to messages, and land in
+     * the chat branch with `selectedPlan` still holding "growth". Nothing wrong is BOUGHT — each
+     * branch's button passes only its own product — but a summary that added both would tell them
+     * they were about to be charged $399 for a phone plan they had just walked away from. The
+     * branch is the authority on what is being bought, here as everywhere else on this step.
+     */
+    const plan =
+      planBranch !== "chat" && selectedPlan
+        ? state.plans.find((p) => p.plan_code === selectedPlan)
+        : null;
+    const chat =
+      planBranch !== "voice" && selectedChat
+        ? state.chatPlans.find((t) => t.addon_key === selectedChat)
+        : null;
     if (!plan && !chat) return "";
 
     const parts: string[] = [];
@@ -405,7 +484,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     return parts.length > 1
       ? `${parts.join("  +  ")}  =  ${formatUsd(total)}/month`
       : parts[0];
-  }, [selectedPlan, selectedChat, state.plans, state.chatPlans]);
+  }, [planBranch, selectedPlan, selectedChat, state.plans, state.chatPlans]);
 
   /** Just the host, so the copy shows `theirshop.com` rather than a pasted tracking URL. */
   const websiteHost = React.useMemo(() => {
@@ -422,6 +501,40 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   const [country, setCountry] = useState("US");
   const [areaCode, setAreaCode] = useState("");
   const [areaCodeError, setAreaCodeError] = useState<string | null>(null);
+  /**
+   * Which kind of line, chosen here rather than assumed.
+   *
+   * "Bring my own" was a greyed-out card labelled "Later" long after the path behind it shipped
+   * and answered a real customer's calls — so a business with a number their customers already
+   * know had to finish onboarding on a US number they did not want, then go and undo it.
+   * Seeded from the DB so a refreshed page remembers the answer.
+   */
+  const [phoneMode, setPhoneMode] = useState<"new" | "byo">(
+    state.phoneProvisioningMode === "byo" ? "byo" : "new"
+  );
+  /** The connect-your-own-number dialog on the last step. */
+  const [byoDialogOpen, setByoDialogOpen] = useState(false);
+
+  /**
+   * Step 2: which product. Seeded from the DB so a refresh remembers the answer.
+   *
+   * Nothing is pre-selected when the question has never been answered. A default here would be a
+   * recommendation nobody made, on the one screen whose whole job is to stop the product choosing
+   * for the customer.
+   */
+  const [productChoice, setProductChoice] = useState<"voice" | "chat" | "free" | null>(
+    state.productIntent ?? null
+  );
+
+  /**
+   * Step 3, voice branch: which half of it the customer is on.
+   *
+   * The voice branch asks two questions in order — how much, then which number — because the
+   * second only makes sense once the first is answered, and because putting the phone question
+   * before the purchase is exactly what used to make every customer a phone customer. The back
+   * button walks this before it walks the step.
+   */
+  const [voiceSubStep, setVoiceSubStep] = useState<"plans" | "phone">("plans");
 
   // Step 4: Activation
   const [isActivating, setIsActivating] = useState(false);
@@ -444,8 +557,8 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       result = await saveWorkspaceAction(formData);
     } else if (action === "saveGoalLanguage") {
       result = await saveGoalAndLanguageAction(formData);
-    } else if (action === "advanceToPlan") {
-      result = await advanceToPlanAction(formData);
+    } else if (action === "saveProductIntent") {
+      result = await saveProductIntentAction(formData);
     } else if (action === "savePhonePreferences") {
       result = await savePhonePreferences(formData);
     } else {
@@ -731,9 +844,33 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
 
   // SSR-safe and null-safe phone number display
   // Prefer phoneNumberE164 from state (DB truth), fallback to phoneNumber or provisionedPhoneNumber
-  const displayPhoneNumber = state.phoneNumberE164 ?? state.phoneNumber ?? provisionedPhoneNumber ?? null;
+  /**
+   * The number to show on the last step.
+   *
+   * `connectedLineE164` is last and not first: it is the ONLY source for a number the customer
+   * brought themselves, because `connectByoNumber` writes `phone_lines` and never touches
+   * `organization_settings` (which holds lines WE provisioned). Without it, a customer who had
+   * just connected their own number would be shown "Number will appear here once provisioning
+   * completes" about a line that was already connected.
+   */
+  const displayPhoneNumber =
+    state.phoneNumberE164 ?? state.phoneNumber ?? provisionedPhoneNumber ?? state.connectedLineE164 ?? null;
   // SIP URI for provider="vapi" lines (may exist when E164 doesn't)
   const displaySipUri = state.phoneNumberSipUri ?? null;
+
+  /**
+   * Is there a line that can be called right now?
+   *
+   * A number we provisioned answers this by polling Vapi for its status. A number the customer
+   * brought has no such status to poll — `vapiPhoneNumberId` on `organization_settings` stays
+   * null, so the poll never starts, `phoneStatus` stays null, and the screen would sit forever
+   * on "the phone network is still publishing your brand-new number". Their number is not new
+   * and no network is publishing it; the moment the line row exists it is theirs to call.
+   */
+  const lineIsReady =
+    phoneStatus === "active" ||
+    (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ||
+    Boolean(isByoNumber && state.hasConnectedLine);
 
   const progressPct = Math.min(100, Math.round((currentStep / (STEPS.length - 1)) * 100));
 
@@ -756,11 +893,280 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
    * return to.
    */
   const canGoBack = currentStep > 0 && currentStep < 4;
+
+  /**
+   * Where "back" goes from the plan step depends on how far into a branch the customer is.
+   *
+   * The voice branch has two screens inside one step, so the first press has to walk the SUB-step
+   * — otherwise choosing a plan and then wanting a different one means leaving the step entirely
+   * and re-answering the product question. Everything else walks the step, as before.
+   */
+  const backTarget: "voice-plans" | "step" =
+    currentStep === 3 && planBranch === "voice" && voiceSubStep === "phone" ? "voice-plans" : "step";
+
+  const backLabel =
+    backTarget === "voice-plans"
+      ? "Back to plans"
+      : `Back${STEPS[currentStep - 1]?.label ? ` to ${STEPS[currentStep - 1].label}` : ""}`;
+
   const goBack = () => {
     if (!canGoBack) return;
     setError(null);
+    if (backTarget === "voice-plans") {
+      setVoiceSubStep("plans");
+      return;
+    }
     setCurrentStep((step) => Math.max(0, step - 1));
   };
+
+  /**
+   * The three ways off the plan step. One per branch, deliberately — never one handler that
+   * decides at the last moment what to buy.
+   *
+   * `startPlanCheckout(plan, chatAddonKey)` can sell both products in one session, and the voice
+   * branch passes `null` for the second argument in so many words. That is the guarantee the whole
+   * redesign rests on: a customer is charged for the product they picked and nothing else, and it
+   * is enforced at the call site rather than by hoping a piece of state was cleared.
+   */
+  const startVoiceCheckout = () => {
+    if (!selectedPlan || !state.orgId) return;
+    setCheckoutLoading(true);
+    setError(null);
+    setCheckoutMessage(null);
+    startTransition(async () => {
+      /**
+       * Save the phone answer BEFORE the card is charged.
+       *
+       * Activation reads `phone_provisioning_mode` to decide whether to claim a US number, and it
+       * runs as soon as Stripe's webhook lands — which can be before the customer's browser gets
+       * back here. Saving after checkout would be a race whose losing side rents somebody a second
+       * phone number.
+       */
+      const fd = new FormData();
+      fd.set("orgId", state.orgId!);
+      fd.set("country", country);
+      fd.set("phoneMode", phoneMode);
+      if (phoneMode === "new" && areaCode) fd.set("areaCode", areaCode);
+
+      const saved = await savePhonePreferences(fd);
+      if (!saved.ok) {
+        setCheckoutLoading(false);
+        setError(saved.error || "We couldn't save your number preference. Please try again.");
+        return;
+      }
+
+      // `null`: the voice branch sells voice. Chat is bought from its own branch, or later from
+      // Billing.
+      const result = await startPlanCheckout(selectedPlan as "starter" | "growth" | "scale", null);
+
+      if (result.ok && result.url) {
+        window.location.href = result.url;
+      } else {
+        setCheckoutLoading(false);
+        if (result.error === "UNAUTH") {
+          setError("Authentication error. Please refresh the page and try again.");
+        } else if (result.error === "BILLING_PAUSED") {
+          setError("BILLING_PAUSED");
+        } else {
+          setError(result.error || "Failed to start checkout");
+        }
+      }
+    });
+  };
+
+  const startChatOnlyCheckout = () => {
+    if (!selectedChat) return;
+    setCheckoutLoading(true);
+    setError(null);
+    setCheckoutMessage(null);
+    startTransition(async () => {
+      const result = await startChatCheckout(selectedChat);
+      if (result.ok && result.url) {
+        window.location.href = result.url;
+      } else {
+        setCheckoutLoading(false);
+        if (result.error === "UNAUTH") {
+          setError("Authentication error. Please refresh the page and try again.");
+        } else if (result.error === "BILLING_PAUSED") {
+          setError("BILLING_PAUSED");
+        } else {
+          setError(result.error || "Failed to start checkout");
+        }
+      }
+    });
+  };
+
+  /**
+   * Finish with nothing bought.
+   *
+   * `continueWithoutPlan` writes step 6, records the intent and creates the AI employee — and
+   * touches neither Stripe nor Vapi, which is what makes it safe to offer as a card next to two
+   * that charge money.
+   *
+   * Lands on the dashboard rather than the phone-numbers page, which is where this used to go: a
+   * customer who has just chosen NOT to buy a phone line should not arrive at a screen about
+   * phone lines. A full page load, not a router push, because onboarding just completed and the
+   * shared `(app)` layout has to be re-rendered on the server to notice.
+   */
+  const finishFreePreview = () => {
+    if (!state.orgId) {
+      setError("Organization ID is missing.");
+      return;
+    }
+    setError(null);
+    setCheckoutMessage(null);
+    startTransition(async () => {
+      const result = await continueWithoutPlan(state.orgId!);
+      if (result.ok) {
+        window.location.assign("/dashboard");
+      } else {
+        setError(result.error || "Failed to finish setup");
+      }
+    });
+  };
+
+  /**
+   * The product chooser — the screen that decides what the customer is ever shown a price for.
+   *
+   * **Prices are derived, never typed.** Each card quotes the cheapest real offer in its family,
+   * read from the catalogue the checkout will actually charge from. A hardcoded "from $149" is a
+   * claim that goes stale silently the day a price changes, on the screen where a customer decides
+   * what to buy.
+   *
+   * Held in a variable rather than written twice because it renders in TWO places: step 2, where
+   * everyone answers it, and step 3, for a workspace that reached the plan step before this
+   * question existed. Two copies of a screen that sells three different products is how one of
+   * them ends up quoting last month's price.
+   */
+  const cheapestVoiceUsd = state.plans.length
+    ? Math.min(...state.plans.map((p) => p.monthly_fee_usd))
+    : null;
+  const cheapestChatUsd = state.chatPlans.length
+    ? Math.min(...state.chatPlans.map((t) => t.price_usd_month))
+    : null;
+
+  const productOptions: Array<{
+    id: "voice" | "chat" | "free";
+    icon: typeof Phone;
+    title: string;
+    price: string;
+    body: string;
+    bullets: string[];
+    /** Hidden when there is nothing sellable behind it — never offer a door that leads nowhere. */
+    available: boolean;
+  }> = [
+    {
+      id: "voice",
+      icon: Phone,
+      title: "Answer my phone",
+      price: cheapestVoiceUsd !== null ? `From ${formatUsd(cheapestVoiceUsd)}/month` : "",
+      body: "A line that never rings out. Your AI picks up every call, day or night, and writes down what the caller needed.",
+      bullets: [
+        "A US number we claim for you — or connect the one you already have",
+        "Call minutes included, in your language",
+        "Tickets, appointments and leads from every call",
+      ],
+      available: state.plans.length > 0,
+    },
+    {
+      id: "chat",
+      icon: MessageSquare,
+      title: "Answer my messages",
+      price: cheapestChatUsd !== null ? `From ${formatUsd(cheapestChatUsd)}/month` : "",
+      body: "The same AI, answering where your customers already write to you. No phone number and no call minutes.",
+      bullets: [
+        "Telegram, email, web chat and Instagram",
+        "Sold by channel, not by message — no counter to run out of",
+        "Same inbox, tickets and appointments",
+      ],
+      available: state.chatPlans.length > 0,
+    },
+    {
+      id: "free",
+      icon: Compass,
+      title: "Look around first",
+      price: "Free",
+      body: "Finish setting up and pick a plan when you're ready. Nothing is charged today.",
+      bullets: [
+        "Your workspace and AI employee are created",
+        "Nothing is answered until you choose a plan",
+        "Upgrade any time from Billing",
+      ],
+      available: true,
+    },
+  ];
+
+  const productChooser = (
+    <form action={formAction} className="space-y-5">
+      <input type="hidden" name="_action" value="saveProductIntent" />
+      <input type="hidden" name="orgId" value={state.orgId || ""} />
+      <input type="hidden" name="productIntent" value={productChoice ?? ""} />
+
+      <div className="grid grid-cols-1 gap-4">
+        {productOptions
+          .filter((option) => option.available)
+          .map((option) => {
+            const Icon = option.icon;
+            const isSelected = productChoice === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  setProductChoice(option.id);
+                  setError(null);
+                }}
+                className={`rounded-[16px] border-2 p-5 text-left transition-all ${
+                  isSelected
+                    ? "border-[#1B6E6E] bg-[#E3EEED]"
+                    : "border-[#0A1A2F]/[0.08] bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] ${
+                      isSelected ? "bg-[#1B6E6E] text-white" : "bg-[#E3EEED] text-[#134F4F]"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <h3 className="font-display text-[17px] font-medium text-[#0A1A2F]">
+                        {option.title}
+                      </h3>
+                      {option.price && (
+                        <span className="font-brand-mono text-xs text-[#6B7888]">{option.price}</span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-[#2C3E54]">{option.body}</p>
+                    <ul className="mt-3 space-y-1.5">
+                      {option.bullets.map((bullet) => (
+                        <li key={bullet} className="flex items-start gap-2 text-sm text-[#2C3E54]">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1B6E6E]" />
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {isSelected && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />}
+                </div>
+              </button>
+            );
+          })}
+      </div>
+
+      <p className="text-sm text-[#6B7888]">
+        You can add the other one later from Billing — picking one now doesn&apos;t rule it out.
+      </p>
+
+      <div className="flex justify-end pt-1">
+        {/* Disabled until something is chosen: submitting an empty answer is how a wizard picks a
+            product for a customer, which is the entire defect this screen exists to fix. */}
+        <SubmitButton disabled={!productChoice}>Continue</SubmitButton>
+      </div>
+    </form>
+  );
 
   return (
     <div className="flex min-h-screen">
@@ -886,7 +1292,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="m15 18-6-6 6-6" />
                 </svg>
-                Back{STEPS[currentStep - 1]?.label ? ` to ${STEPS[currentStep - 1].label}` : ""}
+                {backLabel}
               </button>
             )}
 
@@ -1195,34 +1601,33 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
             )}
 
             {/* Step 2: Get Phone Number (AI line) */}
+            {/*
+              Step 2: what the AI should answer.
+
+              This screen used to ask for a US area code — a question about a phone line, asked
+              before the customer had said they wanted one, on the assumption that everybody did.
+              That assumption is what made every signup a voice signup by default, and it is why
+              someone who came for chat ended up renting a number (R-153). The phone question is
+              not gone; it moved to where it makes sense, inside the voice branch of the next step,
+              after a voice plan has actually been chosen.
+            */}
             {currentStep === 2 && (
               <div className="space-y-7">
                 <div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    Give your AI a phone line
+                    What should your AI answer?
                   </h2>
-                  {/*
-                    Say when the number actually appears.
-
-                    Nothing is provisioned on this screen: a US number costs money every month
-                    from the moment it exists, so one is only claimed after a voice plan is paid
-                    for — which is also why there is no trial number to hand out. What this step
-                    collects is a preference, and reading it as "my number is being created now"
-                    is the difference between a customer who waits calmly through checkout and one
-                    who thinks a step failed.
-                  */}
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    This is the number it answers — 24 hours a day, without ringing out. Tell us the
-                    area code your customers would recognise; we claim the number itself right after
-                    you choose a plan, so nothing is reserved until then.
+                    Pick one to start with. You&apos;ll only be shown plans for what you choose —
+                    nothing else is added, and nothing is charged until you say so.
                   </p>
                   {/*
-                    Say which language the line will answer in, on the screen where the line is
-                    being decided.
+                    Say which language it will answer in, on the screen where the product is being
+                    decided.
 
                     The choice was made one step ago and is not editable here — steps only ever
-                    move forward. Restating it is what stops the number arriving in a language the
-                    customer did not expect and only discovers on the first real call.
+                    move forward. Restating it is what stops the AI arriving in a language the
+                    customer did not expect and only discovers on the first real conversation.
                   */}
                   {(() => {
                     const code = toLanguageCode(language);
@@ -1241,136 +1646,54 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 {state.workspaceStatus === "paused" && (state.pausedReason === "hard_cap" || state.pausedReason === "past_due") && (
                   <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-6">
                     <p className="mb-2 text-sm font-medium text-amber-900">Billing pause is active</p>
-                    <p className="mb-4 text-sm text-amber-800">Resolve billing to activate your line.</p>
+                    <p className="mb-4 text-sm text-amber-800">Resolve billing to carry on with setup.</p>
                     <Button className={outlineBtn} onClick={() => router.push("/dashboard/settings/workspace/billing")}>
                       Go to Billing
                     </Button>
                   </div>
                 )}
 
-                {/* Phone Number Options */}
-                {state.workspaceStatus !== "paused" && (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="rounded-[14px] border-2 border-[#1B6E6E] bg-[#E3EEED] p-5">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">Get a new number</h3>
-                            <p className="mt-1 text-sm text-[#2C3E54]">We&apos;ll claim one for you once your plan is active.</p>
-                          </div>
-                          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />
-                        </div>
-                      </div>
-
-                      <div className="rounded-[14px] border-2 border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-5 opacity-70">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-display text-[16px] font-medium text-[#6B7888]">Bring my own</h3>
-                              <span className="rounded-full border border-[#0A1A2F]/10 bg-white px-2 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-[#6B7888]">Later</span>
-                            </div>
-                            <p className="mt-1 text-sm text-[#6B7888]">Port your existing number.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <form action={formAction} className="space-y-5">
-                      <input type="hidden" name="_action" value="savePhonePreferences" />
-                      <input type="hidden" name="orgId" value={state.orgId || ""} />
-                      <input type="hidden" name="country" value={country} />
-
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
-                          <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">Country</label>
-                          <select value={country} disabled className="w-full cursor-not-allowed rounded-[10px] border border-[#0A1A2F]/10 bg-[#EFEBE4] px-4 py-2.5 text-sm text-[#6B7888]">
-                            <option value="US">United States (+1)</option>
-                          </select>
-                          <p className="mt-1.5 text-xs text-[#6B7888]">More countries coming soon</p>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">
-                            Area code <span className="text-xs text-[#6B7888]">(optional)</span>
-                          </label>
-                          <input
-                            type="text"
-                            name="areaCode"
-                            value={areaCode}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, "").slice(0, 3);
-                              setAreaCode(value);
-                              if (areaCodeError) setAreaCodeError(null);
-                            }}
-                            onBlur={() => {
-                              if (areaCode && areaCode.length > 0) {
-                                if (areaCode.length !== 3) {
-                                  setAreaCodeError("Enter a valid US area code (3 digits).");
-                                } else if (!isValidUSAreaCode(areaCode)) {
-                                  setAreaCodeError("Enter a valid US area code (3 digits).");
-                                } else {
-                                  setAreaCodeError(null);
-                                }
-                              } else {
-                                setAreaCodeError(null);
-                              }
-                            }}
-                            placeholder="e.g. 321"
-                            maxLength={3}
-                            className={areaCodeError ? inputErrClass : inputClass}
-                            disabled={isActivating}
-                          />
-                          {areaCodeError ? (
-                            <p className="mt-1.5 text-xs text-red-600">{areaCodeError}</p>
-                          ) : (
-                            <p className="mt-1.5 text-xs text-[#6B7888]">We&apos;ll try to get a local number. Leave blank for best availability.</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end pt-2">
-                        <SubmitButton disabled={!!areaCodeError}>Continue</SubmitButton>
-                      </div>
-                    </form>
-
-                    {/*
-                      A chat-only customer has no use for an area code, and asking anyway makes
-                      the product look like it only does phones. This skips straight to the plan
-                      step, where the chat tiers live.
-
-                      It is its own form because the one above saves the phone preferences; this
-                      must save nothing. `advanceToPlanAction` only moves the step forward, and
-                      steps never move back, so a customer who changes their mind and buys voice
-                      loses nothing — activation falls back to area code 321 exactly as it does
-                      for anyone who leaves the field blank.
-                    */}
-                    <form action={formAction} className="flex justify-center border-t border-[#0A1A2F]/10 pt-5">
-                      <input type="hidden" name="_action" value="advanceToPlan" />
-                      <input type="hidden" name="orgId" value={state.orgId || ""} />
-                      <button
-                        type="submit"
-                        disabled={isPending}
-                        className="text-sm text-[#6B7888] underline underline-offset-4 transition-colors hover:text-[#1B6E6E] disabled:opacity-60"
-                      >
-                        I don&apos;t need a phone line — I want chat
-                      </button>
-                    </form>
-                  </>
-                )}
+                {state.workspaceStatus !== "paused" && productChooser}
               </div>
             )}
 
             {/* Step 3: Choose Plan (if no plan active) */}
+            {/*
+              Step 3: the plans — for the product the customer picked, and nothing else.
+
+              This was one screen carrying three voice plans, the chat tiers and a skip link all at
+              once. The three large cards are voice plans, so "the plans" read as phone service to
+              everybody, and a chat customer bought one (R-153). It is now three branches that
+              never see each other's prices: choosing chat means a voice plan is not on the screen
+              to be clicked by mistake, which is a stronger guarantee than any warning.
+
+              The voice branch has two sub-screens — how much, then which number — because the
+              number question only makes sense once there is a plan to attach it to.
+            */}
             {currentStep === 3 && (
               <div className="space-y-7">
                 <div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
-                    How much should it handle?
+                    {planBranch === "voice"
+                      ? voiceSubStep === "phone"
+                        ? "Which number should it answer?"
+                        : "How many calls should it handle?"
+                      : planBranch === "chat"
+                        ? "How many channels should it answer?"
+                        : planBranch === "free"
+                          ? "Set up now, choose a plan later"
+                          : "What should your AI answer?"}
                   </h2>
                   <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
-                    Pick the monthly call volume that fits your business — and add chat if your
-                    customers message you as well. You&apos;re charged now, and you can move up or
-                    down at any time.
+                    {planBranch === "voice"
+                      ? voiceSubStep === "phone"
+                        ? "Last question before checkout. We can claim a new US number for you, or your AI can answer the number your customers already know."
+                        : "Pick the monthly call volume that fits your business. You're charged now, and you can move up or down at any time."
+                      : planBranch === "chat"
+                        ? "Sold by channel, not by message — there's no counter to run out of. No phone number and no call minutes."
+                        : planBranch === "free"
+                          ? "Your workspace and your AI employee get created now. Nothing is charged, and nothing answers your customers until you pick a plan."
+                          : "Pick one to start with. You'll only be shown plans for what you choose."}
                   </p>
                 </div>
 
@@ -1404,98 +1727,262 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   </div>
                 )}
 
-                {/* Plan cards */}
                 {state.workspaceStatus !== "paused" && (
                   <>
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {state.plans
-                        .sort((a, b) => {
-                          const order: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
-                          return (order[a.plan_code] || 999) - (order[b.plan_code] || 999);
-                        })
-                        .map((plan) => {
-                          const isSelected = selectedPlan === plan.plan_code;
-                          const isGrowth = plan.plan_code === "growth";
-                          return (
-                            <div
-                              key={plan.plan_code}
-                              className={`flex h-full flex-col rounded-[16px] border p-6 transition-all ${
-                                isSelected
-                                  ? "border-[#1B6E6E] bg-[#E3EEED] brand-shadow-md"
-                                  : isGrowth
-                                  ? "border-[#1B6E6E]/30 bg-[#FBFAF8]"
-                                  : "border-[#0A1A2F]/10 bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
-                              }`}
-                            >
-                              {isGrowth && (
-                                <div className="mb-2">
-                                  <span className="inline-flex items-center rounded-full bg-[#1B6E6E] px-2.5 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-white">
-                                    Recommended
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex flex-1 flex-col space-y-4">
-                                <div>
-                                  <h3 className="font-display text-[18px] font-medium text-[#0A1A2F]">{plan.display_name}</h3>
-                                  <div className="mt-2">
-                                    <span className="font-display text-[30px] font-medium text-[#0A1A2F]">{formatUsd(plan.monthly_fee_usd)}</span>
-                                    <span className="text-sm text-[#6B7888]">/month</span>
+                    {/*
+                      The question was never answered — a workspace that reached this step before
+                      the product chooser existed. Asked here rather than guessed: guessing is the
+                      entire defect. The same chooser as step 2, not a copy of it, so the two can
+                      never quote different prices.
+                    */}
+                    {!planBranch && productChooser}
+
+                    {/* ── VOICE ── how much */}
+                    {planBranch === "voice" && voiceSubStep === "plans" && (
+                      <>
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                          {state.plans
+                            .slice()
+                            .sort((a, b) => {
+                              const order: Record<string, number> = { starter: 1, growth: 2, scale: 3 };
+                              return (order[a.plan_code] || 999) - (order[b.plan_code] || 999);
+                            })
+                            .map((plan) => {
+                              const isSelected = selectedPlan === plan.plan_code;
+                              const isGrowth = plan.plan_code === "growth";
+                              return (
+                                <div
+                                  key={plan.plan_code}
+                                  className={`flex h-full flex-col rounded-[16px] border p-6 transition-all ${
+                                    isSelected
+                                      ? "border-[#1B6E6E] bg-[#E3EEED] brand-shadow-md"
+                                      : isGrowth
+                                      ? "border-[#1B6E6E]/30 bg-[#FBFAF8]"
+                                      : "border-[#0A1A2F]/10 bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                                  }`}
+                                >
+                                  {isGrowth && (
+                                    <div className="mb-2">
+                                      <span className="inline-flex items-center rounded-full bg-[#1B6E6E] px-2.5 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-white">
+                                        Recommended
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="flex flex-1 flex-col space-y-4">
+                                    <div>
+                                      <h3 className="font-display text-[18px] font-medium text-[#0A1A2F]">{plan.display_name}</h3>
+                                      <div className="mt-2">
+                                        <span className="font-display text-[30px] font-medium text-[#0A1A2F]">{formatUsd(plan.monthly_fee_usd)}</span>
+                                        <span className="text-sm text-[#6B7888]">/month</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 space-y-2 text-sm text-[#2C3E54]">
+                                      <p>{plan.concurrency_limit} concurrent calls</p>
+                                      <p>{plan.included_minutes.toLocaleString()} minutes included</p>
+                                      <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
+                                      <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
+                                    </div>
+                                    <Button
+                                      className={`w-full ${isSelected ? tealBtn : outlineBtn}`}
+                                      disabled={isPending}
+                                      onClick={() => {
+                                        // Clicking the selected plan again clears it, so a customer
+                                        // who changes their mind is not stuck with a plan they can
+                                        // no longer deselect.
+                                        setSelectedPlan((prev) => (prev === plan.plan_code ? null : plan.plan_code));
+                                        setError(null);
+                                        setCheckoutMessage(null);
+                                      }}
+                                    >
+                                      {isSelected ? "Selected" : "Select plan"}
+                                    </Button>
                                   </div>
                                 </div>
-                                <div className="flex-1 space-y-2 text-sm text-[#2C3E54]">
-                                  <p>{plan.concurrency_limit} concurrent calls</p>
-                                  <p>{plan.included_minutes.toLocaleString()} minutes included</p>
-                                  <p>{plan.included_phone_numbers} phone number{plan.included_phone_numbers !== 1 ? "s" : ""}</p>
-                                  <p>Overage: {formatUsd(plan.overage_rate_usd_per_min)}/min</p>
-                                </div>
-                                <Button
-                                  className={`w-full ${isSelected ? tealBtn : outlineBtn}`}
-                                  disabled={isPending}
-                                  onClick={() => {
-                                    // Clicking the selected plan again clears it, so a customer
-                                    // who changes their mind to chat-only is not stuck with a
-                                    // voice plan they can no longer deselect.
-                                    setSelectedPlan((prev) => (prev === plan.plan_code ? null : plan.plan_code));
-                                    setError(null);
-                                    setCheckoutMessage(null);
-                                  }}
-                                >
-                                  {isSelected ? "Selected" : "Select plan"}
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-
-                    {/*
-                      Chat: alongside a voice plan, or instead of one.
-
-                      Placed under the voice plans rather than beside them because it is a
-                      different shape of purchase, not a fourth size: it buys channels the AI
-                      answers on rather than call minutes. The two selections used to clear each
-                      other, which made the page say something the billing model never did — a
-                      voice plan lives in `org_plan_limits` and a chat tier in
-                      `billing_org_addons`, and they have always been able to coexist. A business
-                      whose customers both call and message had to buy twice, on two different
-                      screens, for one decision.
-
-                      Renders only when a tier has a configured Stripe price — `getOnboardingState`
-                      filters on that, so an offer we cannot charge for never reaches a button.
-                    */}
-                    {state.chatPlans.length > 0 && (
-                      <div className="space-y-4 border-t border-[#0A1A2F]/10 pt-7">
-                        <div>
-                          <h3 className="font-display text-[19px] font-normal text-[#0A1A2F]">
-                            {selectedPlan ? "Add chat as well" : "Or answer messages instead of calls"}
-                          </h3>
-                          <p className="mt-2 text-[14px] leading-relaxed text-[#2C3E54]">
-                            {selectedPlan
-                              ? "The same AI employee, answering your messages too. Sold by channel, not by message — there is no counter to run out of."
-                              : "An AI that answers messages instead of calls. Sold by channel, not by message — there is no counter to run out of. You can take this on its own, or add it to a plan above."}
-                          </p>
+                              );
+                            })}
                         </div>
 
+                        <div className="flex flex-col items-center gap-3 pt-2">
+                          {selectedPlan && (
+                            <p className="text-center text-sm text-[#2C3E54]">{checkoutSummary}</p>
+                          )}
+                          <Button
+                            className={`min-w-[220px] ${primaryBtn}`}
+                            disabled={!selectedPlan || isPending || isConfirming}
+                            onClick={() => {
+                              setError(null);
+                              setCheckoutMessage(null);
+                              setVoiceSubStep("phone");
+                            }}
+                          >
+                            Continue
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                          <p className="text-center text-xs text-[#6B7888]">
+                            Nothing is charged yet — one more question first.
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── VOICE ── which number */}
+                    {planBranch === "voice" && voiceSubStep === "phone" && (
+                      <>
+                        {/*
+                          Two real choices, not one choice and one advertisement.
+
+                          "Bring my own" sat here disabled and labelled "Later" for weeks after the
+                          path behind it shipped and answered a real customer's calls over their own
+                          carrier (R-155). A business whose number is already printed on their van
+                          had to finish setup on a US number they did not want, then undo it from
+                          the dashboard. It is rendered from `state.byoNumbersEnabled` rather than
+                          shown unconditionally, so an environment where the connect API is switched
+                          off never offers a door that leads to a 404.
+                        */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setPhoneMode("new")}
+                            className={`rounded-[14px] border-2 p-5 text-left transition-all ${
+                              phoneMode === "new"
+                                ? "border-[#1B6E6E] bg-[#E3EEED]"
+                                : "border-[#0A1A2F]/[0.08] bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">Get a new number</h3>
+                                <p className="mt-1 text-sm text-[#2C3E54]">We&apos;ll claim one for you as soon as your plan is active. It&apos;s included in the plan.</p>
+                              </div>
+                              {phoneMode === "new" && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />}
+                            </div>
+                          </button>
+
+                          {state.byoNumbersEnabled ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhoneMode("byo");
+                                // An area code is a preference about a number we would buy. Keeping
+                                // it while "bring my own" is selected is how a stale value survives
+                                // a change of mind and buys a line anyway.
+                                setAreaCode("");
+                                setAreaCodeError(null);
+                              }}
+                              className={`rounded-[14px] border-2 p-5 text-left transition-all ${
+                                phoneMode === "byo"
+                                  ? "border-[#1B6E6E] bg-[#E3EEED]"
+                                  : "border-[#0A1A2F]/[0.08] bg-[#FBFAF8] hover:border-[#0A1A2F]/20"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">Bring my own number</h3>
+                                  <p className="mt-1 text-sm text-[#2C3E54]">
+                                    Keep the number your customers already know. You point your carrier
+                                    at us — nothing changes for the people who call you.
+                                  </p>
+                                </div>
+                                {phoneMode === "byo" && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1B6E6E]" />}
+                              </div>
+                            </button>
+                          ) : (
+                            <div className="rounded-[14px] border-2 border-[#0A1A2F]/[0.06] bg-[#F7F5F1] p-5 opacity-70">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-display text-[16px] font-medium text-[#6B7888]">Bring my own</h3>
+                                <span className="rounded-full border border-[#0A1A2F]/10 bg-white px-2 py-0.5 font-brand-mono text-[10px] uppercase tracking-wide text-[#6B7888]">Later</span>
+                              </div>
+                              <p className="mt-1 text-sm text-[#6B7888]">Connect a number you already own.</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/*
+                          A country and an area code are questions about a number WE would buy. They
+                          are meaningless — and misleading — when the customer already owns theirs,
+                          so this asks what is left to ask instead: nothing yet. The connect flow
+                          needs their carrier's SIP details, and that belongs after the plan is paid
+                          for, not before.
+                        */}
+                        {phoneMode === "byo" ? (
+                          <div className="rounded-[14px] border border-[#1B6E6E]/25 bg-[#E3EEED] p-5">
+                            <p className="text-sm leading-relaxed text-[#134F4F]">
+                              We won&apos;t claim a US number for you. Once your plan is active we&apos;ll
+                              show you exactly what to paste into your carrier&apos;s panel — the number
+                              stays yours, and your AI starts answering it.
+                            </p>
+                            <p className="mt-2 text-xs text-[#2C3E54]">
+                              You&apos;ll need access to your provider&apos;s SIP trunk settings.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">Country</label>
+                              <select value={country} disabled className="w-full cursor-not-allowed rounded-[10px] border border-[#0A1A2F]/10 bg-[#EFEBE4] px-4 py-2.5 text-sm text-[#6B7888]">
+                                <option value="US">United States (+1)</option>
+                              </select>
+                              <p className="mt-1.5 text-xs text-[#6B7888]">More countries coming soon</p>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#0A1A2F]">
+                                Area code <span className="text-xs text-[#6B7888]">(optional)</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="areaCode"
+                                value={areaCode}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/\D/g, "").slice(0, 3);
+                                  setAreaCode(value);
+                                  if (areaCodeError) setAreaCodeError(null);
+                                }}
+                                onBlur={() => {
+                                  if (areaCode && areaCode.length > 0) {
+                                    if (areaCode.length !== 3 || !isValidUSAreaCode(areaCode)) {
+                                      setAreaCodeError("Enter a valid US area code (3 digits).");
+                                    } else {
+                                      setAreaCodeError(null);
+                                    }
+                                  } else {
+                                    setAreaCodeError(null);
+                                  }
+                                }}
+                                placeholder="e.g. 321"
+                                maxLength={3}
+                                className={areaCodeError ? inputErrClass : inputClass}
+                              />
+                              {areaCodeError ? (
+                                <p className="mt-1.5 text-xs text-red-600">{areaCodeError}</p>
+                              ) : (
+                                <p className="mt-1.5 text-xs text-[#6B7888]">We&apos;ll try to get a local number. Leave blank for best availability.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col items-center gap-3 pt-2">
+                          <p className="text-center text-sm text-[#2C3E54]">{checkoutSummary}</p>
+                          <p className="-mt-1 text-center text-xs text-[#6B7888]">
+                            {phoneMode === "byo"
+                              ? "Call minutes for the number you already own — we won't claim a new one."
+                              : "Includes a US phone number, claimed for you right after checkout."}
+                          </p>
+                          <Button
+                            className={`min-w-[220px] ${primaryBtn}`}
+                            disabled={checkoutLoading || isPending || isConfirming || (phoneMode === "new" && !!areaCodeError)}
+                            onClick={startVoiceCheckout}
+                          >
+                            {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── CHAT ── */}
+                    {planBranch === "chat" && (
+                      <>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           {state.chatPlans.map((tier) => {
                             const isSelected = selectedChat === tier.addon_key;
@@ -1537,10 +2024,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                                       ? "Pick any one of these"
                                       : `Pick any ${tier.channels} of these`}
                                   </p>
-                                  {/* Only true when chat is being bought on its own — saying it
-                                      under a selected voice plan would contradict the phone line
-                                      the customer is buying on the same screen. */}
-                                  {!selectedPlan ? <p>No phone number, no call minutes</p> : null}
+                                  <p>No phone number, no call minutes</p>
                                   <p>Same inbox, tickets and appointments</p>
                                 </div>
                                 <Button
@@ -1558,94 +2042,82 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                             );
                           })}
                         </div>
-                      </div>
-                    )}
 
-                    {/*
-                      Action buttons.
-
-                      ONE checkout button, not one per kind of thing selected. There used to be a
-                      button under the voice branch and another under the chat branch, which was
-                      workable only because the two selections were mutually exclusive. Now that
-                      they are not, two buttons would be two ways to pay with no way to tell which
-                      one charges for what.
-
-                      The summary line above it is deliberate too: this is the last screen before
-                      a card is charged, so what is about to be bought is stated in words rather
-                      than left implied by which cards look highlighted.
-                    */}
-                    <div className="flex flex-col items-center gap-3 pt-2">
-                      {(selectedPlan || selectedChat) && (
-                        <>
-                          <p className="text-center text-sm text-[#2C3E54]">
-                            {checkoutSummary}
-                          </p>
+                        <div className="flex flex-col items-center gap-3 pt-2">
+                          {selectedChat && (
+                            <>
+                              <p className="text-center text-sm text-[#2C3E54]">{checkoutSummary}</p>
+                              <p className="-mt-1 text-center text-xs text-[#6B7888]">
+                                No phone number and no call minutes — messages only.
+                              </p>
+                            </>
+                          )}
                           <Button
                             className={`min-w-[220px] ${primaryBtn}`}
-                            disabled={checkoutLoading || isPending || isConfirming}
-                            onClick={() => {
-                              setCheckoutLoading(true);
-                              setError(null);
-                              setCheckoutMessage(null);
-                              startTransition(async () => {
-                                /*
-                                 * A voice plan, with or without a chat tier, goes through
-                                 * `startPlanCheckout` — one Stripe session with both line items.
-                                 * Chat on its own keeps its own entry point, which also lands the
-                                 * workspace on the $0 `chat_only` base plan.
-                                 */
-                                const result = selectedPlan
-                                  ? await startPlanCheckout(
-                                      selectedPlan as "starter" | "growth" | "scale",
-                                      selectedChat
-                                    )
-                                  : await startChatCheckout(selectedChat!);
-
-                                if (result.ok && result.url) {
-                                  window.location.href = result.url;
-                                } else {
-                                  setCheckoutLoading(false);
-                                  if (result.error === "UNAUTH") {
-                                    setError("Authentication error. Please refresh the page and try again.");
-                                  } else if (result.error === "BILLING_PAUSED") {
-                                    setError("BILLING_PAUSED");
-                                  } else {
-                                    setError(result.error || "Failed to start checkout");
-                                  }
-                                }
-                              });
-                            }}
+                            disabled={!selectedChat || checkoutLoading || isPending || isConfirming}
+                            onClick={startChatOnlyCheckout}
                           >
                             {checkoutLoading ? "Starting checkout..." : "Proceed to checkout"}
                           </Button>
-                        </>
-                      )}
+                        </div>
+                      </>
+                    )}
 
-                      <Button
-                        className={`min-w-[220px] ${outlineBtn}`}
-                        disabled={isPending || isConfirming}
-                        onClick={() => {
-                          if (!state.orgId) {
-                            setError("Organization ID is missing.");
-                            return;
-                          }
-                          setError(null);
-                          setCheckoutMessage(null);
-                          startTransition(async () => {
-                            const result = await continueWithoutPlan(state.orgId!);
-                            if (result.ok) {
-                              // Onboarding just completed, so the shared (app) layout must be
-                              // re-rendered on the server — see `handleComplete`.
-                              window.location.assign("/dashboard/channels/phone-numbers");
-                            } else {
-                              setError(result.error || "Failed to continue without plan");
-                            }
-                          });
-                        }}
-                      >
-                        Continue without plan
-                      </Button>
-                    </div>
+                    {/* ── FREE ── */}
+                    {planBranch === "free" && (
+                      <>
+                        <div className="rounded-[16px] border border-[#0A1A2F]/[0.08] bg-[#FBFAF8] p-6">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
+                              <Compass className="h-5 w-5" />
+                            </div>
+                            <div className="space-y-3">
+                              <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">
+                                What you get today
+                              </h3>
+                              {/*
+                                Said plainly, because the honest version of a free tier is the part
+                                people find out later. Nothing answers a customer until a plan is
+                                bought — writing that here costs one line and saves a support
+                                ticket that starts "why didn't my AI reply".
+                              */}
+                              <ul className="space-y-2 text-sm text-[#2C3E54]">
+                                <li className="flex items-start gap-2">
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#1B6E6E]" />
+                                  Your workspace, your AI employee, and the whole dashboard
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#1B6E6E]" />
+                                  No card, no charge, no phone number claimed
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#1B6E6E]" />
+                                  Pick a plan whenever you&apos;re ready, from Billing
+                                </li>
+                              </ul>
+                              <p className="text-sm text-[#6B7888]">
+                                Your AI won&apos;t answer calls or messages until you choose a plan —
+                                there&apos;s nothing for it to answer on yet.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-3 pt-2">
+                          <Button
+                            className={`min-w-[220px] ${primaryBtn}`}
+                            disabled={isPending || isConfirming}
+                            onClick={finishFreePreview}
+                          >
+                            Finish setup
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                          <p className="text-center text-xs text-[#6B7888]">
+                            Nothing is charged. Use Back if you&apos;d rather pick a plan now.
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -1674,12 +2146,14 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                   </h2>
                   <p className="mt-3 text-[15px] text-[#2C3E54]">
                     {isActivating
-                      ? isChatOnly
+                      ? isChatOnly || isByoNumber
                         ? "Teaching your AI how to answer for your business."
                         : "Claiming your number and teaching your AI how to answer for your business."
                       : isChatOnly
                         ? "Everything is set up. Next, connect a channel."
-                        : "Everything is set up. Next, it starts taking calls."}
+                        : isByoNumber
+                          ? "Your AI is ready. Next, point your number at it."
+                          : "Everything is set up. Next, it starts taking calls."}
                   </p>
                 </div>
 
@@ -1697,6 +2171,13 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         // it is on screen.
                         "Creating your AI employee",
                         "Getting your inbox ready",
+                      ]
+                    : isByoNumber
+                    ? [
+                        // Same rule for a customer bringing their own number: we claim nothing,
+                        // so nothing here may say we are claiming anything.
+                        "Creating your AI employee",
+                        "Getting it ready for your number",
                       ]
                     : [
                         "Claiming your phone number",
@@ -1760,20 +2241,95 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
               />
             )}
 
-            {currentStep === 5 && !isChatOnly && (
+            {/*
+              The last step for a customer who owns their number and has not connected it yet.
+
+              The voice screen below is written around a number WE claimed: it polls Vapi for a
+              provisioning status that will never exist here, counts down a carrier switch-on we
+              are not waiting for, and invites them to call a line that does not answer yet. What
+              this customer actually still has to do is one thing — point their carrier at us —
+              so that is the whole screen.
+
+              Once the line exists (`hasConnectedLine`), the ordinary screen below takes over and
+              shows their number, because from then on it is simply their AI's line.
+            */}
+            {currentStep === 5 && !isChatOnly && isByoNumber && !state.hasConnectedLine && (
+              <div className="space-y-7">
+                <div className="text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
+                    <CheckCircle2 className="h-8 w-8 text-white" />
+                  </div>
+                  <h2 className="mt-6 font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
+                    Your AI employee is ready
+                  </h2>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[#2C3E54]">
+                    One thing left: point your existing number at it. Your customers keep calling
+                    the number they already know — nothing on their side changes.
+                  </p>
+                </div>
+
+                <div className="rounded-[16px] border border-[#0A1A2F]/[0.08] bg-[#FBFAF8] p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#E3EEED] text-[#134F4F]">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-2 text-left">
+                      <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">
+                        Connect your number
+                      </h3>
+                      <p className="text-sm leading-relaxed text-[#2C3E54]">
+                        We&apos;ll give you the exact values to paste into your carrier&apos;s SIP
+                        settings. You&apos;ll need access to your provider&apos;s panel — this takes
+                        a couple of minutes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  <Button className={tealBtn} onClick={() => setByoDialogOpen(true)}>
+                    <Phone className="h-4 w-4" />
+                    Connect my number
+                  </Button>
+                  <Button className={outlineBtn} onClick={handleComplete} disabled={isPending}>
+                    I&apos;ll do this later
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <p className="text-center text-sm text-[#6B7888]">
+                  You can also do this any time from Channels → Phone numbers.
+                </p>
+
+                <ConnectOwnNumberDialog
+                  open={byoDialogOpen}
+                  onOpenChange={setByoDialogOpen}
+                  onConnected={() => {
+                    // Re-read from the DB rather than trusting the dialog: the line is only real
+                    // once `phone_lines` says so, and the carrier still has to be reconfigured.
+                    getOnboardingState()
+                      .then(setState)
+                      .catch(() => {});
+                  }}
+                />
+              </div>
+            )}
+
+            {currentStep === 5 && !isChatOnly && !(isByoNumber && !state.hasConnectedLine) && (
               <div className="space-y-7 text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1B6E6E]">
                   <CheckCircle2 className={`h-8 w-8 text-white transition-all duration-300 ${showActiveAnimation ? "scale-110 animate-pulse" : ""}`} />
                 </div>
 
-                {phoneStatus === "active" || (countdownRemaining !== null && countdownRemaining === 0 && phoneStatus !== "activating") ? (
+                {lineIsReady ? (
                   <div>
                     <h2 className="font-display text-[clamp(26px,3vw,36px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
                       Your AI employee starts now
                     </h2>
                     <p className="mt-3 text-[15px] text-[#2C3E54]">
-                      Call the number below and hear it answer — that&apos;s exactly what your
-                      customers will get, day or night.
+                      {isByoNumber
+                        ? "Once your carrier is forwarding to us, call the number below and hear it answer — that's exactly what your customers will get, day or night."
+                        : "Call the number below and hear it answer — that's exactly what your customers will get, day or night."}
                     </p>
                   </div>
                 ) : (
@@ -1870,7 +2426,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                         <Copy className="h-4 w-4" />
                         Copy number
                       </Button>
-                      {phoneStatus === "active" || (countdownRemaining === 0 && phoneStatus !== "activating") ? (
+                      {lineIsReady ? (
                         // `tel:` works on a phone and is a no-op on most desktops, so the copy
                         // below tells desktop users what to do instead of leaving a dead button.
                         <Button className={tealBtn} asChild>

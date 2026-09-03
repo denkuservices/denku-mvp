@@ -74,6 +74,22 @@ export function emailAsset(path: string): string {
 
 export const EMAIL_LOGO_URL = emailAsset("/email/denku-mark.png");
 
+/**
+ * The mark, referenced as an attachment inside the message rather than fetched from denku.io.
+ *
+ * A remote `<img>` in an email is not a picture, it is a request the recipient's client decides
+ * whether to make — and most clients refuse it for a sender they do not recognise. That is not a
+ * hypothetical: the same email showed the mark in the sender's own Gmail (where images from a
+ * known correspondent auto-load) and showed nothing in a customer's Hotmail, which blocks remote
+ * images by default. Nothing was wrong with the HTML, the file, or the host; the customer's client
+ * simply never asked for it, so their first impression of Denku was a masthead with a hole in it.
+ *
+ * An inline attachment is part of the message, so there is no request to block. `EMAIL_LOGO_URL`
+ * stays for the one place that cannot attach anything: the Supabase Auth templates, which are
+ * rendered by Supabase from its own dashboard and can only reference a URL.
+ */
+export const EMAIL_LOGO_CID = "denku-mark";
+
 /** Public marketing/legal links shown in every footer. */
 export const EMAIL_LINKS = {
   site: ASSET_HOST,

@@ -1,7 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState, useEffect } from "react";
+import { Search, X } from "lucide-react";
+import { useCallback, useState, useEffect, useRef } from "react";
+import Card from "@/components/ui-horizon/card";
+import { HorizonButton } from "@/components/ui-horizon/button";
+import { CONTROL_CLASS, FieldLabel, SEARCH_CONTROL_CLASS } from "@/components/ui-horizon/controls";
 
 export function FilterToolbar() {
   const router = useRouter();
@@ -14,7 +18,7 @@ export function FilterToolbar() {
 
   // Local state for search input (debounced)
   const [searchValue, setSearchValue] = useState(q);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync local search state with URL param
   useEffect(() => {
@@ -50,8 +54,8 @@ export function FilterToolbar() {
       const queryString = params.toString();
       const fullURL = `/dashboard/calls${queryString ? `?${queryString}` : ""}`;
       
-      // Use router.push to trigger full Server Component re-render
-      router.push(fullURL);
+      // Filters are view state: replace avoids filling browser history on every search edit.
+      router.replace(fullURL, { scroll: false });
     },
     [router]
   );
@@ -60,15 +64,14 @@ export function FilterToolbar() {
   const handleSearchChange = useCallback(
     (value: string) => {
       setSearchValue(value);
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
       }
-      const timer = setTimeout(() => {
+      debounceTimer.current = setTimeout(() => {
         updateURL(value, outcome, since);
       }, 400); // 400ms debounce
-      setDebounceTimer(timer);
     },
-    [outcome, since, updateURL, debounceTimer]
+    [outcome, since, updateURL]
   );
 
   // Handle outcome change (immediate)
@@ -90,37 +93,36 @@ export function FilterToolbar() {
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
       }
     };
-  }, [debounceTimer]);
+  }, []);
 
   return (
-    <div className="rounded-md border bg-white p-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
-        <div className="flex flex-col gap-2 w-full">
-          <label htmlFor="search" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
-            Search
-          </label>
-          <input
-            type="text"
-            id="search"
-            value={searchValue}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-            placeholder="Search agent, outcome, etc."
-          />
+    <Card className="p-4 sm:p-5">
+      <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+        <div className="flex w-full flex-col gap-2">
+          <FieldLabel htmlFor="search">Search</FieldLabel>
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              id="search"
+              value={searchValue}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className={SEARCH_CONTROL_CLASS}
+              placeholder="Search AI, outcome, or caller…"
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-2 w-full">
-          <label htmlFor="outcome" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
-            Outcome
-          </label>
+        <div className="flex w-full flex-col gap-2">
+          <FieldLabel htmlFor="outcome">Outcome</FieldLabel>
           <select
             id="outcome"
             value={outcome}
             onChange={(e) => handleOutcomeChange(e.target.value)}
-            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+            className={CONTROL_CLASS}
           >
             <option value="">All</option>
             <option value="completed">Completed</option>
@@ -128,15 +130,13 @@ export function FilterToolbar() {
             <option value="other">Other</option>
           </select>
         </div>
-        <div className="flex flex-col gap-2 w-full">
-          <label htmlFor="since" className="text-xs font-medium text-navy-700 dark:text-white min-h-[16px] leading-4">
-            Time range
-          </label>
+        <div className="flex w-full flex-col gap-2">
+          <FieldLabel htmlFor="since">Time range</FieldLabel>
           <select
             id="since"
             value={since}
             onChange={(e) => handleSinceChange(e.target.value)}
-            className="h-10 w-full px-3 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+            className={CONTROL_CLASS}
           >
             <option value="">Any time</option>
             <option value="1d">Last 24h</option>
@@ -146,19 +146,18 @@ export function FilterToolbar() {
         </div>
       </div>
       {(q || outcome || since) && (
-        <div className="mt-4">
-          <button
-            type="button"
+        <div className="mt-4 flex justify-end border-t border-gray-100 pt-4 dark:border-white/10">
+          <HorizonButton
             onClick={() => {
-              router.push("/dashboard/calls");
+              router.replace("/dashboard/calls", { scroll: false });
             }}
-            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            size="sm"
           >
-            Clear filters
-          </button>
+            <X /> Clear filters
+          </HorizonButton>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

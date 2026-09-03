@@ -12,6 +12,9 @@ import {
   startDomainVerificationAction,
   checkDomainAction,
 } from "../_actions";
+import { CONTROL_CLASS } from "@/components/ui-horizon/controls";
+import { horizonButtonClass } from "@/components/ui-horizon/button";
+import { DANGER_NOTICE_CLASS } from "@/components/ui-horizon/notice";
 
 export interface EmailConnectionSummary {
   id: string;
@@ -292,7 +295,7 @@ export function EmailConnectionCard({
                 defaultValue={connection.assignedAgentId ?? ""}
                 disabled={!canManage || pending}
                 onChange={(e) => onAssign(e.target.value)}
-                className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full max-w-sm ${CONTROL_CLASS}`}
               >
                 {connection.assignedAgentId ? null : (
                   <option value="">
@@ -363,7 +366,7 @@ export function EmailConnectionCard({
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="info@yourbusiness.com"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS}`}
               />
               <p className="mt-1.5 text-xs text-gray-500">
                 Use a shared address like info@ or support@ — not your personal inbox. Denku only
@@ -379,7 +382,7 @@ export function EmailConnectionCard({
                 <select
                   id="agent_id"
                   name="agent_id"
-                  className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                  className={`mt-1.5 w-full max-w-sm ${CONTROL_CLASS}`}
                 >
                   <option value="">Choose an employee</option>
                   {employees.map((e) => (
@@ -394,7 +397,7 @@ export function EmailConnectionCard({
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50 sm:w-auto"
+              className={`w-full ${horizonButtonClass("primary")} sm:w-auto`}
             >
               {pending ? "Setting up…" : "Get my forwarding address"}
             </button>
@@ -405,7 +408,7 @@ export function EmailConnectionCard({
       {connection ? <ForwardingInstructions address={connection.inboundAddress} /> : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+        <div className={`${DANGER_NOTICE_CLASS}`}>
           {error}
         </div>
       ) : null}
@@ -488,7 +491,7 @@ function ReplyFromSetting({
           onChange={(e) => setAddress(e.target.value)}
           disabled={!canManage || pending}
           placeholder={`hello@${connection.sendingDomain ?? "yourbusiness.com"}`}
-          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={`min-w-0 flex-1 ${CONTROL_CLASS}`}
         />
         <input
           type="text"
@@ -496,7 +499,7 @@ function ReplyFromSetting({
           onChange={(e) => setName(e.target.value)}
           disabled={!canManage || pending}
           placeholder="Name shown to customers"
-          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+          className={`min-w-0 flex-1 ${CONTROL_CLASS}`}
         />
         <button
           type="button"
@@ -575,7 +578,7 @@ function SendingSetup({
               onChange={(e) => setDomain(e.target.value)}
               disabled={!canManage || pending}
               placeholder="yourbusiness.com"
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+              className={`min-w-0 flex-1 ${CONTROL_CLASS}`}
             />
             <button
               type="button"
@@ -602,7 +605,7 @@ function SendingSetup({
               type="button"
               onClick={onCheck}
               disabled={!canManage || pending}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+              className={`${horizonButtonClass("secondary", "sm")}`}
             >
               {pending ? "Checking…" : "Check again"}
             </button>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { emailPreviews, findEmailPreview } from "@/lib/email/previewSamples";
-import { EMAIL_COLORS as C, EMAIL_FONTS as F, esc } from "@/lib/email/brand";
+import { EMAIL_COLORS as C, EMAIL_FONTS as F, EMAIL_LOGO_CID, EMAIL_LOGO_URL, esc } from "@/lib/email/brand";
 
 /**
  * Dev-only preview of every transactional email.
@@ -46,6 +46,23 @@ function indexPage(): string {
   <tbody>${rows}</tbody></table></body></html>`;
 }
 
+/**
+ * The masthead mark, made visible in a browser.
+ *
+ * A real send attaches the PNG and the masthead points at it with `cid:denku-mark` — that is the
+ * whole reason the mark now survives a client that blocks remote images. A browser has no message
+ * and therefore no attachment, so the preview would show a broken image on all 21 emails and
+ * whoever opened it would go looking for a bug that is not there.
+ *
+ * Swapping the reference for the deployed URL renders the same file, so the preview still answers
+ * the question it exists to answer: what does this email look like. It does NOT prove the
+ * attachment works — that only an actual inbox can, which is what `test/email-design.test.ts`
+ * pins instead.
+ */
+function browserViewable(html: string): string {
+  return html.split(`cid:${EMAIL_LOGO_CID}`).join(EMAIL_LOGO_URL);
+}
+
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -63,7 +80,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: `Unknown template: ${key}` }, { status: 404 });
   }
 
-  return new NextResponse(preview.html, {
+  return new NextResponse(browserViewable(preview.html), {
     headers: { "content-type": "text/html; charset=utf-8" },
   });
 }

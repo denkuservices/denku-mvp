@@ -1,9 +1,11 @@
 import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getConnectionByOrg, type PublicConnection } from "@/lib/instagram/connections";
 import { isInstagramOAuthConfigured } from "@/lib/instagram/config";
 import { InstagramConnectionCard } from "./_components/InstagramConnectionCard";
+import { HorizonLinkButton } from "@/components/ui-horizon/button";
+import { Notice } from "@/components/ui-horizon/notice";
+import PageHeader from "@/components/ui-horizon/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -40,26 +42,22 @@ export default async function InstagramPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      <Link
-        href="/dashboard/channels"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition hover:text-zinc-800"
-      >
-        <ArrowLeft className="h-4 w-4" /> Channels
-      </Link>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">Instagram</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Connect your Instagram Business account. Denku receives its events today; automated
-          handling arrives in a future release.
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-4xl space-y-6 pb-8">
+      <PageHeader
+        title="Instagram"
+        subtitle="Connect your Instagram Business account so Denku can receive messages and comments."
+        action={
+          <HorizonLinkButton href="/dashboard/channels" variant="ghost" size="sm">
+            <ArrowLeft /> Channels
+          </HorizonLinkButton>
+        }
+      />
 
       {!isInstagramOAuthConfigured() && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <Notice tone="warning">
           Instagram is not configured on this environment yet. Once your administrator finishes
           setup, the Connect button will work.
-        </div>
+        </Notice>
       )}
 
       <InstagramConnectionCard

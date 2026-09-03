@@ -1,4 +1,5 @@
 import { resend } from "./resend";
+import { brandAttachments } from "./inlineLogo";
 import { resolveSender } from "./senders";
 import { getBaseUrl } from "@/lib/utils/url";
 import { getVerificationEmailHtml } from "./templates";
@@ -40,6 +41,10 @@ export async function sendVerifyEmail(email: string, token: string) {
       to: email,
       subject: "Verify your email – Denku",
       html: getVerificationEmailHtml({ email, token }),
+      // The masthead mark, carried inside the message rather than fetched from denku.io. This is
+      // the first email a customer ever gets from us, and it is the one most likely to be opened
+      // in a client that blocks images from a sender it has never seen. See lib/email/inlineLogo.ts.
+      attachments: await brandAttachments(),
     });
 
     console.log("[Resend] sendVerifyEmail OK ->", result);
