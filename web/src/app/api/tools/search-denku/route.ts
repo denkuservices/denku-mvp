@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
  * make the tool useless exactly when it is needed.
  *
  * **2. It refuses a workspace that is not Denku.** Serving without an org is not the same as
- * serving anyone. If an org DOES resolve and `DENKU_SELF_ORG_ID` is set and they differ, the tool
+ * serving anyone. If an org DOES resolve and it is not Denku's, the tool
  * was attached to a customer's assistant by mistake — a plumber's AI about to discuss Denku's
  * pricing with the plumber's callers. That is a configuration error, so it is refused loudly
  * rather than answered.
@@ -122,9 +122,23 @@ export async function POST(request: NextRequest) {
 
   // Only to catch a mis-attachment — see (2) in the header comment. An unresolved org is normal
   // and is served, because the landing-page visitor has no workspace.
+  /**
+   * The refusal used to be conditional on `DENKU_SELF_ORG_ID` being set in the environment, and
+   * that env var is NOT set in production — so the guard was inert on the one deployment it
+   * existed to protect. Verified 2026-09-03: a real NOTUS call id reached this route and was
+   * served Denku's corpus in full.
+   *
+   * The condition bought nothing. `isDenkuSelfOrg` carries a hardcoded fallback that is Denku's
+   * real org id (checked against prod: `286b7738-…` is the `is_internal` Denku workspace), so
+   * "we do not know who Denku is" is a state that never occurs. Requiring the env var on top of
+   * it only meant an unset variable silently disabled the check.
+   *
+   * A resolved org that is not Denku means the tool was attached to a customer's assistant by
+   * mistake. That is a configuration error, refused loudly. An UNRESOLVED org is still served:
+   * the visitor on the landing page has no workspace, and that is the caller this tool exists for.
+   */
   const orgId = await resolveOrg(callId, assistantId);
-  const selfConfigured = Boolean(process.env.DENKU_SELF_ORG_ID?.trim());
-  if (orgId && selfConfigured && !isDenkuSelfOrg(orgId)) {
+  if (orgId && !isDenkuSelfOrg(orgId)) {
     console.warn("[TOOL][SEARCH_DENKU][WRONG_WORKSPACE]", {
       org_id: orgId,
       assistant_id: assistantId,
