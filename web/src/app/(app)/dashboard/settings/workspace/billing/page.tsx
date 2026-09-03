@@ -132,6 +132,8 @@ type BillingSummary = {
     /** Every key in `billing_addon_catalog`, not just the two voice ones — the summary
      *  route fills a quantity for all of them, including the chat tiers. */
     active: Record<string, number>;
+    /** Add-ons the customer dropped that are still theirs until a date. Absent = nothing pending. */
+    scheduled?: Record<string, { ends_at: string; qty_after: number }>;
     effective_limits: {
       max_concurrent_calls: number;
       included_phones: number;
@@ -169,6 +171,23 @@ function formatMonth(monthStr: string): string {
   } catch {
     return monthStr;
   }
+}
+
+/**
+ * The day a dropped add-on stops — as a date, never a timestamp.
+ *
+ * Stripe reports the period end to the second; a shop owner reads "September 14" and plans around
+ * it. Rendered in UTC to match what the email says, so the two never disagree by a day.
+ */
+function formatAddonEndsAt(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return iso;
+  return when.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // Map invoice status to user-friendly label
@@ -1344,6 +1363,15 @@ export default function WorkspaceBillingPage() {
                 const isBillingPaused = summary.billing_status !== "active";
                 const isUpdating = updatingAddon === addon.key;
                 const Icon = ADDON_ICONS[addon.key] ?? Plus;
+                /**
+                 * A drop that has not taken effect yet.
+                 *
+                 * The count above it is the TRUE count — they still have it — so without this line
+                 * the card would show 1 the day after they removed it and read as a bug. The date
+                 * is what they were promised in exchange for not being refunded, so it belongs
+                 * where they look, not only in an email they may never open.
+                 */
+                const pending = summary.addons?.scheduled?.[addon.key];
 
                 return (
                   <article key={addon.key} className="relative overflow-hidden rounded-[28px] border border-gray-100 bg-white p-5 shadow-shadow-100 dark:border-white/10 dark:bg-navy-800">
@@ -1379,6 +1407,16 @@ export default function WorkspaceBillingPage() {
                         <Plus aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </div>
+                    {pending ? (
+                      <p className="relative mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+                        Yours until{" "}
+                        <span className="font-semibold">{formatAddonEndsAt(pending.ends_at)}</span>
+                        {pending.qty_after > 0
+                          ? `, then drops to ${pending.qty_after}.`
+                          : ", then it won't renew."}{" "}
+                        No refund for the remaining days — add it back before then at no extra cost.
+                      </p>
+                    ) : null}
                   </article>
                 );
               })}
@@ -1600,6 +1638,22 @@ export default function WorkspaceBillingPage() {
                             ? "Handle more simultaneous calls without busy signals."
                             : "";
 
+                      /**
+                       * Say what happens to the month they already paid for.
+                       *
+                       * The policy (2026-09-03) is that a drop is never a refund: the capacity is
+                       * theirs until the period ends and then does not renew. Said BEFORE the
+                       * click, because "−$10/mo" on its own reads as "and you lose it now", and an
+                       * owner who believes that stops using something they own.
+                       *
+                       * The exact date comes from Stripe and is only known after the request, so
+                       * the dialog promises the period and the badge on the card names the day.
+                       */
+                      const scheduledDrop =
+                        qtyDelta < 0 &&
+                        (confirmData.addonKey === "extra_phone" ||
+                          confirmData.addonKey === "extra_concurrency");
+
                       return (
                         <>
                           <p className="text-lg font-semibold text-navy-700 dark:text-white">
@@ -1609,6 +1663,13 @@ export default function WorkspaceBillingPage() {
                           </p>
                           {benefitLine ? (
                             <p className="text-xs text-gray-500">{benefitLine}</p>
+                          ) : null}
+                          {scheduledDrop ? (
+                            <p className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs leading-relaxed text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                              You keep this until the end of the billing period you have already
+                              paid for — it simply won&apos;t renew. There is no refund for the
+                              remaining days, and you can add it back before then at no extra cost.
+                            </p>
                           ) : null}
                         </>
                       );

@@ -10,7 +10,7 @@
 | `billing_plan_catalog` | Canonical plan definitions. Seeded: starter/growth/scale with `monthly_fee_usd`, `included_minutes`, `overage_rate_usd_per_min`, `concurrency_limit`, `included_phone_numbers`. RLS: readable by all authenticated users. |
 | `org_plan_overrides` | **Write target** when a plan is activated (`org_id` PK, `plan_code`). |
 | `org_plan_limits` | **Read target** for "what plan does this org have" (`plan_code IS NULL` ⇒ preview mode). Treat as derived from overrides+catalog; always read via this, never via overrides. |
-| `billing_org_addons` | Add-on quantities: `addon_key ∈ {extra_phone, extra_concurrency}`, `qty`, `status='active'`. |
+| `billing_org_addons` | Add-on quantities: `addon_key ∈ {extra_phone, extra_concurrency, chat_basic, chat_standard}`, `qty`, `status='active'`, plus `ends_at`/`scheduled_qty` for a downgrade the customer has asked for but already paid through. |
 | `billing_invoice_runs` | Month-close state machine: `locked_at`/`lock_token` (concurrency), `finalized_at`, `sent_at`, `error_message`, `stripe_invoice_id`, `status`. |
 | `billing_overage_state` | Per `(org_id, month 'YYYY-MM-01')`: `threshold_usd` (default 100), `hard_cap_usd` (default 250), `last_collected_overage_usd`, `next_collect_at_overage_usd`, collect attempt tracking. |
 | `organization_settings` | `billing_status ∈ {active, past_due, paused}`, `workspace_status ∈ {active, paused}`, `paused_reason ∈ {manual, hard_cap, past_due}`, `paused_at`. |
@@ -18,6 +18,33 @@
 **Effective limits** = catalog base + active add-ons, computed live (never cached) by
 `web/src/lib/billing/limits.ts#getEffectiveLimits(orgId)` → `{ max_concurrent_calls,
 included_phones, plan_key, addons }`. All enforcement (leases, rebind, purchase) goes through this.
+⚠️ A row's `status` is **not** the answer to "how much do they have" — `effectiveAddonQty()`
+(`lib/billing/addonSchedule.ts`) is, because a dropped add-on stays `active` until its `ends_at`.
+
+### Dropping an add-on is never a refund (2026-09-03)
+
+The month is already paid for, so removing an **extra number** or an **extra concurrent call**
+takes nothing away today: the capacity stays until the Stripe period ends and then does not renew.
+What the customer gets instead of money back is a **date**, stated in the confirm dialog, on the
+billing card and in the email. Four things hold it up, and each replaced a bug:
+
+- **`proration_behavior: "none"` on every decrease.** Stripe's default is `create_prorations`, and
+  the parameter was simply absent — so the unused days were silently credited back.
+- **`qty` is not lowered.** The row keeps meaning "what they are entitled to"; the downgrade lives
+  beside it as `ends_at` + `scheduled_qty`. Writing the new quantity and remembering the old one
+  elsewhere would put entitlement in two places, and the wrong one would be enforcing concurrency
+  at 2am.
+- **The date is enforced at READ time**, by `effectiveAddonQty`. The only scheduled job here runs
+  monthly and Stripe periods are not calendar-aligned; `applyDueAddonSchedules()` (called from
+  close-month) only tidies rows, and a late or failed sweep can never over-grant.
+- **A phone slot in use cannot be sold back.** `phoneDowngradeBlocked()` refuses while a live line
+  is standing on it — nothing here may delete a published number to make the books balance. The
+  phone-line delete path passes `releasing_lines: 1`, because it decrements billing while its own
+  line is still in the table.
+
+**Chat tiers are deliberately excluded**: `chat_basic`/`chat_standard` are mutually exclusive and
+the purchase route refuses one while the other is `active`, so keeping a dropped tier alive would
+block switching tiers for up to a month.
 
 ## Plan purchase (onboarding + upgrades)
 

@@ -247,6 +247,27 @@ export function emailPreviews(): EmailPreview[] {
     ),
     fromTemplate(
       {
+        key: "addon-scheduled-end",
+        label: "Add-on ends at period end",
+        trigger:
+          "An extra number or extra concurrency is dropped — kept until the paid period ends, never refunded.",
+        source: "api/billing/addons/update/route.ts",
+      },
+      // Its own sample, not a variant of the one above, because it is a DIFFERENT mail: the
+      // removal confirmation says what changed, this one says what has not changed yet and when
+      // it will. An unrendered variant is a variant nobody proofreads.
+      addonPurchasedTemplate({
+        addonKey: "extra_phone",
+        qty: 0,
+        previousQty: 1,
+        effectiveTotal: 2,
+        endsAt: "2026-09-14T00:00:00.000Z",
+        orgName: "Acme Dental",
+        billingUrl: BILLING_URL,
+      })
+    ),
+    fromTemplate(
+      {
         key: "subscription-scheduled-cancel",
         label: "Cancellation scheduled",
         trigger: "Stripe `customer.subscription.updated` with `cancel_at_period_end`.",

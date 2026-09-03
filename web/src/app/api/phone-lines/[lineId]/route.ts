@@ -98,12 +98,20 @@ export async function DELETE(
 
     // 4) Determine if we should decrement Stripe addon
     // Rule: Only decrement if total phone_lines count > included_phone_numbers
-    const { data: allLines } = await supabaseAdmin
+    /**
+     * How many lines does this workspace hold?
+     *
+     * `head: true` returns NO rows — only a count — so the old `allLines?.length ?? 0` was
+     * always 0, `shouldDecrementStripe` was always false, and deleting a line never gave the
+     * paid slot back. The workspace kept being charged $10 a month for a number that no longer
+     * existed, silently, for as long as nobody looked.
+     */
+    const { count: lineCount } = await supabaseAdmin
       .from("phone_lines")
       .select("id", { count: "exact", head: true })
       .eq("org_id", org_id);
 
-    const totalLinesCount = allLines?.length ?? 0;
+    const totalLinesCount = lineCount ?? 0;
 
     // Get included_phone_numbers from plan catalog
     const effectiveLimits = await getEffectiveLimits(org_id);
@@ -134,6 +142,13 @@ export async function DELETE(
         body: JSON.stringify({
           addon_key: "extra_phone",
           qty: newQty,
+          /**
+           * The line being deleted is STILL in the table at this moment — billing moves first so
+           * a Stripe failure can abort before anything is destroyed. Without this the add-on
+           * route's "you are still using that number" guard would refuse the very request that
+           * frees it.
+           */
+          releasing_lines: 1,
         }),
       });
 

@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getViewer, roleCan } from "@/lib/auth/permissions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
+import { effectiveAddonQty, pendingDowngrade } from "@/lib/billing/addonSchedule";
 
 /**
  * Get current month start in UTC (YYYY-MM-01 format).
@@ -303,17 +304,29 @@ export async function GET(req: NextRequest) {
       step: Number(row.step || 1),
     }));
 
-    // 12) Query billing_org_addons for active quantities
+    /**
+     * 12) What the workspace holds right now — and what is booked to end.
+     *
+     * A dropped add-on keeps its capacity until the paid period ends (2026-09-03), so "active"
+     * cannot be read off `status` alone any more: the row stays active with a date on it.
+     * `effectiveAddonQty` applies that date, and `pendingDowngrade` is what lets the billing page
+     * say "yours until the 14th" instead of showing a quantity with no explanation for why it is
+     * about to change.
+     */
     const { data: orgAddons } = await supabaseAdmin
       .from("billing_org_addons")
-      .select("addon_key, qty, status")
-      .eq("org_id", org_id)
-      .eq("status", "active");
+      .select("addon_key, qty, status, ends_at, scheduled_qty")
+      .eq("org_id", org_id);
 
     const activeAddons: Record<string, number> = {};
+    const scheduledAddons: Record<string, { ends_at: string; qty_after: number }> = {};
     for (const row of orgAddons || []) {
-      if (row.status === "active") {
-        activeAddons[row.addon_key] = Number(row.qty || 0);
+      const qty = effectiveAddonQty(row);
+      if (qty > 0) activeAddons[row.addon_key] = qty;
+
+      const pending = pendingDowngrade(row);
+      if (pending) {
+        scheduledAddons[row.addon_key] = { ends_at: pending.endsAt, qty_after: pending.qtyAfter };
       }
     }
 
@@ -446,6 +459,13 @@ export async function GET(req: NextRequest) {
          * reports what is held, and a new add-on is carried the day it is sold.
          */
         active: activeAddons,
+        /**
+         * Add-ons the customer has dropped that are still theirs until a date.
+         *
+         * Keyed the same way as `active`, and empty for every workspace that has not dropped
+         * anything — so a page that does not know about this yet renders exactly as before.
+         */
+        scheduled: scheduledAddons,
         effective_limits: {
           max_concurrent_calls: maxConcurrentCalls,
           included_phones: includedPhones,
