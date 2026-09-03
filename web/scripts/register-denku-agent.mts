@@ -188,11 +188,15 @@ function assistantBody(knowledgeToolId: string) {
     voice: resolveVoiceForLanguages(LANGUAGE_CODES),
     transcriber: resolveTranscriberForLanguages(LANGUAGE_CODES),
     /**
-     * The secret has to travel with the URL. Setting `server` to a bare `{ url }` REPLACES the
-     * object Vapi holds, so the previous run of this script silently cleared the header that
-     * `ensureAssistantConfig` had put there — `isServerUrlSecretSet` read false afterwards. It
-     * broke nothing today only because webhook auth is still in observe-only mode; the day it
-     * flips to enforce, this assistant's webhooks would have started 401ing.
+     * The secret travels with the URL, because setting `server` to a bare `{ url }` REPLACES the
+     * object Vapi holds rather than merging into it. Sending both together is what keeps a
+     * re-run of this script from dropping the header on an assistant that had one.
+     *
+     * ⚠️ Do NOT read `isServerUrlSecretSet` as "the header is set" — it is false on every Denku
+     * assistant including ones that carry `server.headers['x-vapi-secret']` perfectly well. It
+     * tracks Vapi's separate legacy `serverUrlSecret` field, which this repo does not use. Read
+     * `server.headers` instead. (Misread once, on 2026-09-03, and briefly written up as a bug
+     * that did not exist.)
      */
     server: {
       url: `${base}/api/webhooks/vapi`,
