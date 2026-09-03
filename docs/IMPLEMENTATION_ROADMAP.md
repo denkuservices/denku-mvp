@@ -5,7 +5,12 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-08-25 (**SPRINTS 9–14 RECONCILED + DENKU 2.0 PROGRAM OPENED.** Six sprints
+> **Last updated:** 2026-09-03 (**R-151 filed** — the concurrency limit records a breach and then
+> lets the call continue. Found while proving a busy signal on the first BYO line was *not* ours: the
+> lease is acquired after Vapi has already answered, and `limit_reached` returns a JSON body on a
+> `status-update` that Vapi ignores. The (N+1)th caller talks to the AI and bills minutes the
+> workspace did not buy. `CLAUDE.md` philosophy #3 claims this enforcement; it does not exist yet.)
+> **Prior:** 2026-08-25 (**SPRINTS 9–14 RECONCILED + DENKU 2.0 PROGRAM OPENED.** Six sprints
 > (9–14, the Phase-2 IA arc) shipped between 2026-08-24 and 08-25 with **no closing ritual**: the branch
 > `feat/sprint-9-one-product` had never been pushed (the entire IA on one local disk), no review docs
 > existed, `CURRENT_SPRINT.md` still described Sprint 8.5, and this file had not moved since 2026-07-25 —
@@ -2350,3 +2355,46 @@ and a preference is not consent to be left in the dark about service stopping.
 session timeouts, customer-facing API keys, outbound webhooks, data export/retention/workspace
 deletion, branding, verified email-address changes, a separate dashboard UI language, multi-workspace
 switching, bulk invite.
+
+---
+
+### R-151 — The concurrency limit records the breach and then lets the call continue
+**Priority:** High · **Status:** Open · **Effort:** M · **Found:** 2026-09-03 (investigating a busy
+signal on the first BYO line — the busy turned out not to be ours, but this was underneath it)
+> Denku sells simultaneous calls as the thing that separates a $149 plan from an $899 one, and the
+> product philosophy in `CLAUDE.md` states it plainly: *"Concurrency limits reject calls via DB
+> leases."* The bookkeeping half is true. The rejecting half is not.
+>
+> `acquireOrgConcurrencyLease` is called from ONE place — the Vapi webhook, in the branch that runs
+> when a call row is created for the first time (`web/src/app/api/webhooks/vapi/route.ts:2343`). By
+> then Vapi has already answered the caller. On `limit_reached` the handler returns
+> `{ ok: true, rejected: true }` (`route.ts:2408`) — a JSON body on a `status-update` event, which
+> Vapi does not act on. There is no `assistant-request` handler in the file and no call to Vapi's
+> hangup control anywhere in the repo. So the (N+1)th caller reaches the AI, talks to it, and is
+> billed for minutes the workspace did not buy; the only consequence is a warn log and a missing
+> lease row.
+>
+> This is the same class as the pause enforcement that DOES work (`rebindOrgPhoneNumbers` PATCHes
+> the Vapi number to `assistantId: null`, so inbound genuinely stops). Concurrency never got its
+> equivalent.
+
+**Evidence:** the limiter has never actually fired in production — every lease in
+`call_concurrency_leases` for the pilot org was acquired and released within ~20s, so the dead
+branch has never been exercised. Verified while reading the whole 2026-09-01/02 window during the
+busy-signal investigation.
+
+**A fix needs two decisions, not just code:**
+1. **What does the caller hear?** A silent hangup reads as a broken number. The honest options are
+   a spoken "all our lines are busy right now, we'll call you back" and then hang up (costs a few
+   seconds of a call we are refusing) — or a SIP-level busy, which is only available BEFORE the
+   answer and therefore needs option 2.
+2. **Where is it enforced?** Post-answer hangup (`POST /call/{id}/hangup` after the lease is
+   refused) is the small change and always works. Pre-answer refusal would mean moving the decision
+   into an `assistant-request` handler, which requires the phone number to NOT carry a bound
+   `assistantId` — a change to how every line is provisioned (`ensureAssistantConfig`,
+   `connectByoNumber`, `runActivation`) and to how pause enforcement finds numbers. Do not start
+   there without weighing it against landmine #6.
+
+**Also fix in the same change:** `CLAUDE.md` philosophy #3 and `skills/billing-and-stripe.md`
+currently describe the behaviour this finding says does not exist. Whichever way the fix lands, the
+docs must stop claiming enforcement the code does not perform.

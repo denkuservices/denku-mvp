@@ -46,7 +46,13 @@ transcribed and deterministically converted into a **ticket** or **appointment r
    email sends, resume-from-partial activation, lock tokens on invoice runs. New write paths must
    follow suit — assume every webhook/action can fire twice.
 3. **Billing enforcement is real, not decorative.** Pausing a workspace PATCHes Vapi phone numbers
-   to `assistantId: null` so inbound actually stops. Concurrency limits reject calls via DB leases.
+   to `assistantId: null` so inbound actually stops.
+   ⚠️ **Concurrency is the exception, corrected 2026-09-03 (R-151):** this line used to say
+   "concurrency limits reject calls via DB leases", and the rejecting half is not true. The lease is
+   acquired in the Vapi webhook *after* Vapi has already answered, and `limit_reached` returns a JSON
+   body on a `status-update` that Vapi ignores — no hangup, no `assistant-request` handler. The
+   (N+1)th caller reaches the AI and bills minutes the workspace did not buy. The leases and the
+   limit arithmetic are real; the enforcement is not yet. Don't cite it as a working guard.
    Don't add features that bypass `isWorkspacePaused` / `getEffectiveLimits`.
 4. **Fail-open on gating, fail-closed on money.** Middleware/onboarding checks fail open (never
    trap a paying user out); billing writes fail closed (never guess).
