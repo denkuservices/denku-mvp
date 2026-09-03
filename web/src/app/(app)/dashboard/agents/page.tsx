@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAgentsList } from "@/lib/agents/queries";
 import AgentsClient from "./AgentsClient";
+import { HorizonLinkButton } from "@/components/ui-horizon/button";
+import { Notice } from "@/components/ui-horizon/notice";
+import PageHeader from "@/components/ui-horizon/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +30,9 @@ export default async function AgentsPage() {
 
   if (!orgId) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          No organization found. Please contact support.
-        </div>
+      <div className="space-y-6 pb-8">
+        <PageHeader title="AI profiles" subtitle="Manage the AI that answers your voice calls." />
+        <Notice tone="danger">No workspace was found. Please contact support.</Notice>
       </div>
     );
   }
@@ -40,17 +41,13 @@ export default async function AgentsPage() {
   const agents = await getAgentsList(orgId);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex justify-end">
-        <Link
-          href="/dashboard/agents/new"
-          className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
-        >
-          Create Agent
-        </Link>
-      </div>
-
-      <AgentsClient agents={agents} />
+    <div className="space-y-6 pb-8">
+      <PageHeader
+        title="AI profiles"
+        subtitle="Monitor availability, call capacity, and recent activity."
+        action={<HorizonLinkButton href="/dashboard/agents/new" variant="primary">Create AI</HorizonLinkButton>}
+      />
+      <AgentsClient agents={agents} title="AI directory" />
     </div>
   );
 }

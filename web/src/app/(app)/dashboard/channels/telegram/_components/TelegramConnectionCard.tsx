@@ -8,6 +8,9 @@ import {
   disconnectTelegramAction,
   assignTelegramEmployeeAction,
 } from "../_actions";
+import { CONTROL_CLASS } from "@/components/ui-horizon/controls";
+import { horizonButtonClass } from "@/components/ui-horizon/button";
+import { DANGER_NOTICE_CLASS } from "@/components/ui-horizon/notice";
 
 export interface TelegramConnectionSummary {
   id: string;
@@ -135,7 +138,7 @@ export function TelegramConnectionCard({
                 defaultValue={connection.assignedAgentId ?? ""}
                 disabled={!canManage || pending}
                 onChange={(e) => onAssign(e.target.value)}
-                className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full max-w-sm ${CONTROL_CLASS}`}
               >
                 {/* Never repeat an employee's name as if "unassigned" were a second person with
                     the same name — with one employee in the workspace that read as two identical
@@ -169,7 +172,7 @@ export function TelegramConnectionCard({
                 type="button"
                 onClick={() => setShowForm((v) => !v)}
                 disabled={pending}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5"
+                className={`${horizonButtonClass("secondary", "sm")}`}
               >
                 Replace token
               </button>
@@ -209,7 +212,7 @@ export function TelegramConnectionCard({
                 autoComplete="off"
                 required
                 placeholder="123456789:AAH…"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                className={`mt-1.5 w-full ${CONTROL_CLASS} font-mono`}
               />
               <p className="mt-1.5 text-xs text-gray-500">
                 Stored encrypted. We never show it again — if you lose it, ask BotFather for a new one.
@@ -225,7 +228,7 @@ export function TelegramConnectionCard({
                 <select
                   id="agent_id"
                   name="agent_id"
-                  className="mt-1.5 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 dark:border-white/10 dark:bg-navy-800 dark:text-white"
+                  className={`mt-1.5 w-full max-w-sm ${CONTROL_CLASS}`}
                 >
                   <option value="">Choose an employee</option>
                   {employees.map((e) => (
@@ -240,7 +243,7 @@ export function TelegramConnectionCard({
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50 sm:w-auto"
+              className={`w-full ${horizonButtonClass("primary")} sm:w-auto`}
             >
               {pending ? "Checking with Telegram…" : "Connect bot"}
             </button>
@@ -249,7 +252,7 @@ export function TelegramConnectionCard({
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+        <div className={`${DANGER_NOTICE_CLASS}`}>
           {error}
         </div>
       ) : null}

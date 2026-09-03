@@ -2,18 +2,15 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Edit, PhoneCall, Power } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentListRow } from "@/lib/agents/queries";
+import { Badge } from "@/components/ui-horizon/badge";
+import { HorizonLinkButton } from "@/components/ui-horizon/button";
+import Card from "@/components/ui-horizon/card";
+import { CONTROL_CLASS, SearchControl } from "@/components/ui-horizon/controls";
+import { EmptyState } from "@/components/ui-horizon/empty";
 
 interface AgentsClientProps {
   agents: AgentListRow[];
-  // Optional customization props for phone-lines route
-  primaryCtaLabel?: string;
-  primaryCtaHref?: string;
-  showPriceHint?: string;
   columnLabels?: {
     name: string;
     language: string;
@@ -73,98 +70,8 @@ function maskPhone(phone: string | null, isPhoneLinesMode: boolean = false): str
   return `•••• ${phone.slice(-4)}`;
 }
 
-function AgentActionsMenu({
-  agentId,
-  agentName,
-  onDetails,
-  onEdit,
-  onTestCall,
-  onDisable,
-}: {
-  agentId: string;
-  agentName: string;
-  onDetails: () => void;
-  onEdit: () => void;
-  onTestCall: () => void;
-  onDisable: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const handleAction = (action: () => void) => {
-    action();
-    setOpen(false);
-  };
-
-  return (
-    <div className="flex justify-end">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center rounded-lg bg-lightPrimary p-2 text-brand-500 hover:bg-gray-100 dark:bg-navy-700 dark:text-white dark:hover:bg-white/20 transition duration-200"
-          >
-            <BsThreeDotsVertical className="h-5 w-5" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          side="bottom"
-          sideOffset={8}
-          className="w-max p-0 rounded-xl bg-white shadow-xl shadow-shadow-500 dark:!bg-navy-700 dark:shadow-none z-50"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-4 py-3 space-y-0.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAction(onDetails);
-              }}
-              className="hover:text-black flex w-full cursor-pointer items-center gap-2 text-gray-600 hover:font-medium text-left"
-            >
-              Details
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAction(onEdit);
-              }}
-              className="hover:text-black mt-2 flex w-full cursor-pointer items-center gap-2 text-gray-600 hover:font-medium text-left"
-            >
-              <Edit className="h-4 w-4" />
-              Edit
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAction(onTestCall);
-              }}
-              className="hover:text-black mt-2 flex w-full cursor-pointer items-center gap-2 text-gray-600 hover:font-medium text-left"
-            >
-              <PhoneCall className="h-4 w-4" />
-              Test call
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAction(onDisable);
-              }}
-              className="hover:text-black mt-2 flex w-full cursor-pointer items-center gap-2 text-red-600 hover:font-medium text-left"
-            >
-              <Power className="h-4 w-4" />
-              Disable
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
-
 export default function AgentsClient({
   agents: initialAgents,
-  primaryCtaLabel = "Create Agent",
-  primaryCtaHref = "/dashboard/agents/new",
-  showPriceHint,
   columnLabels = {
     name: "NAME",
     language: "LANGUAGE",
@@ -180,12 +87,10 @@ export default function AgentsClient({
   isPhoneLinesMode = false,
   rowLinkBasePath = "/dashboard/agents",
 }: AgentsClientProps) {
-  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "Connected" | "Issues">("all");
   const [languageFilter, setLanguageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("default");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Get unique languages
   const languages = useMemo(() => {
@@ -243,54 +148,32 @@ export default function AgentsClient({
     return filtered;
   }, [initialAgents, search, statusFilter, languageFilter, sortBy]);
 
-  const handleTestCall = () => {
-    setToastMessage("Test call coming soon");
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const handleDisable = async (agentId: string, agentName: string) => {
-    const entityName = isPhoneLinesMode ? "phone line" : "agent";
-    if (window.confirm(`Disable ${entityName} "${agentName}"?`)) {
-      // TODO: Implement disable action with backend support
-      // Check if agents table has a 'disabled' or 'is_active' field
-      // If yes, update it. If no, show message.
-      setToastMessage("Disable requires backend support");
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-  };
-
   return (
     <>
-      {/* Toast notification */}
-      {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 rounded-md bg-brand-500 text-white px-4 py-2 text-sm shadow-lg">
-          {toastMessage}
-        </div>
-      )}
-
       {initialAgents.length === 0 ? (
-        <div className="rounded-md border bg-white p-6 text-sm text-gray-700 dark:bg-navy-800 dark:text-white">
-          {emptyStateMessage}
-        </div>
+        <Card className="p-0">
+          <EmptyState title={emptyStateMessage} description="Connected AI profiles will appear here." />
+        </Card>
       ) : (
-        <div className="!z-5 relative flex flex-col rounded-[20px] bg-white bg-clip-border shadow-shadow-100 dark:!bg-navy-800 dark:text-white dark:shadow-none">
+        <Card className="p-0">
           <div className="w-full h-full sm:overflow-auto px-6">
-            <div className="relative flex items-center justify-between pt-4">
+            <div className="relative flex flex-col gap-3 pt-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="text-xl font-bold text-navy-700 dark:text-white">{title}</div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Compact search */}
-                <input
-                  type="text"
-                  placeholder="Search..."
+                <SearchControl
+                  aria-label="Search AI profiles"
+                  placeholder="Search by name or phone"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-8 w-36 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
+                  className="w-full sm:w-56"
                 />
                 {/* Status filter */}
                 <select
+                  aria-label="Filter by status"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                  className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
+                  className={`${CONTROL_CLASS} w-auto min-w-36`}
                 >
                   <option value="all">All Status</option>
                   <option value="Connected">Connected</option>
@@ -298,9 +181,10 @@ export default function AgentsClient({
                 </select>
                 {/* Language filter */}
                 <select
+                  aria-label="Filter by language"
                   value={languageFilter}
                   onChange={(e) => setLanguageFilter(e.target.value)}
-                  className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
+                  className={`${CONTROL_CLASS} w-auto min-w-36`}
                 >
                   <option value="all">{languageFilterLabel}</option>
                   {languages.map((lang) => (
@@ -311,9 +195,10 @@ export default function AgentsClient({
                 </select>
                 {/* Sort */}
                 <select
+                  aria-label="Sort AI profiles"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/20 dark:bg-navy-700 dark:text-white"
+                  className={`${CONTROL_CLASS} w-auto min-w-36`}
                 >
                   <option value="default">Issues first</option>
                   <option value="last-activity">Last activity</option>
@@ -321,7 +206,7 @@ export default function AgentsClient({
                 </select>
               </div>
             </div>
-            <div className="mt-8 overflow-x-scroll xl:overflow-x-hidden">
+            <div className="mt-5 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="!border-px !border-gray-200 dark:!border-white/20">
@@ -356,14 +241,6 @@ export default function AgentsClient({
                     </tr>
                   ) : (
                     filteredAgents.map((agent) => {
-                      // Status badge class matching original
-                      let statusClass = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-                      if (agent.status === "Connected") {
-                        statusClass = "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-200";
-                      } else {
-                        statusClass = "bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-200";
-                      }
-
                       // Safe date handling: last_call_at is string | null
                       const lastCallAtDisplay = timeAgoLabel(agent.last_call_at);
                       const lastCallAtTooltip = formatAbsoluteTime(agent.last_call_at);
@@ -412,11 +289,9 @@ export default function AgentsClient({
                           </td>
                           <td className="min-w-[150px] border-white/0 py-3 pr-4">
                             <Link href={`${rowLinkBasePath}/${agent.id}`} className="block" tabIndex={-1}>
-                              <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
-                              >
+                              <Badge variant={agent.status === "Connected" ? "success" : "destructive"} dot>
                                 {agent.status}
-                              </span>
+                              </Badge>
                             </Link>
                           </td>
                           <td className="min-w-[100px] border-white/0 py-3 pr-4">
@@ -451,17 +326,9 @@ export default function AgentsClient({
                             )}
                           </td>
                           <td className="min-w-[80px] border-white/0 py-3 pr-4 text-right">
-                            <AgentActionsMenu
-                              agentId={agent.id}
-                              agentName={agent.name}
-                              onDetails={() => router.push(`${rowLinkBasePath}/${agent.id}`)}
-                              onEdit={() => {
-                                setToastMessage("Edit coming soon");
-                                setTimeout(() => setToastMessage(null), 3000);
-                              }}
-                              onTestCall={handleTestCall}
-                              onDisable={() => handleDisable(agent.id, agent.name)}
-                            />
+                            <HorizonLinkButton href={`${rowLinkBasePath}/${agent.id}`} variant="ghost" size="sm">
+                              View
+                            </HorizonLinkButton>
                           </td>
                         </tr>
                       );
@@ -471,7 +338,7 @@ export default function AgentsClient({
               </table>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </>
   );

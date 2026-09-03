@@ -1,5 +1,21 @@
 import Link from "next/link";
+import { ArrowRight, SearchX, TrendingUp, UserPlus, Users } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Badge, type BadgeProps } from "@/components/ui-horizon/badge";
+import { HorizonButton, HorizonLinkButton } from "@/components/ui-horizon/button";
+import { CONTROL_CLASS, FieldLabel, SearchControl } from "@/components/ui-horizon/controls";
+import { EmptyState } from "@/components/ui-horizon/empty";
+import PageHeader from "@/components/ui-horizon/page-header";
+import { Stat } from "@/components/ui-horizon/stat";
+import {
+  TableBody,
+  TableCard,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRoot,
+  TableRow,
+} from "@/components/ui-horizon/table";
 
 type LeadStatus = "new" | "contacted" | "qualified" | "unqualified";
 type LeadSource = "web" | "inbound_call" | "referral" | "import";
@@ -71,16 +87,16 @@ function statusLabel(s: LeadStatus) {
   }
 }
 
-function statusBadgeClass(s: LeadStatus) {
+function statusVariant(s: LeadStatus): BadgeProps["variant"] {
   switch (s) {
     case "new":
-      return "bg-zinc-900 text-white";
+      return "info";
     case "contacted":
-      return "bg-zinc-100 text-zinc-900 border border-zinc-200";
+      return "warning";
     case "qualified":
-      return "bg-zinc-100 text-zinc-900 border border-zinc-200";
+      return "success";
     case "unqualified":
-      return "bg-zinc-50 text-zinc-600 border border-zinc-200";
+      return "default";
   }
 }
 
@@ -97,6 +113,10 @@ function sourceLabel(s: ReturnType<typeof safeSource>) {
     default:
       return "—";
   }
+}
+
+function sevenDaysAgoTimestamp() {
+  return Date.now() - 7 * 24 * 60 * 60 * 1000;
 }
 
 /**
@@ -120,8 +140,9 @@ async function resolveOrgId() {
       .eq("id", profileId)
       .maybeSingle();
 
-    if (!error && data && (data as any)[col]) {
-      return (data as any)[col] as string;
+    const orgId = data && typeof data === "object" ? (data as Record<string, unknown>)[col] : null;
+    if (!error && typeof orgId === "string" && orgId) {
+      return orgId;
     }
   }
 
@@ -168,7 +189,7 @@ export default async function Page({
   const rows = await getLeadsFromDb({ orgId, q: q || undefined, status: status || undefined });
 
   const totalLeads = rows.length;
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = sevenDaysAgoTimestamp();
   const new7d = rows.filter((l) => new Date(l.created_at).getTime() >= sevenDaysAgo).length;
 
   const contactedCount = rows.filter((l) => {
@@ -177,58 +198,49 @@ export default async function Page({
   }).length;
 
   const contactRate = totalLeads === 0 ? 0 : Math.round((contactedCount / totalLeads) * 100);
+  const hasFilters = Boolean(q || status);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Action button */}
-      <div className="flex justify-end mb-4">
-        <Link
-          href="/dashboard/leads/new"
-          className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
-        >
-          Create Lead
-        </Link>
-      </div>
+    <div className="space-y-6 pb-8">
+      <PageHeader
+        title="Leads"
+        subtitle="Review new prospects, follow up quickly, and keep every conversation moving."
+        action={
+          <HorizonLinkButton href="/dashboard/leads/new" variant="primary">
+            <UserPlus />
+            Create lead
+          </HorizonLinkButton>
+        }
+      />
 
       {/* KPI strip */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Total leads</p>
-          <p className="mt-1 text-2xl font-semibold">{totalLeads}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In this org</p>
-        </div>
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-muted-foreground">New</p>
-          <p className="mt-1 text-2xl font-semibold">{new7d}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Last 7 days</p>
-        </div>
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Contact rate</p>
-          <p className="mt-1 text-2xl font-semibold">{contactRate}%</p>
-          <p className="mt-1 text-xs text-muted-foreground">Contacted + Qualified</p>
-        </div>
+        <Stat label="Total leads" value={totalLeads} helperText="In this workspace" icon={<Users />} />
+        <Stat label="New leads" value={new7d} helperText="Last 7 days" icon={<UserPlus />} />
+        <Stat label="Contact rate" value={`${contactRate}%`} helperText="Contacted or qualified" icon={<TrendingUp />} />
       </div>
 
       {/* Controls */}
-      <form>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <form className="rounded-[20px] border border-gray-200/70 bg-white p-4 shadow-shadow-100 dark:border-white/10 dark:bg-navy-800 dark:shadow-none">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="grid w-full gap-3 md:max-w-[900px] md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Search</label>
-              <input
+              <FieldLabel htmlFor="lead-search">Search</FieldLabel>
+              <SearchControl
+                id="lead-search"
                 name="q"
                 defaultValue={q}
                 placeholder="Name, phone, or email…"
-                className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
+              <FieldLabel htmlFor="lead-status">Status</FieldLabel>
               <select
+                id="lead-status"
                 name="status"
                 defaultValue={status}
-                className="w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+                className={CONTROL_CLASS}
               >
                 <option value="">All</option>
                 <option value="new">New</option>
@@ -240,107 +252,104 @@ export default async function Page({
           </div>
 
           <div className="flex w-full justify-end gap-2 md:w-auto">
-            <button
-              type="submit"
-              className="linear flex cursor-pointer items-center justify-center rounded-xl bg-brand-500 px-4 py-[11px] font-bold text-white transition duration-200 hover:bg-brand-600 hover:text-white active:bg-brand-700 dark:bg-brand-400 dark:hover:bg-brand-300 dark:active:bg-brand-200"
-            >
+            <HorizonButton type="submit" variant="primary">
               Apply
-            </button>
-            <Link
-              href="/dashboard/leads"
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-navy-700 dark:text-white dark:hover:bg-navy-600"
-              title="Clear filters"
-            >
-              Reset
-            </Link>
+            </HorizonButton>
+            {hasFilters ? (
+              <HorizonLinkButton href="/dashboard/leads" title="Clear filters">
+                Reset
+              </HorizonLinkButton>
+            ) : null}
           </div>
         </div>
       </form>
 
       {/* Table */}
-      <div className="rounded-xl border bg-white">
-        <div className="border-b p-4">
-          <p className="text-sm font-medium">Results</p>
-          <p className="text-xs text-muted-foreground">{rows.length} leads</p>
+      <TableCard>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/10">
+          <div>
+            <p className="text-sm font-semibold text-navy-700 dark:text-white">Results</p>
+            <p className="mt-0.5 text-xs text-gray-500">{rows.length} leads</p>
+          </div>
+          {hasFilters ? <Badge variant="info">Filtered</Badge> : null}
         </div>
 
         {rows.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-medium">No leads found</p>
-            <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or status filter.</p>
-          </div>
+          <EmptyState
+            icon={hasFilters ? <SearchX /> : <Users />}
+            title={hasFilters ? "No leads match these filters" : "No leads yet"}
+            description={hasFilters ? "Try a broader search or reset the status filter." : "Create your first lead or let Denku capture one from an inbound conversation."}
+            action={
+              hasFilters ? (
+                <HorizonLinkButton href="/dashboard/leads" size="sm">Reset filters</HorizonLinkButton>
+              ) : (
+                <HorizonLinkButton href="/dashboard/leads/new" variant="primary" size="sm">Create lead</HorizonLinkButton>
+              )
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Phone</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Source</th>
-                  <th className="px-4 py-3 font-medium">Last activity</th>
-                  <th className="px-4 py-3 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-<tbody>
+          <TableRoot>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Last activity</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+<TableBody>
   {rows.map((row) => {
     const st = safeStatus(row.status);
     const src = safeSource(row.source);
 
-    const leadId = (row as any)?.id;
+    const leadId = row.id;
     const isUuid =
       typeof leadId === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(leadId);
 
     return (
-      <tr key={leadId ?? `${row.name ?? "lead"}-${row.updated_at ?? Math.random()}`} className="border-b last:border-b-0">
-        <td className="px-4 py-3">
-          <div className="font-medium">{row.name || "—"}</div>
-          <div className="text-xs text-muted-foreground">ID: {leadId ?? "—"}</div>
-        </td>
+      <TableRow key={leadId}>
+        <TableCell>
+          <div className="font-semibold text-navy-700 dark:text-white">{row.name || "Unnamed lead"}</div>
+          <div className="mt-0.5 max-w-40 truncate font-mono text-[11px] text-gray-400">{leadId ?? "—"}</div>
+        </TableCell>
 
-        <td className="px-4 py-3 font-mono text-xs md:text-sm">{formatPhone(row.phone)}</td>
+        <TableCell className="whitespace-nowrap font-mono text-xs md:text-sm">{formatPhone(row.phone)}</TableCell>
 
-        <td className="px-4 py-3">
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(st)}`}
-          >
-            {statusLabel(st)}
-          </span>
-        </td>
+        <TableCell><Badge variant={statusVariant(st)} dot>{statusLabel(st)}</Badge></TableCell>
 
-        <td className="px-4 py-3">{sourceLabel(src)}</td>
+        <TableCell>{sourceLabel(src)}</TableCell>
 
-        <td className="px-4 py-3 text-muted-foreground">{formatDate(row.updated_at)}</td>
+        <TableCell className="whitespace-nowrap text-gray-500">{formatDate(row.updated_at)}</TableCell>
 
-        <td className="px-4 py-3 text-right">
+        <TableCell className="text-right">
           {isUuid ? (
             <Link
               href={`/dashboard/leads/${leadId}`}
-              className="rounded-md border bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-500 transition hover:text-brand-600"
             >
-              View
+              View <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           ) : (
             <button
               type="button"
               disabled
-              className="rounded-md border bg-white px-3 py-2 text-xs font-medium opacity-50 cursor-not-allowed"
+              className="cursor-not-allowed text-xs font-semibold text-gray-400"
               title="Invalid lead id"
             >
               View
             </button>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     );
   })}
-</tbody>
-
-            </table>
-          </div>
+</TableBody>
+          </TableRoot>
         )}
-      </div>
+      </TableCard>
     </div>
   );
 }

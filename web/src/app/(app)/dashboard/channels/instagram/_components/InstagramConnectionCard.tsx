@@ -2,8 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Instagram, Radio, Unplug } from "lucide-react";
 import type { PublicConnection } from "@/lib/instagram/connections";
 import { disconnectInstagramAction, subscribeInstagramForCurrentOrgAction } from "../_actions";
+import { Badge } from "@/components/ui-horizon/badge";
+import Card from "@/components/ui-horizon/card";
+import { HorizonAnchorButton, HorizonButton } from "@/components/ui-horizon/button";
+import { Notice } from "@/components/ui-horizon/notice";
 
 const ERROR_COPY: Record<string, string> = {
   not_configured: "Instagram isn't configured on this environment yet. Contact your administrator.",
@@ -65,34 +70,29 @@ export function InstagramConnectionCard({
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <Card className="p-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-base font-semibold text-zinc-900">Instagram Business</p>
-          <p className="mt-1 text-sm text-zinc-600">
-            Connect your Instagram Business account so Denku can receive its messages and comments.
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500 dark:bg-brand-400/15 dark:text-brand-300">
+            <Instagram aria-hidden="true" className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-base font-semibold text-navy-700 dark:text-white">Instagram Business</p>
+            <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">
+              Receive messages and comments from your connected business account.
+            </p>
+          </div>
         </div>
-        <span
-          className={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
-            isConnected
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-zinc-200 bg-zinc-50 text-zinc-600"
-          }`}
-        >
+        <Badge variant={isConnected ? "success" : "default"} dot>
           {isConnected ? "Connected" : connection?.status === "revoked" ? "Disconnected" : "Not connected"}
-        </span>
+        </Badge>
       </div>
 
       {connected && (
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Instagram connected successfully.
-        </div>
+        <Notice tone="success" className="mt-4">Instagram connected successfully.</Notice>
       )}
       {error && (
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          {error}
-        </div>
+        <Notice tone="danger" className="mt-4">{error}</Notice>
       )}
 
       {isConnected && connection && (
@@ -108,58 +108,60 @@ export function InstagramConnectionCard({
       )}
 
       <div className="mt-6 flex items-center gap-3">
-        {!isConnected ? (
-          <a
+        {!isConnected && canManage ? (
+          <HorizonAnchorButton
             href="/api/instagram/oauth/start"
-            aria-disabled={!canManage}
-            className={`inline-flex items-center rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 ${
-              canManage ? "" : "pointer-events-none opacity-50"
-            }`}
+            variant="primary"
           >
+            <Instagram />
             Connect Instagram
-          </a>
+          </HorizonAnchorButton>
+        ) : !isConnected ? (
+          <HorizonButton disabled variant="primary">
+            <Instagram />
+            Connect Instagram
+          </HorizonButton>
         ) : (
-          <button
-            type="button"
+          <HorizonButton
             onClick={handleDisconnect}
             disabled={!canManage || isPending}
-            className="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            variant="danger"
           >
+            <Unplug />
             {isPending ? "Disconnecting…" : "Disconnect"}
-          </button>
+          </HorizonButton>
         )}
-        {!canManage && <span className="text-xs text-zinc-500">Only owners and admins can manage this.</span>}
+        {!canManage && <span className="text-xs text-gray-500">Only owners and admins can manage this.</span>}
       </div>
 
       {/* TEMP operator action (Sprint 1.5) — subscribe this account's webhooks. Remove after verification. */}
       {isConnected && canManage && (
-        <div className="mt-5 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Operator · temporary</p>
-          <p className="mt-1 text-sm text-zinc-700">
+        <div className="mt-5 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"><Radio aria-hidden="true" className="h-3.5 w-3.5" /> Operator · temporary</p>
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
             Register this account for Instagram webhooks (message/comment delivery).
           </p>
           <div className="mt-3 flex items-center gap-3">
-            <button
-              type="button"
+            <HorizonButton
               onClick={handleSubscribe}
               disabled={subPending}
-              className="inline-flex items-center rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              size="sm"
             >
               {subPending ? "Subscribing…" : "Subscribe Connected Instagram Accounts"}
-            </button>
-            {subMsg && <span className="text-sm text-zinc-700">{subMsg}</span>}
+            </HorizonButton>
+            {subMsg && <span className="text-sm text-gray-700 dark:text-gray-300">{subMsg}</span>}
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-zinc-900">{value}</dd>
+    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 dark:border-white/10 dark:bg-white/5">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className="mt-1 text-sm font-medium text-navy-700 dark:text-white">{value}</dd>
     </div>
   );
 }

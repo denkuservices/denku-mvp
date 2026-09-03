@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTicket } from "@/lib/tickets/actions";
+import { CONTROL_CLASS } from "@/components/ui-horizon/controls";
+import { horizonButtonClass } from "@/components/ui-horizon/button";
+import { Notice } from "@/components/ui-horizon/notice";
 
 interface NewTicketFormProps {
   orgId: string;
@@ -61,7 +64,7 @@ export function NewTicketForm({ orgId, userId }: NewTicketFormProps) {
           disabled={isPending}
           required
           maxLength={500}
-          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-50"
+          className={`${CONTROL_CLASS} w-full disabled:opacity-50`}
           placeholder="Brief description of the issue"
         />
       </div>
@@ -78,7 +81,7 @@ export function NewTicketForm({ orgId, userId }: NewTicketFormProps) {
             setFormData({ ...formData, priority: e.target.value as "low" | "medium" | "high" | "urgent" })
           }
           disabled={isPending}
-          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-50"
+          className={`${CONTROL_CLASS} w-full disabled:opacity-50`}
         >
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -98,16 +101,14 @@ export function NewTicketForm({ orgId, userId }: NewTicketFormProps) {
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           disabled={isPending}
           rows={6}
-          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-50"
+          className={`${CONTROL_CLASS} h-auto w-full py-2 disabled:opacity-50`}
           placeholder="Additional details about the ticket..."
         />
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
+        <Notice tone="danger">{error}</Notice>
       )}
 
       {/* Actions */}
@@ -115,7 +116,7 @@ export function NewTicketForm({ orgId, userId }: NewTicketFormProps) {
         <button
           type="submit"
           disabled={isPending || !formData.subject.trim()}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={horizonButtonClass("primary")}
         >
           {isPending ? "Creating..." : "Create Ticket"}
         </button>
@@ -123,7 +124,7 @@ export function NewTicketForm({ orgId, userId }: NewTicketFormProps) {
           type="button"
           onClick={() => router.back()}
           disabled={isPending}
-          className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
+          className={horizonButtonClass("secondary")}
         >
           Cancel
         </button>
