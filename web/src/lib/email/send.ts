@@ -1,11 +1,25 @@
 "use server";
 
 import { resend } from "./resend";
+import { brandAttachments } from "./inlineLogo";
 import { resolveSender } from "./senders";
 import { getVerificationEmailHtml, getOtpEmailHtml, getPasswordResetEmailHtml } from "./templates";
 import type { VerificationEmailParams, PasswordResetEmailParams } from "./templates";
 import { welcomeTemplate } from "./templates/welcome";
 import { emailText, type EmailLocale } from "./i18n";
+
+/**
+ * Every send in this file carries `attachments: await brandAttachments()`.
+ *
+ * The masthead references the mark as `cid:denku-mark`, which resolves only against an
+ * attachment inside the same message — so a send that forgets the attachment shows no mark at
+ * all, which is worse than the remote `<img>` it replaced. `sendOnce()` does the same thing for
+ * the money and notification mail that goes through the dispatch ledger; these are the paths that
+ * bypass it (auth mail, and the three "we already handled idempotency" callers).
+ *
+ * `brandAttachments()` never throws and returns `[]` when the file cannot be read, so adding it
+ * cannot stop a verification code reaching a customer. See `lib/email/inlineLogo.ts`.
+ */
 
 /**
  * Send email verification email after signup
@@ -23,6 +37,7 @@ export async function sendVerificationEmail(params: VerificationEmailParams & { 
       to: params.email,
       subject: emailText(params.locale, { en: "Verify your email — Denku", es: "Verifica tu correo — Denku", de: "E-Mail-Adresse bestätigen – Denku", tr: "E-posta adresinizi doğrulayın — Denku" }),
       html: getVerificationEmailHtml(params),
+      attachments: await brandAttachments(),
     });
 
     if (error) {
@@ -55,6 +70,7 @@ export async function sendOtpEmail(params: VerificationEmailParams) {
       to: params.email,
       subject: emailText(params.locale, { en: "Your verification code — Denku", es: "Tu código de verificación — Denku", de: "Ihr Bestätigungscode – Denku", tr: "Doğrulama kodunuz — Denku" }),
       html: getOtpEmailHtml(params),
+      attachments: await brandAttachments(),
     });
 
     if (error) {
@@ -87,6 +103,7 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
       to: params.email,
       subject: emailText(params.locale, { en: "Reset your password — Denku", es: "Restablece tu contraseña — Denku", de: "Passwort zurücksetzen – Denku", tr: "Parolanızı sıfırlayın — Denku" }),
       html: getPasswordResetEmailHtml(params),
+      attachments: await brandAttachments(),
     });
 
     if (error) {
@@ -123,6 +140,7 @@ export async function sendArtifactNotificationEmail(
       to: toEmail,
       subject: email.subject,
       html: email.html,
+      attachments: await brandAttachments(),
     });
 
     if (error) {
@@ -158,6 +176,7 @@ export async function sendBillingNotificationEmail(
       to: toEmail,
       subject: email.subject,
       html: email.html,
+      attachments: await brandAttachments(),
     });
 
     if (error) {
@@ -191,6 +210,7 @@ export async function sendMemberInviteEmail(
       to: toEmail,
       subject: email.subject,
       html: email.html,
+      attachments: await brandAttachments(),
     });
     if (error) {
       console.error("[sendMemberInviteEmail] Resend error:", error);
@@ -222,6 +242,7 @@ export async function sendWelcomeEmail(toEmail: string, locale: EmailLocale = "e
       to: toEmail,
       subject,
       html,
+      attachments: await brandAttachments(),
     });
 
     if (error) {

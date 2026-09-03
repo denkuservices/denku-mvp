@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resend } from "./resend";
+import { brandAttachments } from "./inlineLogo";
 import { resolveSender, type SenderKind } from "./senders";
 
 /**
@@ -129,6 +130,10 @@ export async function sendOnce(params: SendOnceParams): Promise<SendOnceResult> 
       to: recipient,
       subject,
       html,
+      // The masthead mark, carried inside the message. See lib/email/inlineLogo.ts — a remote
+      // image is a request the recipient's client may simply refuse, and most do for a sender
+      // they do not know yet. Empty when the file cannot be read, which sends the mail anyway.
+      attachments: await brandAttachments(),
     });
 
     if (error) {

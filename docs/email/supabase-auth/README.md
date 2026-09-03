@@ -75,5 +75,13 @@ number changed, Sign-in method linked/removed, MFA added/removed).
 
 The masthead logo is loaded from `https://www.denku.io/email/denku-mark.png`. It must be
 deployed before these go out, or every one of these emails shows a broken image where the brand
-should be. The text fallback is the word "Denku", so nothing breaks — it just looks like a
-phishing attempt, which is the opposite of what an auth email needs.
+should be. The text fallback is the word "Denku" in bone on the dark masthead, so nothing breaks —
+it just looks like a phishing attempt, which is the opposite of what an auth email needs.
+
+**These four are the only Denku emails that load the mark from a URL, and they are the only ones
+that can.** Everything else attaches it to the message (`cid:denku-mark`) because a remote image
+is a request the recipient's client decides whether to make — Gmail loads it for a known sender,
+Hotmail blocks it for an unknown one, which is why the same email showed the mark to us and a hole
+to a customer. Supabase renders these from its own dashboard and has no attachment to reference,
+so a `cid:` here would show nothing at all. If you ever see the mark missing from one of THESE
+four, the fix is the deployed PNG or a client blocking remote images — not the template.
