@@ -2378,10 +2378,27 @@ signal on the first BYO line — the busy turned out not to be ours, but this wa
 > the Vapi number to `assistantId: null`, so inbound genuinely stops). Concurrency never got its
 > equivalent.
 
-**Evidence:** the limiter has never actually fired in production — every lease in
-`call_concurrency_leases` for the pilot org was acquired and released within ~20s, so the dead
-branch has never been exercised. Verified while reading the whole 2026-09-01/02 window during the
-busy-signal investigation.
+**Evidence — no longer a code reading. It fired in production the same day it was filed.**
+
+Corrected 2026-09-03 ~15:30. The original evidence line said the limiter "has never actually
+fired in production", which was true when written and stopped being true a few hours later, on
+NOTUS Uniform (`a9022d05…`, `starter`, `concurrency_limit = 1`), the first workspace taking real
+Turkish calls:
+
+| | Vapi call id | window | lease |
+|---|---|---|---|
+| answered | `01a067a2-2e1a-7ffc…` | 14:17:57 → 14:18:35 (38s) | acquired 14:17:58, released 14:18:41 |
+| answered | `01a067a2-468f-7000…` | 14:18:03 → 14:18:38 (35s) | **none — `limit_reached`** |
+
+Nine calls reached Vapi on that number; `call_concurrency_leases` holds eight rows. The missing
+one is the second concurrent caller, and it was **not refused**: the AI greeted them in Turkish,
+held a 35-second conversation about the product range, and the workspace was billed $0.0608 for a
+simultaneous call its plan does not include. Two callers, a limit of one, both served.
+
+So the dead branch is exercised, and the failure is exactly as described above — the caller is
+answered, the only trace is a warn log and an absent lease row. This also means the limit cannot
+be the cause when a customer reports a busy signal: the enforcement that would produce one does
+not exist. (On this line the intermittent busy was Netgsm's own channel count, not ours.)
 
 **A fix needs two decisions, not just code:**
 1. **What does the caller hear?** A silent hangup reads as a broken number. The honest options are
