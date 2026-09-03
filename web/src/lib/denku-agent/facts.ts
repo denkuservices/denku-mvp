@@ -160,13 +160,27 @@ export function languageSentence(): string {
   return `Denku speaks and understands: ${languageFacts().map((l) => l.label).join(", ")}. No other language is supported.`;
 }
 
-const usd = (n: number): string => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+/**
+ * Numbers a voice model will read as quantities, not as digits.
+ *
+ * On the first real Turkish call the assistant read `3600` aloud as "üç altı sıfır sıfır" —
+ * three, six, zero, zero. `149`, `400` and `1200` survived, which is the worst version of this
+ * bug: it looks fine until the one plan nobody tested is quoted to a customer.
+ *
+ * A thousands separator is what fixes it, because "3,600" is unambiguously a quantity while
+ * "3600" can be read as a digit string. The prompt also carries an explicit instruction, since
+ * belt and braces cost nothing here and the failure is heard by a prospect.
+ */
+const qty = (n: number): string => n.toLocaleString("en-US");
+
+const usd = (n: number): string =>
+  Number.isInteger(n) ? `$${qty(n)}` : `$${n.toFixed(2)}`;
 
 export function planSentence(plans: PlanFact[]): string {
   if (plans.length === 0) return "";
   const lines = plans.map(
     (p) =>
-      `- ${p.name}: ${usd(p.monthlyUsd)}/month, ${p.includedMinutes} minutes included, ` +
+      `- ${p.name}: ${usd(p.monthlyUsd)}/month, ${qty(p.includedMinutes)} minutes included, ` +
       `${p.concurrentCalls} call${p.concurrentCalls === 1 ? "" : "s"} at once, ` +
       `${p.includedNumbers} phone number included, ` +
       `${usd(p.overagePerMinuteUsd)}/minute after the included minutes.`,

@@ -9,7 +9,7 @@ import {
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { platformRedirectTarget, splitRedirectTarget } from "@/lib/platform/routeRedirects";
 import createIntlMiddleware from "next-intl/middleware";
-import { routing, localeForCountry } from "@/i18n/routing";
+import { routing, localeForCountry, LOCALE_CHOICE_COOKIE } from "@/i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -58,15 +58,23 @@ const BOT_RE = /bot|crawler|spider|crawling|facebookexternalhit|slurp|bingprevie
  * First-visit language pick, from the visitor's country.
  *
  * Owner's rule: serve the country's language if we have it, otherwise English.
- * Only fires when the visitor has no explicit locale yet — no cookie and no locale
- * already in the path — so a manual switch is never overridden on the next click.
+ * Only fires when the visitor has not CHOSEN a language and the path names none, so a
+ * manual switch is never overridden on the next click.
+ *
+ * The choice is `DENKU_LOCALE`, not `NEXT_LOCALE`. That distinction is the whole fix:
+ * next-intl writes `NEXT_LOCALE` on any locale-resolving navigation, including a first
+ * visit that merely landed on `/en` — the canonical English URL, the one in the sitemap
+ * and the one Google links to. Treating it as a choice meant a visitor in Turkey who
+ * arrived from an English search result was pinned to English forever, even typing the
+ * bare domain afterwards (observed 2026-09-03, on the owner's own browser).
+ *
  * The country comes from the edge header Vercel populates; locally it is absent
  * and everyone simply gets English.
  */
 function geoRedirect(request: NextRequest): NextResponse | null {
   const { pathname } = request.nextUrl;
 
-  if (request.cookies.has("NEXT_LOCALE")) return null;
+  if (request.cookies.has(LOCALE_CHOICE_COOKIE)) return null;
   if (BOT_RE.test(request.headers.get("user-agent") ?? "")) return null;
 
   const alreadyPrefixed = routing.locales.some(
@@ -83,7 +91,9 @@ function geoRedirect(request: NextRequest): NextResponse | null {
   const url = request.nextUrl.clone();
   url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
   const res = NextResponse.redirect(url);
-  // Remember the pick so this runs once per visitor, not on every navigation.
+  // Remember the pick so this runs once per visitor, not on every navigation. This is
+  // NEXT_LOCALE, not the choice cookie: the visitor has not chosen anything, we guessed
+  // from their country, and a guess must stay overridable by the switcher.
   res.cookies.set("NEXT_LOCALE", locale, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,

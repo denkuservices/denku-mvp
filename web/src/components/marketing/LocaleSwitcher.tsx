@@ -4,16 +4,24 @@ import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { routing, LOCALE_LABELS, type Locale } from "@/i18n/routing";
+import { routing, LOCALE_LABELS, LOCALE_CHOICE_COOKIE, type Locale } from "@/i18n/routing";
 
 /**
  * Language switcher.
  *
- * Switching navigates through next-intl's router, which sets the `NEXT_LOCALE`
- * cookie. That cookie is exactly what the middleware checks before applying its
- * country-based pick — so once a visitor chooses a language by hand, geo detection
- * stops overriding them. Without it, someone in Turkey who chose English would be
- * sent back to Turkish on their next click.
+ * Switching navigates through next-intl's router, which sets `NEXT_LOCALE`. This
+ * component ALSO writes `DENKU_LOCALE`, and that second cookie is the one the
+ * middleware's country-based pick respects.
+ *
+ * Two cookies for one idea, because `NEXT_LOCALE` cannot answer the question the
+ * middleware is asking. next-intl writes it on ANY locale-resolving navigation,
+ * including a first visit that simply landed on `/en` — the canonical English URL,
+ * the one in the sitemap, the one Google sends people to. So a visitor in Turkey
+ * arriving from an English search result was recorded as having "chosen" English
+ * and never saw Turkish again, even typing denku.io directly. (Observed 2026-09-03.)
+ *
+ * `DENKU_LOCALE` is written in exactly one place: here, when a person clicks a
+ * language. That is the only event that means "I chose this".
  *
  * `usePathname` here comes from the i18n navigation helpers, so it returns the
  * path *without* the locale prefix — the same route can then be re-resolved in the
@@ -46,10 +54,10 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
 
   const pick = (next: Locale) => {
     setOpen(false);
-    // next-intl writes the NEXT_LOCALE cookie itself on a locale-changing
-    // navigation, which is the same cookie the middleware checks before applying
-    // the country-based pick. So a deliberate choice sticks without us touching
-    // document.cookie by hand.
+    // Record the CHOICE, which is a different fact from "a page in this language was
+    // rendered" — see the note above. A year, so it outlives the session; SameSite=Lax
+    // because it is only ever read on a top-level navigation.
+    document.cookie = `${LOCALE_CHOICE_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     // `params` carries dynamic segments (e.g. the employee slug) so the same page
     // is re-resolved in the new language instead of dropping to the index.
     router.replace(
