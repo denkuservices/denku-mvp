@@ -25,6 +25,7 @@ import { paymentReceiptTemplate } from "./templates/paymentReceipt";
 import { paymentFailedTemplate } from "./templates/paymentFailed";
 import { subscriptionCanceledTemplate } from "./templates/subscriptionCanceled";
 import { addonPurchasedTemplate } from "./templates/addonPurchased";
+import { contactRequestTemplate } from "./templates/contactRequest";
 import { passwordChangedTemplate } from "./templates/passwordChanged";
 import { memberInviteTemplate } from "./templates/memberInvite";
 
@@ -264,6 +265,26 @@ export function emailPreviews(): EmailPreview[] {
         endsAt: "2026-09-14T00:00:00.000Z",
         orgName: "Acme Dental",
         billingUrl: BILLING_URL,
+      })
+    ),
+    fromTemplate(
+      {
+        key: "contact-request",
+        label: "Website request",
+        trigger: "Someone submits a form on the public site (contact or one of the four service forms).",
+        source: "lib/marketing/contactRequestFanout.ts",
+      },
+      contactRequestTemplate({
+        workEmail: "ahmet@example.com",
+        name: "Ahmet Yilmaz",
+        company: "Yilmaz Dental",
+        industry: "healthcare",
+        channels: ["Voice", "WhatsApp"],
+        tools: "Voice AI",
+        estimatedVolume: "1-10k",
+        message: "We miss calls after 6pm and on weekends. Can your AI answer and book appointments?",
+        source: "request_custom-ai",
+        ticketUrl: "https://www.denku.io/dashboard/tickets/00000000-0000-0000-0000-000000000000",
       })
     ),
     fromTemplate(

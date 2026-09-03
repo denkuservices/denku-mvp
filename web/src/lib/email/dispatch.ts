@@ -31,7 +31,10 @@ export type EmailKind =
   | "addon_changed"
   | "ai_live"
   | "workspace_resumed"
-  | "password_changed";
+  | "password_changed"
+  // A request from the public site. The dedupe key is the `contact_requests` row id: one claim per
+  // submission, so a retried delivery cannot mail the team twice about the same lead.
+  | "contact_request";
 
 export interface SendOnceParams {
   kind: EmailKind;

@@ -282,10 +282,14 @@ describe("the conversation is a sale, not a price list", () => {
     expect(spoken).toMatch(/Shortening a number is not brevity, it is a different number/);
   });
 
-  it("refuses to translate a product noun into the wrong object", () => {
-    // It called a ticket a "bilet" — a bus or cinema ticket in Turkish — on every call.
-    expect(spoken).toMatch(/NEVER a 'bilet'/);
-    expect(spoken).toMatch(/'talep' or a 'destek kaydı'/);
+  it("describes what a conversation becomes instead of naming it 'a ticket'", () => {
+    // It called a ticket a "bilet" — a bus or cinema ticket — on every call, and kept doing it
+    // after an explicit ban was added. A rule fighting a translation instinct loses; removing the
+    // English noun it was translating FROM is the fix, with the ban kept only as a backstop.
+    expect(spoken).toMatch(/a follow-up task, or a booked appointment/);
+    expect(spoken).not.toMatch(/into a ticket or an appointment/);
+    expect(spoken).toMatch(/NEVER call it a 'bilet'/);
+    expect(spoken).toMatch(/say what a thing IS rather than translating its English name/i);
   });
 });
 
