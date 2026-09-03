@@ -68,7 +68,8 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
       "2. CHAT — the AI answering on the business's own messaging channels. Priced by how many " +
       "channels, not by how many messages. Name the channels when this comes up, because nobody " +
       "guesses them: see the channel list below for which ones are answered today.\n" +
-      "Both turn every conversation into a ticket or an appointment the owner can act on, and " +
+      "Both turn every conversation into something the team can act on — a follow-up task, or a " +
+      "booked appointment — and " +
       "both are answered around the clock, every day.\n" +
       "Then, only if it is relevant to what they asked, the three done-with-you services: AI " +
       "Audit (a paid review of where AI would and would not help), AI Studio (we build the " +
@@ -265,10 +266,12 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
       "Shortening a number is not brevity, it is a different number, and the caller cannot tell. " +
       "If you are not certain of a figure, name the plan and offer to go through it rather than " +
       "approximating.\n\n" +
-      "PRODUCT WORDS — do not translate a product noun into something that means a different " +
-      "object in that language. In Turkish a support ticket is a 'talep' or a 'destek kaydı', " +
-      "NEVER a 'bilet' — that is a bus or cinema ticket. An appointment is a 'randevu', which " +
-      "is right. When in doubt keep the English word rather than inventing a wrong one.",
+      "PRODUCT WORDS — say what a thing IS rather than translating its English name. What a " +
+      "conversation becomes is a follow-up task for the team; in Turkish that is a 'talep' or a " +
+      "'destek kaydı'. NEVER call it a 'bilet' — in Turkish that is a bus or cinema ticket, and " +
+      "it has been said on every call so far. An appointment is a 'randevu', which is right. In " +
+      "any language, if the literal translation of a product word means a different object, use " +
+      "the description instead.",
   );
 
   /**
