@@ -262,11 +262,50 @@ describe("core prompt", () => {
     expect(spoken).toMatch(/in Turkish that is '7\/24'/);
   });
 
-  it("forbids ending every answer with the same closing question", () => {
-    // It closed all four answers of the first call with the same sentence. Correct Turkish, and
-    // after the third time it is a call centre reading a script.
-    expect(spoken).toMatch(/Do NOT end every answer with the same closing question/);
-    expect(spoken).toMatch(/TONE — warm/);
+  it("forbids DEFAULTING to a closing question, not merely repeating one", () => {
+    // The first rule only banned repeating a closing, and the assistant obeyed it literally: it
+    // used a different closing each time and still closed every single answer. The rule has to
+    // be about the default, not the duplicate.
+    expect(spoken).toMatch(/Do NOT default to a closing question/);
+    expect(spoken).toMatch(/never twice in one conversation/);
+    expect(spoken).toMatch(/TONE — warm and relaxed/);
+  });
+
+  it("caps turn length, because 'briefly' produced a 150-word speech", () => {
+    expect(spoken).toMatch(/Most turns are ONE or TWO short sentences/);
+    expect(spoken).toMatch(/asks for something 'briefly'/);
+  });
+
+  it("bans the opening tic in all four languages", () => {
+    // Every answer of the third call opened "Tabii" / "Tabii ki".
+    expect(spoken).toMatch(/Tabii ki/);
+    expect(spoken).toMatch(/Certainly/);
+    expect(spoken).toMatch(/Natürlich/);
+    expect(spoken).toMatch(/Por supuesto/);
+  });
+
+  it("no longer tells it to use the visitor's own WORDS back", () => {
+    // That instruction was mine and it invites the paraphrase-back tic. Terminology, not
+    // sentences.
+    expect(spoken).not.toMatch(/visitor's own words back/);
+    expect(spoken).toMatch(/do NOT restate, summarise or confirm back/);
+  });
+
+  it("reads identifiers digit by digit and prices as quantities", () => {
+    // The old blanket rule — "say every number as a spoken quantity" — was actively wrong for a
+    // phone number: 407-555-1234 is not four hundred and seven billion.
+    expect(spoken).toMatch(/is an IDENTIFIER, not a quantity/);
+    expect(spoken).toMatch(/read those digit by digit in small groups/);
+    expect(spoken).toMatch(/3,600 is 'three thousand six hundred'/);
+  });
+
+  it("keeps chat prices out of the voice list", () => {
+    // A real call quoted $399 — the Growth VOICE plan — as the price of one chat channel ($299).
+    expect(spoken).toMatch(/CHAT plans — a SEPARATE product from voice/);
+    expect(spoken).toMatch(/Never quote a voice price for chat/);
+    // The voice add-on block must not carry chat rows any more.
+    const addonBlock = spoken.split("Voice add-ons")[1]?.split("CHAT plans")[0] ?? "";
+    expect(addonBlock).not.toMatch(/Chat/);
   });
 
   it("describes the product as two things a business buys, and names the channels", () => {

@@ -5,6 +5,7 @@ import PlatformDashboard from './_platform/home/PlatformDashboard';
 import PlatformAnalytics from './_platform/analytics/PlatformAnalytics';
 import HomeTabs, { resolveHomeTab } from './_platform/home/HomeTabs';
 import SetupNudges from './_components/SetupNudges';
+import WorkspaceLaunchpad from './_components/WorkspaceLaunchpad';
 import { resolveRange } from '@/lib/platform/readModel/aggregate';
 
 // Explicitly cache dashboard page to prevent automatic revalidation loops
@@ -49,7 +50,9 @@ export default async function DashboardPage({
               : 'Here is what your AI team handled and what needs your attention.'}
           </p>
         </div>
-        {/* Above both home variants, so what a customer is told does not depend on a flag. */}
+        {/* First-run progress and earned nudges sit above both variants, so guidance never
+            depends on a feature flag the customer has never heard of. */}
+        <WorkspaceLaunchpad />
         <SetupNudges />
         <HomeTabs active={tab} />
         {tab === 'analytics' ? (
@@ -66,6 +69,7 @@ export default async function DashboardPage({
   return (
     <>
       <div className="px-4 pt-4 md:px-6 md:pt-6">
+        <WorkspaceLaunchpad />
         <SetupNudges />
       </div>
       <DashboardClient data={data} />

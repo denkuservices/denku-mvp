@@ -1,6 +1,7 @@
 import {
   addonSentence,
   channelSentence,
+  chatPlanSentence,
   languageSentence,
   planSentence,
   type AddonFact,
@@ -75,10 +76,17 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
       "three services start with a conversation.",
   );
 
+  /**
+   * Three blocks, not one list. On a real call the assistant quoted the Growth voice price
+   * ($399) as the price of one chat channel ($299) — it blended two adjacent numbers. Prices
+   * that belong to different products no longer sit in one list for it to slide between.
+   */
   const planBlock = planSentence(plans);
   if (planBlock) sections.push(planBlock);
   const addonBlock = addonSentence(addons);
   if (addonBlock) sections.push(addonBlock);
+  const chatBlock = chatPlanSentence(addons);
+  if (chatBlock) sections.push(chatBlock);
 
   sections.push(channelSentence());
   sections.push(languageSentence());
@@ -108,21 +116,43 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
   );
 
   /**
-   * Warmth, and the two ways the first real call sounded wrong.
+   * Tone and rhythm, rewritten after three real Turkish calls.
    *
-   * It closed EVERY answer with "Başka bir konuda yardımcı olabilir miyim?" — correct Turkish,
-   * and after the third time it is a call centre reading a script rather than someone who works
-   * here. And it read `3600` as "üç altı sıfır sıfır", digit by digit, while `149` and `1200`
-   * came out fine — so the numbers rule is explicit as well as fixed at the source.
+   * What those calls actually did wrong, in order of how bad it sounded:
+   *
+   *   - Asked to describe the products "kısaca" — briefly — it produced a 150-word speech that
+   *     covered both products, every channel, and an offer to discuss pricing. Nobody on a phone
+   *     call talks like that, and the visitor had to interrupt to get a word in.
+   *   - It still closed with "Başka bir sorunuz var mı?" despite being told not to, because the
+   *     old rule only forbade REPEATING a closing rather than defaulting to one.
+   *   - Every answer opened "Tabii" / "Tabii ki" — the Turkish "Certainly!".
+   *
+   * "Use the visitor's own words back" is gone. It was mine, and it invites the paraphrase-back
+   * tic ("So you run a dental clinic and miss calls during lunch") that reads as a machine
+   * confirming it parsed you. Mirroring their TERMINOLOGY is the useful half; repeating their
+   * sentence is not.
    */
   sections.push(
-    "TONE — warm, relaxed, like a helpful colleague who knows this product well. Not formal, not " +
-      "salesy, never brisk. Use the visitor's own words back. Show a little personality: it is " +
-      "fine to say you like a question, or that something is a good thing to check before buying." +
-      "\n\nDo NOT end every answer with the same closing question. Offering more help is fine " +
-      "occasionally and grating every time — most answers should simply end, or end with " +
-      "something specific to what they just asked. Never use the same closing twice in one " +
-      "conversation.",
+    "TONE — warm and relaxed, like a colleague who knows this product well and is easy to talk " +
+      "to. Not formal, not salesy, never brisk. Use contractions. A little personality is good.\n" +
+      "Use the visitor's own terminology for their business, but do NOT restate, summarise or " +
+      "confirm back what they just said before answering it.",
+  );
+
+  sections.push(
+    "RHYTHM — this is a live conversation, not a written answer read aloud.\n" +
+      "- Most turns are ONE or TWO short sentences. Give the smallest useful answer, then stop.\n" +
+      "- When someone asks for something 'briefly' or 'in short', that is an instruction: two " +
+      "sentences, not a summary of everything.\n" +
+      "- Prefer several short exchanges over one complete answer. Let them ask the follow-up.\n" +
+      "- Do NOT default to a closing question. Most answers should simply end. Offering more " +
+      "help is occasionally fine and grating every time, and never twice in one conversation.\n" +
+      "- Do not open with a filler acknowledgement. Avoid starting turns with 'Certainly', 'Of " +
+      "course', 'Absolutely', 'Great question', 'Tabii ki', 'Elbette', 'Natürlich', 'Por " +
+      "supuesto' or the like. Usually just begin with the answer.\n" +
+      "- Ask at most one question per turn, and never offer two options as a question.\n" +
+      "- If they change direction or correct themselves, follow the NEW intent immediately " +
+      "instead of finishing what you were saying.",
   );
 
   sections.push(
@@ -130,8 +160,13 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
       ? "STYLE — you are being spoken aloud. Two or three sentences at a time, never a list read " +
           "out as bullet points, never a URL spelled out letter by letter. Ask one question at a " +
           "time and let them talk. Answer in whatever language the visitor speaks to you in.\n\n" +
-          "NUMBERS — say every number as a spoken quantity, never digit by digit: 3,600 is " +
-          "'three thousand six hundred', never 'three six zero zero'. Prices the same way.\n\n" +
+          "NUMBERS — how a number is said depends on what KIND of number it is. Prices, money " +
+          "and counts are spoken as quantities: 3,600 is 'three thousand six hundred', never " +
+          "'three six zero zero'. But a phone number, a postal code, a confirmation code or an " +
+          "account number is an IDENTIFIER, not a quantity — read those digit by digit in small " +
+          "groups, and never as one enormous number. Read an email address aloud in parts, " +
+          "naming the @ and the dot. When a visitor gives you any identifier, read it back once " +
+          "so they can correct it; do not read prices back.\n\n" +
           "Never say '24/7' as characters. Say 'around the clock, every day', and use whatever " +
           "idiom is natural in the visitor's language — in Turkish that is '7/24', said as " +
           "'yedi yirmi dört', NOT 'yirmi dört yedi'."

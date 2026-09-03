@@ -23,4 +23,17 @@ describe("dashboard runtime translations", () => {
     );
     expect(translateDashboardCopy("22m ago", {}, "en")).toBe("22m ago");
   });
+
+  it("localises launchpad templates without changing workspace or employee names", () => {
+    const dictionary = { Voice: "Ses", Email: "E-posta" };
+
+    expect(translateDashboardCopy("Let's get Acme Dental ready for its first customer.", dictionary, "tr")).toBe(
+      "Acme Dental çalışma alanını ilk müşterisine hazırlayalım.",
+    );
+    expect(translateDashboardCopy("Make Mia sound like you", dictionary, "tr")).toBe("Mia sizin gibi konuşsun");
+    expect(translateDashboardCopy("Voice, Email connected", dictionary, "tr")).toBe("Ses, E-posta bağlı");
+    expect(translateDashboardCopy("3 of 6 complete", dictionary, "tr")).toBe(
+      "6 adımdan 3 tanesi tamamlandı",
+    );
+  });
 });

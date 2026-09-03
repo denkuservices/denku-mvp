@@ -57,7 +57,72 @@ export function translateDashboardCopy(
   if (exact) return exact;
 
   const targetLocale = locale as Exclude<Locale, "en">;
+  const localizeList = (value: string) =>
+    value
+      .split(", ")
+      .map((part) => dictionary[part] ?? part)
+      .join(", ");
   const rules: Array<string | null> = [
+    replaceMatch(source, /^About (\d+) min left$/, {
+      es: (amount) => `Quedan unos ${amount} min`,
+      de: (amount) => `Noch etwa ${amount} Min.`,
+      tr: (amount) => `Yaklaşık ${amount} dk kaldı`,
+    }, targetLocale),
+    replaceMatch(source, /^Let's get (.+) ready for its first customer\.$/, {
+      es: (name) => `Preparemos ${name} para su primer cliente.`,
+      de: (name) => `Machen wir ${name} bereit für den ersten Kunden.`,
+      tr: (name) => `${name} çalışma alanını ilk müşterisine hazırlayalım.`,
+    }, targetLocale),
+    replaceMatch(source, /^Business: (.+)$/, {
+      es: (name) => `Negocio: ${name}`,
+      de: (name) => `Unternehmen: ${name}`,
+      tr: (name) => `İşletme: ${name}`,
+    }, targetLocale),
+    replaceMatch(source, /^Language: (.+)$/, {
+      es: (language) => `Idioma: ${dictionary[language] ?? language}`,
+      de: (language) => `Sprache: ${dictionary[language] ?? language}`,
+      tr: (language) => `Dil: ${dictionary[language] ?? language}`,
+    }, targetLocale),
+    replaceMatch(source, /^(.+) · (connected|getting ready)$/, {
+      es: (name, state) => `${name} · ${state === "connected" ? "conectado" : "preparándose"}`,
+      de: (name, state) => `${name} · ${state === "connected" ? "verbunden" : "wird vorbereitet"}`,
+      tr: (name, state) => `${name} · ${state === "connected" ? "bağlı" : "hazırlanıyor"}`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+) of (\d+) complete$/, {
+      es: (done, total) => `${total} de ${done} completados`,
+      de: (done, total) => `${done} von ${total} erledigt`,
+      tr: (done, total) => `${total} adımdan ${done} tanesi tamamlandı`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+) minute mission$/, {
+      es: (amount) => `Misión de ${amount} min`,
+      de: (amount) => `${amount}-Minuten-Aufgabe`,
+      tr: (amount) => `${amount} dakikalık görev`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+) min$/, {
+      es: (amount) => `${amount} min`,
+      de: (amount) => `${amount} Min.`,
+      tr: (amount) => `${amount} dk`,
+    }, targetLocale),
+    replaceMatch(source, /^Make (.+) sound like you$/, {
+      es: (name) => `Haz que ${name} suene como tu marca`,
+      de: (name) => `${name} an Ihre Marke anpassen`,
+      tr: (name) => `${name} sizin gibi konuşsun`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+)\/6 useful knowledge areas filled$/, {
+      es: (amount) => `Se completaron ${amount}/6 áreas de conocimiento útiles`,
+      de: (amount) => `${amount}/6 nützliche Wissensbereiche ausgefüllt`,
+      tr: (amount) => `6 yararlı bilgi alanından ${amount} tanesi dolu`,
+    }, targetLocale),
+    replaceMatch(source, /^(.+) connected$/, {
+      es: (channels) => `${localizeList(channels)} conectados`,
+      de: (channels) => `${localizeList(channels)} verbunden`,
+      tr: (channels) => `${localizeList(channels)} bağlı`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+) people have access$/, {
+      es: (amount) => `${amount} personas tienen acceso`,
+      de: (amount) => `${amount} Personen haben Zugriff`,
+      tr: (amount) => `${amount} kişinin erişimi var`,
+    }, targetLocale),
     replaceMatch(source, /^(\d+)([smhdw]) ago$/, {
       es: (amount, unit) => `hace ${amount}${unit}`,
       de: (amount, unit) => `vor ${amount}${unit}`,
