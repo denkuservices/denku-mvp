@@ -37,6 +37,7 @@ import {
 } from "./_actions";
 import { formatUsd } from "@/lib/utils";
 import { isValidUSAreaCode } from "@/lib/telephony/usAreaCodes";
+import { LANGUAGES, LANGUAGE_CODES, toLanguageCode } from "@/lib/language/registry";
 import { DenkuLogo } from "@/components/brand/DenkuLogo";
 import { ConnectChannelStep } from "./_components/ConnectChannelStep";
 import { researchWebsiteAction } from "./_actions/researchWebsite";
@@ -165,7 +166,12 @@ function EmployeeCard({
   const rows: Array<{ label: string; value: string }> = [];
   if (businessName) rows.push({ label: "Works for", value: businessName });
   if (role) rows.push({ label: "Role", value: role });
-  if (language) rows.push({ label: "Speaks", value: language.toUpperCase() });
+  // The language in words, never the stored code: "Speaks TR" reads like a setting, and this
+  // card is the one place the customer sees the employee described rather than configured.
+  if (language) {
+    const code = toLanguageCode(language);
+    rows.push({ label: "Speaks", value: code ? LANGUAGES[code].label : language });
+  }
   if (phoneNumber) rows.push({ label: "Answers", value: phoneNumber });
 
   // Nothing decided yet — a card of blanks would be worse than no card.
@@ -340,6 +346,25 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
   // Step 1: Goal (load from state if available)
   const [goal, setGoal] = useState<"support" | "sales" | "ops">(
     (state.onboardingGoal as "support" | "sales" | "ops") || "support"
+  );
+  /**
+   * The language the AI answers in — asked here, on the step every customer passes through.
+   *
+   * It was never asked before, and `organization_settings.onboarding_language` was read by
+   * activation (`runActivation` writes it onto both the Vapi assistant and the `agents` row) and
+   * by `resolveWorkspaceLineDefaults` when a BYO number is connected — while NOTHING wrote it. So
+   * every workspace fell through to `?? "en"`: a business in Türkiye finished onboarding and its
+   * AI answered its callers in English, and the only fix was to know that Team → Setup existed.
+   *
+   * Deliberately NOT on the phone step, even though voice is where it hurts most: a chat-only
+   * customer skips that form entirely ("I don't need a phone line"), and their agent row reads the
+   * same column. One question, before the product splits into voice and chat, answers both.
+   *
+   * A code ("tr"), not a label — activation passes this value straight to `resolveLanguage`, which
+   * accepts either, and codes are what the rest of onboarding already writes.
+   */
+  const [language, setLanguage] = useState<string>(
+    toLanguageCode(state.onboardingLanguage) ?? "en"
   );
   // The one thing onboarding asks about the business itself. Optional — it makes the AI
   // specific rather than generic, but skipping it still yields a working employee.
@@ -773,7 +798,9 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
           <EmployeeCard
             businessName={state.orgName || null}
             role={currentStep >= 1 ? GOAL_LABELS[goal] : null}
-            language={state.onboardingLanguage}
+            // The live choice, on the same terms as the role above it: once the customer is on
+            // the step that asks, the card should show what they picked, not what was last saved.
+            language={currentStep >= 1 ? language : state.onboardingLanguage}
             phoneNumber={displayPhoneNumber}
             isLive={currentStep >= 5 && phoneStatus === "active"}
           />
@@ -992,6 +1019,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 <input type="hidden" name="_action" value="saveGoalLanguage" />
                 <input type="hidden" name="orgId" value={state.orgId || ""} />
                 <input type="hidden" name="goal" value={goal} />
+                <input type="hidden" name="language" value={language} />
 
                 <div>
                   <h2 className="font-display text-[clamp(28px,3vw,38px)] font-normal tracking-[-0.8px] text-[#0A1A2F]">
@@ -1049,6 +1077,46 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                       <p className="mt-1 text-sm text-[#6B7888]">Run workflows and handle operational requests.</p>
                     </div>
                   </button>
+                </div>
+
+                {/*
+                  Which language it answers in.
+
+                  Derived from `lib/language/registry.ts`, never a hand-written list: the registry
+                  is the honest limit — a language reaches it only once an ear that transcribes it
+                  and a mouth that speaks it are both proven (R-135). So a language added there
+                  appears here in the same commit, and one that was never proven cannot be offered
+                  on the screen where the customer is deciding what they are buying.
+                */}
+                <div className="rounded-[14px] border border-[#0A1A2F]/10 bg-[#FBFAF8] p-5">
+                  <h3 className="font-display text-[16px] font-medium text-[#0A1A2F]">
+                    What language should it answer in?
+                  </h3>
+                  <p className="mt-1 text-sm text-[#2C3E54]">
+                    This is the language your AI speaks and listens in — on calls and in chat. You
+                    can change it, or add a second language it understands, in Team → Setup.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2.5">
+                    {LANGUAGE_CODES.map((code) => {
+                      const selected = language === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => setLanguage(code)}
+                          aria-pressed={selected}
+                          className={`flex items-center gap-2 rounded-[10px] border-2 px-4 py-2.5 text-sm font-medium transition-all ${
+                            selected
+                              ? "border-[#1B6E6E] bg-[#E3EEED] text-[#0A1A2F]"
+                              : "border-[#0A1A2F]/10 bg-white text-[#2C3E54] hover:border-[#0A1A2F]/20"
+                          }`}
+                        >
+                          {LANGUAGES[code].label}
+                          {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#1B6E6E]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/*
@@ -1148,6 +1216,25 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                     area code your customers would recognise; we claim the number itself right after
                     you choose a plan, so nothing is reserved until then.
                   </p>
+                  {/*
+                    Say which language the line will answer in, on the screen where the line is
+                    being decided.
+
+                    The choice was made one step ago and is not editable here — steps only ever
+                    move forward. Restating it is what stops the number arriving in a language the
+                    customer did not expect and only discovers on the first real call.
+                  */}
+                  {(() => {
+                    const code = toLanguageCode(language);
+                    if (!code) return null;
+                    return (
+                      <p className="mt-3 text-sm text-[#6B7888]">
+                        It will answer in{" "}
+                        <span className="font-medium text-[#0A1A2F]">{LANGUAGES[code].label}</span>
+                        {" "}— you can change that any time in Team → Setup.
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Billing Paused Block */}

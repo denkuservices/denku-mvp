@@ -11,6 +11,7 @@ import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
+import { toLanguageCode } from "@/lib/language/registry";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { assignEmployeeToChannel } from "@/lib/platform/assignEmployee";
 import Stripe from "stripe";
@@ -104,14 +105,23 @@ export async function saveGoalAndLanguageAction(formData: FormData) {
   // customer who skips it still gets a working employee — so it must never block the step.
   const businessDescription =
     formData.get("businessDescription")?.toString().trim().slice(0, 1000) || null;
+  /**
+   * The language the employee is born speaking.
+   *
+   * Normalized through the registry rather than trusted: this value ends up on the Vapi assistant
+   * (transcriber + voice) and on the `agents` row, and a code with nothing behind it would produce
+   * an employee that claims a language it cannot speak. An unknown value becomes null, which the
+   * readers already treat as English — the same behaviour as before this field existed.
+   */
+  const language = toLanguageCode(formData.get("language")?.toString() ?? null);
 
-  console.log("[onboarding submit] step 1 (goal)");
+  console.log("[onboarding submit] step 1 (goal)", { language });
 
   if (!orgId) {
     return { ok: false, error: "Organization ID is missing." };
   }
 
-  const result = await saveOnboardingPreferences(orgId, { goal, businessDescription });
+  const result = await saveOnboardingPreferences(orgId, { goal, businessDescription, language });
   return result;
 }
 
@@ -522,7 +532,7 @@ export async function updateOnboardingStep(orgId: string, step: number) {
  */
 export async function saveOnboardingPreferences(
   orgId: string,
-  preferences: { goal: string; businessDescription?: string | null }
+  preferences: { goal: string; businessDescription?: string | null; language?: string | null }
 ) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -577,6 +587,16 @@ export async function saveOnboardingPreferences(
       ...(preferences.businessDescription
         ? { business_description: preferences.businessDescription }
         : {}),
+      /**
+       * The column activation has always read and nobody ever wrote.
+       *
+       * `runActivation` puts this on the Vapi assistant AND on the `agents` row, and
+       * `resolveWorkspaceLineDefaults` reads it when a BYO number is connected — all three fell
+       * through to English because the wizard had no language question. Written only when the
+       * registry recognised the value, so a malformed submit leaves the previous answer alone
+       * instead of resetting the workspace to English.
+       */
+      ...(preferences.language ? { onboarding_language: preferences.language } : {}),
     })
     .eq("org_id", orgId);
 

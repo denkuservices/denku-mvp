@@ -48,6 +48,15 @@
    routes: no org → `/onboarding`; plan inactive → `/onboarding`; else `/dashboard`.
 3. **Wizard steps 1–3** save goal/language/phone-intent (`onboarding_language`, desired area code
    → `orgs.phone_desired_area_code`).
+   ⚠️ **`onboarding_language` was READ-ONLY until 2026-09-03** — this line described an intention,
+   not the code. Three places read the column (the Vapi assistant's transcriber + voice, the
+   `agents` row activation creates, and `resolveWorkspaceLineDefaults` when a BYO number is
+   connected) and nothing ever wrote it, so every workspace fell through to `?? "en"` and a
+   business in Türkiye got an AI that answered its callers in English. The Goal step (UI step 1)
+   now asks the question, with options derived from `lib/language/registry.ts` and the answer
+   normalized through `toLanguageCode` before it is stored. It is asked there, not on the phone
+   step, because a chat-only customer skips the phone form (`I don't need a phone line`) and their
+   employee is born from the same column.
 4. **Plan step**: `startPlanCheckout(planCode)` → Stripe Checkout (see
    `skills/billing-and-stripe.md`). Activation of the plan is dual-path (webhook + redirect
    fallback), both upsert `org_plan_overrides` and raise step to 5.
