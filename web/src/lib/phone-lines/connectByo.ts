@@ -256,9 +256,30 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
       if (!carrier?.gatewayHost) return fail("SIP gateway host is required", 400);
 
       carrierKey = carrier.providerKey ?? null;
+
+      /*
+       * Trust every address the carrier is KNOWN to send from, not just the one in the form.
+       *
+       * The form collects one IP because that is all a customer can find in their panel. Vapi
+       * matches the SOURCE address of the carrier's INVITE, so a carrier with a second egress
+       * host is refused there — and refused invisibly: no call record at Vapi, and a busy tone
+       * for the caller, which is indistinguishable from the customer's own line being broken.
+       * Netgsm proved it on the first live line (see `KNOWN_SIP_CARRIERS`), so a known carrier's
+       * full published list is merged in here rather than left to whoever fills in the form.
+       */
+      const knownCarrier =
+        carrierKey && carrierKey in KNOWN_SIP_CARRIERS
+          ? KNOWN_SIP_CARRIERS[carrierKey as KnownCarrierKey]
+          : null;
+      const extraGateways =
+        knownCarrier && "additionalGatewayHosts" in knownCarrier
+          ? (knownCarrier.additionalGatewayHosts as readonly string[])
+          : [];
+
       const credential = await createSipTrunkCredential({
         name: carrier.name || `${carrierKey ?? "SIP"} trunk`,
         gatewayHost: carrier.gatewayHost,
+        additionalGatewayHosts: extraGateways,
         gatewayPort: carrier.gatewayPort ?? null,
         authUsername: carrier.authUsername ?? null,
         authPassword: carrier.authPassword ?? null,
