@@ -956,7 +956,30 @@
     },
     "chat": {
       "eyebrow": "IA de Chat",
-      "status": "En producción en Telegram y correo",
+      "status": "En producción en Telegram, correo y chat web",
+      "primaryCta": "Ver los planes",
+      "secondaryCta": "Hablemos",
+      "showcase": {
+        "eyebrow": "Bandeja unificada",
+        "online": "En línea",
+        "visitor": "Visitante",
+        "visitorMessage": "¿Podemos agendar una consulta mañana por la tarde?",
+        "aiMessage": "Claro. ¿Te viene bien a las 14:30?",
+        "action": "Solicitud de cita creada",
+        "synced": "Sincronizada con la bandeja",
+        "typing": "Iris está respondiendo",
+        "email": "Correo"
+      },
+      "journey": {
+        "eyebrow": "Del mensaje al resultado",
+        "headline": "Un mensaje se convierte en trabajo resuelto.",
+        "sub": "Cada conversación sigue un flujo claro: respondida, comprendida y visible para tu equipo.",
+        "steps": [
+          { "title": "Llega un mensaje", "body": "Desde Telegram, correo o chat web." },
+          { "title": "Iris responde", "body": "Con todo el contexto y con tu tono." },
+          { "title": "El trabajo queda hecho", "body": "Como ticket, lead o cita en tu bandeja." }
+        ]
+      },
       "headline": "Los mensajes, respondidos.",
       "sub": "El mismo empleado, trabajando los canales donde la gente escribe en vez de llamar.",
       "does": [
@@ -969,7 +992,7 @@
       "billingBody": "Por canal, no por mensaje. Tú eliges en cuántos canales de chat responde tu IA — uno por 299 $ al mes, dos por 499 $ — y no hay contador de mensajes que se agote.",
       "notYet": [
         "Responder en Instagram aún no está activo — solo recibe.",
-        "Messenger, WhatsApp, SMS y chat web todavía no tienen conector y no están en ningún plan."
+        "Messenger, WhatsApp y SMS todavía no tienen conector y no están en ningún plan."
       ],
       "cta": "Ponlo en tus canales."
     }

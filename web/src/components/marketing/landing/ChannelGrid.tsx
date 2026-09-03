@@ -3,6 +3,7 @@
 import { MARKETING_CHANNELS, type ChannelStatus } from "@/lib/marketing/content/channels";
 import { Reveal } from "./primitives";
 import { useTranslations } from "next-intl";
+import { ChannelIcon } from "./ChannelIcon";
 
 /**
  * The channel roster, with each channel's real status on its face.
@@ -31,41 +32,63 @@ const STATUS_STYLE: Record<ChannelStatus, { fg: string; bg: string; bd: string }
   },
 };
 
-export function ChannelGrid() {
+export function ChannelGrid({ includeVoice = true }: { includeVoice?: boolean }) {
   const t = useTranslations("channels");
   const title = t("title");
   const note = t("note");
+  const channels = MARKETING_CHANNELS.filter((channel) => includeVoice || channel.id !== "voice");
+  const availableChannels = channels.filter((channel) => channel.status !== "beta");
+  const betaChannels = channels.filter((channel) => channel.status === "beta");
 
   return (
-    <section id="channels" className="relative w-full px-6 py-24 md:px-8">
+    <section id="channels" className="relative w-full overflow-hidden px-6 py-20 md:px-8 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <Reveal className="mb-12 max-w-2xl">
-          <div className="font-brand-mono text-[10.5px] uppercase tracking-[.2em] text-[var(--d-ink-faint)]">
-            {t("eyebrow")}
+        <Reveal className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <div className="font-brand-mono text-[10.5px] uppercase tracking-[.2em] text-[var(--d-ink-faint)]">
+              {t("eyebrow")}
+            </div>
+            <h2 className="mt-4 font-display text-[clamp(30px,4vw,48px)] font-semibold leading-[1.02] tracking-[-.02em] text-[var(--d-ink)]">
+              {title}
+            </h2>
           </div>
-          <h2 className="mt-4 font-display text-[clamp(30px,4vw,48px)] font-semibold leading-[1.02] tracking-[-.02em] text-[var(--d-ink)]">
-            {title}
-          </h2>
+          <div className="flex flex-wrap gap-2">
+            {(["live", "limited", "beta"] as ChannelStatus[]).map((status) => {
+              const count = channels.filter((channel) => channel.status === status).length;
+              if (count === 0) return null;
+              const style = STATUS_STYLE[status];
+              return (
+                <span
+                  key={status}
+                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-brand-mono text-[9px] uppercase tracking-[.12em]"
+                  style={{ color: style.fg, background: style.bg, borderColor: style.bd }}
+                >
+                  <span>{count}</span>
+                  {t(`status.${status}`)}
+                </span>
+              );
+            })}
+          </div>
         </Reveal>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {MARKETING_CHANNELS.map((c, i) => {
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {availableChannels.map((c, i) => {
             const s = STATUS_STYLE[c.status];
             return (
               <Reveal key={c.id} delay={i * 50}>
                 <div
-                  className="flex h-full flex-col gap-2 rounded-[16px] border p-5"
+                  className="landing-glass group relative flex min-h-[220px] h-full flex-col overflow-hidden p-6"
                   style={{
-                    borderColor: c.status === "live" ? "var(--d-border)" : "var(--d-border)",
-                    background:
-                      c.status === "beta" ? "transparent" : "var(--d-surface-glass)",
-                    opacity: c.status === "beta" ? 0.72 : 1,
+                    borderColor: c.status === "limited" ? "rgba(200,148,104,.22)" : undefined,
                   }}
                 >
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-50 blur-3xl transition-opacity duration-500 group-hover:opacity-90"
+                    style={{ background: s.bg }}
+                  />
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-display text-[17px] font-semibold text-[var(--d-ink)]">
-                      {t(`items.${c.id}.label`)}
-                    </span>
+                    <ChannelIcon channel={c.id} size="lg" />
                     <span
                       className="shrink-0 rounded-full border px-2 py-[3px] font-brand-mono text-[8.5px] uppercase tracking-[.14em]"
                       style={{ color: s.fg, background: s.bg, borderColor: s.bd }}
@@ -73,14 +96,15 @@ export function ChannelGrid() {
                       {t(`status.${c.status}`)}
                     </span>
                   </div>
-                  <p className="text-[13.5px] leading-snug text-[var(--d-ink-soft)]">
+                  <h3 className="mt-auto pt-7 font-display text-[22px] font-semibold text-[var(--d-ink)]">
+                    {t(`items.${c.id}.label`)}
+                  </h3>
+                  <p className="mt-1.5 text-[13.5px] leading-snug text-[var(--d-ink-soft)]">
                     {t(`items.${c.id}.line`)}
                   </p>
                   {c.caveat && (
-                    <p className="mt-auto pt-2 text-[12px] leading-snug text-[var(--d-ink-faint)]">
-                      {c.status === "limited"
-                        ? t(`items.${c.id}.caveat`)
-                        : t("notInPlan")}
+                    <p className="mt-4 border-t border-[var(--d-border)] pt-3 text-[11.5px] leading-snug text-[var(--d-ink-faint)]">
+                      {t(`items.${c.id}.caveat`)}
                     </p>
                   )}
                 </div>
@@ -89,8 +113,28 @@ export function ChannelGrid() {
           })}
         </div>
 
-        <Reveal delay={200}>
-          <p className="mt-6 font-brand-mono text-[12px] text-[var(--d-ink-faint)]">{note}</p>
+        <Reveal delay={180}>
+          <div className="mt-4 flex flex-col gap-4 rounded-[18px] border border-dashed border-[var(--d-border)] px-5 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2.5">
+              {betaChannels.map((channel) => (
+                <div
+                  key={channel.id}
+                  className="flex items-center gap-2 rounded-full border border-[var(--d-border)] bg-[rgba(247,245,241,.025)] py-1.5 pl-1.5 pr-3"
+                >
+                  <ChannelIcon channel={channel.id} size="sm" muted />
+                  <span className="text-[12px] font-medium text-[var(--d-ink-soft)]">
+                    {t(`items.${channel.id}.label`)}
+                  </span>
+                  <span className="font-brand-mono text-[7.5px] uppercase tracking-[.12em] text-[var(--d-ink-faint)]">
+                    {t("status.beta")}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="max-w-md font-brand-mono text-[10.5px] leading-relaxed text-[var(--d-ink-faint)] md:text-right">
+              {note}
+            </p>
+          </div>
         </Reveal>
       </div>
     </section>
