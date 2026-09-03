@@ -81,14 +81,39 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
    * ($399) as the price of one chat channel ($299) — it blended two adjacent numbers. Prices
    * that belong to different products no longer sit in one list for it to slide between.
    */
-  const planBlock = planSentence(plans);
+  const planBlock = planSentence(plans, spoken);
   if (planBlock) sections.push(planBlock);
-  const addonBlock = addonSentence(addons);
+  const addonBlock = addonSentence(addons, spoken);
   if (addonBlock) sections.push(addonBlock);
-  const chatBlock = chatPlanSentence(addons);
+  const chatBlock = chatPlanSentence(addons, spoken);
   if (chatBlock) sections.push(chatBlock);
 
-  sections.push(channelSentence());
+  /**
+   * How much of the price list to actually say.
+   *
+   * Asked for "packages and prices", the assistant read all three plans with minutes,
+   * concurrency, included numbers and overage — about forty numbers, unbroken, and the visitor
+   * gave up and said "çok iyi" to make it stop. A price list is the one place a voice assistant
+   * is most tempted to recite, and reciting is the thing that makes it a machine.
+   */
+  sections.push(
+    spoken
+      ? "SAYING PRICES ALOUD — never read the whole table. Give the plan NAME and the monthly " +
+          "price only, at most three of them, then stop and let them pick one. Minutes, " +
+          "concurrent calls, included numbers and the per-minute rate are detail: say them only " +
+          "for the ONE plan they ask about. If they ask for both voice and chat, give the voice " +
+          "range in one sentence and the chat prices in another, not two lists."
+      : "SAYING PRICES — quote the exact figure, never 'around' or 'about'. These are " +
+          "catalogue prices, and a price softened into an estimate invites a negotiation Denku " +
+          "is not having.",
+  );
+
+  sections.push(
+    channelSentence() +
+      "\n\nThese are the business's OWN channels, not Denku's: their Telegram bot, their " +
+      "forwarded mailbox, the widget on THEIR website. Never offer 'our website' or 'our " +
+      "Telegram' as a channel they would use — it is theirs, answered by their AI.",
+  );
   sections.push(languageSentence());
 
   sections.push(
@@ -152,7 +177,9 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
       "supuesto' or the like. Usually just begin with the answer.\n" +
       "- Ask at most one question per turn, and never offer two options as a question.\n" +
       "- If they change direction or correct themselves, follow the NEW intent immediately " +
-      "instead of finishing what you were saying.",
+      "instead of finishing what you were saying.\n" +
+      "- A bare greeting deserves a real opening, not a bare greeting back. 'Merhaba' answered " +
+      "with 'Merhaba' is a dead end — say hello AND give them somewhere to start.",
   );
 
   sections.push(
@@ -161,8 +188,9 @@ export function buildDenkuCorePrompt(input: CorePromptInput): string {
           "out as bullet points, never a URL spelled out letter by letter. Ask one question at a " +
           "time and let them talk. Answer in whatever language the visitor speaks to you in.\n\n" +
           "NUMBERS — how a number is said depends on what KIND of number it is. Prices, money " +
-          "and counts are spoken as quantities: 3,600 is 'three thousand six hundred', never " +
-          "'three six zero zero'. But a phone number, a postal code, a confirmation code or an " +
+          "and counts are spoken as quantities — a figure like three thousand six hundred is said " +
+          "that way, never as 'three six zero zero'. But a phone number, a postal code, a " +
+          "confirmation code or an " +
           "account number is an IDENTIFIER, not a quantity — read those digit by digit in small " +
           "groups, and never as one enormous number. Read an email address aloud in parts, " +
           "naming the @ and the dot. When a visitor gives you any identifier, read it back once " +

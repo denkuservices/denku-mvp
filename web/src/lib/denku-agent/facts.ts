@@ -161,29 +161,75 @@ export function languageSentence(): string {
 }
 
 /**
- * Numbers a voice model will read as quantities, not as digits.
+ * Numbers written as WORDS for the spoken prompt, and as digits for the written one.
  *
- * On the first real Turkish call the assistant read `3600` aloud as "üç altı sıfır sıfır" —
- * three, six, zero, zero. `149`, `400` and `1200` survived, which is the worst version of this
- * bug: it looks fine until the one plan nobody tested is quoted to a customer.
+ * Two rounds of real Turkish calls decided this. First the assistant read `3600` as "üç altı
+ * sıfır sıfır" — three, six, zero, zero. A thousands separator was the obvious fix and it did
+ * not work: the next call still said "üç altı sıfır sıfır", and added "sekiz yüz otuz dokuz"
+ * for `$899` (eight hundred THIRTY-nine — a wrong price, invented while converting) and "sıfır
+ * point on üç" for `$0.13`, half in English.
  *
- * A thousands separator is what fixes it, because "3,600" is unambiguously a quantity while
- * "3600" can be read as a digit string. The prompt also carries an explicit instruction, since
- * belt and braces cost nothing here and the failure is heard by a prospect.
+ * The pattern in the failures is what matters: every number that was already SPELLED in the
+ * prompt came out perfectly in Turkish, in every call. What broke was always a numeral the model
+ * had to convert. So the numeral is removed rather than annotated — the model now only has to
+ * translate words into words, which it has never once got wrong.
+ *
+ * Decimals get the same treatment via cents, because "$0.13" is where "point" leaked in from
+ * English. "Thirteen cents a minute" has nothing left to mangle.
  */
+const ONES = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+  "nineteen",
+];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+/** English words for a non-negative integer below 1,000,000 — the whole range this catalogue uses. */
+export function numberToWords(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return String(n);
+  const i = Math.round(n);
+  if (i < 20) return ONES[i];
+  if (i < 100) {
+    const t = TENS[Math.floor(i / 10)];
+    const r = i % 10;
+    return r ? `${t}-${ONES[r]}` : t;
+  }
+  if (i < 1000) {
+    const h = `${ONES[Math.floor(i / 100)]} hundred`;
+    const r = i % 100;
+    return r ? `${h} ${numberToWords(r)}` : h;
+  }
+  const th = `${numberToWords(Math.floor(i / 1000))} thousand`;
+  const r = i % 1000;
+  return r ? `${th} ${numberToWords(r)}` : th;
+}
+
+/** A whole-dollar price, spoken. */
+const spokenUsd = (n: number): string =>
+  Number.isInteger(n)
+    ? `${numberToWords(n)} dollars`
+    : `${numberToWords(Math.round(n * 100))} cents`;
+
 const qty = (n: number): string => n.toLocaleString("en-US");
 
 const usd = (n: number): string =>
   Number.isInteger(n) ? `$${qty(n)}` : `$${n.toFixed(2)}`;
 
-export function planSentence(plans: PlanFact[]): string {
+export function planSentence(plans: PlanFact[], spoken = false): string {
   if (plans.length === 0) return "";
-  const lines = plans.map(
-    (p) =>
-      `- ${p.name}: ${usd(p.monthlyUsd)}/month, ${qty(p.includedMinutes)} minutes included, ` +
-      `${p.concurrentCalls} call${p.concurrentCalls === 1 ? "" : "s"} at once, ` +
-      `${p.includedNumbers} phone number included, ` +
-      `${usd(p.overagePerMinuteUsd)}/minute after the included minutes.`,
+  const price = (n: number) => (spoken ? spokenUsd(n) : usd(n));
+  const count = (n: number) => (spoken ? numberToWords(n) : qty(n));
+
+  const lines = plans.map((p) =>
+    spoken
+      ? `- ${p.name}: ${price(p.monthlyUsd)} a month, ${count(p.includedMinutes)} minutes ` +
+        `included, ${count(p.concurrentCalls)} call${p.concurrentCalls === 1 ? "" : "s"} at ` +
+        `once, ${count(p.includedNumbers)} phone number included, then ` +
+        `${price(p.overagePerMinuteUsd)} a minute.`
+      : `- ${p.name}: ${price(p.monthlyUsd)}/month, ${count(p.includedMinutes)} minutes ` +
+        `included, ${p.concurrentCalls} call${p.concurrentCalls === 1 ? "" : "s"} at once, ` +
+        `${p.includedNumbers} phone number included, ` +
+        `${price(p.overagePerMinuteUsd)}/minute after the included minutes.`,
   );
   return `Voice plans (per month, cancel any time, no free trial):\n${lines.join("\n")}`;
 }
@@ -202,20 +248,23 @@ export function planSentence(plans: PlanFact[]): string {
  */
 const isChatAddon = (a: AddonFact): boolean => a.key.startsWith("chat_");
 
-export function addonSentence(addons: AddonFact[]): string {
+export function addonSentence(addons: AddonFact[], spoken = false): string {
   const voice = addons.filter((a) => !isChatAddon(a));
   if (voice.length === 0) return "";
+  const price = (n: number) => (spoken ? `${spokenUsd(n)} a month` : `${usd(n)}/month`);
   return `Voice add-ons (only for a voice plan):\n${voice
-    .map((a) => `- ${a.label}: ${usd(a.monthlyUsd)}/month.`)
+    .map((a) => `- ${a.label}: ${price(a.monthlyUsd)}.`)
     .join("\n")}`;
 }
 
-export function chatPlanSentence(addons: AddonFact[]): string {
+export function chatPlanSentence(addons: AddonFact[], spoken = false): string {
   const chat = addons.filter(isChatAddon);
   if (chat.length === 0) return "";
+  const price = (n: number) => (spoken ? `${spokenUsd(n)} a month` : `${usd(n)}/month`);
   return (
     "CHAT plans — a SEPARATE product from voice, with its own prices. Never quote a voice " +
-    "price for chat:\n" +
-    chat.map((a) => `- ${a.label}: ${usd(a.monthlyUsd)}/month.`).join("\n")
+    "price for chat. These are EXACT prices, not estimates — never say a chat plan costs " +
+    '"around" or "about" a number:\n' +
+    chat.map((a) => `- ${a.label}: ${price(a.monthlyUsd)}.`).join("\n")
   );
 }
