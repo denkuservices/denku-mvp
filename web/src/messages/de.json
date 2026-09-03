@@ -956,7 +956,30 @@
     },
     "chat": {
       "eyebrow": "KI-Chat",
-      "status": "Live auf Telegram und E-Mail",
+      "status": "Live auf Telegram, E-Mail und im Web-Chat",
+      "primaryCta": "Tarife ansehen",
+      "secondaryCta": "Sprechen Sie uns an",
+      "showcase": {
+        "eyebrow": "Ein gemeinsamer Posteingang",
+        "online": "Online",
+        "visitor": "Besucher",
+        "visitorMessage": "Können wir morgen Nachmittag ein Beratungsgespräch vereinbaren?",
+        "aiMessage": "Natürlich. Passt Ihnen 14:30 Uhr?",
+        "action": "Terminanfrage erstellt",
+        "synced": "Mit dem Posteingang synchronisiert",
+        "typing": "Iris antwortet",
+        "email": "E-Mail"
+      },
+      "journey": {
+        "eyebrow": "Von der Nachricht zum Ergebnis",
+        "headline": "Aus einer Nachricht wird erledigte Arbeit.",
+        "sub": "Jedes Gespräch folgt demselben klaren Ablauf: beantwortet, verstanden und für Ihr Team sichtbar.",
+        "steps": [
+          { "title": "Eine Nachricht kommt an", "body": "Über Telegram, E-Mail oder Web-Chat." },
+          { "title": "Iris antwortet", "body": "Mit vollständigem Kontext und in Ihrem Ton." },
+          { "title": "Die Arbeit ist erledigt", "body": "Als Ticket, Lead oder Termin in Ihrem Posteingang." }
+        ]
+      },
       "headline": "Die Nachrichten, beantwortet.",
       "sub": "Derselbe Mitarbeiter, auf den Kanälen, wo Menschen schreiben statt anzurufen.",
       "does": [
@@ -969,7 +992,7 @@
       "billingBody": "Pro Kanal, nicht pro Nachricht. Sie wählen, auf wie vielen Chat-Kanälen Ihre KI antwortet — einer für 299 $ im Monat, zwei für 499 $ — und es gibt keinen Nachrichtenzähler, der leerläuft.",
       "notYet": [
         "Antworten auf Instagram ist noch nicht aktiviert — es empfängt nur.",
-        "Messenger, WhatsApp, SMS und Web-Chat haben noch keinen Connector und sind in keinem Tarif."
+        "Messenger, WhatsApp und SMS haben noch keinen Connector und sind in keinem Tarif."
       ],
       "cta": "Setzen Sie ihn auf Ihre Kanäle."
     }

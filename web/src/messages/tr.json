@@ -956,7 +956,30 @@
     },
     "chat": {
       "eyebrow": "AI Sohbet",
-      "status": "Telegram ve e-postada canlı",
+      "status": "Telegram, e-posta ve web sohbetinde canlı",
+      "primaryCta": "Paketleri incele",
+      "secondaryCta": "Bize danışın",
+      "showcase": {
+        "eyebrow": "Birleşik gelen kutusu",
+        "online": "Çevrimiçi",
+        "visitor": "Ziyaretçi",
+        "visitorMessage": "Yarın öğleden sonra bir görüşme ayarlayabilir miyiz?",
+        "aiMessage": "Elbette. 14.30 sizin için uygun mu?",
+        "action": "Randevu talebi oluşturuldu",
+        "synced": "Gelen kutusuna işlendi",
+        "typing": "Iris yanıtlıyor",
+        "email": "E-posta"
+      },
+      "journey": {
+        "eyebrow": "Mesajdan sonuca",
+        "headline": "Bir mesaj, tamamlanmış bir işe dönüşür.",
+        "sub": "Kanaldan gelen her konuşma aynı akışta yanıtlanır, sınıflandırılır ve ekibinize görünür.",
+        "steps": [
+          { "title": "Mesaj gelir", "body": "Telegram, e-posta veya web sohbetinden." },
+          { "title": "Iris yanıtlar", "body": "Bağlamı koruyarak, sizin üslubunuzla." },
+          { "title": "İş tamamlanır", "body": "Talep, kayıt veya randevu olarak gelen kutunuza düşer." }
+        ]
+      },
       "headline": "Mesajlar, yanıtlanmış.",
       "sub": "Aynı çalışan, insanların aramak yerine yazdığı kanallarda.",
       "does": [
@@ -969,7 +992,7 @@
       "billingBody": "Mesajla değil, kanalla. AI'ınızın kaç sohbet kanalında yanıt vereceğini siz seçersiniz — bir kanal aylık $299, iki kanal $499 — ve tükenecek bir mesaj sayacı yoktur.",
       "notYet": [
         "Instagram'da yanıtlama henüz açık değil — yalnızca alıyor.",
-        "Messenger, WhatsApp, SMS ve web sohbetinin henüz bağlayıcısı yok ve hiçbir planda değiller."
+        "Messenger, WhatsApp ve SMS'in henüz bağlayıcısı yok ve hiçbir planda değiller."
       ],
       "cta": "Kanallarınıza yerleştirin."
     }

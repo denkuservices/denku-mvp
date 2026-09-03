@@ -956,7 +956,30 @@
     },
     "chat": {
       "eyebrow": "AI Chat",
-      "status": "Live on Telegram and email",
+      "status": "Live on Telegram, email and web chat",
+      "primaryCta": "Explore plans",
+      "secondaryCta": "Talk to us",
+      "showcase": {
+        "eyebrow": "Unified inbox",
+        "online": "Online",
+        "visitor": "Visitor",
+        "visitorMessage": "Could we schedule a consultation tomorrow afternoon?",
+        "aiMessage": "Of course. Would 2:30 PM work for you?",
+        "action": "Appointment request created",
+        "synced": "Synced to Inbox",
+        "typing": "Iris is replying",
+        "email": "Email"
+      },
+      "journey": {
+        "eyebrow": "Message to outcome",
+        "headline": "One message becomes finished work.",
+        "sub": "Every conversation follows one clear path: answered, understood, and visible to your team.",
+        "steps": [
+          { "title": "A message arrives", "body": "From Telegram, email, or web chat." },
+          { "title": "Iris responds", "body": "With the context intact, in your voice." },
+          { "title": "The work gets done", "body": "As a ticket, lead, or appointment in your Inbox." }
+        ]
+      },
       "headline": "The messages, answered.",
       "sub": "The same employee, working the channels where people type instead of call.",
       "does": [
@@ -969,7 +992,7 @@
       "billingBody": "By the channel, not by the message. You choose how many chat channels your AI answers on — one for $299 a month, two for $499 — and there is no message counter to run out of.",
       "notYet": [
         "Replying on Instagram is not switched on yet — it receives only.",
-        "Messenger, WhatsApp, SMS and web chat have no connector yet and are in no plan."
+        "Messenger, WhatsApp and SMS have no connector yet and are in no plan."
       ],
       "cta": "Put it on your channels."
     }
