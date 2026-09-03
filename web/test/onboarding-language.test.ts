@@ -70,7 +70,13 @@ describe("onboarding asks for the AI's language", () => {
   it("still writes the column activation actually reads", () => {
     // The whole point: the wizard's answer must land where the assistant and the agent row are
     // born from. If either read moves, this question stops mattering and nobody notices.
-    expect(ACTIONS_CODE).toMatch(/language:\s*settings\?\.onboarding_language\s*\?\?\s*"en"/);
-    expect(ACTIONS_CODE).toMatch(/language:\s*chatSettings\?\.onboarding_language\s*\?\?\s*"en"/);
+    // Once per path that can create an employee: the Vapi assistant, the voice agent row, the
+    // BYO agent row, and the non-voice employee shared by the chat and free-preview paths. The
+    // last of these used to read `chatSettings` — the block moved into `ensureNonVoiceEmployee`
+    // and the local is now called `settings`, which is why this counts rather than naming both.
+    const languageReads = ACTIONS_CODE.match(
+      /language:\s*(chat)?[Ss]ettings\?\.onboarding_language\s*\?\?\s*"en"/g
+    );
+    expect(languageReads?.length ?? 0).toBeGreaterThanOrEqual(4);
   });
 });

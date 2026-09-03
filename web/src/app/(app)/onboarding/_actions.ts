@@ -16,6 +16,7 @@ import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { assignEmployeeToChannel } from "@/lib/platform/assignEmployee";
 import Stripe from "stripe";
 import { CHANNELS, CHANNEL_ORDER } from "@/lib/platform/channels";
+import { byoNumbersEnabled } from "@/lib/platform/flags";
 import { canReplyOn } from "@/lib/platform/transports/registry";
 import {
   isVoicePlanCode,
@@ -126,15 +127,217 @@ export async function saveGoalAndLanguageAction(formData: FormData) {
 }
 
 /**
+ * What the customer asked for at the phone step.
+ *
+ * The answer used to be discarded: the step wrote an area code and nothing else, so
+ * "I don't need a phone line" and "claim me a US number in 415" left the workspace in exactly
+ * the same state. Every screen after it then had to infer the intent from the plan — and the
+ * plan does not exist yet when the step is answered.
+ *
+ * NULL (not asked yet) reads as `"new"` everywhere, so a workspace already mid-flow behaves
+ * exactly as it did before this column existed.
+ */
+export type PhoneProvisioningMode = "new" | "byo" | "none";
+
+function toPhoneProvisioningMode(raw: string | null | undefined): PhoneProvisioningMode {
+  const v = (raw ?? "").trim().toLowerCase();
+  return v === "byo" || v === "none" ? v : "new";
+}
+
+/**
+ * Which PRODUCT the customer chose, asked before anything is priced.
+ *
+ * A different question from `PhoneProvisioningMode`, and asked one screen earlier. The wizard used
+ * to open with "what area code?" and then show a single plan screen carrying voice plans, chat
+ * tiers and a skip button together — and since the three large cards on that screen are voice
+ * plans, "the plans" read as phone service to everyone. A customer who had just said they wanted
+ * chat picked one and was rented a US number, monthly, for a product they had declined (R-153).
+ *
+ * So: what do you want → what size → (voice only) which number. This is the first answer, and it
+ * decides which plans are ever SHOWN. `phone_provisioning_mode` is then asked only inside the
+ * voice branch; `chat` and `free` imply `none` there, and both are written together.
+ */
+export type OnboardingProductIntent = "voice" | "chat" | "free";
+
+/**
+ * NULL is preserved rather than defaulted, unlike `toPhoneProvisioningMode`.
+ *
+ * "Not asked" and "asked, answered chat" must stay distinguishable, because activation REFUSES to
+ * provision a phone line for a `chat`/`free` intent. Collapsing an unset column onto one of the
+ * three values would apply that refusal to every workspace that started before this column
+ * existed — a paying voice customer, mid-flow, denied the number they bought. Unknown means
+ * unknown, and every reader falls back to its old behaviour.
+ */
+function toProductIntent(raw: string | null | undefined): OnboardingProductIntent | null {
+  const v = (raw ?? "").trim().toLowerCase();
+  return v === "voice" || v === "chat" || v === "free" ? v : null;
+}
+
+/**
+ * Record what the customer picked, from anywhere that learns it.
+ *
+ * Never throws and never blocks its caller: this is a preference, and refusing to open a checkout
+ * because we could not write it would cost a sale to protect a hint. The one place it is
+ * load-bearing — activation's refusal to provision — treats a missing value as "not asked", so a
+ * failed write degrades to the old behaviour rather than to the wrong branch.
+ */
+async function recordProductIntent(
+  orgId: string,
+  intent: OnboardingProductIntent,
+  extra: { phoneProvisioningMode?: PhoneProvisioningMode } = {}
+): Promise<void> {
+  try {
+    const patch: Record<string, string | null> = { onboarding_product_intent: intent };
+    if (extra.phoneProvisioningMode) {
+      patch.phone_provisioning_mode = extra.phoneProvisioningMode;
+      // An area code is a preference about a US number we would buy. Keeping it alongside a
+      // `none` intent is how a stale value survives a change of mind and buys a line anyway.
+      if (extra.phoneProvisioningMode === "none") patch.phone_desired_area_code = null;
+    }
+    const { error } = await supabaseAdmin.from("orgs").update(patch).eq("id", orgId);
+    if (error) {
+      console.warn("[recordProductIntent] could not record intent:", error.message);
+    }
+  } catch (err) {
+    console.warn(
+      "[recordProductIntent] could not record intent:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+/**
+ * The AI employee a workspace gets when NO phone line is involved.
+ *
+ * Every workspace needs an employee, whatever it bought. The first version of the chat short-cut
+ * skipped both the phone line and the employee, and a real signup found the cost:
+ * `resolveReplyEmployee` returned null, so the reply engine went silent — messages arrived, the
+ * paid slot claimed itself, the Inbox filled up, and the customer's AI never answered anyone.
+ * Skipping the line was right; skipping the employee was not.
+ *
+ * A free-preview workspace gets one for the same reason one step later: nothing answers today,
+ * but the day its owner buys a chat tier from the billing page, that page grants entitlement and
+ * creates no employee — so without this they would buy chat and still be answered by silence.
+ *
+ * **Touches nothing outside Postgres.** No Vapi assistant, no phone number, no Stripe call — which
+ * is what makes it safe to call from a path where the customer has paid nothing. Idempotent: an
+ * existing agent is reused, so a re-run cannot create a second one.
+ */
+async function ensureNonVoiceEmployee(
+  orgId: string,
+  createdBy: string
+): Promise<{ ok: true; agentId: string } | { ok: false; error: string }> {
+  const { data: existingAgent } = await supabaseAdmin
+    .from("agents")
+    .select("id")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  let agentId = existingAgent?.id ?? null;
+
+  if (!agentId) {
+    const [{ data: org }, { data: settings }] = await Promise.all([
+      supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
+      supabaseAdmin
+        .from("organization_settings")
+        .select("onboarding_language, onboarding_goal, business_description")
+        .eq("org_id", orgId)
+        .maybeSingle<{
+          onboarding_language: string | null;
+          onboarding_goal: string | null;
+          business_description: string | null;
+        }>(),
+    ]);
+
+    const context = seedBusinessContext(org?.name, settings?.business_description);
+
+    const { data: newAgent, error: agentError } = await supabaseAdmin
+      .from("agents")
+      .insert({
+        org_id: orgId,
+        // Named for what it does here. "Main Line" is the voice employee's name and would read as
+        // a phone line to a customer who deliberately did not buy one.
+        name: org?.name?.trim() ? `${org.name.trim()} Assistant` : "Assistant",
+        language: settings?.onboarding_language ?? "en",
+        timezone: "America/New_York",
+        created_by: createdBy,
+        agent_type: agentTypeForGoal(settings?.onboarding_goal),
+        ...(context ? { business_context: context } : {}),
+        // No vapi_assistant_id and no vapi_phone_number_id, on purpose: nothing was provisioned,
+        // and writing ids for artifacts that do not exist would break the reconcile paths that
+        // trust those columns.
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    if (agentError || !newAgent?.id) {
+      console.error("[ensureNonVoiceEmployee] agent creation failed", agentError?.message);
+      return { ok: false, error: "Could not finish setting up your AI. Please try again." };
+    }
+    agentId = newAgent.id;
+  }
+
+  await supabaseAdmin
+    .from("organization_settings")
+    .update({ main_agent_id: agentId })
+    .eq("org_id", orgId);
+
+  return { ok: true, agentId };
+}
+
+/**
+ * Form action: the customer picks a product — calls, messages, or neither yet.
+ *
+ * This is the screen that used to ask for an area code. It writes the answer and advances to the
+ * plan step, which then shows ONLY that product's plans. Nothing is charged and nothing is
+ * provisioned here.
+ */
+export async function saveProductIntentAction(formData: FormData) {
+  const orgId = formData.get("orgId")?.toString();
+  const intent = toProductIntent(formData.get("productIntent")?.toString());
+
+  console.log("[onboarding submit] step 2 (product intent -> plan)", { intent });
+
+  if (!orgId) {
+    return { ok: false, error: "Organization ID is missing." };
+  }
+  if (!intent) {
+    // The form always sends one of the three. An empty value means the customer submitted without
+    // choosing, and moving them on would pick a product for them.
+    return { ok: false, error: "Choose what your AI should answer." };
+  }
+
+  const resolvedOrgId = await getActiveOrgId();
+  if (!resolvedOrgId || resolvedOrgId !== orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  /**
+   * Chat and free imply "no phone line" — written here rather than left for later, because every
+   * screen after this one asks "is a line coming?" and the honest answer is already known. Voice
+   * deliberately writes NOTHING about the line: which KIND of line is the next question, and
+   * guessing `new` now would survive a customer who goes on to choose BYON.
+   */
+  await recordProductIntent(orgId, intent, {
+    phoneProvisioningMode: intent === "voice" ? undefined : "none",
+  });
+
+  return await setOnboardingStepToPlan(orgId);
+}
+
+/**
  * Form action: Save phone preferences (country + area code) and advance to plan selection
  */
 export async function savePhonePreferences(formData: FormData) {
   const orgId = formData.get("orgId")?.toString();
   const country = formData.get("country")?.toString() || "US";
   const areaCode = formData.get("areaCode")?.toString()?.trim() || null;
-  
-  console.log("[onboarding submit] step 2 (phone intent -> plan)", { country, areaCode });
-  
+  const mode = toPhoneProvisioningMode(formData.get("phoneMode")?.toString());
+
+  console.log("[onboarding submit] step 2 (phone intent -> plan)", { country, areaCode, mode });
+
   if (!orgId) {
     return { ok: false, error: "Organization ID is missing." };
   }
@@ -151,8 +354,11 @@ export async function savePhonePreferences(formData: FormData) {
     return { ok: false, error: "Unauthorized" };
   }
 
-  // Normalize area code: if provided, ensure it's exactly 3 digits
-  const normalizedAreaCode = areaCode && areaCode.length === 3 ? areaCode : null;
+  // Normalize area code: if provided, ensure it's exactly 3 digits.
+  // A number the customer already owns has no US area code to desire — carrying one over would
+  // survive a later change of mind and hand them a 415 line they never asked for.
+  const normalizedAreaCode =
+    mode === "new" && areaCode && areaCode.length === 3 ? areaCode : null;
 
   // Update orgs table with phone preferences
   const { error: orgError } = await supabaseAdmin
@@ -160,6 +366,7 @@ export async function savePhonePreferences(formData: FormData) {
     .update({
       phone_country_code: country,
       phone_desired_area_code: normalizedAreaCode,
+      phone_provisioning_mode: mode,
     })
     .eq("id", orgId);
 
@@ -178,21 +385,14 @@ export async function savePhonePreferences(formData: FormData) {
   return result;
 }
 
-/**
- * Form action: Advance to plan selection (Step 3 -> Step 4)
+/*
+ * `advanceToPlanAction` was here.
+ *
+ * It backed the "I don't need a phone line — I want chat" link that sat under the area-code form,
+ * and it is gone because the screen it belonged to is gone: the product is now chosen from three
+ * cards on its own step, by `saveProductIntentAction`. Removed rather than left exported —
+ * an unused server action is still a reachable endpoint, and this one wrote to `orgs`.
  */
-export async function advanceToPlanAction(formData: FormData) {
-  const orgId = formData.get("orgId")?.toString();
-  
-  console.log("[onboarding submit] step 3 (phone intent -> plan)");
-  
-  if (!orgId) {
-    return { ok: false, error: "Organization ID is missing." };
-  }
-  
-  const result = await setOnboardingStepToPlan(orgId);
-  return result;
-}
 
 /**
  * Get onboarding state for current user's org.
@@ -234,6 +434,11 @@ export async function getOnboardingState() {
       connectedChatChannels: [],
       emailInboundAddress: null,
       hasPhoneNumber: false,
+      hasConnectedLine: false,
+      connectedLineE164: null,
+      phoneProvisioningMode: "new" as const,
+      productIntent: null as OnboardingProductIntent | null,
+      byoNumbersEnabled: byoNumbersEnabled(),
       phoneNumber: null,
       needsOrgSetup: true,
     };
@@ -257,11 +462,28 @@ export async function getOnboardingState() {
   // truth (settings/_actions/workspace.ts writes it there).
   const { data: org } = await supabaseAdmin
     .from("orgs")
-    .select("id, name")
+    .select("id, name, phone_provisioning_mode, onboarding_product_intent")
     .eq("id", orgId)
     .maybeSingle();
 
   const orgName = org?.name || "";
+
+  /**
+   * What the customer asked for at the phone step. NULL means they have not reached it yet, and
+   * reads as `"new"` — the behaviour every workspace had before the column existed.
+   */
+  const phoneProvisioningMode = toPhoneProvisioningMode(
+    (org as { phone_provisioning_mode?: string | null } | null)?.phone_provisioning_mode
+  );
+
+  /**
+   * Which product they picked — calls, messages, or neither yet. Decides which plans the plan step
+   * is even allowed to show. NULL stays NULL: a workspace that started before this question
+   * existed has not answered it, and the wizard falls back to showing both rather than guessing.
+   */
+  const productIntent = toProductIntent(
+    (org as { onboarding_product_intent?: string | null } | null)?.onboarding_product_intent
+  );
 
   // 4) Get organization_settings (includes phone number artifacts after activation)
   let { data: settings } = await supabaseAdmin
@@ -429,6 +651,24 @@ export async function getOnboardingState() {
   const mainAgentId = (settings as any)?.main_agent_id || null;
   const hasPhoneNumber = !!vapiPhoneNumberId;
 
+  /**
+   * Does this workspace have a line at all — bought OR connected?
+   *
+   * `vapiPhoneNumberId` on `organization_settings` only ever holds a line WE provisioned. A number
+   * the customer brought over their own carrier lands in `phone_lines` and nowhere else, so the
+   * Live step would keep asking them to connect a number they had already connected.
+   */
+  const { data: connectedLine } = await supabaseAdmin
+    .from("phone_lines")
+    .select("phone_number_e164")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ phone_number_e164: string | null }>();
+
+  const hasConnectedLine = !!connectedLine;
+  const connectedLineE164 = connectedLine?.phone_number_e164 ?? null;
+
   return {
     orgId,
     orgName,
@@ -461,6 +701,16 @@ export async function getOnboardingState() {
     connectedChatChannels,
     emailInboundAddress,
     hasPhoneNumber,
+    hasConnectedLine,
+    connectedLineE164,
+    phoneProvisioningMode,
+    productIntent,
+    /**
+     * Whether connecting a number the customer already owns is switched on in this environment.
+     * The card is rendered from this rather than hardcoded, so an environment where the flag is
+     * off never offers a path that `/api/phone-lines/connect` would refuse with a 404.
+     */
+    byoNumbersEnabled: byoNumbersEnabled(),
     phoneNumber: phoneNumberE164, // Return E164 phone number from organization_settings (DB truth)
     phoneNumberE164, // Also include as separate field for clarity
     phoneNumberSipUri, // SIP URI for provider="vapi" lines
@@ -1175,7 +1425,58 @@ export async function runActivation(): Promise<
   }
 
   /**
-   * A workspace with no VOICE plan has nothing to provision.
+   * What the customer chose, and what kind of line they asked for. Read once, here, because BOTH
+   * questions gate the branch below and one of them can override a paid plan.
+   */
+  const { data: intentOrg } = await supabaseAdmin
+    .from("orgs")
+    .select("phone_provisioning_mode, onboarding_product_intent")
+    .eq("id", orgId)
+    .maybeSingle<{
+      phone_provisioning_mode: string | null;
+      onboarding_product_intent: string | null;
+    }>();
+
+  const phoneMode = toPhoneProvisioningMode(intentOrg?.phone_provisioning_mode);
+  const productIntent = toProductIntent(intentOrg?.onboarding_product_intent);
+
+  /**
+   * **A customer is never given a product they did not pick.**
+   *
+   * `declinedVoice` is the hard stop. A workspace whose owner chose "messages" or "look around
+   * first" does not get a phone line — not even if `org_plan_limits` says it holds a voice plan.
+   * That combination cannot arise from the wizard any more (the voice plans are only rendered
+   * inside the voice branch, and both checkout actions re-stamp the intent from what was actually
+   * bought), which is exactly why treating it as an error rather than a preference is safe: if it
+   * happens, something is wrong, and the wrong thing to do is quietly rent someone a US number.
+   *
+   * This replaces the older "the plan wins, log a warning, provision anyway" rule. That rule was
+   * written when the wizard could genuinely produce the contradiction and refusing would have left
+   * a paying customer with no line. It cannot now.
+   *
+   * NULL intent is NOT a decline — a workspace that started before this question existed has not
+   * answered it, and falls through to the plan-based behaviour it has always had.
+   */
+  const declinedVoice = productIntent === "chat" || productIntent === "free";
+
+  if (declinedVoice && planState.voicePlanCode) {
+    logEvent({
+      tag: "[ONBOARDING][ACTIVATION][INTENT_MISMATCH]",
+      ts: Date.now(),
+      stage: "COST",
+      source: "system",
+      org_id: orgId,
+      severity: "error",
+      details: {
+        reason: "workspace holds a voice plan against a non-voice intent — refusing to provision",
+        product_intent: productIntent,
+        voice_plan_code: planState.voicePlanCode,
+      },
+    });
+  }
+
+  /**
+   * A workspace with no VOICE plan — or one whose owner declined voice — has nothing to provision.
    *
    * Activation exists to create a Vapi assistant and provision a phone number. A chat customer
    * has neither minutes nor concurrency nor numbers — running any of that would buy a US phone
@@ -1193,82 +1494,16 @@ export async function runActivation(): Promise<
    * Idempotent like the rest of activation — `completeOnboarding` writes step 6, and steps only
    * ever move forward.
    */
-  if (!planState.voicePlanCode) {
+  if (!planState.voicePlanCode || declinedVoice) {
     /**
-     * A chat-only workspace still needs an AI EMPLOYEE — it just does not need a Vapi
-     * assistant or a phone number.
-     *
-     * The first version of this short-circuit cut both, and a real signup found the cost:
-     * `resolveReplyEmployee` returned null, so the reply engine went silent. Messages arrived,
-     * the paid slot claimed itself, the Inbox filled up — and the customer's AI never answered.
-     * Skipping the phone line was right; skipping the employee was not.
-     *
-     * Idempotent: an existing agent is reused, so a re-run cannot create a second one.
+     * Still an AI EMPLOYEE — just no Vapi assistant and no phone number. Unlike the voice path's
+     * agent, this one is NOT optional: without it the reply engine has nobody to answer as, and
+     * finishing setup would hand the customer a product that stays silent.
      */
-    const { data: existingAgent } = await supabaseAdmin
-      .from("agents")
-      .select("id")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle<{ id: string }>();
-
-    let chatAgentId = existingAgent?.id ?? null;
-
-    if (!chatAgentId) {
-      // Read both here rather than reusing `settings`, which is declared further down this
-      // function — the chat-only path returns before ever reaching it.
-      const [{ data: org }, { data: chatSettings }] = await Promise.all([
-        supabaseAdmin.from("orgs").select("name").eq("id", orgId).maybeSingle<{ name: string | null }>(),
-        supabaseAdmin
-          .from("organization_settings")
-          .select("onboarding_language, onboarding_goal, business_description")
-          .eq("org_id", orgId)
-          .maybeSingle<{
-            onboarding_language: string | null;
-            onboarding_goal: string | null;
-            business_description: string | null;
-          }>(),
-      ]);
-
-      const chatContext = seedBusinessContext(org?.name, chatSettings?.business_description);
-
-      const { data: newAgent, error: agentError } = await supabaseAdmin
-        .from("agents")
-        .insert({
-          org_id: orgId,
-          // Named for what it does here. "Main Line" is the voice employee's name and would
-          // read as a phone line to a customer who deliberately bought no phone line.
-          name: org?.name?.trim() ? `${org.name.trim()} Assistant` : "Assistant",
-          language: chatSettings?.onboarding_language ?? "en",
-          timezone: "America/New_York",
-          created_by: user.id,
-          agent_type: agentTypeForGoal(chatSettings?.onboarding_goal),
-          ...(chatContext ? { business_context: chatContext } : {}),
-          // No vapi_assistant_id and no vapi_phone_number_id, on purpose: nothing was
-          // provisioned, and writing ids for artifacts that do not exist would break the
-          // reconcile paths that trust those columns.
-        })
-        .select("id")
-        .single<{ id: string }>();
-
-      if (agentError || !newAgent?.id) {
-        // Unlike the voice path, this is NOT optional. Without an employee the AI cannot
-        // answer on any channel, and a chat-only workspace has no other way to be useful —
-        // finishing setup here would hand the customer a product that stays silent.
-        console.error("[runActivation] chat-only agent creation failed", agentError?.message);
-        return {
-          ok: false,
-          error: "Could not finish setting up your AI. Please try again.",
-        };
-      }
-      chatAgentId = newAgent.id;
+    const employee = await ensureNonVoiceEmployee(orgId, user.id);
+    if (!employee.ok) {
+      return { ok: false, error: employee.error };
     }
-
-    await supabaseAdmin
-      .from("organization_settings")
-      .update({ main_agent_id: chatAgentId })
-      .eq("org_id", orgId);
 
     const completed = await completeOnboarding(orgId);
     if (!completed.ok) {
@@ -1276,13 +1511,22 @@ export async function runActivation(): Promise<
     }
 
     logEvent({
-      tag: "[ONBOARDING][ACTIVATION][CHAT_ONLY_SKIPPED]",
+      tag: "[ONBOARDING][ACTIVATION][NO_VOICE_LINE]",
       ts: Date.now(),
       stage: "COST",
       source: "system",
       org_id: orgId,
       severity: "info",
-      details: { reason: "chat_only plan has no phone line to provision" },
+      details: {
+        // Two different reasons land here and they are worth telling apart in the log: no voice
+        // plan was bought, or one was bought against an intent that declined voice (which is a
+        // defect, and is logged as an error above as well).
+        reason: declinedVoice
+          ? "owner did not choose voice — no phone line provisioned"
+          : "no voice plan — no phone line to provision",
+        product_intent: productIntent,
+        voice_plan_code: planState.voicePlanCode,
+      },
     });
 
     return {
@@ -1293,6 +1537,13 @@ export async function runActivation(): Promise<
       vapiAssistantId: null,
     };
   }
+
+  /**
+   * Past this point the workspace holds a voice plan AND its owner chose voice, so a line is being
+   * built. `phoneMode` (read above) decides which KIND: `"byo"` means they already own a number
+   * and will point their carrier at us, so buying them a US one would rent a second number they
+   * never asked for and bill it every month.
+   */
 
   // Check workspace status and check for existing activation artifacts (idempotency)
   const { data: settings } = await supabaseAdmin
@@ -1409,6 +1660,95 @@ Always confirm the caller's name, phone number, and a short summary before submi
     });
     if (!configResult.ok) {
       console.error("[runActivation] ensureAssistantConfig failed (non-fatal, continuing):", configResult.error);
+    }
+
+    /**
+     * 1b) The customer already owns their number.
+     *
+     * Everything above this point is the same for every voice workspace — an assistant exists and
+     * is configured. What differs is the LINE, and here there is nothing for us to buy: the
+     * customer will point their carrier's SIP trunk at us from `/dashboard/channels/phone-numbers`
+     * (or from the last onboarding step, which offers the same flow). Falling through would rent
+     * them a US number on top of the one they already pay for.
+     *
+     * So this path finishes setup with an employee and no line, and the Live step asks them to
+     * connect theirs. `completeOnboarding` is the same call the chat-only path makes, and steps
+     * only ever move forward, so a re-run is a no-op.
+     *
+     * Deliberately AFTER the resume check below in spirit but before it in code: if a line was
+     * already provisioned for this org (a customer who changed their mind mid-flow), the resume
+     * branch below owns it and this must not run.
+     */
+    if (phoneMode === "byo" && !existingSettings?.vapi_phone_number_id) {
+      let byoAgentId = existingSettings?.main_agent_id ?? null;
+
+      if (!byoAgentId) {
+        const { data: byoOrg } = await supabaseAdmin
+          .from("orgs")
+          .select("name")
+          .eq("id", orgId)
+          .maybeSingle<{ name: string | null }>();
+        const byoContext = seedBusinessContext(byoOrg?.name, settings?.business_description);
+
+        const { data: byoAgent, error: byoAgentError } = await supabaseAdmin
+          .from("agents")
+          .insert({
+            org_id: orgId,
+            name: "Main Line",
+            language: settings?.onboarding_language ?? "en",
+            voice: "jennifer",
+            timezone: "America/New_York",
+            created_by: user.id,
+            vapi_assistant_id: assistant.id,
+            // No vapi_phone_number_id: there is no line yet. `connectByoNumber` writes the link
+            // when the customer's own number is connected.
+            agent_type: agentTypeForGoal(settings?.onboarding_goal),
+            ...(byoContext ? { business_context: byoContext } : {}),
+          })
+          .select("id")
+          .single<{ id: string }>();
+
+        if (byoAgentError || !byoAgent?.id) {
+          // Same rule as the chat-only path: without an employee there is nothing to connect the
+          // customer's number TO, so finishing here would hand them a dead end.
+          console.error("[runActivation] BYO agent creation failed", byoAgentError?.message);
+          return { ok: false, error: "Could not finish setting up your AI. Please try again." };
+        }
+        byoAgentId = byoAgent.id;
+      }
+
+      const { error: byoSettingsError } = await supabaseAdmin
+        .from("organization_settings")
+        .upsert(
+          { org_id: orgId, vapi_assistant_id: assistant.id, main_agent_id: byoAgentId },
+          { onConflict: "org_id" }
+        );
+      if (byoSettingsError) {
+        console.error("[runActivation] Error persisting BYO activation artifacts:", byoSettingsError);
+      }
+
+      const byoCompleted = await completeOnboarding(orgId);
+      if (!byoCompleted.ok) {
+        return { ok: false, error: byoCompleted.error || "Could not finish setup. Please try again." };
+      }
+
+      logEvent({
+        tag: "[ONBOARDING][ACTIVATION][BYO_NUMBER_PENDING]",
+        ts: Date.now(),
+        stage: "COST",
+        source: "system",
+        org_id: orgId,
+        severity: "info",
+        details: { reason: "customer brings their own number — no US line provisioned" },
+      });
+
+      return {
+        ok: true as const,
+        phoneNumberE164: null,
+        phoneNumberSipUri: null,
+        vapiPhoneNumberId: null,
+        vapiAssistantId: assistant.id,
+      };
     }
 
     // 2) Provision PSTN number using: POST /phone-number { provider:'vapi', numberDesiredAreaCode:'321', assistantId:<vapi_assistant_id> }
@@ -2005,6 +2345,19 @@ export async function startPlanCheckout(
       return { ok: false, error: "Invalid plan_code" };
     }
 
+    /**
+     * Stamp the intent from what is actually being BOUGHT.
+     *
+     * Activation refuses to provision a phone line against a `chat`/`free` intent, and this is
+     * what keeps that refusal from ever firing on a genuine voice customer: buying a voice plan
+     * IS choosing voice, so the two can only disagree if the database is edited by hand.
+     *
+     * The phone mode is deliberately left alone — `new` vs `byo` was answered on the screen this
+     * button sits on, and overwriting it here would rent a US number to a customer who had just
+     * said they own one.
+     */
+    await recordProductIntent(orgId, "voice");
+
     // 4) Check workspace status - block if billing paused
     const { data: orgSettings } = await supabaseAdmin
       .from("organization_settings")
@@ -2278,6 +2631,16 @@ export async function startChatCheckout(addonKey: string, returnTo?: string) {
       return { ok: false, error: "Invalid chat plan" };
     }
 
+    /**
+     * Stamp the intent from what is actually being BOUGHT, not only from what was clicked three
+     * screens ago.
+     *
+     * The card chooser writes it too, but this is the write that makes activation's refusal safe:
+     * intent and plan can then only disagree if someone edits the database by hand. Chat implies
+     * no phone line, so the phone mode is written in the same breath.
+     */
+    await recordProductIntent(orgId, "chat", { phoneProvisioningMode: "none" });
+
     // Same pause rule as the voice checkout: never take money from a workspace already in
     // billing trouble.
     const { data: orgSettings } = await supabaseAdmin
@@ -2493,15 +2856,28 @@ export async function setOnboardingStepToPlan(orgId: string) {
   }
 
   // Set step to 4 (choose plan)
-  // UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Phone Intent, 3 = Plan, 4 = Activating, 5 = Live
-  // Called from Phone Intent step (UI step 2), advances to Plan step (DB step 4)
-  // User requirement: "Phone intent submit should set onboarding_step = 4 (Plan)"
+  // UI step mapping: 0 = Workspace, 1 = Goal+Language, 2 = Product intent, 3 = Plan, 4 = Activating, 5 = Live
+  // Called from the product-intent step (UI step 2), advances to Plan step (DB step 4)
+  //
+  // ⚠️ `.lt("onboarding_step", 4)` is the forward-only invariant, enforced in the WHERE clause.
+  // This used to write 4 unconditionally, which was safe only while the single caller sat at step
+  // 3. The phone question now lives INSIDE the plan step and saves from there, so an unconditional
+  // write could pull a workspace back to "choose a plan" after Stripe's webhook had already moved
+  // it to 5 (Activating) — the customer would be asked to buy the plan they had just paid for.
+  // A no-op UPDATE is exactly the right outcome for a step that has already been passed.
+  //
+  // The NULL arm is not defensive padding: `onboarding_step` is nullable with no default, and the
+  // "ensure settings row exists" insert directly above leaves it NULL. A bare `.lt()` is false
+  // against NULL in SQL, so without this the very row this function just created would never
+  // advance, and the customer would sit on the same screen however many times they pressed
+  // Continue.
   const { error } = await supabaseAdmin
     .from("organization_settings")
     .update({
       onboarding_step: 4, // Step 4 = choose plan
     })
-    .eq("org_id", orgId);
+    .eq("org_id", orgId)
+    .or("onboarding_step.is.null,onboarding_step.lt.4");
 
   if (error) {
     console.error("[setOnboardingStepToPlan] Error:", error);
@@ -2658,6 +3034,30 @@ export async function continueWithoutPlan(orgId: string) {
   if (error) {
     console.error("[continueWithoutPlan] Error:", error);
     return { ok: false, error: error.message };
+  }
+
+  /**
+   * Record the choice, and leave an employee behind.
+   *
+   * `free` is now one of three cards on the product step, not a footnote link, so it has to be as
+   * honest as the other two. The intent stops activation ever provisioning a line for this
+   * workspace, and `phone_provisioning_mode = 'none'` says the same thing to every screen that
+   * asks whether a number is coming.
+   *
+   * The employee costs nothing (no Vapi, no Stripe) and is what makes the eventual upgrade work:
+   * buying a chat tier from the billing page grants entitlement and creates no employee, so a
+   * workspace that arrived here without one would pay for chat and still answer nobody.
+   *
+   * Both are deliberately AFTER the step-6 write and neither can fail the request: the customer
+   * asked to get on with it, and their workspace is already complete. A failure here leaves a
+   * preference unrecorded, not a customer stranded — and `runActivation` refuses to run at all on
+   * a step-6 workspace, so nothing downstream can misread it into a purchase.
+   */
+  await recordProductIntent(orgId, "free", { phoneProvisioningMode: "none" });
+
+  const employee = await ensureNonVoiceEmployee(orgId, user.id);
+  if (!employee.ok) {
+    console.error("[continueWithoutPlan] Could not create the preview employee:", employee.error);
   }
 
   return { ok: true };
