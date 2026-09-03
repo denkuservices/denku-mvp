@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { fanoutContactRequest } from '@/lib/marketing/contactRequestFanout';
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,16 +60,33 @@ export async function POST(req: NextRequest) {
     };
 
     // Insert into Supabase
-    const { error } = await supabaseAdmin
+    const { data: inserted, error } = await supabaseAdmin
       .from('contact_requests')
-      .insert(insertData);
+      .insert(insertData)
+      .select('id')
+      .single<{ id: string }>();
 
-    if (error) {
+    if (error || !inserted) {
       console.error('Supabase insert error:', error);
       return NextResponse.json(
         { ok: false, error: 'Failed to submit request. Please try again.' },
         { status: 500 }
       );
+    }
+
+    /**
+     * Tell someone. Until 2026-09-03 this route stopped at the line above: the row was written and
+     * nothing else happened — no mail, no ticket, and no screen in the product read the table. A
+     * real request sat there for hours before anyone found it by querying the database.
+     *
+     * Awaited rather than fired and forgotten, because a serverless function can be frozen the
+     * moment it responds; but wrapped, because the person who filled the form must never see an
+     * error for a delivery problem on our side. The row is the record; this is the notification.
+     */
+    try {
+      await fanoutContactRequest({ id: inserted.id, ...insertData });
+    } catch (fanoutError) {
+      console.error('[MARKETING][CONTACT] fanout failed (non-fatal)', fanoutError);
     }
 
     return NextResponse.json({ ok: true });
