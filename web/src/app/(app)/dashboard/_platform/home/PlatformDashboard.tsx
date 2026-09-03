@@ -160,17 +160,6 @@ export default async function PlatformDashboard({ bare = false }: { bare?: boole
         />
       )}
 
-      {isNewWorkspace ? (
-        <Surface padded={false} className="mb-6">
-          <EmptyState
-            icon={Radio}
-            title="Your workspace is ready"
-            description="Connect a channel to put an AI Employee to work. Every call and message it handles will show up here, turned into requests and appointments."
-            action={{ label: "Connect a channel", href: "/dashboard/channels" }}
-          />
-        </Surface>
-      ) : null}
-
       {/* 1. NEEDS ATTENTION — silence here is meaningful, so we render nothing when all is well. */}
       {attention.length > 0 ? (
         <section className="mb-6">
