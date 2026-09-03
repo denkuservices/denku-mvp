@@ -55,11 +55,12 @@ describe("plan facts", () => {
     expect(codes).toEqual(["starter", "growth", "scale"]);
   });
 
-  it("quotes the price the catalogue holds, cheapest first", () => {
+  it("quotes the price the catalogue holds, cheapest first, with thousands separated", () => {
+    // The separator is not cosmetic — see the digit-string bug in the core prompt tests below.
     const said = planSentence(CTX.plans);
     expect(said).toMatch(/Starter: \$149\/month, 400 minutes/);
-    expect(said).toMatch(/Growth: \$399\/month, 1200 minutes/);
-    expect(said).toMatch(/Scale: \$899\/month, 3600 minutes/);
+    expect(said).toMatch(/Growth: \$399\/month, 1,200 minutes/);
+    expect(said).toMatch(/Scale: \$899\/month, 3,600 minutes/);
     expect(said.indexOf("Starter")).toBeLessThan(said.indexOf("Scale"));
   });
 
@@ -237,8 +238,44 @@ describe("core prompt", () => {
   const written = buildDenkuCorePrompt({ ...CTX, surface: "the website chat", spoken: false });
 
   it("stays small enough to send on every turn", () => {
-    // The whole point of the retrieval tool. ~4 chars/token; the corpus alone would be ~6,600.
-    expect(Math.round(spoken.length / 4)).toBeLessThan(1200);
+    // The bound is generous because the thing it guards against is inlining the corpus, which
+    // alone is ~6,600 tokens. It grew from ~890 to ~1,240 when the first real call showed the
+    // product description and the tone both needed spelling out.
+    expect(Math.round(spoken.length / 4)).toBeLessThan(1600);
+  });
+
+  it("reads large numbers as quantities, not digit strings", () => {
+    // The first real Turkish call said "uc alti sifir sifir" for 3600 — three, six, zero, zero —
+    // while 149 and 1200 came out fine. A thousands separator is what makes it unambiguous.
+    expect(spoken).toMatch(/3,600 minutes/);
+    expect(spoken).toMatch(/1,200 minutes/);
+    expect(spoken).not.toMatch(/3600/);
+  });
+
+  it("never leaves a bare 24/7 for the model to read out", () => {
+    // Read literally in Turkish it becomes "yirmi dort yedi". The idiom there is 7/24, so the
+    // prompt states the meaning and lets the model pick the idiom — the only mention of the
+    // characters is the instruction forbidding them.
+    const withoutInstruction = spoken.replace(/Never say '24\/7'[\s\S]*/, "");
+    expect(withoutInstruction).not.toMatch(/24\/7/);
+    expect(spoken).toMatch(/around the clock/);
+    expect(spoken).toMatch(/in Turkish that is '7\/24'/);
+  });
+
+  it("forbids ending every answer with the same closing question", () => {
+    // It closed all four answers of the first call with the same sentence. Correct Turkish, and
+    // after the third time it is a call centre reading a script.
+    expect(spoken).toMatch(/Do NOT end every answer with the same closing question/);
+    expect(spoken).toMatch(/TONE — warm/);
+  });
+
+  it("describes the product as two things a business buys, and names the channels", () => {
+    // The first call listed "AI employees plus three services" and never mentioned that voice and
+    // chat are separately purchasable, nor named a single chat channel.
+    expect(spoken).toMatch(/1\. VOICE/);
+    expect(spoken).toMatch(/2\. CHAT/);
+    expect(spoken).toMatch(/Name the channels when this comes up/);
+    expect(spoken).toMatch(/The AI answers on: .*Telegram/);
   });
 
   it("carries prices, because almost every conversation asks and a lookup would be wasted", () => {

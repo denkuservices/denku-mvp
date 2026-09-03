@@ -54,7 +54,8 @@ export const CORPUS: readonly CorpusChunk[] = [
     tags: ["what", "about", "overview", "product", "who"],
     body:
       "Denku sells AI employees for small and medium businesses. A business hires an AI employee " +
-      "and connects channels to it. The AI answers customers 24 hours a day, every day, in the " +
+      "and connects channels to it. The AI answers customers around the clock, every day of the " +
+      "week, in the " +
       "business's own voice — answering questions about the business, taking messages, and booking " +
       "appointments. Every finished conversation produces something the owner can act on: a ticket " +
       "or an appointment request, plus a contact record. Nothing is left as just a transcript.",
@@ -96,7 +97,11 @@ export const CORPUS: readonly CorpusChunk[] = [
       return (
         "Chat is priced by how many channels the AI answers on, not by how many messages it " +
         "handles. There is no message counter to run out of.\n" +
-        `${lines}\n` +
+        `${lines}\n\n` +
+        // Naming them is the point. On the first real call the assistant explained chat pricing
+        // without ever saying WHICH channels, so a shop owner who wanted Telegram could not tell
+        // that Denku does Telegram.
+        `Which channels those can be:\n${channelSentence()}\n` +
         "More channels, CRM and API integrations, or a model trained on the business's own " +
         "material is a custom quote.\n\n" +
         "Voice and chat are two independent products. A business can buy either, both, or neither " +
@@ -167,7 +172,9 @@ export const CORPUS: readonly CorpusChunk[] = [
     title: "Opening hours — the AI answers at every hour",
     tags: ["hours", "24/7", "after hours", "night", "weekend", "closed", "open"],
     body:
-      "Denku answers 24 hours a day, 7 days a week, on every channel. Opening hours in Denku " +
+      "Denku answers around the clock, every day of the week, on every channel. (Say that with the " +
+      "idiom the visitor's own language uses — Turkish says 7/24, not 24/7.) Opening hours in " +
+      "Denku " +
       "describe when the business's STAFF are in — they never stop the AI from answering. A " +
       "business paying for an AI employee is buying the eleven-at-night call its competitors miss. " +
       "If hours are configured, the owner chooses whether the AI mentions that the business is " +

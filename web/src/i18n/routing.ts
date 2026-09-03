@@ -33,6 +33,20 @@ export const LOCALE_LABELS: Record<Locale, string> = {
  * Country → language. A visitor from an unlisted country gets English, which is
  * the owner's rule: "if someone enters from France, default to English."
  */
+/**
+ * The cookie that records a DELIBERATE language choice.
+ *
+ * Deliberately not `NEXT_LOCALE`. next-intl writes that one on any locale-resolving
+ * navigation, including a first visit that merely landed on `/en` — the canonical English
+ * URL, the one in the sitemap and the one Google links to. Reading it as a choice meant a
+ * visitor in Turkey arriving from an English search result never saw Turkish again, even
+ * typing the bare domain (observed 2026-09-03).
+ *
+ * Written in exactly one place — the language switcher — and read in exactly one place: the
+ * middleware's country-based pick.
+ */
+export const LOCALE_CHOICE_COOKIE = "DENKU_LOCALE";
+
 export const COUNTRY_LOCALE: Record<string, Locale> = {
   TR: "tr",
   ES: "es", MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es",
