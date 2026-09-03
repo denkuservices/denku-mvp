@@ -1,4 +1,4 @@
-import { LANGUAGES, toLanguageCode } from "@/lib/language/registry";
+import { LANGUAGES, toLanguageCode, type LanguageCode } from "@/lib/language/registry";
 
 /**
  * Derive effective system prompt from agent configuration
@@ -70,6 +70,29 @@ export function buildBusinessContextBlock(ctx?: BusinessContext | null): string 
   }
   return block;
 }
+
+/**
+ * The one sentence the prompt orders the AI to say VERBATIM — in each language it can speak.
+ *
+ * Everything else in this prompt is an instruction TO the model, and an instruction may safely be
+ * written in English: the model reads English and answers in the language it was told to. This
+ * line is the exception, because it is not an instruction — it is speech, quoted, under "say
+ * exactly". A Turkish caller therefore heard *"I'll notify our team and make sure someone follows
+ * up shortly"* at the single moment the call had already gone wrong: an unclear intent or a failed
+ * tool call. The never-dead-end promise was kept and the caller could not understand it.
+ *
+ * Found 2026-09-03 on the first Turkish workspace (NOTUS, medical uniforms, Aydın).
+ *
+ * A language with no entry falls back to English, which is exactly the behaviour before this
+ * existed — so adding a language to `LANGUAGES` never silently changes an existing prompt, and
+ * `en` is byte-for-byte what it always was.
+ */
+const SPOKEN_FALLBACK: Partial<Record<LanguageCode, string>> = {
+  en: "I'll notify our team and make sure someone follows up shortly.",
+  tr: "Ekibimize ileteceğim, en kısa sürede size dönüş yapılacak.",
+  es: "Avisaré a nuestro equipo para que alguien le contacte en breve.",
+  de: "Ich gebe das an unser Team weiter, jemand meldet sich in Kürze bei Ihnen.",
+};
 
 const BEHAVIOR_PROMPTS: Record<string, string> = {
   professional:
@@ -163,6 +186,7 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
     return code ? LANGUAGES[code].label : raw.trim();
   };
 
+  const primaryCode = toLanguageCode(language);
   const primaryName = language ? languageName(language) : null;
   const extraLanguages = Array.from(
     new Set(
@@ -181,6 +205,22 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
       "language when it is one of these.\n\n";
   } else if (primaryName) {
     prompt += `Primary language: ${primaryName}. Respond naturally in this language.\n\n`;
+    /*
+     * Say it twice, and say why, when the employee does not speak English.
+     *
+     * These instructions are written in English and the caller is not. Left at one polite line,
+     * GPT-4o drifts back into the language it is being INSTRUCTED in — most reliably on the turns
+     * that matter, where it is improvising rather than following the script: a misheard word, a
+     * failed tool call, a goodbye. The rule is therefore restated as a prohibition and the
+     * asymmetry is named, so the model cannot read the English around it as permission.
+     */
+    if (primaryCode && primaryCode !== "en") {
+      prompt +=
+        `These instructions are written in English for internal reasons. The caller does not ` +
+        `speak English. Speak ONLY ${primaryName}, in every single turn — including when you are ` +
+        `confused, when something fails, and when you say goodbye. Never switch to English, and ` +
+        `never apologise for your ${primaryName}.\n\n`;
+    }
   }
 
   // Add timezone context
@@ -212,9 +252,11 @@ export function deriveEffectivePrompt(input: DerivePromptInput): string {
     "- Answer the question that was asked. Do not add information they did not ask for.\n" +
     "- Do not repeat back what you just did more than once.\n\n";
 
-  // Mandatory fallback rule: Never leave caller without a clear next step
+  // Mandatory fallback rule: Never leave caller without a clear next step — in a language the
+  // caller actually speaks (see SPOKEN_FALLBACK).
+  const fallbackLine = SPOKEN_FALLBACK[primaryCode ?? "en"] ?? SPOKEN_FALLBACK.en;
   prompt +=
-    "CRITICAL: If you are uncertain, if the intent is unclear, or if any tool call fails, you must say exactly: \"I'll notify our team and make sure someone follows up shortly.\" Do not apologize or provide extra explanation.";
+    `CRITICAL: If you are uncertain, if the intent is unclear, or if any tool call fails, you must say exactly: "${fallbackLine}" Do not apologize or provide extra explanation.`;
 
   return prompt.trim();
 }

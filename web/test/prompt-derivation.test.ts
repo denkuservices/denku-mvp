@@ -98,3 +98,53 @@ describe("deriveEffectivePrompt keeps the AI phone-length", () => {
     expect(prompt).toMatch(/I'll notify our team and make sure someone follows up shortly/);
   });
 });
+
+/**
+ * The never-dead-end sentence is SPEECH, not an instruction — it is quoted under "say exactly".
+ * Left in English it reached a Turkish caller at the one moment the call had already failed
+ * (NOTUS, 2026-09-03). These assertions pin the fix and, just as importantly, pin that English
+ * did not move.
+ */
+describe("deriveEffectivePrompt speaks the caller's language", () => {
+  const base = {
+    orgName: "NOTUS",
+    agentName: "NOTUS AI",
+    agentType: null,
+    behaviorPreset: "support",
+    emphasisPoints: null,
+    timezone: null,
+    firstMessage: null,
+    businessContext: null,
+  };
+
+  it("quotes the fallback sentence in Turkish for a Turkish employee", () => {
+    const prompt = deriveEffectivePrompt({ ...base, language: "Turkish" });
+    expect(prompt).toContain('"Ekibimize ileteceğim, en kısa sürede size dönüş yapılacak."');
+    expect(prompt).not.toContain("I'll notify our team");
+  });
+
+  it("accepts either spelling of the stored language", () => {
+    // Onboarding writes "tr", the Setup editor writes "Turkish" — R-135's split, still live.
+    const code = deriveEffectivePrompt({ ...base, language: "tr" });
+    const label = deriveEffectivePrompt({ ...base, language: "Turkish" });
+    expect(code).toBe(label);
+  });
+
+  it("forbids drifting into English when the employee is not English", () => {
+    const prompt = deriveEffectivePrompt({ ...base, language: "tr" });
+    expect(prompt).toMatch(/Speak ONLY Turkish/);
+    expect(prompt).toMatch(/including when you are confused/i);
+  });
+
+  it("leaves an English employee byte-for-byte unchanged", () => {
+    const prompt = deriveEffectivePrompt({ ...base, language: "en" });
+    expect(prompt).toContain('"I\'ll notify our team and make sure someone follows up shortly."');
+    expect(prompt).not.toMatch(/Speak ONLY/);
+  });
+
+  it("falls back to English for a language with no sentence of its own", () => {
+    // An unknown value must never produce an empty quote — that would order silence.
+    const prompt = deriveEffectivePrompt({ ...base, language: "Klingon" });
+    expect(prompt).toContain("I'll notify our team and make sure someone follows up shortly.");
+  });
+});
