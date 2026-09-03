@@ -188,7 +188,34 @@ export function planSentence(plans: PlanFact[]): string {
   return `Voice plans (per month, cancel any time, no free trial):\n${lines.join("\n")}`;
 }
 
+/**
+ * Prices, split by PRODUCT rather than listed together.
+ *
+ * On a real call the assistant quoted "$399 for one chat channel". Chat — 1 channel is $299;
+ * $399 is the Growth VOICE plan. It got the two-channel price right and blended the one-channel
+ * price with a number from the list above it — the exact failure a flat list of prices invites,
+ * and the most expensive kind, because a quoted price is a promise.
+ *
+ * So chat prices are their own block under their own heading, never in a list called "add-ons"
+ * beneath the voice plans. `chat_` is the catalogue's own prefix for them, so nothing has to be
+ * kept in sync by hand.
+ */
+const isChatAddon = (a: AddonFact): boolean => a.key.startsWith("chat_");
+
 export function addonSentence(addons: AddonFact[]): string {
-  if (addons.length === 0) return "";
-  return `Add-ons:\n${addons.map((a) => `- ${a.label}: ${usd(a.monthlyUsd)}/month.`).join("\n")}`;
+  const voice = addons.filter((a) => !isChatAddon(a));
+  if (voice.length === 0) return "";
+  return `Voice add-ons (only for a voice plan):\n${voice
+    .map((a) => `- ${a.label}: ${usd(a.monthlyUsd)}/month.`)
+    .join("\n")}`;
+}
+
+export function chatPlanSentence(addons: AddonFact[]): string {
+  const chat = addons.filter(isChatAddon);
+  if (chat.length === 0) return "";
+  return (
+    "CHAT plans — a SEPARATE product from voice, with its own prices. Never quote a voice " +
+    "price for chat:\n" +
+    chat.map((a) => `- ${a.label}: ${usd(a.monthlyUsd)}/month.`).join("\n")
+  );
 }

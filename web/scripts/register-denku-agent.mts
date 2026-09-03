@@ -24,7 +24,8 @@ import { CORPUS } from "../src/lib/denku-agent/corpus";
 import { DENKU_KNOWLEDGE_TOOL_NAME } from "../src/lib/denku-agent/tools";
 import { buildDenkuCorePrompt } from "../src/lib/denku-agent/corePrompt";
 import { voicePlanFacts, addonFacts, type PlanRow, type AddonRow } from "../src/lib/denku-agent/facts";
-import { DENKU_TOOL_IDS, resolveVoice, resolveTranscriber, CALL_MAX_DURATION_SECONDS, CALL_SILENCE_TIMEOUT_SECONDS } from "../src/lib/vapi/assistantConfig";
+import { DENKU_TOOL_IDS, resolveVoiceForLanguages, resolveTranscriberForLanguages, CALL_MAX_DURATION_SECONDS, CALL_SILENCE_TIMEOUT_SECONDS } from "../src/lib/vapi/assistantConfig";
+import { LANGUAGE_CODES } from "../src/lib/language/registry";
 
 const DRY = process.argv.includes("--dry-run");
 
@@ -173,11 +174,45 @@ function assistantBody(knowledgeToolId: string) {
        */
       toolIds: [...DENKU_TOOL_IDS, knowledgeToolId],
     },
-    voice: resolveVoice("en"),
-    transcriber: resolveTranscriber("en"),
-    server: { url: `${base}/api/webhooks/vapi` },
+    /**
+     * One ear for all four languages, so a visitor can switch mid-call.
+     *
+     * `resolveTranscriberForLanguages` returns `language: "multi"` for more than one, which is
+     * the same path a multilingual customer employee already takes. The demo used to pin the
+     * transcriber to the page's locale per call — accurate for the expected language, and unable
+     * to hear a switch, which is exactly what a landing page demo invites someone to try.
+     *
+     * The trade is real: `multi` is less accurate for any single language than a pinned model.
+     * Worth it here and NOT changed for customers, whose callers speak one language.
+     */
+    voice: resolveVoiceForLanguages(LANGUAGE_CODES),
+    transcriber: resolveTranscriberForLanguages(LANGUAGE_CODES),
+    /**
+     * The secret has to travel with the URL. Setting `server` to a bare `{ url }` REPLACES the
+     * object Vapi holds, so the previous run of this script silently cleared the header that
+     * `ensureAssistantConfig` had put there — `isServerUrlSecretSet` read false afterwards. It
+     * broke nothing today only because webhook auth is still in observe-only mode; the day it
+     * flips to enforce, this assistant's webhooks would have started 401ing.
+     */
+    server: {
+      url: `${base}/api/webhooks/vapi`,
+      ...(process.env.VAPI_WEBHOOK_SECRET?.trim()
+        ? { headers: { "x-vapi-secret": process.env.VAPI_WEBHOOK_SECRET.trim() } }
+        : {}),
+    },
     maxDurationSeconds: CALL_MAX_DURATION_SECONDS,
     silenceTimeoutSeconds: CALL_SILENCE_TIMEOUT_SECONDS,
+    // Owned rather than inherited — see `buildAssistantConfigPatch` for why these exact numbers.
+    startSpeakingPlan: {
+      waitSeconds: 0.4,
+      smartEndpointingEnabled: false,
+      transcriptionEndpointingPlan: {
+        onPunctuationSeconds: 0.1,
+        onNoPunctuationSeconds: 1.5,
+        onNumberSeconds: 0.5,
+      },
+    },
+    stopSpeakingPlan: { numWords: 0, voiceSeconds: 0.2, backoffSeconds: 1.0 },
   };
 }
 

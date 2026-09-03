@@ -258,6 +258,52 @@ export function buildAssistantConfigPatch(
   patch.maxDurationSeconds = CALL_MAX_DURATION_SECONDS;
   patch.silenceTimeoutSeconds = CALL_SILENCE_TIMEOUT_SECONDS;
 
+  /**
+   * Turn-taking, stated rather than inherited.
+   *
+   * Until 2026-09-03 nothing in this repo set either plan, so every Denku phone line ran on
+   * whatever Vapi's defaults happened to be that week. For a product whose entire promise is a
+   * phone line, the rules for when it starts and stops talking are not something to leave to
+   * someone else's changelog: a silent default change would alter how every customer's AI
+   * interrupts, and nothing here would show a diff.
+   *
+   * **The values below ARE Vapi's current defaults.** That is deliberate — there is no evidence
+   * any of them is wrong (real calls show barge-in working: the caller interrupted mid-sentence
+   * twice and was heard). This commit changes ownership, not behaviour. Tune them from call
+   * evidence, one value at a time, never as a batch.
+   *
+   * What each one does, since the names do not say it:
+   * - `waitSeconds` — silence after the caller stops before the AI may begin.
+   * - `onPunctuationSeconds` — shorter wait when the transcript ended on a sentence boundary.
+   * - `onNoPunctuationSeconds` — the long wait when it did not, i.e. the caller is mid-thought.
+   *   This is the one that protects "yarın öğleden sonra şey…" from being answered too early.
+   * - `onNumberSeconds` — a middle wait after digits, because people pause inside phone numbers.
+   *
+   * Smart endpointing is deliberately NOT enabled. Vapi's is English-only, and three of the four
+   * languages Denku sells would get worse to make one better.
+   */
+  patch.startSpeakingPlan = {
+    waitSeconds: 0.4,
+    smartEndpointingEnabled: false,
+    transcriptionEndpointingPlan: {
+      onPunctuationSeconds: 0.1,
+      onNoPunctuationSeconds: 1.5,
+      onNumberSeconds: 0.5,
+    },
+  };
+
+  /**
+   * Interruption. `numWordsToInterrupt: 0` means any speech interrupts, which is what makes
+   * "Actually—" work; `voiceSeconds` is how much of it must be voiced before we believe it, and
+   * `backoffSeconds` is how long the AI stays quiet afterwards so it does not talk over the
+   * correction it just received.
+   */
+  patch.stopSpeakingPlan = {
+    numWords: 0,
+    voiceSeconds: 0.2,
+    backoffSeconds: 1.0,
+  };
+
   const serverUrl = getVapiWebhookServerUrl(env);
   if (serverUrl) {
     const secret = (env.VAPI_WEBHOOK_SECRET ?? "").trim();
