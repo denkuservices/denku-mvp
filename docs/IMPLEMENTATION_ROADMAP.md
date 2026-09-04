@@ -5,7 +5,18 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-03 (**R-153 · R-154 · R-155 · R-156 fixed.** A customer asked for chat
+> **Last updated:** 2026-09-04 (**R-157 fixed** — moving between pages cost a dozen cross-country
+> round-trips. The middleware re-derived "who is this and are they onboarded" on every single
+> navigation (three sequential hops before Next began rendering); `auth.getUser()` — an HTTP call to
+> Supabase Auth, not a token decode — ran three to six more times per render because no two helpers
+> shared an answer; Home laddered twelve queries that had no dependency on each other; the Inbox
+> pulled five hundred transcripts to render twenty-five previews. Fixed with a signed gate cookie +
+> local ES256 JWT verification, a request-scoped cached user, a two-phase Inbox scan, a concurrent
+> Home, and hover-prefetch. **Only the ALLOW is ever cached** — every other case falls through to the
+> untouched full check. Plus: a spinner with changing text after two seconds, in the reader's
+> language. Tier B of `docs/denku-2.0/01-performance.md`, whose "wait until feature-complete"
+> deferral the owner overrode.)
+> **Prior:** 2026-09-03 (**R-153 · R-154 · R-155 · R-156 fixed.** A customer asked for chat
 > and was sold a phone plan: the wizard threw away the answer they had just given, and the next
 > screen led with three voice cards. Onboarding now asks **what**, then **how much**, then — voice
 > only — **which number**, in three branches that never see each other's prices, with a free-preview
@@ -2599,3 +2610,111 @@ that charges nothing is *unable* to charge anything) and lands on `/dashboard`. 
 later: buying a chat tier from the billing page grants entitlement and creates no employee, so a
 workspace that arrived without one would pay for chat and still answer nobody. If a real free tier
 with its own allowance is ever wanted, that is a billing change, not this.
+
+---
+
+### R-157 — Moving between pages cost a dozen cross-country round-trips, and nothing said so
+
+**Priority:** High · **Effort:** L · **Status:** Fixed (2026-09-04) · **Source:**
+[docs/denku-2.0/01-performance.md](denku-2.0/01-performance.md) (Tier B, deferred 2026-08-31)
+
+**Problem.** The dashboard felt slow between pages, and the reason was never the database: every hot
+column is indexed. It was the *number of sequential network hops* per navigation, made expensive by
+an infrastructure fact — the database is in `us-west-2`, the functions in `iad1`, so each hop is a
+cross-country round-trip.
+
+The middleware ran on every request into `/dashboard` (including the RSC fetch behind every
+client-side navigation) and spent three sequential hops there — Supabase Auth, `profiles`,
+`organization_settings` — before Next started rendering. `auth.getUser()` is an HTTP validation call
+to Supabase Auth, not a token decode, and it ran another three to six times inside the render
+because no two helpers shared an answer. Home issued about twelve sequential queries, none of which
+read anything the query before it produced. The Inbox pulled up to five hundred **transcripts** to
+render twenty-five one-line previews. Opening a conversation was a cold fetch, because the thread is
+`force-dynamic` and Next's automatic prefetch only warms the loading boundary. And for all of it,
+a customer waiting six seconds saw a skeleton that never said whether anything was still happening.
+
+Tier A (2026-08-31) had already fixed the client Router Cache, the Inbox list's filter cache, and
+three `organization_settings` reads. Tier B was deferred until "feature-complete"; the owner
+overrode that deferral because the waiting had become the product's worst feature.
+
+**Fix.** Seven changes, every one of them removing round-trips rather than shortening them — full
+detail, file list and reasoning in the source doc.
+
+1. **A signed gate cookie + local JWT verification in the middleware.** `lib/auth/gateCookie.ts`
+   records the decision the middleware reached (org, `onboarding_step`, email confirmed) in an
+   HMAC-signed, 10-minute cookie, and `auth.getClaims()` verifies the session **locally** — the
+   project uses ES256 asymmetric signing keys, confirmed against its JWKS endpoint. Three hops
+   become none on the hot path.
+2. **`lib/auth/currentUser.ts`** — one React `cache()`-wrapped `getUser()` per request, adopted by
+   the layout, the three org resolvers and eighteen pages.
+3. **The Inbox scan drops `calls.transcript`** and hydrates previews by id for the page only.
+4. **`getDashboardOverview` starts every query at once** instead of laddering them.
+5. **Hover/focus prefetch** on Inbox rows.
+6. **`computeCallOutcomes`** batches its four lookups.
+7. **`SlowLoadNotice`** — silent for two seconds, then a spinner with changing text, in the
+   reader's language.
+
+**What makes it safe.** Only the ALLOW decision is ever cached: a missing, expired, tampered or
+foreign-keyed cookie, an unconfirmed email, or `onboarding_step < 6` all fall through to the
+**untouched** full check, which still calls `getUser()` — so a revoked session, a deleted user or a
+reset onboarding step is caught within ten minutes rather than never, and someone who has just
+*finished* onboarding is never held back. A deployment with no `SECRET_ENCRYPTION_KEY` signs
+nothing, takes the original path, and logs `[middleware][GATE][UNSIGNED]` rather than being
+silently slow. The fast path carries its own try/catch, because the outer one redirects to `/login`
+and a failing optimisation must cost milliseconds, not somebody's session.
+
+**Deliberately not done.** The three org resolvers still match `profiles` differently (`id` vs
+`auth_user_id`); that is landmine #16/#20 and unifying them would change which workspace some
+accounts see — only the duplicate network calls were removed. The Inbox's ilike/date filters stay in
+JS because pushing them into SQL changes what R-018's `total`/`bounded` mean. `ProfileWidget`'s
+client-side identity fetch stays, because moving it server-side would add a blocking query to the
+render path this finding just cleared. And the region mismatch itself — the largest single remaining
+win — is an infrastructure decision, not a code change.
+
+**Then it was measured, and measurement moved the work.** A second pass ran a production build
+signed in as a real owner, with every Supabase round-trip traced. Two corrections came out of it
+immediately: `PLATFORM_UX_ENABLED` is ON, so `/dashboard` never calls `getDashboardOverview` at all
+(the item-4 work above serves the legacy path); and a single round-trip from the dev machine to
+`us-west-2` measures **500–740ms**, which is ~6× what it costs from Vercel — inflating every number
+while leaving the *shape* identical.
+
+The trace found the real cost: the home page's first two queries were a **serial prologue nothing
+could overlap with** — `auth.getUser()` 733ms, then `profiles` 457ms — **49% of the page** before a
+single piece of data was asked for. Behind it, `listConnectedChannelViews` awaited one channel
+before asking about the next, and three components each asked for the same answer, so three
+connection tables were read three times apiece, in series.
+
+Fixed: one cached `Promise.all` over every channel source; one `profiles` read per request matching
+both identity columns in a single `.or()` query (each resolver still applies its own rule — they are
+**not** merged); `getSessionUserId()` via `getClaims()` so the user id costs no network call; and
+the gate cookie now carries **both** resolver rules' org answers so a page can skip `profiles`
+entirely without adopting another rule. `getArtifactCounts`' four sequential head-counts became one
+batch.
+
+| Surface | Before | After |
+|---|---|---|
+| Middleware (every navigation) | 1099ms | **11–20ms** |
+| Home `/dashboard` | 3613–4409ms | **1472–1901ms** |
+| Inbox list | 2151ms | **1318–1789ms** |
+| Requests | 2653ms | **1894ms** |
+| Contacts | 1248–1854ms | **593–706ms** |
+| Channels | — | **348–364ms** |
+
+On the home page: `getUser()` calls **1 → 0**, `profiles` reads **5 → 1**, connection tables
+**3–4 each → 1 each**, serial prologue **1190ms → 0**.
+
+**Deliberately left after measuring.** `organization_settings` is read four times on Settings →
+Workspace (one row, four round-trips), but each reader treats "unknown column" as *migration not
+applied → safe default*, and one of those defaults is the load-bearing "no hours configured means
+OPEN". Collapsing them onto `select("*")` turns an error into an absent field — the kind of quiet
+change that makes a safe default wrong. It needs its own tests, not a perf tweak. The remaining
+`getUser()` on that page is `getViewer()`: authorization, where `getUser()` is what notices a
+revoked session.
+
+**Verification.** `tsc` clean on `src/`, `next build` green, **1663 tests pass across 115 files**
+(1630 before; 33 added). New suites: `dashboard-gate-cookie`, `org-resolution` (pins the two
+resolvers' differing rules, and that a gate cookie from another session resolves to nothing),
+`inbox-preview-hydration`, `dashboard-overview` (asserts the reads overlap *and* that every figure
+still comes from the query it came from before), `slow-load-notice`. Measured live in a production
+build against the real database, signed in — the table above. Numbers are from a machine ~6× further
+from `us-west-2` than Vercel is; the round-trip *counts* are what transfer.

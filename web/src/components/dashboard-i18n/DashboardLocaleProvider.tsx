@@ -230,3 +230,15 @@ export function useDashboardLocale(): DashboardLocaleContextValue {
   return value;
 }
 
+/**
+ * The same context, but English rather than an exception when there is no provider.
+ *
+ * For components that may render outside the authenticated tree — a loading fallback is the case
+ * this was added for. A route's `loading.tsx` is the one thing on screen while a page is being
+ * fetched, and throwing there would replace a spinner with an error boundary.
+ */
+export function useOptionalDashboardLocale(): DashboardLocaleContextValue {
+  const value = useContext(DashboardLocaleContext);
+  return value ?? { locale: "en", translate: (english: string) => english };
+}
+

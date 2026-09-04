@@ -1,7 +1,8 @@
 import "server-only";
 
 import { cache } from "react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSessionUserId } from "@/lib/auth/currentUser";
+import { getProfileRowsForUser, orgIdPreferringProfileId, orgsFromGate } from "@/lib/auth/profileRows";
 
 /**
  * Resolve the current user's org for platform (Sprint 5) server pages.
@@ -32,21 +33,28 @@ export const resolveViewer = cache(async function resolveViewer(): Promise<{
   orgId: string | null;
   userId: string | null;
 }> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { orgId: null, userId: null };
+  /*
+   * Identity from the session's JWT, verified locally — no round-trip to Supabase Auth.
+   * See `getSessionUserId`; the fallback there keeps this exactly as trustworthy as `getUser()`.
+   */
+  const userId = await getSessionUserId();
+  if (!userId) return { orgId: null, userId: null };
 
-  for (const col of ["id", "auth_user_id"] as const) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("org_id")
-      .eq(col, user.id)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<{ org_id: string | null }>();
-    if (!error && data?.org_id) return { orgId: data.org_id, userId: user.id };
-  }
-  return { orgId: null, userId: user.id };
+  /*
+   * The org, from the decision the middleware reached one hop ago when it can be trusted for this
+   * session — otherwise from the database.
+   *
+   * The rule below is untouched either way: prefer the row keyed by `profiles.id`, fall back to
+   * the one keyed by `auth_user_id` (CLAUDE.md landmine #20 — the two must not be merged). The
+   * gate simply supplies both answers, computed from the same rows this query would return.
+   *
+   * The query itself is also no longer a ladder: the `id` attempt and the `auth_user_id` attempt
+   * used to be two SEQUENTIAL round-trips, and for any account keyed by `auth_user_id` — which is
+   * how signup writes them — the first one always missed.
+   */
+  const gate = await orgsFromGate(userId);
+  if (gate) return { orgId: gate.byProfileId ?? gate.byAuthUserId ?? null, userId };
+
+  const rows = await getProfileRowsForUser(userId);
+  return { orgId: orgIdPreferringProfileId(rows, userId), userId };
 });

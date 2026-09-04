@@ -1,6 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSessionUserId } from "@/lib/auth/currentUser";
+import { getProfileRowsForUser, orgIdByAuthUserId, orgsFromGate } from "@/lib/auth/profileRows";
 
 /**
  * Resolve org_id for the current authenticated user.
@@ -10,26 +11,21 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * @throws if user is not authenticated
  */
 export async function getActiveOrgId(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  // Identity from the session's JWT, verified locally (`getSessionUserId`) rather than by an
+  // HTTP call to Supabase Auth.
+  const userId = await getSessionUserId();
+  if (!userId) {
     throw new Error("Not authenticated");
   }
 
-  // Get profile with org_id
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("auth_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1);
+  /*
+   * The rule here is unchanged and must stay so: `auth_user_id` only, newest row first, and NO
+   * fallback to `id` (CLAUDE.md landmine #20). The gate cookie records exactly that answer
+   * alongside the other rule's, so reading it is not adopting a different resolver — it is the
+   * same rule, applied by the middleware one hop earlier, to the same rows.
+   */
+  const gate = await orgsFromGate(userId);
+  if (gate) return gate.byAuthUserId ?? null;
 
-  if (!profiles || profiles.length === 0 || !profiles[0].org_id) {
-    return null;
-  }
-
-  return profiles[0].org_id;
+  return orgIdByAuthUserId(await getProfileRowsForUser(userId), userId);
 }

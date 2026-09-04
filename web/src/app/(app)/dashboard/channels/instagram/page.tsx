@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { getConnectionByOrg, type PublicConnection } from "@/lib/instagram/connections";
 import { isInstagramOAuthConfigured } from "@/lib/instagram/config";
 import { InstagramConnectionCard } from "./_components/InstagramConnectionCard";
@@ -21,9 +22,7 @@ export default async function InstagramPage({
 }) {
   const sp = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   let connection: PublicConnection | null = null;
   let canManage = false;

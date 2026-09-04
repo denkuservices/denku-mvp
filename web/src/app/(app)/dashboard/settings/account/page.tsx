@@ -1,5 +1,6 @@
 import { KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import Avatar from "@/app/(app)/dashboard/_platform/Avatar";
 import {
   Panel,
@@ -28,7 +29,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function AccountSettingsPage() {
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const user = auth?.user ?? null;
   const email = user?.email ?? null;
 

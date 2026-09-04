@@ -1,8 +1,11 @@
 "use server";
 
+import { cookies } from "next/headers";
+
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { GATE_COOKIE_NAME } from "@/lib/auth/gateCookie";
 import { notifyPasswordChanged } from "@/lib/notifications/securityNotifications";
 import { getViewer } from "@/lib/auth/permissions";
 import { logAuditEvent } from "@/lib/audit/log";
@@ -144,6 +147,10 @@ export async function signOutAllDevices(): Promise<{ ok: true } | { ok: false; e
   if (error) {
     return { ok: false, error: `Failed to sign out: ${error.message}` };
   }
+
+  // The middleware's cached gate decision goes with the session it describes (see
+  // `lib/auth/gateCookie.ts`). It is user-id-bound, so this is hygiene rather than a hole.
+  (await cookies()).delete(GATE_COOKIE_NAME);
 
   if (viewer.orgId) {
     await logAuditEvent({

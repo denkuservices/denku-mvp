@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, Clock, DollarSign, Phone } from "lucide-react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { resolveOrgId, isAdminOrOwner } from "@/lib/analytics/params";
 import { getWorkspaceStatus } from "@/lib/workspace-status";
 import {
@@ -48,8 +48,7 @@ import TranscriptPanel from "../../../_platform/crm/TranscriptPanel";
  */
 export default async function TicketDetailBody({ ticketId }: { ticketId: string }) {
   const orgId = await resolveOrgId();
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userId = auth?.user?.id ?? "";
 
   const canMutate = userId ? await isAdminOrOwner(orgId, userId) : false;

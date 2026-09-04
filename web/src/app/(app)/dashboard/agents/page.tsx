@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { getAgentsList } from "@/lib/agents/queries";
 import AgentsClient from "./AgentsClient";
 import { HorizonLinkButton } from "@/components/ui-horizon/button";
@@ -11,9 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AgentsPage() {
   const supabase = await createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) redirect("/login");
 

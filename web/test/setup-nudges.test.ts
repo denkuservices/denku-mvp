@@ -22,22 +22,40 @@ vi.mock("@/lib/billing/chatEntitlement", () => ({
   getChatEntitlement: async () => entitlement,
 }));
 
+/**
+ * Connection tables answer with ROWS, not a count.
+ *
+ * The chat-channel count is derived from the same connection rows the rest of the dashboard
+ * already reads (perf, 2026-09-04) rather than from one head-count query per channel, so the fake
+ * has to hold connections the way the database does. `telegramCount`/`emailCount` still express
+ * what each test is about — how many channels are connected — they just materialise as rows.
+ */
+const CONNECTION_TABLES = new Set([
+  "telegram_connections",
+  "email_connections",
+  "web_chat_connections",
+  "instagram_connections",
+  "phone_lines",
+]);
+
+function connectionRows(table: string): Row[] {
+  const n =
+    table === "telegram_connections" ? telegramCount : table === "email_connections" ? emailCount : 0;
+  return Array.from({ length: n }, (_, i) => ({ id: `${table}-${i}`, status: "connected" }));
+}
+
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: {
     from(table: string) {
       if (throwOnQuery) throw new Error("db down");
+      const rowsFor = () => (CONNECTION_TABLES.has(table) ? connectionRows(table) : agentRows);
       const chain: Record<string, unknown> = {};
       const self = () => chain;
       chain.eq = self;
       chain.order = self;
       chain.select = (_cols: string, opts?: { head?: boolean }) => {
         if (opts?.head) {
-          const count =
-            table === "conversations"
-              ? conversationCount
-              : table === "telegram_connections"
-                ? telegramCount
-                : emailCount;
+          const count = table === "conversations" ? conversationCount : rowsFor().length;
           const headChain: Record<string, unknown> = {};
           const headSelf = () => headChain;
           headChain.eq = headSelf;
@@ -47,9 +65,9 @@ vi.mock("@/lib/supabase/admin", () => ({
         }
         return chain;
       };
-      chain.limit = () => Promise.resolve({ data: agentRows, error: null });
+      chain.limit = () => Promise.resolve({ data: rowsFor(), error: null });
       chain.then = (r: (v: unknown) => unknown) =>
-        Promise.resolve({ data: agentRows, error: null }).then(r);
+        Promise.resolve({ data: rowsFor(), error: null }).then(r);
       return chain;
     },
   },

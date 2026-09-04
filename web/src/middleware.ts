@@ -8,6 +8,12 @@ import {
 } from "@/lib/supabase/cookiePolicy";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { platformRedirectTarget, splitRedirectTarget } from "@/lib/platform/routeRedirects";
+import {
+  GATE_COOKIE_NAME,
+  GATE_COOKIE_TTL_SECONDS,
+  readGateDecision,
+  signGateDecision,
+} from "@/lib/auth/gateCookie";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing, localeForCountry, LOCALE_CHOICE_COOKIE } from "@/i18n/routing";
 
@@ -236,10 +242,21 @@ export async function middleware(request: NextRequest) {
     // Just do basic auth check and allow through
     try {
       const supabase = createSupabaseMiddlewareClient(request, response);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      
+      /*
+       * `getSession()`, not `getUser()` (perf, 2026-09-04).
+       *
+       * This block never read the user it fetched — it allows the request through either way,
+       * because the onboarding page does its own gating. The one thing the call was really
+       * doing was keeping the session alive: it loads the session, refreshes it when it is
+       * close to expiring, and the refreshed cookies are written onto `response` by the client
+       * created above.
+       *
+       * `getSession()` does exactly that and nothing more. `getUser()` did it AND made an HTTP
+       * round-trip to Supabase Auth to validate a user this block then discarded — pure latency
+       * on every step of a flow that is nothing but navigation.
+       */
+      await supabase.auth.getSession();
+
       // If no user, onboarding page will handle redirect to login
       // If user exists, allow through - onboarding page will check planCode and redirect if needed
       return response;
@@ -270,9 +287,56 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Billing is reachable before a plan exists — the "Choose a plan" step of onboarding lands
+  // here. Hoisted out of the two branches below so the fast path can honour it too.
+  const isBillingPath =
+    pathname === "/dashboard/settings/workspace/billing" ||
+    pathname.startsWith("/dashboard/settings/workspace/billing/");
+
   if (isDashboard) {
     try {
       const supabase = createSupabaseMiddlewareClient(request, response);
+
+      /*
+       * Fast path: a decision this middleware already reached, within the last few minutes.
+       *
+       * The full check below costs three sequential network round-trips — Supabase Auth, then
+       * `profiles`, then `organization_settings` — and it ran on every request into the
+       * dashboard, the RSC fetch behind each client-side navigation included. Almost all of
+       * those requests re-derived an answer that had not changed since the click before.
+       *
+       * So: `getClaims()` verifies the session's JWT with the project's ES256 public key,
+       * locally, with no network call at all (it falls back to `getUser()` by itself if the
+       * project ever reverts to a shared-secret token, so this is never *worse* than before),
+       * and the signed cookie supplies the org and onboarding step that would otherwise cost
+       * two queries.
+       *
+       * What keeps it honest is that only the ALLOW is short-circuited. A missing or expired
+       * cookie, a bad signature, a user id that does not match the session, an unconfirmed
+       * email, or an onboarding step below 6 all fall through to the untouched full check —
+       * which still calls `auth.getUser()`, so a revoked session, a deleted user or a reset
+       * onboarding step is caught within the cookie's ten-minute lifetime rather than never.
+       * Somebody who has just FINISHED onboarding is not held back either, because "not yet
+       * live" is exactly the case that is never cached.
+       */
+      try {
+        const cached = await readGateDecision(request.cookies.get(GATE_COOKIE_NAME)?.value);
+        if (cached?.ec && (cached.step >= 6 || isBillingPath)) {
+          const { data: verified } = await supabase.auth.getClaims();
+          const sub = verified?.claims?.sub;
+          if (sub && sub === cached.uid) return response;
+        }
+      } catch (err) {
+        // Its OWN catch, deliberately: the outer one below sends the visitor to /login. A
+        // shortcut that fails — a JWKS fetch that times out, a crypto call that is unavailable —
+        // must cost a few hundred milliseconds, not somebody's session. Fall through and do the
+        // real check.
+        console.error(
+          "[middleware] Gate fast-path unavailable, falling back to the full check:",
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+
       const {
         data: { user },
         error: authError,
@@ -301,28 +365,38 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      // User authenticated and email confirmed → check plan active status
-      // Get org_id
+      /*
+       * User authenticated and email confirmed → resolve the org.
+       *
+       * Both identities are asked for in ONE query rather than only `auth_user_id`, so the
+       * decision recorded below can carry the answer under BOTH of this repo's resolver rules
+       * (see `orgById` on GateDecision). The gate's OWN rule is unchanged: it still uses the
+       * newest row keyed by `auth_user_id`, and still treats a row without an org as no org.
+       */
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("org_id")
-        .eq("auth_user_id", user.id)
+        .select("id, auth_user_id, org_id")
+        .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
         .order("updated_at", { ascending: false })
-        .limit(1);
+        .order("created_at", { ascending: false });
 
-      if (profiles && profiles.length > 0 && profiles[0].org_id) {
-        const orgId = profiles[0].org_id;
-        
-        // Allowlist: Billing page is accessible even if plan not active
-        // This allows users to purchase a plan during the onboarding flow
-        const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
-        
+      const rows = (profiles ?? []) as Array<{
+        id: string | null;
+        auth_user_id: string | null;
+        org_id: string | null;
+      }>;
+      const gateRow = rows.find((r) => r.auth_user_id === user.id);
+      const orgByProfileId = rows.find((r) => r.id === user.id)?.org_id ?? null;
+
+      if (gateRow?.org_id) {
+        const orgId = gateRow.org_id;
+
         if (isBillingPath) {
           // Allow access to billing page even if plan not active
           // This enables the "Choose a plan" flow during onboarding
           return response;
         }
-        
+
         // Check onboarding_step for all other /dashboard paths
         // Dashboard allowed ONLY when onboarding_step >= 6 (Live)
         // Plan status alone does NOT grant dashboard access - must complete activation
@@ -352,10 +426,47 @@ export async function middleware(request: NextRequest) {
           // Keep existing query params (like return_to) in case user was redirected from billing
           return NextResponse.redirect(url);
         }
+
+        /*
+         * Record the ALLOW so the next few navigations skip the three round-trips above.
+         *
+         * Only reached once every answer has been established the slow, authoritative way:
+         * a validated session, a confirmed email, a resolved org and a completed onboarding.
+         * Signing can be unavailable (no key configured), in which case nothing is written and
+         * every request simply keeps taking this path.
+         */
+        const gate = await signGateDecision({
+          uid: user.id,
+          org: orgId,
+          orgById: orgByProfileId,
+          step: onboardingStep,
+          ec: true,
+        });
+        if (gate) {
+          response.cookies.set({
+            name: GATE_COOKIE_NAME,
+            value: gate,
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+            maxAge: GATE_COOKIE_TTL_SECONDS,
+          });
+        } else if (process.env.NODE_ENV === "production") {
+          /*
+           * Signing is unavailable, so every dashboard request will keep paying the three
+           * round-trips above. That is safe — it is what this file did before — but it is
+           * invisible, and an environment silently missing an optimisation looks exactly like
+           * one that never had it. Say so, at most once per user per ten minutes (this branch
+           * is only reached where the cookie would otherwise have been written).
+           */
+          console.warn(
+            "[middleware][GATE][UNSIGNED] SECRET_ENCRYPTION_KEY is not set; dashboard navigations are re-checking auth on every request."
+          );
+        }
       } else {
         // No org yet → redirect to onboarding
         // Exception: allow billing page for users who might be creating org during signup
-        const isBillingPath = pathname === "/dashboard/settings/workspace/billing" || pathname.startsWith("/dashboard/settings/workspace/billing/");
         if (!isBillingPath) {
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";

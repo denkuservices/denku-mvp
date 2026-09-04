@@ -110,78 +110,84 @@ async function computeCallOutcomes(calls: Array<{
         leadId: c.lead_id,
       }));
 
-    // Batch query appointments: by call_id and by org_id+lead_id+time window
     const appointmentCallIds = new Set<string>();
     const appointmentLeadIds = new Set<string>();
-    
-    if (callIds.length > 0) {
-      const { data: appointmentsByCallId } = await supabaseAdmin
-        .from('appointments')
-        .select('call_id')
-        .eq('org_id', orgId)
-        .in('call_id', callIds);
-      
-      if (appointmentsByCallId) {
-        for (const apt of appointmentsByCallId) {
-          if (apt.call_id) appointmentCallIds.add(apt.call_id);
-        }
-      }
-    }
-
-    // Batch query tickets: by call_id and by org_id+lead_id+time window
     const ticketCallIds = new Set<string>();
     const ticketLeadIds = new Set<string>();
-    
-    if (callIds.length > 0) {
-      const { data: ticketsByCallId } = await supabaseAdmin
-        .from('tickets')
-        .select('call_id')
-        .eq('org_id', orgId)
-        .in('call_id', callIds);
-      
-      if (ticketsByCallId) {
-        for (const tkt of ticketsByCallId) {
-          if (tkt.call_id) ticketCallIds.add(tkt.call_id);
-        }
-      }
+
+    const wantByCallId = callIds.length > 0;
+    const wantByTime = leadIds.length > 0 && timeRanges.length > 0;
+
+    // For time-window matching we ask for the whole span once and match in memory, so the
+    // bounds are the outermost start and end across the page's calls.
+    const earliestStart = wantByTime
+      ? timeRanges.reduce((min, tr) => (tr.start < min ? tr.start : min), timeRanges[0].start)
+      : null;
+    const latestEnd = wantByTime
+      ? timeRanges.reduce((max, tr) => (tr.end > max ? tr.end : max), timeRanges[0].end)
+      : null;
+
+    /*
+     * All four lookups at once (perf, 2026-09-04).
+     *
+     * They were four sequential round-trips — appointments by call, tickets by call,
+     * appointments by time, tickets by time — and none of them reads anything the previous one
+     * produced. On a page of fifty calls that was four times the latency of one, paid before a
+     * single row could be rendered.
+     */
+    const [appointmentsByCallId, ticketsByCallId, appointmentsByTime, ticketsByTime] =
+      await Promise.all([
+        wantByCallId
+          ? supabaseAdmin.from('appointments').select('call_id').eq('org_id', orgId).in('call_id', callIds)
+          : Promise.resolve({ data: null }),
+        wantByCallId
+          ? supabaseAdmin.from('tickets').select('call_id').eq('org_id', orgId).in('call_id', callIds)
+          : Promise.resolve({ data: null }),
+        wantByTime
+          ? supabaseAdmin
+              .from('appointments')
+              .select('id, org_id, lead_id, created_at')
+              .eq('org_id', orgId)
+              .in('lead_id', leadIds)
+              .gte('created_at', earliestStart!)
+              .lte('created_at', latestEnd!)
+          : Promise.resolve({ data: null }),
+        wantByTime
+          ? supabaseAdmin
+              .from('tickets')
+              .select('id, org_id, lead_id, created_at')
+              .eq('org_id', orgId)
+              .in('lead_id', leadIds)
+              .gte('created_at', earliestStart!)
+              .lte('created_at', latestEnd!)
+          : Promise.resolve({ data: null }),
+      ]);
+
+    for (const apt of (appointmentsByCallId.data ?? []) as Array<{ call_id: string | null }>) {
+      if (apt.call_id) appointmentCallIds.add(apt.call_id);
+    }
+    for (const tkt of (ticketsByCallId.data ?? []) as Array<{ call_id: string | null }>) {
+      if (tkt.call_id) ticketCallIds.add(tkt.call_id);
     }
 
-    // For time-window matching, query appointments/tickets in the relevant time ranges
-    // This is an approximation - we query all appointments/tickets for the org and match in memory
-    if (leadIds.length > 0 && timeRanges.length > 0) {
-      const earliestStart = timeRanges.reduce((min, tr) => tr.start < min ? tr.start : min, timeRanges[0].start);
-      const latestEnd = timeRanges.reduce((max, tr) => tr.end > max ? tr.end : max, timeRanges[0].end);
-
-      const { data: appointmentsByTime } = await supabaseAdmin
-        .from('appointments')
-        .select('id, org_id, lead_id, created_at')
-        .eq('org_id', orgId)
-        .in('lead_id', leadIds)
-        .gte('created_at', earliestStart)
-        .lte('created_at', latestEnd);
-
-      const { data: ticketsByTime } = await supabaseAdmin
-        .from('tickets')
-        .select('id, org_id, lead_id, created_at')
-        .eq('org_id', orgId)
-        .in('lead_id', leadIds)
-        .gte('created_at', earliestStart)
-        .lte('created_at', latestEnd);
+    if (wantByTime) {
+      const apptRows = (appointmentsByTime.data ?? []) as Array<{ lead_id: string | null; created_at: string }>;
+      const ticketRows = (ticketsByTime.data ?? []) as Array<{ lead_id: string | null; created_at: string }>;
 
       // Match appointments/tickets to calls by time window
       for (const tr of timeRanges) {
         if (!tr.leadId) continue;
         
-        const hasAppt = appointmentsByTime?.some(apt => 
-          apt.lead_id === tr.leadId && 
-          apt.created_at >= tr.start && 
+        const hasAppt = apptRows.some(apt =>
+          apt.lead_id === tr.leadId &&
+          apt.created_at >= tr.start &&
           apt.created_at <= tr.end
         );
         if (hasAppt) appointmentLeadIds.add(tr.callId);
 
-        const hasTkt = ticketsByTime?.some(tkt => 
-          tkt.lead_id === tr.leadId && 
-          tkt.created_at >= tr.start && 
+        const hasTkt = ticketRows.some(tkt =>
+          tkt.lead_id === tr.leadId &&
+          tkt.created_at >= tr.start &&
           tkt.created_at <= tr.end
         );
         if (hasTkt) ticketLeadIds.add(tr.callId);

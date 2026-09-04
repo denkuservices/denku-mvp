@@ -114,7 +114,8 @@ export interface CallRow {
   intent: string | null;
   outcome: string | null;
   completion_state: string | null;
-  transcript: string | null;
+  /** Absent when the row was fetched with `preview: false` — see `ListConversationsOpts`. */
+  transcript?: string | null;
   duration_seconds: number | null;
   direction: string | null;
   started_at: string | null;
@@ -280,6 +281,17 @@ export interface ListConversationsOpts {
    * promises. Fetching by id makes the badge, the list and Home's exact count agree.
    */
   ids?: string[];
+  /**
+   * Whether to carry each voice row's `summary` — the one-line preview of what the caller said.
+   *
+   * Defaults to true, which is what every existing caller gets. It exists so a caller that is
+   * only going to COUNT rows, or is going to throw all but 25 of them away, can say so: the
+   * preview is derived from `calls.transcript`, and a transcript is by far the largest column on
+   * the row. Scanning five hundred of them to render twenty-five meant dragging the better part
+   * of a megabyte across the country (the database is in `us-west-2`, the functions in `iad1`)
+   * to use a fraction of a percent of it. See `hydrateSummaries`.
+   */
+  preview?: boolean;
 }
 
 export interface ConversationPage {
@@ -342,48 +354,104 @@ export async function listConversationViews(
 ): Promise<ConversationView[]> {
   if (!orgId) return [];
   const limit = opts.limit ?? 50;
-  const { names } = await employeeNames(orgId, db);
+  const withPreview = opts.preview !== false;
   const out: ConversationView[] = [];
 
-  try {
-    // Voice source (calls) unless a non-voice channel is requested.
-    if (!opts.channel || opts.channel === "voice") {
-      let q = db
-        .from("calls")
-        .select(
-          "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, transcript, duration_seconds, direction, started_at, ended_at, created_at"
-        )
-        .eq("org_id", orgId);
-      // Narrow at the database — see `contactId` / `ids` on ListConversationsOpts.
-      if (opts.contactId) q = q.eq("lead_id", opts.contactId);
-      if (opts.ids) q = q.in("id", opts.ids);
-      const { data } = await q.order("created_at", { ascending: false }).limit(limit);
-      for (const r of (data ?? []) as CallRow[]) {
-        out.push(callRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
-      }
-    }
+  /*
+   * The three reads have no dependency on each other, so they go out together.
+   *
+   * They used to be a ladder — employee names, then the calls, then the chat conversations —
+   * and a list that could be assembled in one round trip cost three. The names are only ever
+   * used to decorate rows that are already in hand.
+   */
+  const wantVoice = !opts.channel || opts.channel === "voice";
+  const wantChat = !opts.channel || opts.channel !== "voice";
 
-    // Chat sources (conversations table) unless voice specifically requested.
-    if (!opts.channel || opts.channel !== "voice") {
-      let q = db
-        .from("conversations")
-        .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at, meta")
-        .eq("org_id", orgId);
-      if (opts.channel) q = q.eq("channel", opts.channel);
-      if (opts.contactId) q = q.eq("contact_id", opts.contactId);
-      if (opts.ids) q = q.in("id", opts.ids);
-      const { data } = await q
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .limit(limit);
-      for (const r of (data ?? []) as ConversationRow[]) {
-        out.push(conversationRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
-      }
+  const voiceQuery = () => {
+    let q = db
+      .from("calls")
+      .select(
+        withPreview
+          ? "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, transcript, duration_seconds, direction, started_at, ended_at, created_at"
+          : "id, agent_id, from_phone, lead_id, intent, outcome, completion_state, duration_seconds, direction, started_at, ended_at, created_at"
+      )
+      .eq("org_id", orgId);
+    // Narrow at the database — see `contactId` / `ids` on ListConversationsOpts.
+    if (opts.contactId) q = q.eq("lead_id", opts.contactId);
+    if (opts.ids) q = q.in("id", opts.ids);
+    return q.order("created_at", { ascending: false }).limit(limit);
+  };
+
+  const chatQuery = () => {
+    let q = db
+      .from("conversations")
+      .select("id, channel, agent_id, contact_id, external_user_id, status, last_message_at, created_at, meta")
+      .eq("org_id", orgId);
+    if (opts.channel) q = q.eq("channel", opts.channel);
+    if (opts.contactId) q = q.eq("contact_id", opts.contactId);
+    if (opts.ids) q = q.in("id", opts.ids);
+    return q.order("last_message_at", { ascending: false, nullsFirst: false }).limit(limit);
+  };
+
+  try {
+    const [namesResult, voiceRes, chatRes] = await Promise.all([
+      employeeNames(orgId, db),
+      wantVoice ? voiceQuery() : Promise.resolve({ data: null }),
+      wantChat ? chatQuery() : Promise.resolve({ data: null }),
+    ]);
+    const { names } = namesResult;
+
+    for (const r of ((voiceRes as { data: unknown }).data ?? []) as CallRow[]) {
+      out.push(callRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
+    }
+    for (const r of ((chatRes as { data: unknown }).data ?? []) as ConversationRow[]) {
+      out.push(conversationRowToConversationView(r, names.get(r.agent_id ?? "") ?? null));
     }
   } catch (err) {
     console.error("[PLATFORM][READMODEL][CONVERSATIONS]", err instanceof Error ? err.message : String(err));
   }
 
   return out.sort(sortByActivityDesc).slice(0, limit);
+}
+
+/**
+ * Fill in the voice previews for a handful of rows, after the window has been narrowed.
+ *
+ * The counterpart to `preview: false`: scan cheaply, decide which twenty-five rows are actually
+ * going to be rendered, then fetch the transcripts for exactly those. One extra round trip, in
+ * exchange for not transferring several hundred transcripts nobody will read.
+ *
+ * Never throws and never blanks a row: on any failure the views come back exactly as they went
+ * in, with `summary: null`, which is the same thing a call with no transcript already renders as.
+ */
+export async function hydrateSummaries(
+  orgId: string,
+  views: ConversationView[],
+  db: SupabaseClient = supabaseAdmin
+): Promise<ConversationView[]> {
+  const ids = views.filter((v) => v.source === "calls").map((v) => v.id);
+  if (ids.length === 0) return views;
+
+  try {
+    const { data } = await db
+      .from("calls")
+      .select("id, transcript")
+      .eq("org_id", orgId)
+      .in("id", ids);
+
+    const byId = new Map<string, string | null>();
+    for (const r of (data ?? []) as Array<{ id: string; transcript: string | null }>) {
+      byId.set(r.id, r.transcript);
+    }
+    if (byId.size === 0) return views;
+
+    return views.map((v) =>
+      v.source === "calls" && byId.has(v.id) ? { ...v, summary: preview(byId.get(v.id)) } : v
+    );
+  } catch (err) {
+    console.error("[PLATFORM][READMODEL][SUMMARIES]", err instanceof Error ? err.message : String(err));
+    return views;
+  }
 }
 
 /** How many conversations we scan before reporting a bounded (floor) total. */
@@ -436,11 +504,32 @@ export async function listConversationPage(
     };
   }
 
-  const scanned = await listConversationViews(orgId, { channel: opts.channel, limit: CONVERSATION_SCAN_LIMIT }, db);
+  /*
+   * Scan cheaply, then fetch previews for the page (perf, 2026-09-04).
+   *
+   * The scan reads up to five hundred rows to produce a page of twenty-five, and `transcript`
+   * — the largest column on a call by an order of magnitude — was on every one of them. It is
+   * needed for exactly two things: the one-line preview under each row, and free-text search.
+   * The preview is only ever shown for the rows that survive to the page, so those transcripts
+   * are fetched afterwards, for that handful of ids.
+   *
+   * Search is the exception and keeps the old shape: matching on what was said means having what
+   * was said, for every candidate row, before deciding which ones qualify. Searching is a
+   * deliberate act on a typed query; opening the Inbox is not, and that is the path that had to
+   * get quicker.
+   */
+  const searching = Boolean((opts.search ?? "").trim());
+
+  const scanned = await listConversationViews(
+    orgId,
+    { channel: opts.channel, limit: CONVERSATION_SCAN_LIMIT, preview: searching },
+    db
+  );
   const filtered = filterConversationViews(scanned, opts);
+  const items = filtered.slice(offset, offset + pageSize);
 
   return {
-    items: filtered.slice(offset, offset + pageSize),
+    items: searching ? items : await hydrateSummaries(orgId, items, db),
     total: filtered.length,
     bounded: scanned.length >= CONVERSATION_SCAN_LIMIT,
   };

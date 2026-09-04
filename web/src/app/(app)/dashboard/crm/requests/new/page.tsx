@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { NewTicketForm } from "../../../tickets/new/_components/NewTicketForm";
@@ -20,8 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function NewRequestPage() {
   if (!platformUxEnabled()) notFound();
 
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userId = auth?.user?.id;
   if (!userId) redirect("/login");
 

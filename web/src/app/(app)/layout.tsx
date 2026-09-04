@@ -7,6 +7,8 @@ import { platformUxEnabled } from "@/lib/platform/flags";
 import { getDashboardDictionary } from "@/i18n/dashboardMessages";
 import { routing, type Locale } from "@/i18n/routing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
+import { GATE_COOKIE_NAME, readGateDecision } from "@/lib/auth/gateCookie";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -27,15 +29,30 @@ export default async function AppLayout({
   // AppShellWrapper conditionally applies HorizonShell (with sidebar) to dashboard routes,
   // but leaves onboarding routes unwrapped so they can use their own header-only layout.
 
-  // While onboarding is incomplete, the app shell renders a focused, sidebar-less
-  // chrome (so the dashboard sidebar never flashes in/out during the setup flow).
-  const onboardingComplete = await getOnboardingComplete();
+  const jar = await cookies();
+
+  /*
+   * While onboarding is incomplete, the app shell renders a focused, sidebar-less chrome (so the
+   * dashboard sidebar never flashes in/out during the setup flow).
+   *
+   * The middleware has usually just established this exact fact one hop earlier and recorded it
+   * in the signed gate cookie, so read it from there and skip re-deriving it (perf, 2026-09-04):
+   * `getOnboardingComplete()` costs an auth round-trip plus two queries, and it ran on every full
+   * page load of the dashboard purely to choose which chrome to draw.
+   *
+   * The cookie is HMAC-signed and is only ever written after the authoritative check passed, so
+   * this cannot be talked into showing chrome to someone mid-setup. Anything else — no cookie
+   * (the whole of `/onboarding`), an expired one, an unsigned deployment — falls through to the
+   * original check unchanged.
+   */
+  const gate = await readGateDecision(jar.get(GATE_COOKIE_NAME)?.value);
+  const onboardingComplete = gate ? gate.step >= 6 : await getOnboardingComplete();
 
   // Sprint 5: dark-launch the AI Employees IA behind PLATFORM_UX_ENABLED (default OFF →
   // legacy nav). Resolved server-side; a boolean crosses to the client shell.
   const platformUx = platformUxEnabled();
 
-  const cookieLocale = (await cookies()).get("NEXT_LOCALE")?.value;
+  const cookieLocale = jar.get("NEXT_LOCALE")?.value;
   let locale: Locale = routing.locales.includes(cookieLocale as Locale)
     ? (cookieLocale as Locale)
     : routing.defaultLocale;
@@ -44,7 +61,7 @@ export default async function AppLayout({
   // truth and is also what transactional email uses.
   if (!cookieLocale) {
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCachedUser();
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
