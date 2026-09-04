@@ -3,6 +3,7 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import Card from "@/components/ui-horizon/card";
+import SlowLoadNotice from "./SlowLoadNotice";
 
 /**
  * Shared loading + error states for platform routes (Sprint 8.5 / R-117, audit Y-006).
@@ -53,6 +54,8 @@ export function ListSkeleton({ rows = 6, stats = 0 }: { rows?: number; stats?: n
           ))}
         </div>
       </Card>
+
+      <SlowLoadNotice />
     </div>
   );
 }
@@ -73,6 +76,8 @@ export function GridSkeleton({ cards = 6 }: { cards?: number }) {
           </Card>
         ))}
       </div>
+
+      <SlowLoadNotice />
     </div>
   );
 }

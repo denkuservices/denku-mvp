@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUserResult } from "@/lib/auth/currentUser";
 import type { AnalyticsParams, AnalyticsRange } from "./types";
 
 const AnalyticsParamsSchema = z.object({
@@ -65,11 +66,11 @@ export function getDateRange(range: AnalyticsRange): { from: Date; to: Date; com
  */
 export const resolveOrgId = cache(async function resolveOrgId(): Promise<string> {
   const supabase = await createSupabaseServerClient();
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  const { user, error: authErr } = await getCachedUserResult();
   if (authErr) throw new Error(authErr.message);
-  if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
+  if (!user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
 
-  const profileId = auth.user.id;
+  const profileId = user.id;
   const candidates = ["org_id", "organization_id", "current_org_id", "orgs_id"] as const;
 
   for (const col of candidates) {

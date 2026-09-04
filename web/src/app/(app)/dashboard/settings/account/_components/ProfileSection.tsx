@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { updateAccountProfile } from "../../_actions/account";
 import { AccountProfileForm } from "../profile/_components/AccountProfileForm";
@@ -18,7 +19,7 @@ import { AccountProfileForm } from "../profile/_components/AccountProfileForm";
  */
 export default async function ProfileSection() {
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userEmail = auth?.user?.email ?? null;
 
   let fullName: string | null = null;

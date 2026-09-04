@@ -466,6 +466,39 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     row per user until a workspace switcher exists; it MOVES that person, and is reversed by
     setting `org_id` back. See `skills/denku-own-agent.md`.
 
+21. **The dashboard gate is CACHED for ten minutes, and `auth.getUser()` is a network call.**
+    Corrected 2026-09-04 (R-157). Two facts to hold before touching `middleware.ts` or any auth
+    helper. First: `supabase.auth.getUser()` is an **HTTP validation call to Supabase Auth**, not a
+    token decode — it was running three to six times per navigation because no two helpers shared an
+    answer, and with the DB in `us-west-2` and functions in `iad1` every one of those is a
+    cross-country hop. Route new server code through **`lib/auth/currentUser.ts`**
+    (`getCachedUser()`, React `cache()`-wrapped) rather than calling `getUser()` again. Second: the
+    middleware no longer re-derives the gate on every request. It records its decision (org,
+    `onboarding_step`, email confirmed) in an **HMAC-signed cookie** (`lib/auth/gateCookie.ts`,
+    `denku_gate`, 10 min, WebCrypto because middleware is Edge and `node:crypto` has no
+    `createHmac` there) and verifies the session **locally** with `getClaims()` — the project uses
+    ES256 asymmetric JWT signing keys, so that costs no network call and self-falls-back to
+    `getUser()` if it ever reverts to a shared secret. **Four rules:** (a) **only the ALLOW is
+    cached** — a missing/expired/tampered/foreign-keyed cookie, an unconfirmed email, or
+    `onboarding_step < 6` all fall through to the untouched full check, which still calls
+    `getUser()`; that is what bounds a revoked session, a deleted user or a reset onboarding step to
+    ten minutes rather than never, and it is why somebody who has just *finished* onboarding is not
+    held back. (b) Never cache a DENY, and never widen what the cookie carries into something a
+    capability check would read — authorization still goes through `guard()` (#16), which reads the
+    role live with the service-role client, and **`getViewer()` deliberately still calls
+    `getUser()`** so a revoked session cannot spend money. Everything else that needs only the id
+    uses **`getSessionUserId()`** (`getClaims()`, local ES256 verification, no network). The cookie
+    also carries the org under **both** resolver rules (`org` = `auth_user_id`, `orgById` = `id`),
+    which is what lets a page skip the `profiles` query without any resolver silently adopting
+    another's rule — a cookie without `orgById` reads as "not recorded" and the query runs. (c) Without `SECRET_ENCRYPTION_KEY` nothing is signed
+    and every request takes the original path — safe, but it logs `[middleware][GATE][UNSIGNED]`,
+    because an environment silently missing the optimisation looks exactly like one that never had
+    it. (d) The fast path has **its own try/catch**: the outer one redirects to `/login`, and a
+    failing optimisation must cost milliseconds, not somebody's session. The three org resolvers
+    still match `profiles` differently on purpose (#16/#20) — only the duplicate network calls were
+    removed, never their semantics. Full account:
+    [docs/denku-2.0/01-performance.md](docs/denku-2.0/01-performance.md).
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,

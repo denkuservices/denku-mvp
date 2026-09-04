@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, SearchX, TrendingUp, UserPlus, Users } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUserResult } from "@/lib/auth/currentUser";
 import { Badge, type BadgeProps } from "@/components/ui-horizon/badge";
 import { HorizonButton, HorizonLinkButton } from "@/components/ui-horizon/button";
 import { CONTROL_CLASS, FieldLabel, SearchControl } from "@/components/ui-horizon/controls";
@@ -125,7 +126,8 @@ function sevenDaysAgoTimestamp() {
  */
 async function resolveOrgId() {
   const supabase = await createSupabaseServerClient();
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  const { user: cachedUser, error: authErr } = await getCachedUserResult();
+  const auth = { user: cachedUser };
   if (authErr) throw new Error(authErr.message);
   if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
 

@@ -334,6 +334,11 @@ const DASHBOARD_COPY: Readonly<Record<string, TranslationTuple>> = {
   Urgent: ["Urgente", "Dringend", "Acil"],
   Loading: ["Cargando", "Wird geladen", "Yükleniyor"],
   "Loading…": ["Cargando…", "Wird geladen…", "Yükleniyor…"],
+  // Shown only once a page has been loading for more than two seconds (`SlowLoadNotice`).
+  "Loading your workspace…": ["Cargando tu espacio de trabajo…", "Arbeitsbereich wird geladen…", "Çalışma alanınız yükleniyor…"],
+  "Fetching your latest data…": ["Obteniendo tus datos más recientes…", "Aktuelle Daten werden abgerufen…", "En güncel verileriniz getiriliyor…"],
+  "Still working on it…": ["Seguimos trabajando en ello…", "Wird noch bearbeitet…", "Hâlâ üzerinde çalışılıyor…"],
+  "This is taking longer than usual — thanks for your patience.": ["Está tardando más de lo habitual. Gracias por tu paciencia.", "Das dauert länger als sonst. Danke für Ihre Geduld.", "Bu işlem her zamankinden uzun sürüyor. Sabrınız için teşekkürler."],
   Updating: ["Actualizando", "Wird aktualisiert", "Güncelleniyor"],
   Working: ["Trabajando", "Aktiv", "Çalışıyor"],
   "Needs you": ["Te necesita", "Braucht Sie", "Size ihtiyaç var"],

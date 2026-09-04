@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { listSessions } from "../../_actions/security";
 import { AccountSecurityClient } from "../security/_components/AccountSecurityClient";
 
@@ -11,7 +12,7 @@ import { AccountSecurityClient } from "../security/_components/AccountSecurityCl
  */
 export default async function SecuritySection() {
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userEmail = auth?.user?.email ?? null;
 
   let isPasswordManagedByProvider = true;

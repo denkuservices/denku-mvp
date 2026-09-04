@@ -124,7 +124,9 @@ export async function getTeamActivity(
   const since = Date.now() - windowDays * 24 * 60 * 60 * 1000;
 
   const [conversations, requests] = await Promise.all([
-    listConversationViews(orgId, { limit: SCAN }, db).catch(() => [] as ConversationView[]),
+    // Only ids and timestamps are read below, so this scan of five hundred rows skips the
+    // transcripts entirely (see `preview` on ListConversationsOpts).
+    listConversationViews(orgId, { limit: SCAN, preview: false }, db).catch(() => [] as ConversationView[]),
     listRequestViews(orgId, { limit: SCAN }, db)
       .then((r) => r.items)
       .catch(() => []),

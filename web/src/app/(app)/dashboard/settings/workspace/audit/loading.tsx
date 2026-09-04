@@ -1,5 +1,6 @@
 import { ArrowLeft, History } from "lucide-react";
 import { Panel, SettingsHero, SettingsLinkButton } from "@/app/(app)/dashboard/_platform/settings/ui";
+import SlowLoadNotice from "@/app/(app)/dashboard/_platform/ui/SlowLoadNotice";
 
 /**
  * The audit log while it is being fetched.
@@ -54,6 +55,8 @@ export default function AuditLoading() {
           ))}
         </ol>
       </Panel>
+
+      <SlowLoadNotice />
     </div>
   );
 }

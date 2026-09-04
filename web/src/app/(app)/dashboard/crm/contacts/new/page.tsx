@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { resolveActiveOrgId } from "@/lib/platform/serverOrg";
 import { NewLeadForm } from "../../../leads/new/_components/NewLeadForm";
@@ -22,8 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function NewContactPage() {
   if (!platformUxEnabled()) notFound();
 
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userId = auth?.user?.id;
   if (!userId) redirect("/login");
 

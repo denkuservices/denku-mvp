@@ -18,6 +18,7 @@ import { ByAgentTable } from "@/components/analytics/ByAgentTable";
 import { OutcomeBreakdown } from "@/components/analytics/OutcomeBreakdown";
 import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { getTicketsAnalytics } from "@/lib/analytics/tickets.queries";
 import { TicketsAnalytics } from "@/components/analytics/TicketsAnalytics";
 import Card from "@/components/ui-horizon/card";
@@ -49,7 +50,7 @@ export default async function AnalyticsPage({
 
   // Check if user is admin/owner for export button visibility
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userId = auth?.user?.id;
   const canExport = userId ? await isAdminOrOwner(orgId, userId) : false;
 

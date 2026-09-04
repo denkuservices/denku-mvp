@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { computeSummary } from "@/lib/analytics/queries";
 
 export type DashboardOverview = {
@@ -75,9 +76,7 @@ function timeAgoLabel(iso?: string | null) {
 
 export async function getDashboardOverview(): Promise<DashboardOverview> {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) redirect("/login");
 
@@ -97,15 +96,245 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const userName =
     profile?.full_name?.trim() || user.user_metadata?.full_name || user.email || profile?.email || "User";
 
+  /*
+   * Every read this page needs, issued at once (perf, 2026-09-04).
+   *
+   * Home used to be a ladder of about a dozen queries that each waited for the one before it —
+   * the org name, then six counts, then three feed lookups, then the readiness probe, then the
+   * month metrics, then a six-month scan, then an eight-week scan, then a tickets scan, then a
+   * forty-eight-hour scan, then the roster, then the savings window. None of them needed
+   * anything from the query above; they were sequential only because that is the order the
+   * aggregations happen to be written in. With the database in `us-west-2` and the functions in
+   * `iad1`, that ladder was most of a second of pure waiting on the first screen a customer sees
+   * after signing in.
+   *
+   * So the windows are computed up front and every query is STARTED here. The aggregation code
+   * below is untouched — it still awaits each result exactly where it did before — but by then
+   * the answers are already on their way back, so a dozen round trips cost about one. Only the
+   * agent-performance scan still waits, because it genuinely needs the roster's ids first.
+   *
+   * `fire()` is what makes this work: a Supabase query builder is lazy — a thenable that does
+   * not contact the database until something awaits it. Handing it to `Promise.resolve` starts
+   * it now, which is the entire point of this block.
+   */
+  const fire = <T,>(query: PromiseLike<T>): Promise<T> => Promise.resolve(query);
+
+  const now = new Date();
+
+  // Trailing 7 days, for the "calls this week" count.
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+  const todayEndUtc = new Date();
+  todayEndUtc.setUTCHours(23, 59, 59, 999);
+
+  // This month, and the month before it (for the comparison figure).
+  const monthStart = new Date(now);
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const monthEnd = new Date(now);
+  monthEnd.setUTCHours(23, 59, 59, 999);
+
+  const lastMonthStart = new Date(monthStart);
+  lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
+  const lastMonthEnd = new Date(monthStart);
+  lastMonthEnd.setUTCMilliseconds(-1);
+
+  // Six calendar months, oldest first, for the trend series.
+  const monthLabels: string[] = [];
+  const monthRanges: Array<{ start: Date; end: Date }> = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthDate = new Date(now);
+    monthDate.setUTCMonth(monthDate.getUTCMonth() - i);
+    monthDate.setUTCDate(1);
+    monthDate.setUTCHours(0, 0, 0, 0);
+
+    const monthEndDate = new Date(monthDate);
+    monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+    monthEndDate.setUTCMilliseconds(-1);
+
+    monthRanges.push({ start: monthDate, end: monthEndDate });
+    const monthName = monthDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
+    monthLabels.push(monthName);
+  }
+  const sixMonthsAgoStart = monthRanges[0].start;
+
+  // Eight weeks, oldest first, for the weekly outcomes chart.
+  const weekLabels: string[] = [];
+  const weekRanges: Array<{ start: Date; end: Date }> = [];
+  for (let i = 7; i >= 0; i--) {
+    const weekDate = new Date(now);
+    weekDate.setUTCDate(weekDate.getUTCDate() - (i * 7));
+    const dayOfWeek = weekDate.getUTCDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(weekDate);
+    weekStart.setUTCDate(weekStart.getUTCDate() + daysToMonday);
+    weekStart.setUTCHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+
+    weekRanges.push({ start: weekStart, end: weekEnd });
+    const startOfYear = new Date(Date.UTC(weekStart.getUTCFullYear(), 0, 1));
+    const diffTime = weekStart.getTime() - startOfYear.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const weekNum = Math.ceil((diffDays + 1) / 7);
+    weekLabels.push("W" + String(weekNum).padStart(2, "0"));
+  }
+  const eightWeeksAgoStart = weekRanges[0].start;
+
+  // Today and yesterday in the SERVER's local timezone — deliberately unchanged, because the
+  // hourly chart's buckets further down are computed the same way.
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+  // Trailing 30 days, for the legacy savings figure.
+  const savingsTo = new Date(now);
+  savingsTo.setUTCHours(23, 59, 59, 999);
+  const savingsFrom = new Date(savingsTo);
+  savingsFrom.setUTCDate(savingsFrom.getUTCDate() - 29); // 30 days inclusive
+  savingsFrom.setUTCHours(0, 0, 0, 0);
+
+  const q = orgId
+    ? {
+        org: fire(supabase.from("orgs").select("id, name").eq("id", orgId).single<Org>()),
+
+        agentsCount: fire(supabase.from("agents").select("*", { count: "exact", head: true }).eq("org_id", orgId)),
+        callsCount: fire(supabase.from("calls").select("*", { count: "exact", head: true }).eq("org_id", orgId)),
+        callsLast7dCount: fire(
+          supabase
+            .from("calls")
+            .select("*", { count: "exact", head: true })
+            .eq("org_id", orgId)
+            .gte("started_at", sevenDaysAgo.toISOString())
+            .lte("started_at", todayEndUtc.toISOString())
+        ),
+        leadsCount: fire(supabase.from("leads").select("*", { count: "exact", head: true }).eq("org_id", orgId)),
+        appointmentsCount: fire(
+          supabase.from("appointments").select("*", { count: "exact", head: true }).eq("org_id", orgId)
+        ),
+        ticketsCount: fire(supabase.from("tickets").select("*", { count: "exact", head: true }).eq("org_id", orgId)),
+
+        // Feed: only the fields the feed UI renders.
+        feedCalls: fire(
+          supabase
+            .from("calls")
+            .select("id, started_at, agent_id")
+            .eq("org_id", orgId)
+            .order("started_at", { ascending: false })
+            .limit(3)
+        ),
+        feedLeads: fire(
+          supabase
+            .from("leads")
+            .select("id, created_at, agent_id")
+            .eq("org_id", orgId)
+            .order("created_at", { ascending: false })
+            .limit(3)
+        ),
+        // Six agents: enough for the feed's own items plus the name lookup the calls and leads
+        // rows need.
+        feedAgents: fire(
+          supabase
+            .from("agents")
+            .select("id, name, created_at")
+            .eq("org_id", orgId)
+            .order("created_at", { ascending: false })
+            .limit(6)
+            .returns<AgentRow[]>()
+        ),
+
+        // Readiness: is a number bound to any agent?
+        agentsWithPhone: fire(
+          supabase.from("agents").select("id").eq("org_id", orgId).not("vapi_phone_number_id", "is", null).limit(1)
+        ),
+
+        callsMonth: fire(
+          supabase
+            .from("calls")
+            .select("started_at, ended_at, duration_seconds")
+            .eq("org_id", orgId)
+            .gte("started_at", monthStart.toISOString())
+            .lte("started_at", monthEnd.toISOString())
+        ),
+        lastMonthTotal: fire(
+          supabase
+            .from("calls")
+            .select("*", { count: "exact", head: true })
+            .eq("org_id", orgId)
+            .gte("started_at", lastMonthStart.toISOString())
+            .lte("started_at", lastMonthEnd.toISOString())
+        ),
+        ticketsMonth: fire(
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .eq("org_id", orgId)
+            .gte("created_at", monthStart.toISOString())
+            .lte("created_at", monthEnd.toISOString())
+        ),
+        appointmentsMonth: fire(
+          supabase
+            .from("appointments")
+            .select("*", { count: "exact", head: true })
+            .eq("org_id", orgId)
+            .gte("created_at", monthStart.toISOString())
+            .lte("created_at", monthEnd.toISOString())
+        ),
+
+        sixMonthCalls: fire(
+          supabase
+            .from("calls")
+            .select("started_at, ended_at, duration_seconds")
+            .eq("org_id", orgId)
+            .gte("started_at", sixMonthsAgoStart.toISOString())
+            .lte("started_at", monthEnd.toISOString())
+        ),
+        weeklyCalls: fire(
+          supabase
+            .from("calls")
+            .select("started_at, ended_at, duration_seconds")
+            .eq("org_id", orgId)
+            .gte("started_at", eightWeeksAgoStart.toISOString())
+            .lte("started_at", monthEnd.toISOString())
+        ),
+        weeklyTickets: fire(
+          supabase
+            .from("tickets")
+            .select("created_at")
+            .eq("org_id", orgId)
+            .gte("created_at", eightWeeksAgoStart.toISOString())
+            .lte("created_at", monthEnd.toISOString())
+        ),
+        calls48h: fire(
+          supabase
+            .from("calls")
+            .select("started_at")
+            .eq("org_id", orgId)
+            .gte("started_at", startOfYesterday.toISOString())
+            .lte("started_at", endOfToday.toISOString())
+        ),
+
+        roster: fire(supabase.from("agents").select("id, name").eq("org_id", orgId)),
+
+        savingsCalls: fire(
+          supabase
+            .from("calls")
+            .select("duration_seconds, cost_usd")
+            .eq("org_id", orgId)
+            .gte("started_at", savingsFrom.toISOString())
+            .lte("started_at", savingsTo.toISOString())
+        ),
+      }
+    : null;
+
   // 2) Org name
   let orgName = "—";
-  if (orgId) {
-    const { data: org } = await supabase
-      .from("orgs")
-      .select("id, name")
-      .eq("id", orgId)
-      .single<Org>();
-
+  if (q) {
+    const { data: org } = await q.org;
     orgName = org?.name ?? "—";
   }
 
@@ -117,14 +346,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   let appointmentsCount = 0;
   let ticketsCount = 0;
 
-  if (orgId) {
-    // Pre-calculate date ranges needed for callsLast7d
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
-    sevenDaysAgo.setUTCHours(0, 0, 0, 0);
-    const now = new Date();
-    now.setUTCHours(23, 59, 59, 999);
-
+  if (q) {
     const [
       { count: agentsCount },
       { count: callsTotalCount },
@@ -133,17 +355,12 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       { count: appointmentsCountResult },
       { count: ticketsCountResult },
     ] = await Promise.all([
-      supabase.from("agents").select("*", { count: "exact", head: true }).eq("org_id", orgId),
-      supabase.from("calls").select("*", { count: "exact", head: true }).eq("org_id", orgId),
-      supabase
-        .from("calls")
-        .select("*", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .gte("started_at", sevenDaysAgo.toISOString())
-        .lte("started_at", now.toISOString()),
-      supabase.from("leads").select("*", { count: "exact", head: true }).eq("org_id", orgId),
-      supabase.from("appointments").select("*", { count: "exact", head: true }).eq("org_id", orgId),
-      supabase.from("tickets").select("*", { count: "exact", head: true }).eq("org_id", orgId),
+      q.agentsCount,
+      q.callsCount,
+      q.callsLast7dCount,
+      q.leadsCount,
+      q.appointmentsCount,
+      q.ticketsCount,
     ]);
 
     agentsTotal = typeof agentsCount === "number" ? agentsCount : 0;
@@ -158,38 +375,12 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   // Keep it simple and safe: if tables empty or queries fail, feed remains []
   let feed: Array<{ id: string; message: string; time: string }> = [];
 
-  if (orgId) {
-    // Optimized: Run all feed queries in parallel (they are independent)
-    // Also optimize: only fetch fields used by feed UI (id, started_at/created_at, agent_id for lookup)
+  if (q) {
     const [
       { data: calls },
       { data: leads },
       { data: agents },
-    ] = await Promise.all([
-      // Recent calls: only fields needed for feed (id, started_at for time, agent_id for name lookup)
-      supabase
-        .from("calls")
-        .select("id, started_at, agent_id")
-        .eq("org_id", orgId)
-        .order("started_at", { ascending: false })
-        .limit(3),
-      // Recent leads: only fields needed for feed (id, created_at for time, agent_id for name lookup)
-      supabase
-        .from("leads")
-        .select("id, created_at, agent_id")
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(3),
-      // Recent agents: only fields needed (id, name for feed/lookup, created_at for time)
-      // Limit to 6 agents: enough for agent feed items (max 6 total feed items) + lookup map for calls/leads
-      supabase
-        .from("agents")
-        .select("id, name, created_at")
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(6)
-        .returns<AgentRow[]>(),
-    ]);
+    ] = await Promise.all([q.feedCalls, q.feedLeads, q.feedAgents]);
 
     // Build agent name lookup map from fetched agents
     const agentNameById: Record<string, string> = {};
@@ -254,17 +445,12 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   let phoneProvisioned = false;
   let firstCallCompleted = false;
 
-  if (orgId && profile) {
+  if (q && profile) {
     // Profile completed: full_name and email are non-null
     profileComplete = !!(profile.full_name && profile.email);
 
     // Phone number provisioned: at least one agent has vapi_phone_number_id
-    const { data: agentsWithPhone } = await supabase
-      .from("agents")
-      .select("id")
-      .eq("org_id", orgId)
-      .not("vapi_phone_number_id", "is", null)
-      .limit(1);
+    const { data: agentsWithPhone } = await q.agentsWithPhone;
 
     phoneProvisioned = (agentsWithPhone?.length ?? 0) > 0;
 
@@ -282,19 +468,8 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const checkedCount = readinessSteps.filter((s) => s.done).length;
   const readinessScore = Math.round((checkedCount / readinessSteps.length) * 100);
 
-  // Date range for this month
-  const now = new Date();
-  const monthStart = new Date(now);
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0, 0, 0, 0);
-  const monthEnd = new Date(now);
-  monthEnd.setUTCHours(23, 59, 59, 999);
-
-  // Last month range
-  const lastMonthStart = new Date(monthStart);
-  lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
-  const lastMonthEnd = new Date(monthStart);
-  lastMonthEnd.setUTCMilliseconds(-1);
+  // `now`, `monthStart`/`monthEnd` and the last-month pair are computed with the other windows
+  // at the top of this function, where the queries that use them are started.
 
   // Monthly metrics (all use same time window: this month)
   let totalCallsMonth = 0;
@@ -319,46 +494,13 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     date: string;
   }> = [];
 
-  if (orgId) {
-    // Optimized: Fetch month metrics in 2 parallel queries instead of 6 sequential
-    // Query 1: Fetch all calls for this month + last month (for comparison) with minimal fields needed for aggregation
-    // Query 2: Fetch tickets and appointments counts in parallel
-    
+  if (q) {
     const [
       { data: callsMonthData },
       { count: lastMonthTotalCount },
       { count: ticketsMonthCount },
       { count: appointmentsMonthCount },
-    ] = await Promise.all([
-      // This month calls: fetch only fields needed for aggregation (started_at for filtering, duration_seconds for sum, ended_at for handled filter)
-      supabase
-        .from("calls")
-        .select("started_at, ended_at, duration_seconds")
-        .eq("org_id", orgId)
-        .gte("started_at", monthStart.toISOString())
-        .lte("started_at", monthEnd.toISOString()),
-      // Last month total count
-      supabase
-        .from("calls")
-        .select("*", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .gte("started_at", lastMonthStart.toISOString())
-        .lte("started_at", lastMonthEnd.toISOString()),
-      // Tickets count
-      supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString()),
-      // Appointments count
-      supabase
-        .from("appointments")
-        .select("*", { count: "exact", head: true })
-        .eq("org_id", orgId)
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString()),
-    ]);
+    ] = await Promise.all([q.callsMonth, q.lastMonthTotal, q.ticketsMonth, q.appointmentsMonth]);
 
     totalCallsLastMonth = typeof lastMonthTotalCount === "number" ? lastMonthTotalCount : 0;
     ticketsCreatedMonth = typeof ticketsMonthCount === "number" ? ticketsMonthCount : 0;
@@ -389,33 +531,8 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     // Answer rate
     answerRate = totalCallsMonth > 0 ? (handledCallsMonth / totalCallsMonth) * 100 : 0;
 
-    // Generate 6-month series (last 6 months including current)
-    const monthLabels: string[] = [];
-    const monthRanges: Array<{ start: Date; end: Date }> = [];
-    
-    for (let i = 5; i >= 0; i--) {
-      const monthDate = new Date(now);
-      monthDate.setUTCMonth(monthDate.getUTCMonth() - i);
-      monthDate.setUTCDate(1);
-      monthDate.setUTCHours(0, 0, 0, 0);
-      
-      const monthEndDate = new Date(monthDate);
-      monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
-      monthEndDate.setUTCMilliseconds(-1);
-      
-      monthRanges.push({ start: monthDate, end: monthEndDate });
-      const monthName = monthDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
-      monthLabels.push(monthName);
-    }
-
-    // Aggregate calls by month (single query for efficiency)
-    const sixMonthsAgoStart = monthRanges[0].start;
-    const { data: callsData } = await supabase
-      .from("calls")
-      .select("started_at, ended_at, duration_seconds")
-      .eq("org_id", orgId)
-      .gte("started_at", sixMonthsAgoStart.toISOString())
-      .lte("started_at", monthEnd.toISOString());
+    // The 6-month series buckets `monthRanges`, built with the other windows at the top.
+    const { data: callsData } = await q.sixMonthCalls;
 
     if (callsData) {
       // Initialize buckets
@@ -449,46 +566,11 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       }));
     }
 
-    // Generate 8-week series (last 8 weeks including current)
-    const weekLabels: string[] = [];
-    const weekRanges: Array<{ start: Date; end: Date }> = [];
-    
-    for (let i = 7; i >= 0; i--) {
-      const weekDate = new Date(now);
-      weekDate.setUTCDate(weekDate.getUTCDate() - (i * 7));
-      const dayOfWeek = weekDate.getUTCDay();
-      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const weekStart = new Date(weekDate);
-      weekStart.setUTCDate(weekStart.getUTCDate() + daysToMonday);
-      weekStart.setUTCHours(0, 0, 0, 0);
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-      weekEnd.setUTCHours(23, 59, 59, 999);
-      
-      weekRanges.push({ start: weekStart, end: weekEnd });
-      const startOfYear = new Date(Date.UTC(weekStart.getUTCFullYear(), 0, 1));
-      const diffTime = weekStart.getTime() - startOfYear.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const weekNum = Math.ceil((diffDays + 1) / 7);
-      weekLabels.push(`W${String(weekNum).padStart(2, '0')}`);
-    }
-
-    // Fetch calls and tickets for 8-week window
-    const eightWeeksAgoStart = weekRanges[0].start;
-    const { data: weeklyCallsData } = await supabase
-      .from("calls")
-      .select("started_at, ended_at, duration_seconds")
-      .eq("org_id", orgId)
-      .gte("started_at", eightWeeksAgoStart.toISOString())
-      .lte("started_at", monthEnd.toISOString());
-
-    const { data: weeklyTicketsData } = await supabase
-      .from("tickets")
-      .select("created_at")
-      .eq("org_id", orgId)
-      .gte("created_at", eightWeeksAgoStart.toISOString())
-      .lte("created_at", monthEnd.toISOString());
+    // The weekly outcomes chart buckets `weekRanges`, built with the other windows at the top.
+    const [{ data: weeklyCallsData }, { data: weeklyTicketsData }] = await Promise.all([
+      q.weeklyCalls,
+      q.weeklyTickets,
+    ]);
 
     const handledCallsWeekly = new Array(8).fill(0);
     const supportTicketsWeekly = new Array(8).fill(0);
@@ -530,33 +612,9 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       supportTickets: supportTicketsWeekly[idx],
     }));
 
-    // Today range (LOCAL timezone)
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0, 0, 0, 0
-    );
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23, 59, 59, 999
-    );
-
-    // Yesterday range (LOCAL timezone)
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const endOfYesterday = new Date(startOfToday);
-    endOfYesterday.setMilliseconds(-1);
-
-    // Optimized: Single query for last 48 hours, then compute today/yesterday/hourly in JS
-    const { data: calls48hData } = await supabase
-      .from("calls")
-      .select("started_at")
-      .eq("org_id", orgId)
-      .gte("started_at", startOfYesterday.toISOString())
-      .lte("started_at", endOfToday.toISOString());
+    // One 48-hour window; today, yesterday and the hourly buckets are all computed from it in
+    // JS below, against the same LOCAL-timezone boundaries the query was built with at the top.
+    const { data: calls48hData } = await q.calls48h;
 
     // Use Map to track counts by local hour (only hours with data)
     const hourlyCountsMap = new Map<number, number>();
@@ -607,11 +665,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         value: count,
       }));
 
-    // Agent performance for this month
-    const { data: agentsData } = await supabase
-      .from("agents")
-      .select("id, name")
-      .eq("org_id", orgId);
+    // Agent performance for this month. The roster was started with everything else; the call
+    // scan is the one query on this page that genuinely has to wait, because it is keyed on the
+    // ids the roster returns.
+    const { data: agentsData } = await q.roster;
 
     if (agentsData && agentsData.length > 0) {
       const agentIds = agentsData.map((a) => a.id);
@@ -714,22 +771,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   // 11) Compute estimated savings (legacy, 30-day range for compatibility)
   // Optimized: Only fetch duration_seconds and cost_usd (computeSummary only needs these fields)
   let estimatedSavings = 0;
-  if (orgId) {
+  if (q) {
     try {
-      const to = new Date(now);
-      to.setUTCHours(23, 59, 59, 999);
-      const from = new Date(to);
-      from.setUTCDate(from.getUTCDate() - 29); // 30 days inclusive
-      from.setUTCHours(0, 0, 0, 0);
-
-      // Optimized query: only fetch the two fields needed for computeSummary
-      // This avoids fetching large raw_payload and other unused columns
-      const { data: callsData } = await supabase
-        .from("calls")
-        .select("duration_seconds, cost_usd")
-        .eq("org_id", orgId)
-        .gte("started_at", from.toISOString())
-        .lte("started_at", to.toISOString());
+      // Only the two fields `computeSummary` reads, over the 30-day window built at the top.
+      const { data: callsData } = await q.savingsCalls;
 
       // Transform to minimal CallRow shape expected by computeSummary
       const calls = (callsData || []).map((c) => ({

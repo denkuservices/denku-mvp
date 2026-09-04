@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasAnyPaidPlan } from "@/lib/billing/planState";
+import { getCachedUser } from "@/lib/auth/currentUser";
 
 /**
  * Check if plan is active for an org.
@@ -31,9 +32,9 @@ export async function isPlanActive(orgId: string): Promise<boolean> {
  */
 export async function checkPlanActiveAndRedirect(): Promise<"/dashboard"> {
   const supabase = await createSupabaseServerClient();
-  
-  // 1) Get current user
-  const { data: { user } } = await supabase.auth.getUser();
+
+  // 1) Get current user (shared with the rest of this request — see `lib/auth/currentUser.ts`)
+  const user = await getCachedUser();
   if (!user) {
     redirect("/login");
   }
@@ -91,7 +92,7 @@ export async function checkPlanActiveAndRedirect(): Promise<"/dashboard"> {
 export async function getOnboardingComplete(): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCachedUser();
     if (!user) return false;
 
     const { data: profiles } = await supabase

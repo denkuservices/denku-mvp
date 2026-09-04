@@ -1,4 +1,5 @@
 import { StatCardsSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
+import SlowLoadNotice from "./_platform/ui/SlowLoadNotice";
 
 /**
  * Dashboard loading state (R-048) — mirrors the real layout (stat-card row + a
@@ -11,6 +12,7 @@ export default function DashboardLoading() {
       <div className="mt-5">
         <TableSkeleton rows={5} cols={4} />
       </div>
+      <SlowLoadNotice />
     </div>
   );
 }

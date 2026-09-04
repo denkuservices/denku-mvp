@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listConnections } from "@/lib/telegram/connections";
 import { llmConfigured } from "@/lib/llm/provider";
@@ -21,9 +22,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function TelegramPage() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   let orgId: string | null = null;
   let canManage = false;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { listTickets, getDistinctStatuses, getDistinctPriorities } from "@/lib/tickets/queries";
 import { resolveOrgId } from "@/lib/analytics/params";
 import { isAdminOrOwner } from "@/lib/analytics/params";
@@ -43,8 +43,7 @@ export default async function TicketsPage({
 
   // Resolve org and user
   const orgId = await resolveOrgId();
-  const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
+  const auth = { user: await getCachedUser() };
   const userId = auth?.user?.id ?? "";
 
   // Get user role and workspace status

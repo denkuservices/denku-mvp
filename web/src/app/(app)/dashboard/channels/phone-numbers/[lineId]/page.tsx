@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isPreviewMode } from "@/lib/billing/isPreviewMode";
 import { SuccessBanner } from "./SuccessBanner";
@@ -135,9 +136,7 @@ export default async function PhoneLineDetailPage({
   const isNewlyCreated = created === "1";
   const supabase = await createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) redirect("/login");
 

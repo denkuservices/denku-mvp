@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { getActiveOrgId } from "@/lib/org/getActiveOrgId";
 import { getWorkspaceDefaultLanguage } from "@/lib/org/getWorkspaceDefaultLanguage";
 import { platformUxEnabled } from "@/lib/platform/flags";
@@ -27,7 +28,7 @@ export default async function HireEmployeePage() {
   if (!platformUxEnabled()) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getUser();
+  const data = { user: await getCachedUser() };
   if (!data.user) redirect("/login");
 
   /*

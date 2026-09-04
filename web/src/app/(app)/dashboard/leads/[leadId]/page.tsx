@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUserResult } from "@/lib/auth/currentUser";
 import { ArrowLeft, CircleDollarSign, Clock3, PhoneCall, UserRound } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui-horizon/badge";
 import { HorizonLinkButton } from "@/components/ui-horizon/button";
@@ -143,7 +144,8 @@ function MissingLead({ description }: { description: string }) {
 
 async function resolveOrgId() {
   const supabase = await createSupabaseServerClient();
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  const { user: cachedUser, error: authErr } = await getCachedUserResult();
+  const auth = { user: cachedUser };
   if (authErr) throw new Error(authErr.message);
   if (!auth?.user) throw new Error("Not authenticated. Please sign in to view this dashboard.");
 

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bot, MessagesSquare, SearchX, Star, UserCheck } from "lucide-react";
 import { CHANNEL_ORDER, channelMeta, isKnownChannel, type Channel } from "@/lib/platform/channels";
 import type { InboxFilter, InboxPage, InboxRow } from "@/lib/platform/readModel/inbox";
@@ -37,7 +37,35 @@ type Facet = { key: string; label: string; channel?: Channel; filter?: InboxFilt
 
 export default function ConversationList({ initialPage }: { initialPage: InboxPage }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
+
+  /**
+   * Warm a conversation before it is clicked.
+   *
+   * The thread is a `force-dynamic` server page, so Next's automatic link prefetching only ever
+   * fetched its loading boundary — the actual conversation was requested from scratch on the
+   * click, and the reader watched a skeleton while it arrived. Prefetching on hover or keyboard
+   * focus buys the few hundred milliseconds between reaching for a row and pressing it, which is
+   * usually the whole wait.
+   *
+   * Each id is warmed at most once per mount: the router keeps the payload for `staleTimes.dynamic`
+   * (30s, `next.config.ts`), and a person sweeping the pointer down a list of twenty-five rows
+   * must not turn into twenty-five repeated requests.
+   */
+  const prefetched = useRef<Set<string>>(new Set());
+  const prefetchRow = useCallback(
+    (id: string) => {
+      if (prefetched.current.has(id)) return;
+      prefetched.current.add(id);
+      try {
+        router.prefetch(`/dashboard/inbox/${id}`);
+      } catch {
+        // Prefetching is an optimisation; a failure here must never break opening the row.
+      }
+    },
+    [router]
+  );
 
   /** Which conversation is open beside us — the row that reads as selected. */
   const activeId = useMemo(() => {
@@ -320,12 +348,16 @@ export default function ConversationList({ initialPage }: { initialPage: InboxPa
           )
         ) : (
           <ul className={`divide-y ${inbox.rowDivider}`}>
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <ConversationRow
                 key={`${row.source}:${row.id}`}
                 row={row}
                 active={row.id === activeId}
                 onOpen={() => clearUnread(row.id)}
+                prefetch={prefetchRow}
+                // The top row is the one most people open, so it is warmed on render rather
+                // than waiting for a pointer that may go straight to a click.
+                eager={index === 0}
               />
             ))}
             <li ref={sentinel} aria-hidden="true" />
@@ -350,19 +382,32 @@ function ConversationRow({
   row,
   active,
   onOpen,
+  prefetch,
+  eager,
 }: {
   row: InboxRow;
   active: boolean;
   onOpen: () => void;
+  prefetch: (id: string) => void;
+  eager?: boolean;
 }) {
   const name = row.displayName || row.handle || "Unknown contact";
   const preview = row.summary || (row.employeeName ? `Handled by ${row.employeeName}` : "—");
+
+  useEffect(() => {
+    if (eager) prefetch(row.id);
+  }, [eager, prefetch, row.id]);
 
   return (
     <li>
       <Link
         href={`/dashboard/inbox/${row.id}`}
         onClick={onOpen}
+        onMouseEnter={() => prefetch(row.id)}
+        onFocus={() => prefetch(row.id)}
+        // `false` turns off Next's own viewport prefetching, which for a dynamic route only
+        // fetches the loading boundary anyway. The hover handler above fetches the real thing.
+        prefetch={false}
         aria-current={active ? "true" : undefined}
         className={`flex items-center gap-3 px-3 py-3 transition ${active ? inbox.rowActive : inbox.rowIdle}`}
       >

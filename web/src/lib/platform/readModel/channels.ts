@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CHANNEL_ORDER, channelMeta, type Channel } from "@/lib/platform/channels";
@@ -121,20 +122,20 @@ export async function countConnectedChatChannels(
 ): Promise<number> {
   if (!orgId) return 0;
 
+  // Counted off the shared row fetch rather than one head-count query per channel: this used to
+  // be four more sequential round-trips for tables the same render had already read.
+  const rows = await channelRows(orgId, db);
+
   let total = 0;
   for (const channel of CHANNEL_ORDER) {
     if (channelMeta(channel).kind !== "chat") continue;
     const source = CONNECTION_SOURCES[channel];
     if (!source) continue;
 
-    try {
-      let query = db.from(source.table).select("id", { count: "exact", head: true }).eq("org_id", orgId);
-      // A channel with no status column is connected by existing at all.
-      if (source.statusColumn) query = query.eq(source.statusColumn, "connected");
-      const { count, error } = await query;
-      if (!error) total += count ?? 0;
-    } catch {
-      /* one unavailable table must not cost the whole count */
+    for (const row of rows.get(channel) ?? []) {
+      // A channel with no status column is connected by existing at all — the same rule the
+      // per-channel `.eq(statusColumn, "connected")` filter expressed.
+      if (!source.statusColumn || row[source.statusColumn] === "connected") total += 1;
     }
   }
   return total;
@@ -226,6 +227,46 @@ async function fetchChannelRows(
 }
 
 /**
+ * Every declared channel's rows, in one stage and once per request (perf, 2026-09-04).
+ *
+ * Two separate costs were stacked here, and together they were the single most expensive thing on
+ * the dashboard home. First, each function below walked `CHANNEL_ORDER` and **awaited one channel
+ * before asking about the next** — five declared sources meant five sequential round-trips to fetch
+ * rows that have nothing to do with each other. Second, three different callers wanted the same
+ * answer in one render (`PlatformDashboard`, `WorkspaceLaunchpad`, and the chat-channel count), so
+ * the workspace's connection tables were being read three times over.
+ *
+ * Measured on a real workspace: the home page issued `web_chat_connections` three times,
+ * `email_connections` three times, `telegram_connections` three times and `instagram_connections`
+ * twice — with each set arriving in series.
+ *
+ * So the sources are fetched together and memoized for the request. `cache()` is keyed on `orgId`
+ * alone, which is why the custom-`db` path below bypasses it: a caller that injects its own client
+ * (the tests do) must not be served another client's rows, and a fake would poison the key.
+ */
+type ChannelRows = Map<Channel, Record<string, unknown>[]>;
+
+async function fetchAllChannelRows(orgId: string, db: SupabaseClient): Promise<ChannelRows> {
+  const declared = CHANNEL_ORDER.filter((c): c is Channel => Boolean(CONNECTION_SOURCES[c]));
+  const results = await Promise.all(
+    declared.map((channel) => fetchChannelRows(orgId, CONNECTION_SOURCES[channel]!, db))
+  );
+
+  const out: ChannelRows = new Map();
+  declared.forEach((channel, i) => out.set(channel, results[i]));
+  return out;
+}
+
+const cachedChannelRows = cache(async function cachedChannelRows(orgId: string): Promise<ChannelRows> {
+  return fetchAllChannelRows(orgId, supabaseAdmin);
+});
+
+/** Rows for every declared channel — memoized per request when using the default client. */
+async function channelRows(orgId: string, db: SupabaseClient): Promise<ChannelRows> {
+  return db === supabaseAdmin ? cachedChannelRows(orgId) : fetchAllChannelRows(orgId, db);
+}
+
+/**
  * Channels owned by each Employee, across every channel that supports assignment — registry-driven
  * (R-104). Returns employeeId → ChannelView[]. A new assignable channel needs only an `ownerColumn`.
  */
@@ -236,10 +277,12 @@ export async function listChannelsByEmployee(
   const byEmployee = new Map<string, ChannelView[]>();
   if (!orgId) return byEmployee;
 
+  const allRows = await channelRows(orgId, db);
+
   for (const channel of CHANNEL_ORDER) {
     const source = CONNECTION_SOURCES[channel];
     if (!source?.ownerColumn) continue;
-    const rows = await fetchChannelRows(orgId, source, db);
+    const rows = allRows.get(channel) ?? [];
     for (const row of rows) {
       const owner = row[source.ownerColumn] as string | null;
       if (!owner) continue;
@@ -255,12 +298,13 @@ export async function listConnectedChannelViews(
   db: SupabaseClient = supabaseAdmin
 ): Promise<ChannelView[]> {
   if (!orgId) return [];
+
+  const allRows = await channelRows(orgId, db);
   const out: ChannelView[] = [];
   for (const channel of CHANNEL_ORDER) {
     const source = CONNECTION_SOURCES[channel];
     if (!source) continue;
-    const rows = await fetchChannelRows(orgId, source, db);
-    out.push(...rows.map((row) => rowToChannelView(channel, source, row)));
+    out.push(...(allRows.get(channel) ?? []).map((row) => rowToChannelView(channel, source, row)));
   }
   return out;
 }

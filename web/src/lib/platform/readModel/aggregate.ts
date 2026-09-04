@@ -101,7 +101,9 @@ export async function getConversationAggregates(
   };
   if (!orgId) return empty;
 
-  const scanned = await listConversationViews(orgId, { limit }, db);
+  // Counting only: nothing below reads a row's preview, so the transcripts stay in the
+  // database instead of crossing the wire (see `preview` on ListConversationsOpts).
+  const scanned = await listConversationViews(orgId, { limit, preview: false }, db);
 
   /**
    * Restrict every aggregate to the window before counting.
@@ -145,20 +147,25 @@ export async function getArtifactCounts(
   const empty = { tickets: 0, appointments: 0, openTickets: 0, upcomingAppointments: 0 };
   if (!orgId) return empty;
   try {
-    const t = await db.from("tickets").select("id", { count: "exact", head: true }).eq("org_id", orgId);
-    const a = await db.from("appointments").select("id", { count: "exact", head: true }).eq("org_id", orgId);
-    // "Needs attention": tickets nobody has closed, and appointments still ahead of now.
-    const openT = await db
-      .from("tickets")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("status", "open");
-    const upcomingA = await db
-      .from("appointments")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("status", "scheduled")
-      .gte("start_at", new Date().toISOString());
+    // Four counts that know nothing about each other, issued together rather than in a ladder
+    // (perf, 2026-09-04): as four awaits this cost four cross-country round-trips on the first
+    // screen after sign-in.
+    const [t, a, openT, upcomingA] = await Promise.all([
+      db.from("tickets").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+      db.from("appointments").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+      // "Needs attention": tickets nobody has closed, and appointments still ahead of now.
+      db
+        .from("tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "open"),
+      db
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "scheduled")
+        .gte("start_at", new Date().toISOString()),
+    ]);
     return {
       tickets: t.count ?? 0,
       appointments: a.count ?? 0,
@@ -261,7 +268,8 @@ export async function getRangedAggregates(
   };
   if (!orgId) return empty;
 
-  const views = await listConversationViews(orgId, { limit }, db);
+  // Counting only — same reasoning as above.
+  const views = await listConversationViews(orgId, { limit, preview: false }, db);
   const bounded = views.length >= limit;
   const { current, previous } = splitByPeriod(views, range);
 
