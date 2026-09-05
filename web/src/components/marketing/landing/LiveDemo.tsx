@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import SplineClient from "@/components/marketing/SplineClient";
+import { preconnect } from "react-dom";
+import SplineClient, { SPLINE_ORIGIN, warmSpline } from "@/components/marketing/SplineClient";
 import { DemoCallButton, type CallState } from "@/components/marketing/DemoCallButton";
 import { Reveal, useInView, usePrefersReducedMotion } from "./primitives";
 import { useTranslations } from "next-intl";
@@ -30,12 +31,39 @@ const RING_STATE: Record<CallState, { color: string; key: string; speed: string 
   error: { color: "rgba(226,105,92,.55)", key: "tryAgain", speed: "7s" },
 };
 
+/** The employee's silhouette — shown before the scene exists, and while it loads. */
+function Placeholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="relative h-[112px] w-[122px] rounded-[34px_34px_28px_28px]"
+      style={{
+        background: "linear-gradient(180deg,#F7F5F1,#D9D4CA)",
+        boxShadow: "0 0 0 10px rgba(47,163,154,.10), 0 24px 60px rgba(0,0,0,.35)",
+      }}
+    />
+  );
+}
+
 export function LiveDemo() {
   const t = useTranslations("home.demo");
-  const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.1, rootMargin: "200px" });
+  /*
+   * 700px, not 200px: the section is third on the page, so a visitor is on their way here from
+   * the moment they start scrolling. Mounting earlier gives the runtime a head start that costs
+   * nothing to anyone who never arrives — they simply never trip the observer.
+   */
+  const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.1, rootMargin: "700px" });
   const reduced = usePrefersReducedMotion();
   const [callState, setCallState] = React.useState<CallState>("idle");
+  const [sceneReady, setSceneReady] = React.useState(false);
   const ring = RING_STATE[callState];
+
+  // The socket to the scene CDN, opened while the visitor reads the hero. DNS + TLS to
+  // prod.spline.design measured ~360ms; paying it here means not paying it on arrival.
+  preconnect(SPLINE_ORIGIN);
+
+  // …and the bytes themselves, during idle time. See `warmSpline` for what it refuses to do.
+  React.useEffect(() => warmSpline(SPLINE_SCENE), []);
 
   return (
     <section id="demo" className="relative w-full px-6 py-28 md:px-8">
@@ -98,18 +126,27 @@ export function LiveDemo() {
                     } catch {
                       /* older runtimes ignore this; the pool of light still reads */
                     }
+                    setSceneReady(true);
                   }}
                 />
+
+                {/*
+                  The still figure holds the space until the 3D one is ready.
+
+                  Mounting the scene used to empty this area: the fallback disappeared the moment
+                  the section came into view, and nothing replaced it until megabytes had arrived.
+                  Keeping the silhouette underneath means the wait is never a hole in the page —
+                  and when the scene does arrive it fades in over something, rather than appearing
+                  out of nothing.
+                */}
+                {!sceneReady ? (
+                  <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+                    <Placeholder />
+                  </div>
+                ) : null}
               </div>
             ) : (
-              <div
-                aria-hidden="true"
-                className="relative h-[112px] w-[122px] rounded-[34px_34px_28px_28px]"
-                style={{
-                  background: "linear-gradient(180deg,#F7F5F1,#D9D4CA)",
-                  boxShadow: "0 0 0 10px rgba(47,163,154,.10), 0 24px 60px rgba(0,0,0,.35)",
-                }}
-              />
+              <Placeholder />
             )}
           </div>
 
