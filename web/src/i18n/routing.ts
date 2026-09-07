@@ -47,6 +47,21 @@ export const LOCALE_LABELS: Record<Locale, string> = {
  */
 export const LOCALE_CHOICE_COOKIE = "DENKU_LOCALE";
 
+/**
+ * The language a SIGNED-IN customer picked for the product.
+ *
+ * Separate from `NEXT_LOCALE` for the same reason `DENKU_LOCALE` is, and it bit harder here.
+ * next-intl writes `NEXT_LOCALE` on any locale-resolving navigation on the marketing site —
+ * including a visit to the canonical English `/`. The dashboard used to read that cookie, so a
+ * customer who had set the product to Turkish and then clicked the logo came back to an English
+ * dashboard, with `profiles.ui_locale` still saying `tr` and being ignored because a cookie was
+ * present. Observed 2026-09-07 on the owner's own workspace.
+ *
+ * Written in exactly one place — the dashboard language switcher — and read in exactly one place:
+ * the authenticated layout, ahead of the account preference it mirrors.
+ */
+export const UI_LOCALE_COOKIE = "DENKU_UI_LOCALE";
+
 export const COUNTRY_LOCALE: Record<string, Locale> = {
   TR: "tr",
   ES: "es", MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es",

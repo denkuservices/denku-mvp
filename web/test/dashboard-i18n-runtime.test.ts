@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { translateDashboardCopy } from "@/i18n/dashboardRuntime";
+import { getDashboardDictionary } from "@/i18n/dashboardMessages";
+import { routing } from "@/i18n/routing";
+
+const NON_ENGLISH = routing.locales.filter((locale) => locale !== "en");
 
 describe("dashboard runtime translations", () => {
   it("translates changing Turkish counters without touching their values", () => {
@@ -36,4 +40,35 @@ describe("dashboard runtime translations", () => {
       "6 adımdan 3 tanesi tamamlandı",
     );
   });
+});
+
+/**
+ * Counted sentences that used to arrive in pieces.
+ *
+ * Both nudges on the dashboard home interpolate a number into the middle of a sentence. Rendered
+ * as separate JSX children they reach the locale boundary as separate DOM text nodes, and the
+ * boundary translates one node at a time — so a Turkish reader got two translated fragments with
+ * an English "conversations" between them, in English clause order. The components compose them
+ * into one string now, and these rules are what that string is for.
+ */
+describe("counted dashboard sentences", () => {
+  const cases = [
+    "Your AI has answered 3 conversations without knowing anything about your business.",
+    "Your AI has answered 1 conversation without knowing anything about your business.",
+    "You are paying for 99 chat channels and using 1.",
+    "You are paying for 1 chat channel and using 0.",
+  ];
+
+  it.each(NON_ENGLISH.flatMap((locale) => cases.map((source) => [locale, source] as const)))(
+    "%s translates %s",
+    (locale, source) => {
+      const translated = translateDashboardCopy(source, getDashboardDictionary(locale), locale);
+      expect(translated).not.toBe(source);
+      // The counter survives; only the words around it change.
+      for (const number of source.match(/\d+/g) ?? []) {
+        expect(translated).toContain(number);
+      }
+      expect(translated).not.toMatch(/conversations?\b|chat channels?\b/);
+    },
+  );
 });

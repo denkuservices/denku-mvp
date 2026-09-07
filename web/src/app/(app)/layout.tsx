@@ -5,7 +5,8 @@ import { DashboardLocaleProvider } from "@/components/dashboard-i18n/DashboardLo
 import { getOnboardingComplete } from "@/lib/auth/checkOnboarding";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { getDashboardDictionary } from "@/i18n/dashboardMessages";
-import { routing, type Locale } from "@/i18n/routing";
+import { routing, UI_LOCALE_COOKIE, type Locale } from "@/i18n/routing";
+import { resolveDashboardLocale } from "@/i18n/dashboardLocale";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCachedUser } from "@/lib/auth/currentUser";
 import { GATE_COOKIE_NAME, readGateDecision } from "@/lib/auth/gateCookie";
@@ -52,28 +53,39 @@ export default async function AppLayout({
   // legacy nav). Resolved server-side; a boolean crosses to the client shell.
   const platformUx = platformUxEnabled();
 
-  const cookieLocale = jar.get("NEXT_LOCALE")?.value;
-  let locale: Locale = routing.locales.includes(cookieLocale as Locale)
-    ? (cookieLocale as Locale)
-    : routing.defaultLocale;
+  /*
+   * The language of the product. The ORDER is the fix and lives in `resolveDashboardLocale`,
+   * where it is pinned by tests; this only gathers the four answers as cheaply as it can.
+   *
+   * The database is asked last and only when the two free answers are both absent, so the common
+   * case still costs no round-trip — the point of R-157.
+   */
+  const chosen = jar.get(UI_LOCALE_COOKIE)?.value;
+  let account: string | null | undefined;
+  let profileLocale: string | null | undefined;
 
-  // The cookie gives an instant same-device response; the profile is the cross-device source of
-  // truth and is also what transactional email uses.
-  if (!cookieLocale) {
-    const supabase = await createSupabaseServerClient();
+  if (!routing.locales.includes(chosen as Locale)) {
     const user = await getCachedUser();
-    if (user) {
+    account = user?.user_metadata?.ui_locale as string | undefined;
+
+    if (user && !routing.locales.includes(account as Locale)) {
+      const supabase = await createSupabaseServerClient();
       const { data: profile } = await supabase
         .from("profiles")
         .select("ui_locale")
         .eq("auth_user_id", user.id)
         .limit(1)
         .maybeSingle<{ ui_locale: string | null }>();
-      if (routing.locales.includes(profile?.ui_locale as Locale)) {
-        locale = profile?.ui_locale as Locale;
-      }
+      profileLocale = profile?.ui_locale;
     }
   }
+
+  const locale = resolveDashboardLocale({
+    chosen,
+    account,
+    profile: profileLocale,
+    hint: jar.get("NEXT_LOCALE")?.value,
+  });
 
   return (
     <>

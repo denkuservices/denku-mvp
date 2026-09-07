@@ -1034,12 +1034,8 @@ const DASHBOARD_COPY: Readonly<Record<string, TranslationTuple>> = {
   // Home — paused banner, setup nudges
   "Calls are blocked and agents are inactive.": ["Las llamadas están bloqueadas y los agentes inactivos.", "Anrufe sind blockiert und die Agenten inaktiv.", "Aramalar engellendi ve yapay zekâ çalışanları devre dışı."],
   "Resume workspace →": ["Reanudar espacio de trabajo →", "Arbeitsbereich fortsetzen →", "Çalışma alanını sürdür →"],
-  "Your AI has answered": ["Tu IA ha respondido", "Ihre KI hat beantwortet", "Yapay zekânız şu kadar yanıt verdi:"],
-  "without knowing anything about your business.": ["sin saber nada sobre tu negocio.", "ohne irgendetwas über Ihr Unternehmen zu wissen.", "işletmeniz hakkında hiçbir şey bilmeden."],
   "It will not invent an answer, so anything it is not told becomes a ticket for you. Tell it your hours, services and policies and it can answer those itself.": ["No inventa respuestas: todo lo que no le hayas contado se convierte en una solicitud para ti. Dile tu horario, tus servicios y tus normas y podrá responder por sí misma.", "Sie erfindet keine Antworten – alles, was sie nicht weiß, wird zu einer Anfrage für Sie. Nennen Sie ihr Öffnungszeiten, Leistungen und Regeln, dann beantwortet sie das selbst.", "Bilmediği bir şeyi uydurmaz; kendisine söylenmeyen her şey size bir talep olarak düşer. Çalışma saatlerinizi, hizmetlerinizi ve kurallarınızı yazın, bunları kendisi yanıtlasın."],
   "Add what it should know": ["Añade lo que debe saber", "Ergänzen, was sie wissen soll", "Bilmesi gerekenleri ekleyin"],
-  "You are paying for": ["Estás pagando por", "Sie bezahlen für", "Şunun için ödeme yapıyorsunuz:"],
-  "and using": ["y estás usando", "und nutzen davon", "ve şu kadarını kullanıyorsunuz:"],
   "Connect another channel and your AI answers there too, at no extra cost.": ["Conecta otro canal y tu IA también responderá allí, sin coste adicional.", "Verbinden Sie einen weiteren Kanal – Ihre KI antwortet auch dort, ohne Aufpreis.", "Başka bir kanal bağlayın; yapay zekânız orada da yanıt versin, ek ücret yok."],
 
   // Analytics

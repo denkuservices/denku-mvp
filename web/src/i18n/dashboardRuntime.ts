@@ -63,6 +63,36 @@ export function translateDashboardCopy(
       .map((part) => dictionary[part] ?? part)
       .join(", ");
   const rules: Array<string | null> = [
+    replaceMatch(
+      source,
+      /^Your AI has answered (\d+) conversations? without knowing anything about your business\.$/,
+      {
+        es: (count) =>
+          `Tu IA ha respondido ${count} ${count === "1" ? "conversación" : "conversaciones"} sin saber nada sobre tu negocio.`,
+        de: (count) =>
+          `Ihre KI hat ${count} ${count === "1" ? "Unterhaltung" : "Unterhaltungen"} beantwortet, ohne irgendetwas über Ihr Unternehmen zu wissen.`,
+        tr: (count) =>
+          `Yapay zekânız, işletmeniz hakkında hiçbir şey bilmeden ${count} konuşmayı yanıtladı.`,
+      },
+      targetLocale,
+    ),
+    replaceMatch(
+      source,
+      /^You are paying for (\d+) chat channels? and using (\d+)\.$/,
+      {
+        es: (slots, used) =>
+          `Estás pagando por ${slots} ${slots === "1" ? "canal" : "canales"} de chat y usas ${used}.`,
+        de: (slots, used) =>
+          `Sie bezahlen für ${slots} Chat-${slots === "1" ? "Kanal" : "Kanäle"} und nutzen davon ${used}.`,
+        tr: (slots, used) => `${slots} sohbet kanalı için ödeme yapıyor, ${used} tanesini kullanıyorsunuz.`,
+      },
+      targetLocale,
+    ),
+    replaceMatch(source, /^Handled by (.+)$/, {
+      es: (employee) => `Gestionado por ${employee}`,
+      de: (employee) => `Bearbeitet von ${employee}`,
+      tr: (employee) => `${employee} yönetti`,
+    }, targetLocale),
     replaceMatch(source, /^About (\d+) min left$/, {
       es: (amount) => `Quedan unos ${amount} min`,
       de: (amount) => `Noch etwa ${amount} Min.`,
