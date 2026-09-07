@@ -23,7 +23,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  *
  * ## What makes it right
  *
- * 1. **The database decides.** `leads_org_phone_key` (migration `20260907140000`) is a unique
+ * 1. **The database decides.** `leads_org_phone_key` (migration `20260907211214`) is a unique
  *    index on `(org_id, phone)`. Uniqueness is now a fact about the table rather than a hope
  *    about the order three route handlers happen to run in — and a concurrent double-insert
  *    becomes a conflict Postgres resolves, not a duplicate nobody notices.
