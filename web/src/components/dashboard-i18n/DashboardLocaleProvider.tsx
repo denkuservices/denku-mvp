@@ -131,7 +131,16 @@ export function DashboardLocaleProvider({
   dictionary: Readonly<Record<string, string>>;
 }) {
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith("/dashboard") ?? false;
+  /*
+   * Onboarding is inside this provider but was excluded from the observer until 2026-09-07, so
+   * the whole setup flow rendered in English no matter which language the visitor had picked on
+   * the marketing site — the first authenticated screens a customer ever sees, and the ones that
+   * decide whether they trust the product enough to pay. It is the same tree, the same dictionary
+   * and the same skip rules, so there was nothing to gate: the guard only existed because the
+   * language switcher lives in the dashboard chrome.
+   */
+  const isLocalizedApp =
+    pathname?.startsWith("/dashboard") || pathname?.startsWith("/onboarding") || false;
 
   const translate = useCallback(
     (english: string) => translateDashboardCopy(english, dictionary, locale),
@@ -144,7 +153,7 @@ export function DashboardLocaleProvider({
   );
 
   useEffect(() => {
-    if (!isDashboard) return;
+    if (!isLocalizedApp) return;
     document.documentElement.lang = locale;
     if (locale === "en" || Object.keys(dictionary).length === 0) return;
 
@@ -213,7 +222,7 @@ export function DashboardLocaleProvider({
       pendingNodes.clear();
       if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
     };
-  }, [dictionary, isDashboard, locale]);
+  }, [dictionary, isLocalizedApp, locale]);
 
   return (
     <DashboardLocaleContext.Provider value={contextValue}>
