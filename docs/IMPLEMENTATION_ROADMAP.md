@@ -5,7 +5,18 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-04 (**R-157 fixed** — moving between pages cost a dozen cross-country
+> **Last updated:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
+> Workspace reading one `organization_settings` row **four times** — is fixed, and it needed none
+> of the risk that deferred it: `getWorkspaceGeneral` already does `select("*")`, so the page was
+> holding the answer and asking again. Pure mappers over the row it has; every loader intact for
+> every other caller; an absent column still resolving to the same safe default, including the
+> load-bearing "no hours configured means OPEN" (verified in production, in Turkish, on the live
+> card). Also: `getViewer` probed `profiles` twice in series, so every capability check on every
+> page paid a wasted hop — one `.or()` query now, rule unchanged and pinned by tests, after a first
+> draft got that rule wrong. 2012–2600ms → 1486–1609ms locally, 838–1080ms in production; 14 → 11
+> queries. Landing page too: the Spline employee was only *starting* its ~3.4s download when you
+> scrolled to it, and now warms during idle — canvas paints in 1ms on arrival.)
+> **Prior:** 2026-09-04 (**R-157 fixed** — moving between pages cost a dozen cross-country
 > round-trips. The middleware re-derived "who is this and are they onboarded" on every single
 > navigation (three sequential hops before Next began rendering); `auth.getUser()` — an HTTP call to
 > Supabase Auth, not a token decode — ran three to six more times per render because no two helpers
