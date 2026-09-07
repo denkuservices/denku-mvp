@@ -205,16 +205,51 @@ Structurally, on the home page: `auth.getUser()` calls **1 → 0**, `profiles` r
 survivor is `getViewer`'s authorization read, which must stay live and now runs in parallel),
 connection tables **3–4 each → 1 each**, and the 1190ms serial prologue **→ 0**.
 
-### Two things measurement said NOT to do
+### One thing measurement said NOT to do
 
-- **`organization_settings` is read four times on Settings → Workspace** (`{workspace_status,…}`,
-  `{*}`, notification prefs, business hours) — one row, four round-trips. Left alone deliberately:
-  each reader treats "unknown column" as *migration not applied → safe default*, and the business-
-  hours reader's default is the load-bearing "no hours configured means OPEN". Collapsing them onto
-  one `select("*")` changes an error into an absent field, which is the kind of quiet change that
-  turns a safe default into a wrong one. Worth doing with its own tests, not as a perf tweak.
 - **The remaining `auth.getUser()` on Settings** is `getViewer()`. It is authorization, and
-  `getUser()` is what notices a revoked session. Not touched.
+  `getUser()` is what notices a revoked session. Not touched — it now runs through the
+  request-scoped cache, which is the *same* call made once rather than per caller.
+
+## ✅ Settings → Workspace (2026-09-07)
+
+The slowest page left. `organization_settings` was read **four times for the same single row**
+(`{workspace_status,…}`, `{*}`, notification prefs, business hours) and `profiles` four times.
+
+This was the item deferred above, on the grounds that each reader treats an unknown column as
+*migration not applied → safe default* — and one of those defaults is load-bearing: **no hours
+configured means OPEN.** It turned out not to need that trade at all: **`getWorkspaceGeneral`
+already does `select("*")` and returns the whole row**, so the page was holding the answer and
+asking again.
+
+- `orgHoursFromRow` / `notificationPrefsFromRow` — pure mappers over a row already in hand. Both
+  loaders stay intact for every other caller, and an absent column resolves to the identical
+  default the error path returns (`parseBusinessHours(undefined)` is null → always open). Pinned
+  by `test/settings-row-readers.test.ts`, midnight-on-a-Sunday included.
+- `notification_email` normalises to `null` rather than `undefined` — it is typed `string | null`
+  and feeds a controlled input.
+- `OrganizationSettings` gained the columns `select("*")` actually returns, optional because an
+  environment may not have applied their migration. The type used to claim the row held less.
+- `getWorkspaceGeneral` fetched the org name, waited, then the settings row — both keyed on the
+  same org id, neither reading the other. Now one stage. The plan code joined it too.
+- **`getViewer` probed `profiles` twice in series** and for `auth_user_id`-keyed accounts the first
+  always missed, so every capability check on every page paid a wasted hop. One `.or()` query now.
+  Its rule is unchanged and pinned by `test/viewer-resolution.test.ts`: newest row keyed by `id`
+  wins if it carries an org, else newest keyed by `auth_user_id` — *"newest matching row, then does
+  it have an org"*, **not** *"newest row that has an org"*. A first draft got that wrong.
+  The user id is validated as a UUID before it reaches PostgREST's filter grammar on the
+  service-role client; anything else is refused and grants no role.
+
+| | Before | After |
+|---|---|---|
+| settings/workspace (local) | 2012–2600ms | **1486–1609ms**, far more consistent |
+| queries | 14 | **11** |
+| `organization_settings` | 4× | **2×** |
+| `auth.getUser()` | 2× | **1×** |
+| `profiles` probe in `getViewer` | 2 sequential | **1** |
+
+On production: **838–1080ms**, and the hours card verified reading *"Ayarlanmadı — yapay zekânız
+günün her saati yanıt verir"* from the shared row, which is the safe default doing its job.
 
 ## ⏳ Still deferred, and why
 
