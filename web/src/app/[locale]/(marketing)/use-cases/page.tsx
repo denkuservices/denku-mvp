@@ -1,13 +1,32 @@
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { UseCasesPage } from '@/components/marketing/use-cases-page';
+import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Use Cases',
-  description:
-    "See how businesses use Denku's AI voice employee to answer every call, qualify leads, and book appointments 24/7 — for trades, clinics, salons, and more.",
-  alternates: { canonical: '/use-cases' },
-};
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
-export default function UseCasesRoutePage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'useCasesPage' });
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    alternates: { canonical: '/use-cases' },
+  };
+}
+
+export default async function UseCasesRoutePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   return <UseCasesPage />;
 }

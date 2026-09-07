@@ -422,7 +422,9 @@
         "label": "Mit welchen Systemen soll es sprechen?",
         "placeholder": "z. B. HubSpot, Google Kalender, unsere eigene API"
       }
-    }
+    },
+    "emailPlaceholder": "sie@firma.de",
+    "companyPlaceholder": "Name des Unternehmens"
   },
   "subpage": {
     "dayTitle": "Ein Arbeitstag.",
@@ -437,7 +439,8 @@
     "platform": "Plattform",
     "doneForYou": "Wir machen es",
     "pricePrinted": "Preis ausgewiesen",
-    "quoted": "Auf Anfrage"
+    "quoted": "Auf Anfrage",
+    "notFound": "Nicht gefunden"
   },
   "employeeCard": {
     "onShift": "Im Dienst",
@@ -946,7 +949,9 @@
         ]
       }
     },
-    "planCta": "Loslegen"
+    "planCta": "Loslegen",
+    "metaTitle": "Preise",
+    "metaDescription": "Einfache, transparente Preise für den KI-Mitarbeiter von Denku – enthaltene Minuten, Telefonnummern und gleichzeitige Anrufe je Plan, mit nutzungsbasiertem Mehrverbrauch."
   },
   "securityPage": {
     "eyebrow": "Sicherheit & Vertrauen",
@@ -1284,5 +1289,372 @@
         }
       }
     }
+  },
+  "legalPages": {
+    "eyebrow": "Rechtliches",
+    "privacyTitle": "Datenschutzerklärung",
+    "privacyIntro": "Eine Zusammenfassung davon, was wir erheben, warum, und wie Sie uns dazu erreichen. Wir erweitern dieses Dokument, während das Produkt wächst — falls etwas unklar ist, fragen Sie uns, und wir antworten in klarer Sprache.",
+    "privacySections": [
+      {
+        "title": "Daten, die wir erheben",
+        "body": "Wir erheben gegebenenfalls Kontoangaben, Kontaktdaten und betriebliche Metadaten, die für den Betrieb des Dienstes nötig sind (z. B. Nutzungsereignisse, Protokolle und Konfigurationsdaten)."
+      },
+      {
+        "title": "Wie wir Daten verwenden",
+        "body": "Wir verwenden Daten, um die Plattform zu betreiben, Support zu leisten, die Zuverlässigkeit zu verbessern und die Sicherheit zu wahren. Wir verkaufen keine personenbezogenen Daten."
+      },
+      {
+        "title": "Kontakt",
+        "body": "Bei Fragen zum Datenschutz erreichen Sie uns über die Kontaktseite."
+      }
+    ],
+    "termsTitle": "Nutzungsbedingungen",
+    "termsIntro": "Die Bedingungen, denen Sie mit der Nutzung von Denku zustimmen. Bewusst kurz und in klarer Sprache.",
+    "termsSections": [
+      {
+        "title": "Nutzung des Dienstes",
+        "body": "Sie verpflichten sich, den Dienst im Einklang mit dem geltenden Recht zu nutzen und die Plattform weder zu missbrauchen noch zu stören."
+      },
+      {
+        "title": "Verfügbarkeit",
+        "body": "Der Dienst wird \"wie besehen\" bereitgestellt. Wir können Funktionen ändern, während wir das Produkt weiterentwickeln, und sagen Ihnen Bescheid, bevor etwas wegfällt, worauf Sie sich verlassen."
+      },
+      {
+        "title": "Haftungsbeschränkung",
+        "body": "Soweit gesetzlich zulässig, haften wir nicht für mittelbare Schäden oder Folgeschäden. Für Unternehmen können abweichende Bedingungen gesondert vereinbart werden."
+      }
+    ]
+  },
+  "aboutPage": {
+    "metaTitle": "Über uns",
+    "metaDescription": "Über Denku – wir bauen KI-Mitarbeiter fürs Telefon, damit kein Unternehmen einen Anruf verpasst.",
+    "eyebrow": "Über uns",
+    "title": "Über {name}",
+    "intro": "{name} hilft Teams, KI-Agenten – Sprache, Chat und Automatisierung – auf einer Architektur zu betreiben, die für mandantenfähige SaaS-Produkte gebaut ist.",
+    "missionEyebrow": "Mission",
+    "missionTitle": "KI-Agenten produktionsreif machen – für Unternehmen von heute.",
+    "missionBody": "Wir konzentrieren uns auf sichere Betriebsmuster: klar definierte Werkzeuge, eng gefasste Zugriffe und saubere Nachvollziehbarkeit – damit Unternehmen Agenten schnell ausrollen und mit Vertrauen betreiben können.",
+    "pillars": [
+      {
+        "title": "Mandantenfähige Architektur",
+        "desc": "Mandantengetrennter Datenzugriff und eng gefasste Werkzeuge – gebaut für SaaS-Maßstab und saubere Trennung zwischen Kunden."
+      },
+      {
+        "title": "Betriebliche Kontrolle",
+        "desc": "Klar definierte Werkzeuge, Richtlinien und Leitplanken, damit Agenten im Produktivbetrieb sicher arbeiten."
+      },
+      {
+        "title": "Beobachtbarkeit",
+        "desc": "Strukturierte Ereignisse und Protokolle, die Audits, Weiterentwicklung und Zuverlässigkeit tragen."
+      }
+    ],
+    "principlesTitle": "Prinzipien",
+    "principles": [
+      "Mandantentrennung standardmäßig",
+      "Werkzeuge mit minimalen Rechten und eng gefasstem Zugriff",
+      "Prüfbare Abläufe mit strukturierten Ereignissen",
+      "Sichere Integrationen und saubere Webhook-Praxis",
+      "Schneller Einstieg, ohne die Kontrolle aufzugeben"
+    ],
+    "whatYouGetTitle": "Was Sie bekommen",
+    "whatYouGetBody": "Eine Plattform, die einfach anfängt und mit Ihnen wächst: von einem KI-Mitarbeiter zu vielen, beginnend mit Telefonie und mit weiteren Kanälen, sobald wir sie ausliefern, von einfachen Protokollen bis zu feingranularen Zugriffsrechten.",
+    "viewPricing": "Preise ansehen",
+    "talkToUs": "Sprechen Sie mit uns"
+  },
+  "contactPage": {
+    "eyebrow": "Kontakt",
+    "title": "Kontakt",
+    "intro": "Sagen Sie uns Ihre Branche, Ihre Kanäle und was der Agent übernehmen soll. Wir schlagen Ihnen einen Ablauf und einen Einführungsplan vor.",
+    "outcomesTitle": "Typische Ergebnisse",
+    "outcomes": [
+      "Weniger Supportaufkommen und schnellere Reaktionszeiten",
+      "Höhere Abschlussquote bei eingehenden Anrufen und Chats",
+      "Strukturierte Daten direkt in Ihrem CRM oder Ihren Systemen"
+    ],
+    "includeTitle": "Was Sie mitschicken sollten",
+    "includeBody": "Ihre Website, Ihren wichtigsten Kanal (Telefon/Web), die Sprachen und 2–3 Aufgaben, die Sie zuerst automatisieren möchten.",
+    "formTitle": "Demo anfragen",
+    "formNote": "Beim Absenden öffnet sich eine E-Mail an unser Team unter {email}.",
+    "emailLabel": "Geschäftliche E-Mail",
+    "emailPlaceholder": "sie@firma.de",
+    "companyLabel": "Unternehmen",
+    "companyPlaceholder": "Name des Unternehmens",
+    "websiteLabel": "Website",
+    "channelLabel": "Wichtigster Kanal",
+    "channelVoice": "Telefon",
+    "channelChat": "Chat (Website)",
+    "channelBoth": "Beides",
+    "languageLabel": "Sprache",
+    "languageEnglish": "Englisch",
+    "languageSpanish": "Spanisch",
+    "languageTurkish": "Türkisch",
+    "languageOther": "Andere",
+    "messageLabel": "Was soll der Agent übernehmen?",
+    "messagePlaceholder": "Beispiel: Terminbuchung, Bestellstatus, häufige Fragen, Lead-Qualifizierung ...",
+    "submit": "Anfrage senden",
+    "consent": "Mit dem Absenden erklären Sie sich damit einverstanden, dass wir Sie zu {name} kontaktieren. Kein Spam.",
+    "mailSubject": "Denku-Demoanfrage",
+    "mailFrom": "Von",
+    "mailCompany": "Unternehmen",
+    "mailChannel": "Wichtigster Kanal"
+  },
+  "docsPage": {
+    "metaTitle": "Dokumentation",
+    "metaDescription": "Dokumentation zu {name} – erste Schritte, wie der KI-Mitarbeiter am Telefon arbeitet und Antworten auf häufige Fragen.",
+    "eyebrow": "Dokumentation",
+    "title": "Dokumentation",
+    "sub": "In wenigen Minuten startklar.",
+    "getStarted": "Loslegen",
+    "talkToDenku": "Mit Denku sprechen",
+    "gettingStartedTitle": "Erste Schritte",
+    "gettingStartedSub": "Bringen Sie Ihren ersten Agenten in vier Schritten live.",
+    "steps": [
+      {
+        "title": "Arbeitsbereich anlegen",
+        "description": "Richten Sie Ihren Arbeitsbereich mit Mandantentrennung ein. Legen Sie Teammitglieder und Rollen fest."
+      },
+      {
+        "title": "Agent anlegen",
+        "description": "Definieren Sie Ihren Agenten mit System-Prompt, Spracheinstellungen und betrieblichen Grenzen."
+      },
+      {
+        "title": "Werkzeuge verbinden",
+        "description": "Binden Sie an, was Sie schon nutzen: CRM, Kalender, Helpdesk oder eigene APIs per Webhook."
+      },
+      {
+        "title": "Telefonie/Chat ausrollen",
+        "description": "Gehen Sie auf jedem Kanal live. Behalten Sie die Leistung mit eingebauten Dashboards und Warnungen im Blick."
+      }
+    ],
+    "conceptsTitle": "Grundbegriffe",
+    "conceptsSub": "Die Bausteine von {name} verstehen.",
+    "concepts": [
+      {
+        "title": "Mandanten & Arbeitsbereiche",
+        "description": "Getrennte Umgebungen für verschiedene Teams oder Kunden. Jeder Arbeitsbereich hat eigene Agenten, Daten und Zugriffsrechte."
+      },
+      {
+        "title": "Agenten",
+        "description": "KI-Agenten, die Unterhaltungen führen. Konfigurierbar über Prompts, Werkzeuge und Grenzen. Für Telefonie und Chat."
+      },
+      {
+        "title": "Werkzeuge & Webhooks",
+        "description": "Binden Sie externe Dienste über fertige Integrationen oder eigene Webhooks an. Werkzeuge erlauben dem Agenten zu handeln."
+      },
+      {
+        "title": "Beobachtbarkeit",
+        "description": "Volle Sicht auf die Leistung des Agenten mit strukturierten Protokollen, Transkripten, Kennzahlen und Echtzeit-Dashboards."
+      }
+    ],
+    "webhooksTitle": "Webhooks",
+    "webhooksSub": "Richten Sie Endpunkte ein, um Ereignisse Ihrer Agenten zu empfangen.",
+    "webhooksBody": "Alle Webhook-Payloads sind mit HMAC-SHA256 signiert. Prüfen Sie die Signaturen auf Ihrem Server mit Ihrem Webhook-Secret.",
+    "integrationsTitle": "Integrationsbeispiele",
+    "integrationsSub": "Häufige Muster und Abläufe.",
+    "integrations": [
+      {
+        "title": "Helpdesk-Integration",
+        "description": "Aus Agentengesprächen automatisch Tickets in Zendesk oder Intercom anlegen."
+      },
+      {
+        "title": "Kalenderaktionen",
+        "description": "Termine über Google Calendar oder Calendly buchen, verschieben und bestätigen."
+      },
+      {
+        "title": "Lead-Erfassung im CRM",
+        "description": "Qualifizierte Leads erfassen und strukturierte Daten mit Salesforce, HubSpot oder Ihrem CRM abgleichen."
+      }
+    ],
+    "faqTitle": "Häufige Fragen zur Dokumentation",
+    "faqs": [
+      {
+        "question": "Wie schnell kann ich starten?",
+        "answer": "Die meisten Teams bringen ihren ersten Agenten innerhalb weniger Stunden live. Die Plattform übernimmt die Infrastruktur, Sie kümmern sich um die Konfiguration."
+      },
+      {
+        "question": "Gibt es einen API-Zugang?",
+        "answer": "Scale-Pläne enthalten vollen API-Zugang. Starter und Growth nutzen die Weboberfläche und die Standardintegrationen."
+      },
+      {
+        "question": "Kann ich eigene Modelle verwenden?",
+        "answer": "Scale-Pläne unterstützen eigene Modellkonfigurationen. Für Optionen und Voraussetzungen wenden Sie sich an den Vertrieb."
+      },
+      {
+        "question": "Wie funktionieren Webhooks?",
+        "answer": "Richten Sie Webhook-Endpunkte in den Einstellungen des Agenten ein. Alle ausgehenden Ereignisse werden zur Prüfung mit HMAC signiert."
+      }
+    ]
+  },
+  "supportPage": {
+    "metaTitle": "Support",
+    "metaDescription": "Hilfe zu Denku – wie Sie den Support erreichen, häufige Fragen und Hinweise zu Ihrem KI-Mitarbeiter am Telefon.",
+    "eyebrow": "Support",
+    "titleLead": "Hilfe, auf die",
+    "titleEmphasis": "Verlass ist",
+    "sub": "Dokumentation, Reaktionszeiten und Eskalation, wenn es darauf ankommt.",
+    "contactSupport": "Support kontaktieren",
+    "readDocs": "Dokumentation lesen",
+    "pathsTitle": "Wählen Sie Ihren Weg",
+    "paths": [
+      {
+        "title": "Dokumentation",
+        "desc": "Einrichtung, Integrationen und bewährte Betriebspraxis.",
+        "label": "Zur Dokumentation"
+      },
+      {
+        "title": "Mit Denku sprechen",
+        "desc": "Testen Sie unsere Live-Demo ohne Registrierung.",
+        "label": "Live-Demo testen"
+      },
+      {
+        "title": "Kontakt & Eskalation",
+        "desc": "Erreichen Sie unser Team für Demos, Fehlersuche und Einführungen.",
+        "label": "Anfrage eröffnen"
+      }
+    ],
+    "slaTitle": "Reaktionszeiten",
+    "slaNote": "Die genauen SLAs richten sich nach dem Vertrag.",
+    "slaPlans": [
+      {
+        "name": "Starter",
+        "level": "Nach bestem Bemühen",
+        "desc": "Community-Support und E-Mail-Antworten in der Regel innerhalb von 1–2 Werktagen."
+      },
+      {
+        "name": "Growth",
+        "level": "Bevorzugte Bearbeitung",
+        "desc": "Bevorzugter Support mit dem Ziel einer Antwort am selben Werktag."
+      },
+      {
+        "name": "Scale",
+        "level": "Vertraglicher SLA",
+        "desc": "Garantierte Reaktionszeiten und Eskalationswege, im Vertrag festgelegt."
+      }
+    ],
+    "fixesTitle": "Häufige Lösungen",
+    "fixes": [
+      {
+        "q": "Mikrofonberechtigung",
+        "a": "Stellen Sie sicher, dass Ihr Browser den Zugriff auf das Mikrofon erlaubt. Prüfen Sie die Website-Einstellungen und erteilen Sie die Berechtigung, wenn Sie gefragt werden. Bei anhaltenden Problemen den Browser-Cache leeren und erneut versuchen."
+      },
+      {
+        "q": "Agent startet nicht",
+        "a": "Prüfen Sie die Konfiguration des Agenten (System-Prompt, Werkzeuge, Grenzen). Stellen Sie sicher, dass die Zugangsdaten der Werkzeuge gültig und erreichbar sind. Sehen Sie im Dashboard in den Protokollen nach der konkreten Fehlermeldung."
+      },
+      {
+        "q": "Webhook-Prüfung",
+        "a": "Kopieren Sie Ihr Webhook-Secret aus den Agenteneinstellungen. Prüfen Sie die HMAC-SHA256-Signatur über den Header X-Signature und vergleichen Sie sie mit dem berechneten Hash aus Request-Body und Secret."
+      },
+      {
+        "q": "Latenz",
+        "a": "Prüfen Sie die Netzwerklatenz zu Ihren Werkzeug- und Webhook-Endpunkten. Sehen Sie in den Agentenprotokollen nach langsamen Antworten. Erwägen Sie Caching oder asynchrone Webhooks für aufwendige Vorgänge."
+      },
+      {
+        "q": "Abrechnung & Rechnungen",
+        "a": "Den Abrechnungsverlauf finden Sie in den Arbeitsbereichseinstellungen. Rechnungen laden Sie auf der Abrechnungsseite herunter. Für Tarifwechsel wenden Sie sich wegen der anteiligen Verrechnung an den Support."
+      }
+    ],
+    "statusTitle": "Status",
+    "statusOperational": "Alle Systeme laufen",
+    "systemStatusTitle": "Systemstatus",
+    "statusSoon": "Eine Statusseite folgt in Kürze.",
+    "ctaTitle": "Brauchen Sie einen Einführungsplan?",
+    "ctaBody": "Nennen Sie uns Ihre Kanäle, Werkzeuge und Ihr Volumen. Wir schlagen Ihnen einen Ablauf vor.",
+    "ctaButton": "Demo anfragen"
+  },
+  "useCasesPage": {
+    "metaTitle": "Anwendungsfälle",
+    "metaDescription": "So nutzen Unternehmen den KI-Mitarbeiter von Denku, um jeden Anruf zu beantworten, Leads zu qualifizieren und rund um die Uhr Termine zu buchen – für Handwerk, Praxen, Salons und mehr.",
+    "eyebrow": "Anwendungsfälle",
+    "titleLead": "Was soll Ihr KI-Mitarbeiter",
+    "titleEmphasis": "übernehmen",
+    "sub": "Wählen Sie einen Ablauf und sehen Sie, wie er im Betrieb funktioniert.",
+    "viewFlow": "Ablauf ansehen",
+    "howItWorks": "So funktioniert es",
+    "whatItDoes": "Was der Agent tut",
+    "ctaTitle": "Möchten Sie das live sehen?",
+    "ctaBody": "Testen Sie jetzt den Live-Sprachagenten, danach richten wir gemeinsam Ihren eigenen Ablauf ein.",
+    "ctaTalk": "Mit Denku sprechen",
+    "ctaStart": "Loslegen",
+    "cases": {
+      "support": {
+        "title": "Kundensupport",
+        "description": "Weniger Tickets, schnellere Antworten.",
+        "flow": [
+          "Eingehender Anruf",
+          "Die KI antwortet sofort",
+          "Prüft das System (CRM / Helpdesk)",
+          "Löst oder eskaliert"
+        ],
+        "bullets": [
+          "Beantwortet häufige und Produktfragen sofort",
+          "Legt Tickets mit strukturierten Daten an",
+          "Übergibt mit vollem Kontext an einen Menschen"
+        ]
+      },
+      "sales": {
+        "title": "Vertriebsannahme",
+        "description": "Leads strukturiert erfassen und weiterleiten.",
+        "flow": [
+          "Anruf eines Interessenten",
+          "Die KI qualifiziert sofort",
+          "Bewertet und leitet weiter",
+          "Übergibt ans CRM"
+        ],
+        "bullets": [
+          "Stellt Qualifizierungsfragen automatisch",
+          "Bewertet Leads und leitet sie an das richtige Team",
+          "Übergibt sie per Webhook oder Werkzeug ans CRM"
+        ]
+      },
+      "appointment": {
+        "title": "Terminbuchung",
+        "description": "Buchen, verschieben und bestätigen – per Telefon oder Chat.",
+        "flow": [
+          "Kunde möchte einen Termin",
+          "Die KI prüft die Verfügbarkeit",
+          "Bucht oder schlägt Zeiten vor",
+          "Sendet die Bestätigung"
+        ],
+        "bullets": [
+          "Prüft die Kalenderverfügbarkeit in Echtzeit",
+          "Bucht oder verschiebt Termine",
+          "Sendet Bestätigungen und Erinnerungen"
+        ]
+      },
+      "order-status": {
+        "title": "Bestellstatus & Updates",
+        "description": "Automatisiert \"Wo ist meine Bestellung?\" und Statusanfragen.",
+        "flow": [
+          "Kunde fragt nach dem Status",
+          "Die KI prüft das Bestellsystem",
+          "Antwortet sofort",
+          "Proaktive Benachrichtigungen"
+        ],
+        "bullets": [
+          "Prüft den Bestellstatus per Werkzeug oder Webhook",
+          "Meldet sich proaktiv, wenn es nötig ist",
+          "Fängt wiederkehrende Anfragen ab"
+        ]
+      }
+    }
+  },
+  "instagramDeletion": {
+    "title": "Löschung von Instagram-Daten",
+    "intro": "Diese Seite zeigt den Stand einer Anfrage zur Datenlöschung für ein mit Denku verbundenes Instagram-Konto.",
+    "noCode": "Kein Bestätigungscode angegeben. Verwenden Sie den Link, den Instagram Ihnen gegeben hat.",
+    "statusLabel": "Status",
+    "codeLabel": "Bestätigungscode",
+    "requestedLabel": "Angefordert",
+    "completedLabel": "Abgeschlossen",
+    "notFound": "Keine Anfrage zu diesem Bestätigungscode gefunden",
+    "footnote": "Beim Löschen werden die gespeicherte Instagram-Verbindung und alle für das Konto gespeicherten Instagram-Ereignisse entfernt. Fragen? Wenden Sie sich an den Support.",
+    "statusNeedsAttention": "Erfordert Aufmerksamkeit",
+    "statusInProgress": "In Bearbeitung",
+    "statusNotFound": "Nicht gefunden"
+  },
+  "requestPage": {
+    "namePlaceholder": "Alex Fischer",
+    "topicLabel": "Worum geht es?"
   }
 }

@@ -1,3 +1,4 @@
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getDeletionStatus } from "@/lib/instagram/dataDeletion";
 
 export const dynamic = "force-dynamic";
@@ -8,59 +9,62 @@ export const dynamic = "force-dynamic";
  * capability URL — and shows the status. No PII is displayed.
  */
 export default async function InstagramDataDeletionStatusPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ code?: string; id?: string }>;
 }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("instagramDeletion");
+
   const sp = await searchParams;
   const code = (sp?.code || sp?.id || "").trim();
   const record = code ? await getDeletionStatus(code) : null;
 
   const statusLabel =
     record?.status === "completed"
-      ? "Completed"
+      ? t("completedLabel")
       : record?.status === "failed"
-        ? "Needs attention"
+        ? t("statusNeedsAttention")
         : record?.status === "received"
-          ? "In progress"
-          : "Not found";
+          ? t("statusInProgress")
+          : t("statusNotFound");
 
   return (
     <main className="brand-surface mx-auto flex min-h-[60vh] max-w-xl flex-col justify-center px-5 py-16">
       <h1 className="font-display text-2xl font-semibold text-[var(--s-ink)]">
-        Instagram data deletion
+        {t("title")}
       </h1>
-      <p className="mt-2 text-sm text-[var(--s-ink-soft)]">
-        This page shows the status of a data deletion request for a Denku-connected
-        Instagram account.
-      </p>
+      <p className="mt-2 text-sm text-[var(--s-ink-soft)]">{t("intro")}</p>
 
       <div className="mt-6 rounded-2xl border border-[var(--s-border)] bg-[var(--s-panel)] p-6 shadow-sm">
         {!code ? (
-          <p className="text-sm text-[var(--s-ink-faint)]">
-            No confirmation code provided. Use the link Instagram gave you.
-          </p>
+          <p className="text-sm text-[var(--s-ink-faint)]">{t("noCode")}</p>
         ) : record ? (
           <dl className="space-y-3 text-sm">
-            <Row label="Status" value={statusLabel} />
-            <Row label="Confirmation code" value={record.confirmation_code} mono />
-            <Row label="Requested" value={new Date(record.requested_at).toLocaleString()} />
+            <Row label={t("statusLabel")} value={statusLabel} />
+            <Row label={t("codeLabel")} value={record.confirmation_code} mono />
+            <Row
+              label={t("requestedLabel")}
+              value={new Date(record.requested_at).toLocaleString(locale)}
+            />
             {record.completed_at && (
-              <Row label="Completed" value={new Date(record.completed_at).toLocaleString()} />
+              <Row
+                label={t("completedLabel")}
+                value={new Date(record.completed_at).toLocaleString(locale)}
+              />
             )}
           </dl>
         ) : (
           <p className="text-sm text-[var(--s-ink-faint)]">
-            No request found for confirmation code{" "}
-            <span className="font-mono">{code}</span>.
+            {t("notFound")} <span className="font-mono">{code}</span>.
           </p>
         )}
       </div>
 
-      <p className="mt-6 text-xs text-[var(--s-ink-faint)]">
-        Deletion removes the stored Instagram connection and any persisted Instagram
-        events for the account. Questions? Contact support.
-      </p>
+      <p className="mt-6 text-xs text-[var(--s-ink-faint)]">{t("footnote")}</p>
     </main>
   );
 }

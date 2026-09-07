@@ -25,7 +25,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  if (!getIndustry(slug)) return { title: "Not found" };
+  if (!getIndustry(slug)) return { title: (await getTranslations({ locale, namespace: "subpage" }))("notFound") };
   const t = await getTranslations({ locale, namespace: `industries.items.${slug}` });
   return {
     title: t("name"),

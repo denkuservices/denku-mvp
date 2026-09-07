@@ -1,52 +1,70 @@
 import Link from 'next/link';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { BookOpen, MessageSquare, Mail, Mic, AlertCircle, Webhook, Gauge, CreditCard } from 'lucide-react';
+import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Support',
-  description:
-    "Get help with Denku — how to reach support, common questions, and guidance on your AI voice employee.",
-  alternates: { canonical: '/support' },
-};
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
-const supportPaths = [
-  { icon: BookOpen, title: 'Documentation', desc: 'Setup, integrations, and operational best practices.', href: '/docs', label: 'Go to docs' },
-  { icon: MessageSquare, title: 'Talk to Denku', desc: 'Try our live agent demo with no signup required.', href: '/', label: 'Try live demo' },
-  { icon: Mail, title: 'Contact & Escalation', desc: 'Reach our team for demos, troubleshooting, and deployments.', href: '/#contact', label: 'Open a request' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'supportPage' });
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    alternates: { canonical: '/support' },
+  };
+}
+
+/** Icons and destinations, paired positionally with the translated path copy. */
+const PATH_CHROME = [
+  { icon: BookOpen, href: '/docs' },
+  { icon: MessageSquare, href: '/' },
+  { icon: Mail, href: '/#contact' },
 ];
 
-const slaPlans = [
-  { name: 'Starter', level: 'Best effort', desc: 'Community support and email responses typically within 1–2 business days.' },
-  { name: 'Growth', level: 'Priority handling', desc: 'Priority support with same-business-day response targets.', highlight: true },
-  { name: 'Scale', level: 'Contractual SLA', desc: 'Guaranteed response times and escalation paths defined in contract.' },
-];
+/** Growth is the highlighted tier; the copy itself lives in the message files. */
+const SLA_HIGHLIGHT = [false, true, false];
 
-const commonFixes = [
-  { icon: Mic, q: 'Microphone permission', a: 'Ensure your browser allows microphone access. Check site settings and grant permission when prompted. For persistent issues, clear browser cache and retry.' },
-  { icon: AlertCircle, q: 'Agent not starting', a: 'Check agent configuration (system prompt, tools, boundaries). Verify tool credentials are valid and accessible. Review logs in dashboard for specific error messages.' },
-  { icon: Webhook, q: 'Webhook verification', a: 'Copy your webhook secret from agent settings. Verify HMAC-SHA256 signature using the X-Signature header. Compare against computed hash of request body + secret.' },
-  { icon: Gauge, q: 'Latency', a: 'Check network latency to your tool/webhook endpoints. Review agent logs for slow tool responses. Consider tool caching or async webhooks for heavy operations.' },
-  { icon: CreditCard, q: 'Billing & invoices', a: 'View billing history in workspace settings. Download invoices from billing page. For plan changes, contact support for prorated adjustments.' },
-];
+const FIX_ICONS = [Mic, AlertCircle, Webhook, Gauge, CreditCard];
 
-export default function SupportPage() {
+export default async function SupportPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations('supportPage');
+
+  const paths = t.raw('paths') as { title: string; desc: string; label: string }[];
+  const slaPlans = t.raw('slaPlans') as { name: string; level: string; desc: string }[];
+  const fixes = t.raw('fixes') as { q: string; a: string }[];
+
   return (
     <>
       {/* Hero */}
       <Section className="py-16 md:py-24">
         <Container>
           <Reveal className="mx-auto max-w-3xl text-center">
-            <div className="brand-eyebrow centered mb-5 justify-center">Support</div>
+            <div className="brand-eyebrow centered mb-5 justify-center">{t('eyebrow')}</div>
             <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal leading-[1.06] tracking-[-1.5px] text-[var(--s-ink)]">
-              Help that&apos;s <em className="font-medium italic text-[var(--s-accent)]">predictable</em>.
+              {t('titleLead')}{' '}
+              <em className="font-medium italic text-[var(--s-accent)]">{t('titleEmphasis')}</em>.
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-[18px] text-[var(--s-ink-soft)]">Docs, response targets, and escalation when it matters.</p>
+            <p className="mx-auto mt-5 max-w-xl text-[18px] text-[var(--s-ink-soft)]">{t('sub')}</p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">Contact support</Link>
-              <Link href="/docs" className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">Read docs</Link>
+              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">{t('contactSupport')}</Link>
+              <Link href="/docs" className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{t('readDocs')}</Link>
             </div>
           </Reveal>
         </Container>
@@ -56,11 +74,11 @@ export default function SupportPage() {
       <Section className="border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
         <Container>
           <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Choose your path</h2>
+            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('pathsTitle')}</h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-3">
-            {supportPaths.map((p, i) => {
-              const Icon = p.icon;
+            {paths.map((p, i) => {
+              const Icon = PATH_CHROME[i].icon;
               return (
                 <Reveal key={p.title} delay={(i % 3) as 0 | 1 | 2} className="flex flex-col rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-8 text-center">
                   <div className="mx-auto mb-4 flex h-[50px] w-[50px] items-center justify-center rounded-[12px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
@@ -68,7 +86,7 @@ export default function SupportPage() {
                   </div>
                   <h3 className="font-display text-[18px] font-medium text-[var(--s-ink)]">{p.title}</h3>
                   <p className="mb-6 mt-2 flex-1 text-sm text-[var(--s-ink-soft)]">{p.desc}</p>
-                  <Link href={p.href} className="inline-flex h-10 items-center justify-center rounded-[10px] border border-[var(--s-border)] px-5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{p.label}</Link>
+                  <Link href={PATH_CHROME[i].href} className="inline-flex h-10 items-center justify-center rounded-[10px] border border-[var(--s-border)] px-5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{p.label}</Link>
                 </Reveal>
               );
             })}
@@ -80,18 +98,21 @@ export default function SupportPage() {
       <Section>
         <Container>
           <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Response targets</h2>
+            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('slaTitle')}</h2>
           </Reveal>
           <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-3">
-            {slaPlans.map((p, i) => (
-              <Reveal key={p.name} delay={(i % 3) as 0 | 1 | 2} className={`rounded-[18px] border p-6 ${p.highlight ? 'border-[var(--s-border)] bg-[var(--s-cta-bg)] brand-shadow-md' : 'border-[var(--s-border)] bg-[var(--s-panel-2)]'}`}>
-                <div className={`mb-1 text-sm font-bold ${p.highlight ? 'text-[var(--s-accent-deep)]' : 'text-[var(--s-ink-faint)]'}`}>{p.name}</div>
-                <div className={`mb-3 font-display text-[18px] font-medium ${p.highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink)]'}`}>{p.level}</div>
-                <p className={`text-sm leading-relaxed ${p.highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink-soft)]'}`}>{p.desc}</p>
-              </Reveal>
-            ))}
+            {slaPlans.map((p, i) => {
+              const highlight = SLA_HIGHLIGHT[i];
+              return (
+                <Reveal key={p.name} delay={(i % 3) as 0 | 1 | 2} className={`rounded-[18px] border p-6 ${highlight ? 'border-[var(--s-border)] bg-[var(--s-cta-bg)] brand-shadow-md' : 'border-[var(--s-border)] bg-[var(--s-panel-2)]'}`}>
+                  <div className={`mb-1 text-sm font-bold ${highlight ? 'text-[var(--s-accent-deep)]' : 'text-[var(--s-ink-faint)]'}`}>{p.name}</div>
+                  <div className={`mb-3 font-display text-[18px] font-medium ${highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink)]'}`}>{p.level}</div>
+                  <p className={`text-sm leading-relaxed ${highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink-soft)]'}`}>{p.desc}</p>
+                </Reveal>
+              );
+            })}
           </div>
-          <p className="mt-4 text-center font-brand-mono text-xs text-[var(--s-ink-faint)]">Exact SLAs depend on contract.</p>
+          <p className="mt-4 text-center font-brand-mono text-xs text-[var(--s-ink-faint)]">{t('slaNote')}</p>
         </Container>
       </Section>
 
@@ -99,10 +120,10 @@ export default function SupportPage() {
       <Section className="border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
         <Container>
           <div className="mx-auto max-w-3xl">
-            <h2 className="mb-10 text-center font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Common fixes</h2>
+            <h2 className="mb-10 text-center font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('fixesTitle')}</h2>
             <div className="space-y-4">
-              {commonFixes.map((fix) => {
-                const Icon = fix.icon;
+              {fixes.map((fix, i) => {
+                const Icon = FIX_ICONS[i];
                 return (
                   <div key={fix.q} className="flex gap-4 rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-5">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
@@ -124,12 +145,12 @@ export default function SupportPage() {
       <Section>
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="mb-4 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">System status</h2>
+            <h2 className="mb-4 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('systemStatusTitle')}</h2>
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] px-4 py-2 text-sm font-medium text-[var(--s-accent-deep)]">
               <span className="h-2 w-2 rounded-full bg-[var(--s-accent)] pulse-dot" />
-              All systems operational
+              {t('statusOperational')}
             </div>
-            <p className="mt-4 text-sm text-[var(--s-ink-faint)]">Status page coming soon.</p>
+            <p className="mt-4 text-sm text-[var(--s-ink-faint)]">{t('statusSoon')}</p>
           </div>
         </Container>
       </Section>
@@ -138,10 +159,10 @@ export default function SupportPage() {
       <Section className="py-16 md:py-20">
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Need a deployment plan?</h2>
-            <p className="mb-8 text-sm text-[var(--s-ink-soft)]">Tell us your channels, tools, and volume. We&apos;ll propose a workflow.</p>
+            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('ctaTitle')}</h2>
+            <p className="mb-8 text-sm text-[var(--s-ink-soft)]">{t('ctaBody')}</p>
             <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">
-              Request a demo
+              {t('ctaButton')}
             </Link>
           </div>
         </Container>

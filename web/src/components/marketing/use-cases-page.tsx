@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Container } from './Container';
 import { Section } from './Section';
 import { Headphones, Phone, Calendar, Package, ArrowRight, CheckCircle2, Database, MessageSquare, Mic } from 'lucide-react';
@@ -9,64 +10,30 @@ import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
 
 type UseCase = 'support' | 'sales' | 'appointment' | 'order-status';
 
-const useCases = [
-  {
-    id: 'support' as UseCase,
-    title: 'Customer Support',
-    description: 'Reduce ticket volume and improve response time.',
-    icon: Headphones,
-    flow: [
-      { label: 'Incoming call', icon: Phone },
-      { label: 'AI answers instantly', icon: MessageSquare },
-      { label: 'Checks system (CRM / Helpdesk)', icon: Database },
-      { label: 'Resolves or escalates', icon: CheckCircle2 },
-    ],
-    bullets: ['Answers FAQs and product questions instantly', 'Creates tickets with structured payloads', 'Escalates to humans with full context'],
-  },
-  {
-    id: 'sales' as UseCase,
-    title: 'Sales Intake',
-    description: 'Capture and route leads with structured intake.',
-    icon: Phone,
-    flow: [
-      { label: 'Incoming lead call', icon: Phone },
-      { label: 'AI qualifies instantly', icon: MessageSquare },
-      { label: 'Scores and routes', icon: Database },
-      { label: 'Pushes to CRM', icon: CheckCircle2 },
-    ],
-    bullets: ['Asks qualifying questions automatically', 'Scores and routes leads to the right team', 'Pushes to CRM via webhook/tool'],
-  },
-  {
-    id: 'appointment' as UseCase,
-    title: 'Appointment Booking',
-    description: 'Book, reschedule, and confirm through voice or chat.',
-    icon: Calendar,
-    flow: [
-      { label: 'Customer requests booking', icon: Phone },
-      { label: 'AI checks availability', icon: Database },
-      { label: 'Books or suggests times', icon: Calendar },
-      { label: 'Sends confirmation', icon: CheckCircle2 },
-    ],
-    bullets: ['Checks calendar availability in real-time', 'Books or reschedules appointments', 'Sends confirmations and reminders'],
-  },
-  {
-    id: 'order-status' as UseCase,
-    title: 'Order Status & Updates',
-    description: 'Automate "where is my order?" and status requests.',
-    icon: Package,
-    flow: [
-      { label: 'Customer asks for status', icon: Phone },
-      { label: 'AI checks order system', icon: Database },
-      { label: 'Provides update instantly', icon: MessageSquare },
-      { label: 'Proactive notifications', icon: CheckCircle2 },
-    ],
-    bullets: ['Checks order status via tool/webhook', 'Provides proactive updates when needed', 'Deflects repetitive inbound queries'],
-  },
+type UseCaseCopy = {
+  title: string;
+  description: string;
+  flow: string[];
+  bullets: string[];
+};
+
+/*
+ * Icons and ordering live here; every word lives in the message files.
+ * The flow icons are paired positionally with the four translated flow steps.
+ */
+const CASE_CHROME: { id: UseCase; icon: typeof Phone; flowIcons: (typeof Phone)[] }[] = [
+  { id: 'support', icon: Headphones, flowIcons: [Phone, MessageSquare, Database, CheckCircle2] },
+  { id: 'sales', icon: Phone, flowIcons: [Phone, MessageSquare, Database, CheckCircle2] },
+  { id: 'appointment', icon: Calendar, flowIcons: [Phone, Database, Calendar, CheckCircle2] },
+  { id: 'order-status', icon: Package, flowIcons: [Phone, Database, MessageSquare, CheckCircle2] },
 ];
 
 export function UseCasesPage() {
+  const t = useTranslations('useCasesPage');
   const [activeUseCase, setActiveUseCase] = useState<UseCase>('support');
-  const activeData = useCases.find((uc) => uc.id === activeUseCase) || useCases[0];
+  const cases = t.raw('cases') as Record<UseCase, UseCaseCopy>;
+  const activeChrome = CASE_CHROME.find((c) => c.id === activeUseCase) ?? CASE_CHROME[0];
+  const activeData = cases[activeChrome.id];
 
   const scrollToHero = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -79,16 +46,17 @@ export function UseCasesPage() {
       <Section className="py-16 md:py-24">
         <Container>
           <div className="mb-12 text-center">
-            <div className="brand-eyebrow centered mb-5 justify-center">Use cases</div>
+            <div className="brand-eyebrow centered mb-5 justify-center">{t('eyebrow')}</div>
             <h1 className="font-display text-[clamp(36px,4.5vw,56px)] font-normal leading-[1.06] tracking-[-1.5px] text-[var(--s-ink)]">
-              What do you want your AI employee to <em className="font-medium italic text-[var(--s-accent)]">handle</em>?
+              {t('titleLead')} <em className="font-medium italic text-[var(--s-accent)]">{t('titleEmphasis')}</em>?
             </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-[18px] text-[var(--s-ink-soft)]">Pick a workflow. See how it works in production.</p>
+            <p className="mx-auto mt-5 max-w-2xl text-[18px] text-[var(--s-ink-soft)]">{t('sub')}</p>
           </div>
 
           <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-            {useCases.map((useCase) => {
-              const Icon = useCase.icon;
+            {CASE_CHROME.map((chrome) => {
+              const useCase = { id: chrome.id, ...cases[chrome.id] };
+              const Icon = chrome.icon;
               const isActive = activeUseCase === useCase.id;
               return (
                 <button
@@ -108,7 +76,7 @@ export function UseCasesPage() {
                     </div>
                   </div>
                   <div className={`mt-4 flex items-center gap-2 text-sm font-medium transition-opacity ${isActive ? 'text-[var(--s-accent)] opacity-100' : 'text-[var(--s-ink-faint)] opacity-0 group-hover:opacity-100'}`}>
-                    <span>View flow</span>
+                    <span>{t('viewFlow')}</span>
                     <ArrowRight className="h-4 w-4" />
                   </div>
                 </button>
@@ -123,10 +91,10 @@ export function UseCasesPage() {
         <Container>
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
             <div className="lg:col-span-2">
-              <h2 className="mb-8 font-display text-[clamp(24px,3vw,36px)] font-normal tracking-[-0.8px] text-[var(--s-ink)]">How it works</h2>
+              <h2 className="mb-8 font-display text-[clamp(24px,3vw,36px)] font-normal tracking-[-0.8px] text-[var(--s-ink)]">{t('howItWorks')}</h2>
               <div className="relative space-y-0">
                 {activeData.flow.map((step, index) => {
-                  const StepIcon = step.icon;
+                  const StepIcon = activeChrome.flowIcons[index];
                   const isLast = index === activeData.flow.length - 1;
                   const isFirst = index === 0;
                   return (
@@ -138,7 +106,7 @@ export function UseCasesPage() {
                           </div>
                           {isFirst && <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[var(--s-accent)] pulse-dot" />}
                         </div>
-                        <div className={`text-base font-medium ${isFirst ? 'text-[var(--s-ink)]' : 'text-[var(--s-ink-soft)]'}`}>{step.label}</div>
+                        <div className={`text-base font-medium ${isFirst ? 'text-[var(--s-ink)]' : 'text-[var(--s-ink-soft)]'}`}>{step}</div>
                       </div>
                       {!isLast && (
                         <div className="absolute left-7 top-14 ml-[1px] h-16 w-0.5 border-l border-dashed border-[var(--s-border)]">
@@ -152,7 +120,7 @@ export function UseCasesPage() {
             </div>
             <div className="lg:col-span-1">
               <div className="sticky top-24 rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
-                <h3 className="mb-4 font-display text-[16px] font-medium text-[var(--s-ink)]">What the agent does</h3>
+                <h3 className="mb-4 font-display text-[16px] font-medium text-[var(--s-ink)]">{t('whatItDoes')}</h3>
                 <ul className="space-y-3">
                   {activeData.bullets.map((bullet, index) => (
                     <li key={index} className="flex items-start gap-3">
@@ -171,15 +139,15 @@ export function UseCasesPage() {
       <Section className="py-16 md:py-24">
         <Container>
           <div className="mx-auto max-w-3xl overflow-hidden rounded-[24px] border border-[var(--s-border)] bg-[var(--s-cta-bg)] p-8 text-center md:p-12 brand-shadow-lg">
-            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-cta-fg)]">Want to see this live?</h2>
-            <p className="mx-auto mb-8 max-w-xl text-[17px] text-[var(--s-cta-fg)]">Try the live voice agent now, then we&apos;ll help you set up your own workflow.</p>
+            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-cta-fg)]">{t('ctaTitle')}</h2>
+            <p className="mx-auto mb-8 max-w-xl text-[17px] text-[var(--s-cta-fg)]">{t('ctaBody')}</p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <button onClick={scrollToHero} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-accent)] px-6 text-sm font-medium text-white transition-all hover:bg-[var(--s-accent)] sm:w-auto">
                 <Mic className="h-4 w-4" />
-                Talk to Denku
+                {t('ctaTalk')}
               </button>
               <ExternalToLocale href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)] sm:w-auto">
-                Get started
+                {t('ctaStart')}
               </ExternalToLocale>
             </div>
           </div>

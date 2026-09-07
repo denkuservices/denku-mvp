@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { SignupForm } from "./_components/SignupForm";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
@@ -15,7 +16,7 @@ import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
  * costs nothing but the strings.
  */
 export default async function SignupPage() {
-  const t = await getTranslations("auth.signup");
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.signup" });
 
   return (
     <AuthShell

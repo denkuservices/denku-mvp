@@ -422,7 +422,9 @@
         "label": "¿Con qué sistemas debe hablar?",
         "placeholder": "p. ej. HubSpot, Google Calendar, nuestra propia API"
       }
-    }
+    },
+    "emailPlaceholder": "tu@empresa.com",
+    "companyPlaceholder": "Nombre de la empresa"
   },
   "subpage": {
     "dayTitle": "Un día cualquiera.",
@@ -437,7 +439,8 @@
     "platform": "Plataforma",
     "doneForYou": "Lo hacemos nosotros",
     "pricePrinted": "Precio publicado",
-    "quoted": "Presupuesto"
+    "quoted": "Presupuesto",
+    "notFound": "No encontrado"
   },
   "employeeCard": {
     "onShift": "De turno",
@@ -946,7 +949,9 @@
         ]
       }
     },
-    "planCta": "Empezar"
+    "planCta": "Empezar",
+    "metaTitle": "Precios",
+    "metaDescription": "Precios sencillos y transparentes para el empleado de IA por voz de Denku: minutos incluidos, números de teléfono y llamadas simultáneas por plan, con exceso de consumo de pago por uso."
   },
   "securityPage": {
     "eyebrow": "Seguridad y confianza",
@@ -1284,5 +1289,372 @@
         }
       }
     }
+  },
+  "legalPages": {
+    "eyebrow": "Legal",
+    "privacyTitle": "Política de privacidad",
+    "privacyIntro": "Un resumen de qué recogemos, por qué y cómo contactarnos al respecto. Ampliamos este documento a medida que crece el producto; si algo no queda claro, pregúntanos y te lo explicaremos sin rodeos.",
+    "privacySections": [
+      {
+        "title": "Datos que recogemos",
+        "body": "Podemos recoger datos de la cuenta, información de contacto y metadatos operativos necesarios para prestar el servicio (por ejemplo, eventos de uso, registros y datos de configuración)."
+      },
+      {
+        "title": "Cómo usamos los datos",
+        "body": "Usamos los datos para operar la plataforma, dar soporte, mejorar la fiabilidad y mantener la seguridad. No vendemos datos personales."
+      },
+      {
+        "title": "Contacto",
+        "body": "Para cuestiones de privacidad, escríbenos desde la página de Contacto."
+      }
+    ],
+    "termsTitle": "Términos del servicio",
+    "termsIntro": "Las condiciones que aceptas al usar Denku. En lenguaje claro y breve a propósito.",
+    "termsSections": [
+      {
+        "title": "Uso del servicio",
+        "body": "Te comprometes a usar el servicio conforme a la legislación aplicable y a no hacer un uso indebido de la plataforma ni interferir en ella."
+      },
+      {
+        "title": "Disponibilidad",
+        "body": "El servicio se presta \"tal cual\". Podemos cambiar funciones a medida que iteramos y mejoramos, y te avisaremos antes de retirar algo de lo que dependas."
+      },
+      {
+        "title": "Limitación de responsabilidad",
+        "body": "En la medida en que lo permita la ley, no somos responsables de daños indirectos o consecuentes. Las condiciones para empresas pueden acordarse por separado."
+      }
+    ]
+  },
+  "aboutPage": {
+    "metaTitle": "Quiénes somos",
+    "metaDescription": "Sobre Denku: creamos empleados de IA por voz para que ningún negocio pierda una llamada.",
+    "eyebrow": "Quiénes somos",
+    "title": "Sobre {name}",
+    "intro": "{name} ayuda a los equipos a desplegar agentes de IA —voz, chat y automatización— sobre una arquitectura pensada para productos SaaS multiinquilino.",
+    "missionEyebrow": "Misión",
+    "missionTitle": "Hacer que los agentes de IA estén listos para producción en negocios reales.",
+    "missionBody": "Nos centramos en patrones de despliegue seguros: herramientas explícitas, acceso acotado y una observabilidad limpia, para que las empresas lancen agentes rápido y los operen con confianza.",
+    "pillars": [
+      {
+        "title": "Arquitectura multiinquilino",
+        "desc": "Acceso a datos aislado por inquilino y herramientas acotadas: pensado para escalar en SaaS con una separación limpia entre clientes."
+      },
+      {
+        "title": "Control operativo",
+        "desc": "Herramientas, políticas y salvaguardas explícitas para que los agentes funcionen con seguridad en producción."
+      },
+      {
+        "title": "Observabilidad",
+        "desc": "Eventos y registros estructurados que permiten auditar, iterar y mantener la fiabilidad."
+      }
+    ],
+    "principlesTitle": "Principios",
+    "principles": [
+      "Aislamiento entre inquilinos por defecto",
+      "Herramientas con el mínimo privilegio y acceso acotado",
+      "Operaciones auditables con eventos estructurados",
+      "Integraciones seguras y buena higiene de webhooks",
+      "Puesta en marcha rápida sin renunciar al control"
+    ],
+    "whatYouGetTitle": "Lo que te llevas",
+    "whatYouGetBody": "Una plataforma que empieza sencilla y crece contigo: de un empleado de IA a muchos, empezando por la voz y añadiendo canales según los lanzamos, del registro básico a controles de acceso avanzados.",
+    "viewPricing": "Ver precios",
+    "talkToUs": "Hablar con nosotros"
+  },
+  "contactPage": {
+    "eyebrow": "Contacto",
+    "title": "Contacto",
+    "intro": "Cuéntanos tu sector, tus canales y qué quieres que gestione el agente. Te propondremos un flujo de trabajo y un plan de despliegue.",
+    "outcomesTitle": "Resultados habituales",
+    "outcomes": [
+      "Menos volumen de soporte y respuestas más rápidas",
+      "Más conversión en llamadas y chats entrantes",
+      "Captura de datos estructurados en tu CRM o tus sistemas"
+    ],
+    "includeTitle": "Qué incluir",
+    "includeBody": "Tu web, tu canal principal (teléfono/web), los idiomas y 2–3 tareas prioritarias que quieras automatizar.",
+    "formTitle": "Solicitar una demo",
+    "formNote": "Al enviar se abrirá un correo dirigido a nuestro equipo en {email}.",
+    "emailLabel": "Correo de trabajo",
+    "emailPlaceholder": "tu@empresa.com",
+    "companyLabel": "Empresa",
+    "companyPlaceholder": "Nombre de la empresa",
+    "websiteLabel": "Sitio web",
+    "channelLabel": "Canal principal",
+    "channelVoice": "Voz (teléfono)",
+    "channelChat": "Chat (web)",
+    "channelBoth": "Ambos",
+    "languageLabel": "Idioma",
+    "languageEnglish": "Inglés",
+    "languageSpanish": "Español",
+    "languageTurkish": "Turco",
+    "languageOther": "Otro",
+    "messageLabel": "¿Qué debería gestionar el agente?",
+    "messagePlaceholder": "Ejemplo: reserva de citas, estado de pedidos, preguntas frecuentes, cualificación de clientes potenciales...",
+    "submit": "Enviar solicitud",
+    "consent": "Al enviar, aceptas que te contactemos sobre {name}. Nada de spam.",
+    "mailSubject": "Solicitud de demo de Denku",
+    "mailFrom": "De",
+    "mailCompany": "Empresa",
+    "mailChannel": "Canal principal"
+  },
+  "docsPage": {
+    "metaTitle": "Documentación",
+    "metaDescription": "Documentación de {name}: primeros pasos, cómo funciona el empleado de IA por voz y respuestas a las preguntas más habituales.",
+    "eyebrow": "Documentación",
+    "title": "Documentación",
+    "sub": "Empieza en unos minutos.",
+    "getStarted": "Empezar",
+    "talkToDenku": "Habla con Denku",
+    "gettingStartedTitle": "Primeros pasos",
+    "gettingStartedSub": "Despliega tu primer agente en cuatro pasos.",
+    "steps": [
+      {
+        "title": "Crear el espacio de trabajo",
+        "description": "Configura tu espacio de trabajo con aislamiento multiinquilino. Añade miembros del equipo y sus permisos."
+      },
+      {
+        "title": "Crear el agente",
+        "description": "Define tu agente con instrucciones de sistema, ajustes de idioma y límites operativos."
+      },
+      {
+        "title": "Conectar herramientas",
+        "description": "Intégralo con lo que ya usas: CRM, calendarios, helpdesk o APIs propias mediante webhooks."
+      },
+      {
+        "title": "Desplegar voz o chat",
+        "description": "Sal en directo en cualquier canal. Sigue el rendimiento con paneles y alertas incluidos."
+      }
+    ],
+    "conceptsTitle": "Conceptos básicos",
+    "conceptsSub": "Entiende las piezas que forman {name}.",
+    "concepts": [
+      {
+        "title": "Inquilinos y espacios de trabajo",
+        "description": "Entornos aislados para distintos equipos o clientes. Cada espacio de trabajo tiene sus propios agentes, datos y permisos."
+      },
+      {
+        "title": "Agentes",
+        "description": "Agentes de IA que gestionan conversaciones. Se configuran con instrucciones, herramientas y límites. Funcionan por voz y por chat."
+      },
+      {
+        "title": "Herramientas y webhooks",
+        "description": "Conecta servicios externos con integraciones ya hechas o webhooks propios. Las herramientas permiten al agente actuar."
+      },
+      {
+        "title": "Observabilidad",
+        "description": "Visibilidad completa del rendimiento del agente con registros estructurados, transcripciones, métricas y paneles en tiempo real."
+      }
+    ],
+    "webhooksTitle": "Webhooks",
+    "webhooksSub": "Configura endpoints para recibir los eventos de tus agentes.",
+    "webhooksBody": "Todos los payloads de webhook se firman con HMAC-SHA256. Verifica la firma en tu servidor con tu secreto de webhook.",
+    "integrationsTitle": "Ejemplos de integración",
+    "integrationsSub": "Patrones y flujos habituales.",
+    "integrations": [
+      {
+        "title": "Integración con helpdesk",
+        "description": "Crea automáticamente tickets en Zendesk o Intercom a partir de las conversaciones del agente."
+      },
+      {
+        "title": "Acciones de calendario",
+        "description": "Reserva, reprograma y confirma citas a través de Google Calendar o Calendly."
+      },
+      {
+        "title": "Captura de leads en el CRM",
+        "description": "Captura clientes potenciales cualificados y sincroniza datos estructurados con Salesforce, HubSpot o tu CRM."
+      }
+    ],
+    "faqTitle": "Preguntas frecuentes sobre la documentación",
+    "faqs": [
+      {
+        "question": "¿Cuánto se tarda en empezar?",
+        "answer": "La mayoría de los equipos despliega su primer agente en unas horas. La plataforma se ocupa de la infraestructura; tú solo configuras."
+      },
+      {
+        "question": "¿Ofrecéis acceso a la API?",
+        "answer": "Los planes Scale incluyen acceso completo a la API. Los planes Starter y Growth usan la interfaz web y las integraciones estándar."
+      },
+      {
+        "question": "¿Puedo usar modelos personalizados?",
+        "answer": "Los planes Scale admiten configuraciones de modelo personalizadas. Contacta con ventas para conocer las opciones y los requisitos."
+      },
+      {
+        "question": "¿Cómo funcionan los webhooks?",
+        "answer": "Configura los endpoints de webhook en los ajustes del agente. Todos los eventos salientes se firman con HMAC para poder verificarlos."
+      }
+    ]
+  },
+  "supportPage": {
+    "metaTitle": "Soporte",
+    "metaDescription": "Ayuda con Denku: cómo contactar con soporte, preguntas habituales y consejos sobre tu empleado de IA por voz.",
+    "eyebrow": "Soporte",
+    "titleLead": "Una ayuda",
+    "titleEmphasis": "previsible",
+    "sub": "Documentación, tiempos de respuesta y escalado cuando importa.",
+    "contactSupport": "Contactar con soporte",
+    "readDocs": "Leer la documentación",
+    "pathsTitle": "Elige tu camino",
+    "paths": [
+      {
+        "title": "Documentación",
+        "desc": "Configuración, integraciones y buenas prácticas de operación.",
+        "label": "Ir a la documentación"
+      },
+      {
+        "title": "Habla con Denku",
+        "desc": "Prueba nuestra demo del agente en vivo, sin registrarte.",
+        "label": "Probar la demo"
+      },
+      {
+        "title": "Contacto y escalado",
+        "desc": "Habla con nuestro equipo para demos, incidencias y despliegues.",
+        "label": "Abrir una solicitud"
+      }
+    ],
+    "slaTitle": "Tiempos de respuesta",
+    "slaNote": "Los SLA exactos dependen del contrato.",
+    "slaPlans": [
+      {
+        "name": "Starter",
+        "level": "Mejor esfuerzo",
+        "desc": "Soporte de la comunidad y respuestas por correo normalmente en 1–2 días laborables."
+      },
+      {
+        "name": "Growth",
+        "level": "Atención prioritaria",
+        "desc": "Soporte prioritario con objetivo de respuesta el mismo día laborable."
+      },
+      {
+        "name": "Scale",
+        "level": "SLA contractual",
+        "desc": "Tiempos de respuesta garantizados y vías de escalado definidos en el contrato."
+      }
+    ],
+    "fixesTitle": "Soluciones habituales",
+    "fixes": [
+      {
+        "q": "Permiso del micrófono",
+        "a": "Asegúrate de que tu navegador permite el acceso al micrófono. Revisa los ajustes del sitio y concede el permiso cuando te lo pida. Si el problema persiste, borra la caché del navegador y vuelve a intentarlo."
+      },
+      {
+        "q": "El agente no arranca",
+        "a": "Revisa la configuración del agente (instrucciones de sistema, herramientas, límites). Comprueba que las credenciales de las herramientas sean válidas y accesibles. Consulta los registros del panel para ver el error concreto."
+      },
+      {
+        "q": "Verificación de webhooks",
+        "a": "Copia el secreto del webhook desde los ajustes del agente. Verifica la firma HMAC-SHA256 con la cabecera X-Signature y compárala con el hash calculado del cuerpo de la petición más el secreto."
+      },
+      {
+        "q": "Latencia",
+        "a": "Comprueba la latencia de red hacia tus endpoints de herramientas y webhooks. Revisa los registros del agente en busca de respuestas lentas. Valora usar caché o webhooks asíncronos para operaciones pesadas."
+      },
+      {
+        "q": "Facturación y facturas",
+        "a": "Consulta el historial de facturación en los ajustes del espacio de trabajo. Descarga las facturas desde la página de facturación. Para cambios de plan, contacta con soporte para los ajustes prorrateados."
+      }
+    ],
+    "statusTitle": "Estado",
+    "statusOperational": "Todos los sistemas operativos",
+    "systemStatusTitle": "Estado del sistema",
+    "statusSoon": "La página de estado llegará pronto.",
+    "ctaTitle": "¿Necesitas un plan de despliegue?",
+    "ctaBody": "Cuéntanos tus canales, tus herramientas y tu volumen. Te propondremos un flujo de trabajo.",
+    "ctaButton": "Solicitar una demo"
+  },
+  "useCasesPage": {
+    "metaTitle": "Casos de uso",
+    "metaDescription": "Descubre cómo los negocios usan el empleado de IA por voz de Denku para responder todas las llamadas, cualificar clientes potenciales y reservar citas 24/7: oficios, clínicas, salones y más.",
+    "eyebrow": "Casos de uso",
+    "titleLead": "¿De qué quieres que se encargue tu",
+    "titleEmphasis": "empleado de IA",
+    "sub": "Elige un flujo de trabajo y ve cómo funciona en producción.",
+    "viewFlow": "Ver el flujo",
+    "howItWorks": "Cómo funciona",
+    "whatItDoes": "Qué hace el agente",
+    "ctaTitle": "¿Quieres verlo en directo?",
+    "ctaBody": "Prueba ahora el agente de voz en vivo y luego te ayudamos a montar tu propio flujo.",
+    "ctaTalk": "Habla con Denku",
+    "ctaStart": "Empezar",
+    "cases": {
+      "support": {
+        "title": "Atención al cliente",
+        "description": "Reduce el volumen de tickets y mejora el tiempo de respuesta.",
+        "flow": [
+          "Llamada entrante",
+          "La IA responde al instante",
+          "Consulta el sistema (CRM / helpdesk)",
+          "Resuelve o escala"
+        ],
+        "bullets": [
+          "Responde al instante preguntas frecuentes y de producto",
+          "Crea tickets con datos estructurados",
+          "Escala a una persona con todo el contexto"
+        ]
+      },
+      "sales": {
+        "title": "Captación de ventas",
+        "description": "Capta y enruta clientes potenciales con una toma de datos estructurada.",
+        "flow": [
+          "Llamada de un cliente potencial",
+          "La IA cualifica al instante",
+          "Puntúa y enruta",
+          "Lo envía al CRM"
+        ],
+        "bullets": [
+          "Hace las preguntas de cualificación automáticamente",
+          "Puntúa y enruta los leads al equipo adecuado",
+          "Los envía al CRM mediante webhook o herramienta"
+        ]
+      },
+      "appointment": {
+        "title": "Reserva de citas",
+        "description": "Reserva, reprograma y confirma por voz o por chat.",
+        "flow": [
+          "El cliente pide una cita",
+          "La IA consulta la disponibilidad",
+          "Reserva o propone horarios",
+          "Envía la confirmación"
+        ],
+        "bullets": [
+          "Consulta la disponibilidad del calendario en tiempo real",
+          "Reserva o reprograma citas",
+          "Envía confirmaciones y recordatorios"
+        ]
+      },
+      "order-status": {
+        "title": "Estado del pedido y avisos",
+        "description": "Automatiza el \"¿dónde está mi pedido?\" y las consultas de estado.",
+        "flow": [
+          "El cliente pregunta por el estado",
+          "La IA consulta el sistema de pedidos",
+          "Da la respuesta al instante",
+          "Avisos proactivos"
+        ],
+        "bullets": [
+          "Consulta el estado del pedido mediante herramienta o webhook",
+          "Envía avisos proactivos cuando hace falta",
+          "Descarga de consultas repetitivas"
+        ]
+      }
+    }
+  },
+  "instagramDeletion": {
+    "title": "Eliminación de datos de Instagram",
+    "intro": "Esta página muestra el estado de una solicitud de eliminación de datos de una cuenta de Instagram conectada a Denku.",
+    "noCode": "No se ha proporcionado ningún código de confirmación. Usa el enlace que te dio Instagram.",
+    "statusLabel": "Estado",
+    "codeLabel": "Código de confirmación",
+    "requestedLabel": "Solicitada",
+    "completedLabel": "Completada",
+    "notFound": "No se ha encontrado ninguna solicitud para el código de confirmación",
+    "footnote": "La eliminación borra la conexión de Instagram almacenada y todos los eventos de Instagram guardados para esa cuenta. ¿Dudas? Contacta con soporte.",
+    "statusNeedsAttention": "Requiere atención",
+    "statusInProgress": "En curso",
+    "statusNotFound": "No encontrada"
+  },
+  "requestPage": {
+    "namePlaceholder": "Lucía Fernández",
+    "topicLabel": "¿Sobre qué nos escribes?"
   }
 }

@@ -422,7 +422,9 @@
         "label": "Hangi sistemlerle konuşmalı?",
         "placeholder": "örn. HubSpot, Google Takvim, kendi API'miz"
       }
-    }
+    },
+    "emailPlaceholder": "siz@sirketiniz.com",
+    "companyPlaceholder": "Şirket adı"
   },
   "subpage": {
     "dayTitle": "Bir günü.",
@@ -437,7 +439,8 @@
     "platform": "Platform",
     "doneForYou": "Sizin için yapılıyor",
     "pricePrinted": "Fiyatı açık",
-    "quoted": "Teklifle"
+    "quoted": "Teklifle",
+    "notFound": "Bulunamadı"
   },
   "employeeCard": {
     "onShift": "Görevde",
@@ -946,7 +949,9 @@
         ]
       }
     },
-    "planCta": "Başla"
+    "planCta": "Başla",
+    "metaTitle": "Fiyatlar",
+    "metaDescription": "Denku'nun sesli yapay zekâ çalışanı için sade ve şeffaf fiyatlandırma — plana göre dâhil dakikalar, telefon numaraları ve eşzamanlı arama, kullandıkça öde aşım ücretiyle."
   },
   "securityPage": {
     "eyebrow": "Güvenlik & güven",
@@ -1284,5 +1289,372 @@
         }
       }
     }
+  },
+  "legalPages": {
+    "eyebrow": "Yasal",
+    "privacyTitle": "Gizlilik Politikası",
+    "privacyIntro": "Neyi, neden topladığımızın ve bu konuda bize nasıl ulaşacağınızın özeti. Ürün büyüdükçe bu belgeyi genişletiyoruz — burada anlaşılmayan bir şey varsa sorun, açıkça yanıtlayalım.",
+    "privacySections": [
+      {
+        "title": "Topladığımız veriler",
+        "body": "Hizmeti sunabilmek için hesap bilgilerini, iletişim bilgilerini ve operasyonel üstverileri (kullanım olayları, kayıtlar ve yapılandırma verileri gibi) toplayabiliriz."
+      },
+      {
+        "title": "Verileri nasıl kullanıyoruz",
+        "body": "Verileri platformu işletmek, destek vermek, güvenilirliği artırmak ve güvenliği korumak için kullanırız. Kişisel verileri satmayız."
+      },
+      {
+        "title": "İletişim",
+        "body": "Gizlilikle ilgili sorularınız için İletişim sayfasından bize yazın."
+      }
+    ],
+    "termsTitle": "Hizmet Şartları",
+    "termsIntro": "Denku'yu kullanırken kabul ettiğiniz şartlar. Bilerek sade ve kısa tutuldu.",
+    "termsSections": [
+      {
+        "title": "Hizmetin kullanımı",
+        "body": "Hizmeti yürürlükteki yasalara uygun kullanmayı, platformu kötüye kullanmamayı ve işleyişine müdahale etmemeyi kabul edersiniz."
+      },
+      {
+        "title": "Erişilebilirlik",
+        "body": "Hizmet \"olduğu gibi\" sunulur. Ürünü geliştirdikçe özellikleri değiştirebiliriz; güvendiğiniz bir şey kaldırılmadan önce size haber veririz."
+      },
+      {
+        "title": "Sorumluluğun sınırı",
+        "body": "Yasaların izin verdiği ölçüde dolaylı veya sonuç olarak doğan zararlardan sorumlu değiliz. Kurumsal şartlar ayrı bir sözleşmeyle belirlenebilir."
+      }
+    ]
+  },
+  "aboutPage": {
+    "metaTitle": "Hakkımızda",
+    "metaDescription": "Denku hakkında — işletmeler tek bir aramayı bile kaçırmasın diye sesli yapay zekâ çalışanları geliştiriyoruz.",
+    "eyebrow": "Hakkımızda",
+    "title": "{name} hakkında",
+    "intro": "{name}, ekiplerin yapay zekâ çalışanlarını — ses, sohbet ve otomasyon — çok kiracılı SaaS ürünleri için tasarlanmış bir mimari üzerinde devreye almasına yardımcı olur.",
+    "missionEyebrow": "Misyon",
+    "missionTitle": "Yapay zekâ çalışanlarını bugünün işletmeleri için üretime hazır hâle getirmek.",
+    "missionBody": "Güvenli devreye alma kalıplarına odaklanıyoruz: açıkça tanımlı araçlar, dar kapsamlı erişim ve temiz izlenebilirlik — böylece şirketler yapay zekâ çalışanlarını hızla yayına alır ve güvenle işletir.",
+    "pillars": [
+      {
+        "title": "Çok kiracılı mimari",
+        "desc": "Kiracı bazında yalıtılmış veri erişimi ve dar kapsamlı araçlar — SaaS ölçeği ve müşteriler arasında temiz ayrım için tasarlandı."
+      },
+      {
+        "title": "Operasyonel denetim",
+        "desc": "Açıkça tanımlı araçlar, kurallar ve koruma bantları sayesinde çalışanlar üretimde güvenle iş görür."
+      },
+      {
+        "title": "İzlenebilirlik",
+        "desc": "Denetimi, iyileştirmeyi ve güvenilirliği destekleyen yapılandırılmış olaylar ve kayıtlar."
+      }
+    ],
+    "principlesTitle": "İlkeler",
+    "principles": [
+      "Varsayılan olarak kiracı yalıtımı",
+      "En az yetkili araçlar ve dar kapsamlı erişim",
+      "Yapılandırılmış olaylarla denetlenebilir işleyiş",
+      "Güvenli entegrasyonlar ve temiz web kancası pratiği",
+      "Denetimden ödün vermeden hızlı başlangıç"
+    ],
+    "whatYouGetTitle": "Elde ettikleriniz",
+    "whatYouGetBody": "Sade başlayıp sizinle büyüyen bir platform: tek bir yapay zekâ çalışanından birçoğuna, sesle başlayıp yayınladıkça yeni kanallar ekleyerek, temel kayıt tutmadan gelişmiş erişim denetimlerine.",
+    "viewPricing": "Fiyatları gör",
+    "talkToUs": "Bizimle konuşun"
+  },
+  "contactPage": {
+    "eyebrow": "İletişim",
+    "title": "İletişim",
+    "intro": "Sektörünüzü, kanallarınızı ve yapay zekâ çalışanının neyi üstlenmesini istediğinizi anlatın. Size bir iş akışı ve devreye alma planı önerelim.",
+    "outcomesTitle": "Tipik sonuçlar",
+    "outcomes": [
+      "Daha az destek yükü ve daha hızlı yanıt süreleri",
+      "Gelen arama ve sohbetlerde daha yüksek dönüşüm",
+      "CRM'inize veya sistemlerinize yapılandırılmış veri akışı"
+    ],
+    "includeTitle": "Nelerden bahsedin",
+    "includeBody": "Web siteniz, ana kanalınız (telefon/web), diller ve otomatikleştirmek istediğiniz 2–3 öncelikli iş.",
+    "formTitle": "Demo talep edin",
+    "formNote": "Gönderdiğinizde {email} adresindeki ekibimize bir e-posta açılır.",
+    "emailLabel": "İş e-postası",
+    "emailPlaceholder": "siz@sirketiniz.com",
+    "companyLabel": "Şirket",
+    "companyPlaceholder": "Şirket adı",
+    "websiteLabel": "Web sitesi",
+    "channelLabel": "Ana kanal",
+    "channelVoice": "Ses (telefon)",
+    "channelChat": "Sohbet (web sitesi)",
+    "channelBoth": "İkisi de",
+    "languageLabel": "Dil",
+    "languageEnglish": "İngilizce",
+    "languageSpanish": "İspanyolca",
+    "languageTurkish": "Türkçe",
+    "languageOther": "Diğer",
+    "messageLabel": "Yapay zekâ çalışanı neyi üstlensin?",
+    "messagePlaceholder": "Örnek: randevu alma, sipariş durumu, sık sorulan sorular, potansiyel müşteri niteleme...",
+    "submit": "Talebi gönder",
+    "consent": "Gönderdiğinizde {name} hakkında sizinle iletişime geçmemizi kabul etmiş olursunuz. Spam yok.",
+    "mailSubject": "Denku demo talebi",
+    "mailFrom": "Gönderen",
+    "mailCompany": "Şirket",
+    "mailChannel": "Ana kanal"
+  },
+  "docsPage": {
+    "metaTitle": "Dokümantasyon",
+    "metaDescription": "{name} dokümantasyonu — ilk adımlar, sesli yapay zekâ çalışanının nasıl çalıştığı ve sık sorulan soruların yanıtları.",
+    "eyebrow": "Dokümantasyon",
+    "title": "Dokümantasyon",
+    "sub": "Dakikalar içinde başlayın.",
+    "getStarted": "Başlayın",
+    "talkToDenku": "Denku ile konuşun",
+    "gettingStartedTitle": "İlk adımlar",
+    "gettingStartedSub": "İlk yapay zekâ çalışanınızı dört adımda yayına alın.",
+    "steps": [
+      {
+        "title": "Çalışma alanı oluşturun",
+        "description": "Çalışma alanınızı kiracı yalıtımıyla kurun. Ekip üyelerini ve erişim rollerini belirleyin."
+      },
+      {
+        "title": "Çalışan oluşturun",
+        "description": "Çalışanınızı sistem talimatları, dil ayarları ve operasyonel sınırlarla tanımlayın."
+      },
+      {
+        "title": "Araçları bağlayın",
+        "description": "Hâlihazırda kullandıklarınızla bütünleştirin: CRM, takvimler, yardım masası veya web kancalarıyla kendi API'leriniz."
+      },
+      {
+        "title": "Ses/sohbeti yayına alın",
+        "description": "Herhangi bir kanalda yayına geçin. Performansı yerleşik panolar ve uyarılarla izleyin."
+      }
+    ],
+    "conceptsTitle": "Temel kavramlar",
+    "conceptsSub": "{name} platformunun yapı taşlarını tanıyın.",
+    "concepts": [
+      {
+        "title": "Kiracılar ve çalışma alanları",
+        "description": "Farklı ekipler veya müşteriler için yalıtılmış ortamlar. Her çalışma alanının kendi çalışanları, verileri ve erişim denetimleri vardır."
+      },
+      {
+        "title": "Çalışanlar",
+        "description": "Konuşmaları yürüten yapay zekâ çalışanları. Talimatlar, araçlar ve sınırlarla yapılandırılır. Hem sesli hem sohbetli çalışır."
+      },
+      {
+        "title": "Araçlar ve web kancaları",
+        "description": "Hazır entegrasyonlarla veya kendi web kancalarınızla dış servisleri bağlayın. Araçlar, çalışanın işlem yapmasını sağlar."
+      },
+      {
+        "title": "İzlenebilirlik",
+        "description": "Yapılandırılmış kayıtlar, dökümler, ölçütler ve gerçek zamanlı panolarla çalışan performansına tam görünürlük."
+      }
+    ],
+    "webhooksTitle": "Web kancaları",
+    "webhooksSub": "Çalışanlarınızdan olay almak için uç noktalar tanımlayın.",
+    "webhooksBody": "Tüm web kancası içerikleri HMAC-SHA256 ile imzalanır. İmzaları sunucunuzda web kancası gizli anahtarınızla doğrulayın.",
+    "integrationsTitle": "Entegrasyon örnekleri",
+    "integrationsSub": "Sık kullanılan kalıplar ve akışlar.",
+    "integrations": [
+      {
+        "title": "Yardım masası entegrasyonu",
+        "description": "Çalışan konuşmalarından Zendesk veya Intercom'da otomatik olarak talep oluşturun."
+      },
+      {
+        "title": "Takvim işlemleri",
+        "description": "Google Calendar veya Calendly üzerinden randevu alın, erteleyin ve onaylayın."
+      },
+      {
+        "title": "CRM'e potansiyel müşteri aktarımı",
+        "description": "Nitelenmiş potansiyel müşterileri toplayın ve yapılandırılmış verileri Salesforce, HubSpot veya kendi CRM'inizle eşitleyin."
+      }
+    ],
+    "faqTitle": "Dokümantasyon SSS",
+    "faqs": [
+      {
+        "question": "Ne kadar sürede başlayabilirim?",
+        "answer": "Çoğu ekip ilk çalışanını birkaç saat içinde yayına alıyor. Altyapıyı platform üstlenir; siz yalnızca yapılandırmayla ilgilenirsiniz."
+      },
+      {
+        "question": "API erişimi sunuyor musunuz?",
+        "answer": "Scale planları tam API erişimi içerir. Starter ve Growth planları web arayüzünü ve standart entegrasyonları kullanır."
+      },
+      {
+        "question": "Kendi modellerimi kullanabilir miyim?",
+        "answer": "Scale planları özel model yapılandırmalarını destekler. Seçenekler ve gereksinimler için satış ekibiyle görüşün."
+      },
+      {
+        "question": "Web kancaları nasıl çalışır?",
+        "answer": "Web kancası uç noktalarını çalışan ayarlarından tanımlayın. Giden tüm olaylar doğrulanabilmesi için HMAC ile imzalanır."
+      }
+    ]
+  },
+  "supportPage": {
+    "metaTitle": "Destek",
+    "metaDescription": "Denku ile ilgili yardım — desteğe nasıl ulaşılır, sık sorulan sorular ve sesli yapay zekâ çalışanınıza dair ipuçları.",
+    "eyebrow": "Destek",
+    "titleLead": "Öngörülebilir",
+    "titleEmphasis": "bir yardım",
+    "sub": "Dokümantasyon, yanıt hedefleri ve gerektiğinde üst kademeye taşıma.",
+    "contactSupport": "Destekle iletişime geçin",
+    "readDocs": "Dokümantasyonu okuyun",
+    "pathsTitle": "Yolunuzu seçin",
+    "paths": [
+      {
+        "title": "Dokümantasyon",
+        "desc": "Kurulum, entegrasyonlar ve operasyonel iyi uygulamalar.",
+        "label": "Dokümantasyona git"
+      },
+      {
+        "title": "Denku ile konuşun",
+        "desc": "Canlı yapay zekâ demomuzu kayıt olmadan deneyin.",
+        "label": "Canlı demoyu dene"
+      },
+      {
+        "title": "İletişim ve üst kademe",
+        "desc": "Demo, sorun giderme ve devreye alma için ekibimize ulaşın.",
+        "label": "Talep açın"
+      }
+    ],
+    "slaTitle": "Yanıt hedefleri",
+    "slaNote": "Kesin SLA'lar sözleşmeye göre değişir.",
+    "slaPlans": [
+      {
+        "name": "Starter",
+        "level": "Elden geldiğince",
+        "desc": "Topluluk desteği ve genelde 1–2 iş günü içinde e-posta yanıtı."
+      },
+      {
+        "name": "Growth",
+        "level": "Öncelikli ele alma",
+        "desc": "Aynı iş günü içinde yanıt hedefiyle öncelikli destek."
+      },
+      {
+        "name": "Scale",
+        "level": "Sözleşmeli SLA",
+        "desc": "Sözleşmede tanımlı garantili yanıt süreleri ve üst kademeye taşıma yolları."
+      }
+    ],
+    "fixesTitle": "Sık karşılaşılan çözümler",
+    "fixes": [
+      {
+        "q": "Mikrofon izni",
+        "a": "Tarayıcınızın mikrofon erişimine izin verdiğinden emin olun. Site ayarlarını kontrol edin ve sorulduğunda izni verin. Sorun sürerse tarayıcı önbelleğini temizleyip yeniden deneyin."
+      },
+      {
+        "q": "Çalışan başlamıyor",
+        "a": "Çalışan yapılandırmasını gözden geçirin (sistem talimatı, araçlar, sınırlar). Araç kimlik bilgilerinin geçerli ve erişilebilir olduğunu doğrulayın. Kesin hata mesajı için panodaki kayıtlara bakın."
+      },
+      {
+        "q": "Web kancası doğrulaması",
+        "a": "Web kancası gizli anahtarınızı çalışan ayarlarından kopyalayın. HMAC-SHA256 imzasını X-Signature başlığıyla doğrulayın ve istek gövdesi ile gizli anahtarın hesaplanan özetiyle karşılaştırın."
+      },
+      {
+        "q": "Gecikme",
+        "a": "Araç ve web kancası uç noktalarınıza olan ağ gecikmesini kontrol edin. Yavaş yanıtlar için çalışan kayıtlarını inceleyin. Ağır işlemler için önbellek veya eşzamansız web kancası kullanmayı değerlendirin."
+      },
+      {
+        "q": "Faturalandırma ve faturalar",
+        "a": "Faturalandırma geçmişini çalışma alanı ayarlarında görebilirsiniz. Faturaları faturalandırma sayfasından indirin. Plan değişiklikleri için oransal düzeltmeler konusunda destekle iletişime geçin."
+      }
+    ],
+    "statusTitle": "Durum",
+    "statusOperational": "Tüm sistemler çalışıyor",
+    "systemStatusTitle": "Sistem durumu",
+    "statusSoon": "Durum sayfası yakında.",
+    "ctaTitle": "Devreye alma planı mı gerekiyor?",
+    "ctaBody": "Kanallarınızı, araçlarınızı ve hacminizi anlatın. Size bir iş akışı önerelim.",
+    "ctaButton": "Demo talep edin"
+  },
+  "useCasesPage": {
+    "metaTitle": "Kullanım örnekleri",
+    "metaDescription": "İşletmeler Denku'nun sesli yapay zekâ çalışanını her aramayı yanıtlamak, potansiyel müşteri nitelemek ve 7/24 randevu almak için nasıl kullanıyor: esnaf, klinik, salon ve daha fazlası.",
+    "eyebrow": "Kullanım örnekleri",
+    "titleLead": "Yapay zekâ çalışanınızın neyi",
+    "titleEmphasis": "üstlenmesini istersiniz",
+    "sub": "Bir iş akışı seçin. Gerçek işleyişte nasıl çalıştığını görün.",
+    "viewFlow": "Akışı gör",
+    "howItWorks": "Nasıl çalışır",
+    "whatItDoes": "Yapay zekâ çalışanı ne yapar",
+    "ctaTitle": "Canlı görmek ister misiniz?",
+    "ctaBody": "Şimdi canlı sesli yapay zekâyı deneyin, sonra kendi akışınızı kurmanıza yardım edelim.",
+    "ctaTalk": "Denku ile konuşun",
+    "ctaStart": "Başlayın",
+    "cases": {
+      "support": {
+        "title": "Müşteri desteği",
+        "description": "Talep yükünü azaltın, yanıt süresini kısaltın.",
+        "flow": [
+          "Gelen arama",
+          "Yapay zekâ anında yanıtlar",
+          "Sistemi kontrol eder (CRM / yardım masası)",
+          "Çözer veya üst kademeye taşır"
+        ],
+        "bullets": [
+          "Sık sorulan ve ürün sorularını anında yanıtlar",
+          "Yapılandırılmış içerikle talep oluşturur",
+          "Tüm bağlamıyla birlikte bir kişiye devreder"
+        ]
+      },
+      "sales": {
+        "title": "Satış karşılama",
+        "description": "Potansiyel müşterileri yapılandırılmış biçimde toplayın ve yönlendirin.",
+        "flow": [
+          "Potansiyel müşteriden arama",
+          "Yapay zekâ anında niteler",
+          "Puanlar ve yönlendirir",
+          "CRM'e aktarır"
+        ],
+        "bullets": [
+          "Niteleme sorularını otomatik sorar",
+          "Potansiyel müşterileri puanlayıp doğru ekibe yönlendirir",
+          "Web kancası veya araç üzerinden CRM'e aktarır"
+        ]
+      },
+      "appointment": {
+        "title": "Randevu alma",
+        "description": "Sesle ya da sohbetle randevu alın, erteleyin ve onaylayın.",
+        "flow": [
+          "Müşteri randevu ister",
+          "Yapay zekâ uygunluğu kontrol eder",
+          "Randevu alır veya saat önerir",
+          "Onay gönderir"
+        ],
+        "bullets": [
+          "Takvim uygunluğunu anlık kontrol eder",
+          "Randevu alır veya erteler",
+          "Onay ve hatırlatma gönderir"
+        ]
+      },
+      "order-status": {
+        "title": "Sipariş durumu ve bilgilendirme",
+        "description": "\"Siparişim nerede?\" ve durum sorularını otomatikleştirin.",
+        "flow": [
+          "Müşteri durumu sorar",
+          "Yapay zekâ sipariş sistemini kontrol eder",
+          "Anında bilgi verir",
+          "Önden bilgilendirme"
+        ],
+        "bullets": [
+          "Sipariş durumunu araç veya web kancasıyla kontrol eder",
+          "Gerektiğinde önden bilgi verir",
+          "Tekrar eden soruları karşılar"
+        ]
+      }
+    }
+  },
+  "instagramDeletion": {
+    "title": "Instagram veri silme",
+    "intro": "Bu sayfa, Denku'ya bağlı bir Instagram hesabı için yapılan veri silme talebinin durumunu gösterir.",
+    "noCode": "Onay kodu verilmedi. Instagram'ın size verdiği bağlantıyı kullanın.",
+    "statusLabel": "Durum",
+    "codeLabel": "Onay kodu",
+    "requestedLabel": "Talep edildi",
+    "completedLabel": "Tamamlandı",
+    "notFound": "Bu onay koduna ait talep bulunamadı",
+    "footnote": "Silme işlemi, saklanan Instagram bağlantısını ve hesap için kaydedilmiş tüm Instagram olaylarını kaldırır. Sorunuz mu var? Destek ekibiyle iletişime geçin.",
+    "statusNeedsAttention": "İlgi gerekiyor",
+    "statusInProgress": "Sürüyor",
+    "statusNotFound": "Bulunamadı"
+  },
+  "requestPage": {
+    "namePlaceholder": "Ayşe Yılmaz",
+    "topicLabel": "Ne hakkında yazıyorsunuz?"
   }
 }

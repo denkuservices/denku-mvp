@@ -1,57 +1,63 @@
 import Link from 'next/link';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
 import { Code, Webhook, Zap } from 'lucide-react';
 import { SITE_NAME } from '@/config/site';
+import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Docs',
-  description: `Documentation for ${SITE_NAME} — getting started, how the AI voice employee works, and answers to common questions.`,
-  alternates: { canonical: '/docs' },
-};
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
-const gettingStartedSteps = [
-  { number: '01', title: 'Create Workspace', description: 'Set up your workspace with multi-tenant isolation. Configure team members and access roles.' },
-  { number: '02', title: 'Create Agent', description: 'Define your agent with system prompts, language settings, and operational boundaries.' },
-  { number: '03', title: 'Connect Tools', description: 'Integrate with your existing stack: CRM, calendars, helpdesk, or custom APIs via webhooks.' },
-  { number: '04', title: 'Deploy Voice/Chat', description: 'Go live on any channel. Monitor performance with built-in dashboards and alerts.' },
-];
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'docsPage' });
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription', { name: SITE_NAME }),
+    alternates: { canonical: '/docs' },
+  };
+}
 
-const coreConcepts = [
-  { title: 'Tenants & Workspaces', description: 'Isolated environments for different teams or customers. Each workspace has its own agents, data, and access controls.' },
-  { title: 'Agents', description: 'AI agents that handle conversations. Configure with prompts, tools, and boundaries. Support both voice and chat.' },
-  { title: 'Tools & Webhooks', description: 'Connect external services via pre-built integrations or custom webhooks. Tools enable agents to perform actions.' },
-  { title: 'Observability', description: 'Full visibility into agent performance with structured logs, transcripts, metrics, and real-time dashboards.' },
-];
+/** Numbers, not copy — the step badges read the same in every language. */
+const STEP_NUMBERS = ['01', '02', '03', '04'];
 
-const integrationExamples = [
-  { title: 'Helpdesk Integration', description: 'Automatically create tickets in Zendesk or Intercom from agent conversations.', icon: Webhook },
-  { title: 'Calendar Actions', description: 'Book, reschedule, and confirm appointments through Google Calendar or Calendly.', icon: Zap },
-  { title: 'CRM Lead Capture', description: 'Capture qualified leads and sync structured data to Salesforce, HubSpot, or custom CRM.', icon: Code },
-];
+/** Icons, not copy. Paired positionally with the translated integration examples. */
+const INTEGRATION_ICONS = [Webhook, Zap, Code];
 
-const docsFaqs = [
-  { question: 'How quickly can I get started?', answer: 'Most teams can deploy their first agent within hours. The platform handles infrastructure, so you focus on configuration.' },
-  { question: 'Do you provide API access?', answer: 'Scale plans include full API access. Starter and Growth plans use the web interface and standard integrations.' },
-  { question: 'Can I use custom models?', answer: 'Scale plans support custom model configurations. Contact sales for details on model options and requirements.' },
-  { question: 'How do webhooks work?', answer: 'Configure webhook endpoints in your agent settings. All outbound events are signed with HMAC for verification.' },
-];
+export default async function DocsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations('docsPage');
 
-export default function DocsPage() {
+  const steps = t.raw('steps') as { title: string; description: string }[];
+  const concepts = t.raw('concepts') as { title: string; description: string }[];
+  const integrations = t.raw('integrations') as { title: string; description: string }[];
+  const faqs = t.raw('faqs') as { question: string; answer: string }[];
+
   return (
     <>
       {/* Hero */}
       <Section className="py-16 md:py-20">
         <Container>
           <Reveal className="mx-auto max-w-3xl text-center">
-            <div className="brand-eyebrow centered mb-5 justify-center">Documentation</div>
-            <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal tracking-[-1.5px] text-[var(--s-ink)]">Docs</h1>
-            <p className="mx-auto mt-4 max-w-xl text-[18px] text-[var(--s-ink-soft)]">Get started in minutes.</p>
+            <div className="brand-eyebrow centered mb-5 justify-center">{t('eyebrow')}</div>
+            <h1 className="font-display text-[clamp(36px,4.5vw,60px)] font-normal tracking-[-1.5px] text-[var(--s-ink)]">{t('title')}</h1>
+            <p className="mx-auto mt-4 max-w-xl text-[18px] text-[var(--s-ink-soft)]">{t('sub')}</p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">Get started</Link>
-              <Link href="/" className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">Talk to Denku</Link>
+              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">{t('getStarted')}</Link>
+              <Link href="/" className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{t('talkToDenku')}</Link>
             </div>
           </Reveal>
         </Container>
@@ -61,13 +67,13 @@ export default function DocsPage() {
       <Section className="border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
         <Container>
           <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Getting started</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">Deploy your first agent in four simple steps.</p>
+            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('gettingStartedTitle')}</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">{t('gettingStartedSub')}</p>
           </Reveal>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {gettingStartedSteps.map((step, i) => (
-              <Reveal key={step.number} delay={(i % 4) as 0 | 1 | 2 | 3} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--s-accent-ring)] font-display text-[15px] font-medium text-[var(--s-accent)]">{step.number}</div>
+            {steps.map((step, i) => (
+              <Reveal key={STEP_NUMBERS[i]} delay={(i % 4) as 0 | 1 | 2 | 3} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--s-accent-ring)] font-display text-[15px] font-medium text-[var(--s-accent)]">{STEP_NUMBERS[i]}</div>
                 <h3 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{step.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--s-ink-soft)]">{step.description}</p>
               </Reveal>
@@ -80,11 +86,11 @@ export default function DocsPage() {
       <Section>
         <Container>
           <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Core concepts</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">Understand the building blocks of {SITE_NAME}.</p>
+            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('conceptsTitle')}</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">{t('conceptsSub', { name: SITE_NAME })}</p>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2">
-            {coreConcepts.map((concept, i) => (
+            {concepts.map((concept, i) => (
               <Reveal key={concept.title} delay={(i % 2) as 0 | 1} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-6">
                 <h3 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{concept.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--s-ink-soft)]">{concept.description}</p>
@@ -99,11 +105,11 @@ export default function DocsPage() {
         <Container>
           <div className="mx-auto max-w-3xl">
             <Reveal className="mb-8 text-center">
-              <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Webhooks</h2>
-              <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">Configure endpoints to receive events from your agents.</p>
+              <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('webhooksTitle')}</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">{t('webhooksSub')}</p>
             </Reveal>
             <div className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
-              <p className="mb-4 text-sm text-[var(--s-ink-soft)]">All webhook payloads are signed with HMAC-SHA256. Verify signatures on your server using your webhook secret.</p>
+              <p className="mb-4 text-sm text-[var(--s-ink-soft)]">{t('webhooksBody')}</p>
               <div className="rounded-[12px] border border-[var(--s-border)] bg-[var(--s-cta-bg)] p-4">
                 <pre className="overflow-x-auto font-brand-mono text-xs text-[var(--s-cta-fg)]">
                   <code>{`// Verify webhook signature (example)
@@ -126,12 +132,12 @@ if (signature !== expected) {
       <Section>
         <Container>
           <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Integration examples</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">Common patterns and workflows.</p>
+            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('integrationsTitle')}</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--s-ink-soft)]">{t('integrationsSub')}</p>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-3">
-            {integrationExamples.map((example, i) => {
-              const Icon = example.icon;
+            {integrations.map((example, i) => {
+              const Icon = INTEGRATION_ICONS[i];
               return (
                 <Reveal key={example.title} delay={(i % 3) as 0 | 1 | 2} className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-6 transition-all hover:-translate-y-1 hover:brand-shadow-md">
                   <div className="mb-4 flex h-[50px] w-[50px] items-center justify-center rounded-[12px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
@@ -150,9 +156,9 @@ if (signature !== expected) {
       <Section className="border-t border-[var(--s-border)]">
         <Container>
           <div className="mx-auto max-w-3xl">
-            <h2 className="mb-10 text-center font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">Documentation FAQ</h2>
+            <h2 className="mb-10 text-center font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('faqTitle')}</h2>
             <div className="space-y-6">
-              {docsFaqs.map((faq) => (
+              {faqs.map((faq) => (
                 <div key={faq.question} className="border-b border-[var(--s-border)] pb-6">
                   <h3 className="mb-2 font-display text-[17px] font-medium text-[var(--s-ink)]">{faq.question}</h3>
                   <p className="text-sm leading-relaxed text-[var(--s-ink-soft)]">{faq.answer}</p>

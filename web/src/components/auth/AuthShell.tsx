@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -36,7 +38,13 @@ export function AuthShell({
   showBackLink,
   secondary,
 }: AuthShellProps) {
-  // next-intl's hook is isomorphic — this stays a server component.
+  /*
+   * A client component on purpose. Auth has no `[locale]` segment, so a server component's
+   * `useTranslations` resolves from next-intl's request store — and whether the layout has
+   * filled that store before this renders is not something a page can rely on. On /signup it
+   * had not, and the shell said "Back to home" over a form already speaking Turkish. Reading
+   * the provider the layout mounts is the one answer that cannot be raced.
+   */
   const t = useTranslations('auth');
 
   return (
