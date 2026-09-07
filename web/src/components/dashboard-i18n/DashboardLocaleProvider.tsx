@@ -146,6 +146,21 @@ function translateElement(
 }
 
 /**
+ * Which paths this boundary translates.
+ *
+ * Exported and pure so it can be asserted: onboarding was excluded until 2026-09-07 — the guard
+ * only checked `/dashboard`, because that is where the language switcher lives — and so the whole
+ * setup flow, the first authenticated screens a customer ever sees and the ones that decide
+ * whether they trust the product enough to pay, rendered in English whatever they had picked on
+ * the marketing site. Same tree, same dictionary, same skip rules: there was never anything to
+ * gate.
+ */
+export function isLocalizedAppPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding");
+}
+
+/**
  * Locale boundary for the authenticated product.
  *
  * The marketing site was born on next-intl, while the older authenticated tree contains literal
@@ -163,16 +178,7 @@ export function DashboardLocaleProvider({
   dictionary: Readonly<Record<string, string>>;
 }) {
   const pathname = usePathname();
-  /*
-   * Onboarding is inside this provider but was excluded from the observer until 2026-09-07, so
-   * the whole setup flow rendered in English no matter which language the visitor had picked on
-   * the marketing site — the first authenticated screens a customer ever sees, and the ones that
-   * decide whether they trust the product enough to pay. It is the same tree, the same dictionary
-   * and the same skip rules, so there was nothing to gate: the guard only existed because the
-   * language switcher lives in the dashboard chrome.
-   */
-  const isLocalizedApp =
-    pathname?.startsWith("/dashboard") || pathname?.startsWith("/onboarding") || false;
+  const isLocalizedApp = isLocalizedAppPath(pathname);
 
   const translate = useCallback(
     (english: string) => translateDashboardCopy(english, dictionary, locale),

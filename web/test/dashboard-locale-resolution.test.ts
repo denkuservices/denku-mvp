@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveDashboardLocale } from "@/i18n/dashboardLocale";
 import { UI_LOCALE_COOKIE, routing } from "@/i18n/routing";
+import { isLocalizedAppPath } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 
 /**
  * The order in which the product decides what language it speaks.
@@ -52,5 +53,34 @@ describe("resolveDashboardLocale", () => {
   it("does not share a cookie name with next-intl", () => {
     // If these ever converge the marketing site is writing the product's preference again.
     expect(UI_LOCALE_COOKIE).not.toBe("NEXT_LOCALE");
+  });
+});
+
+/**
+ * Where the locale boundary is allowed to run.
+ *
+ * Onboarding sits inside the same provider but was excluded from the observer until 2026-09-07 —
+ * the guard named `/dashboard` only, because that is where the language switcher lives. The
+ * result was that the entire setup flow, the first authenticated screens anyone sees, rendered in
+ * English no matter what they had chosen on the marketing site. It is a one-line rule and it was
+ * wrong for months, so it is asserted rather than described.
+ */
+describe("isLocalizedAppPath", () => {
+  it("covers the dashboard and onboarding", () => {
+    for (const path of [
+      "/dashboard",
+      "/dashboard/inbox",
+      "/dashboard/settings/workspace/billing",
+      "/onboarding",
+      "/onboarding?step=2",
+    ]) {
+      expect(isLocalizedAppPath(path), path).toBe(true);
+    }
+  });
+
+  it("leaves everything else alone", () => {
+    for (const path of ["/", "/login", "/signup", "/tr/pricing", "/embed/chat", null, undefined]) {
+      expect(isLocalizedAppPath(path), String(path)).toBe(false);
+    }
   });
 });

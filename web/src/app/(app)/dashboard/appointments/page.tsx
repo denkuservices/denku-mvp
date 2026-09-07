@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { dashboardTitle } from "@/i18n/dashboardTitle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveOrgId } from "@/lib/analytics/params";
 import {
@@ -13,9 +14,10 @@ import {
 import { EmptyState } from "@/components/ui-horizon/empty";
 import { Button } from "@/components/ui/button";
 
-export const metadata: Metadata = {
-  title: "Appointments",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // The tab title is outside the locale boundary's reach — it walks the body, not the head.
+  return { title: await dashboardTitle("Appointments") };
+}
 
 // TODO: Verify exact column names from Supabase schema
 type AppointmentRow = {
