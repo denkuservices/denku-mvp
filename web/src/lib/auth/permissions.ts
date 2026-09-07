@@ -2,8 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getCachedUser } from "@/lib/auth/currentUser";
 
 /**
  * Who may do what inside a workspace.
@@ -114,32 +114,66 @@ const EMPTY: Viewer = { userId: null, profileId: null, orgId: null, role: null, 
  * three sections, and `auth.getUser()` is an HTTP call to Supabase Auth, not a token decode.
  */
 export const getViewer = cache(async function getViewer(): Promise<Viewer> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /*
+   * `getCachedUser()` is `auth.getUser()`, memoized for this request — the SAME HTTP validation
+   * against Supabase Auth, made once instead of per caller. That distinction matters here and
+   * nowhere more: this is authorization, and `getUser()` is what notices a session that has been
+   * revoked. It is deliberately not the local `getClaims()` fast path used elsewhere.
+   */
+  const user = await getCachedUser();
   if (!user) return EMPTY;
 
-  for (const col of ["id", "auth_user_id"] as const) {
-    const { data } = await supabaseAdmin
-      .from("profiles")
-      .select("id, org_id, role, email")
-      .eq(col, user.id)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<{ id: string; org_id: string | null; role: string | null; email: string | null }>();
+  /*
+   * Supabase user ids are UUIDs. This one is about to be interpolated into PostgREST's filter
+   * grammar on the SERVICE-ROLE client, so anything that is not a plain UUID is refused outright
+   * rather than sent — and refusing means no role, which every capability check reads as "not
+   * permitted". Fail closed, as everywhere else in this file.
+   */
+  if (!/^[0-9a-fA-F-]{36}$/.test(user.id)) {
+    return { ...EMPTY, userId: user.id, email: user.email ?? null };
+  }
 
-    if (data?.org_id) {
-      return {
-        userId: user.id,
-        profileId: data.id,
-        orgId: data.org_id,
-        // An unrecognised role string is NOT treated as a role. Fail closed: a typo in the column
-        // must not read as "owner" just because it is not "viewer".
-        role: isRole(data.role) ? data.role : null,
-        email: data.email ?? user.email ?? null,
-      };
-    }
+  /*
+   * Both identities in ONE query (perf, 2026-09-05).
+   *
+   * This was two sequential round-trips, and for any account keyed by `auth_user_id` — which is
+   * how signup writes them — the first always missed, so every capability check on every page
+   * paid a wasted cross-country hop before it could answer.
+   *
+   * The rule is unchanged and the order below is the whole of it: the newest row keyed by `id`
+   * wins if it carries an org, otherwise the newest row keyed by `auth_user_id`. Note this is
+   * "newest matching row, then does it have an org" — NOT "newest row that has an org", because
+   * the original `.eq(col, id).order(updated_at desc).limit(1)` plus a truthiness check ended
+   * that attempt on a newer org-less row rather than searching past it.
+   */
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id, auth_user_id, org_id, role, email")
+    .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
+    .order("updated_at", { ascending: false });
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    auth_user_id: string | null;
+    org_id: string | null;
+    role: string | null;
+    email: string | null;
+  }>;
+
+  const newestById = rows.find((r) => r.id === user.id);
+  const newestByAuthUserId = rows.find((r) => r.auth_user_id === user.id);
+  const match = newestById?.org_id ? newestById : newestByAuthUserId;
+
+  if (match?.org_id) {
+    return {
+      userId: user.id,
+      profileId: match.id,
+      orgId: match.org_id,
+      // An unrecognised role string is NOT treated as a role. Fail closed: a typo in the column
+      // must not read as "owner" just because it is not "viewer".
+      role: isRole(match.role) ? match.role : null,
+      email: match.email ?? user.email ?? null,
+    };
   }
 
   return { ...EMPTY, userId: user.id, email: user.email ?? null };

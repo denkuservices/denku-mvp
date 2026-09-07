@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedUser } from "@/lib/auth/currentUser";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LANGUAGE_OPTIONS, getTimeZoneOptions } from "../_lib/options";
 import { logAuditEvent } from "@/lib/audit/log";
@@ -45,6 +46,18 @@ const UpdateWorkspaceGeneralSchema = z.object({
 
 type UpdateWorkspaceGeneralInput = z.infer<typeof UpdateWorkspaceGeneralSchema>;
 
+/**
+ * The `organization_settings` row, as `getWorkspaceGeneral` actually reads it (`select("*")`).
+ *
+ * The fields below the line are **optional on purpose**: they belong to migrations that a given
+ * environment may not have applied yet, and with `select("*")` an unapplied column arrives as an
+ * absent key rather than a query error. Declaring them optional is what makes the callers handle
+ * that case honestly — `orgHoursFromRow` reads a missing `business_hours` as "no hours
+ * configured", which the evaluator reads as open, and that is the safe direction.
+ *
+ * They were previously undeclared, which meant the type quietly claimed the row had less in it
+ * than the query returns.
+ */
 type OrganizationSettings = {
   id: string;
   org_id: string;
@@ -57,6 +70,15 @@ type OrganizationSettings = {
   paused_reason: "manual" | "hard_cap" | "past_due" | null;
   created_at: string;
   updated_at: string;
+
+  // --- present once their migration is applied ---
+  business_hours?: unknown;
+  after_hours_behavior?: string | null;
+  notify_on_artifacts?: boolean | null;
+  notify_usage_alerts?: boolean | null;
+  notify_billing_events?: boolean | null;
+  notification_email?: string | null;
+  usage_alert_thresholds?: number[] | null;
 };
 
 type Profile = {
@@ -87,11 +109,11 @@ export type UpdateWorkspaceGeneralResult =
  */
 export async function getWorkspaceGeneral() {
   const supabase = await createSupabaseServerClient();
-  
-  // 1) Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // 1) Get current user. Request-scoped and shared with every other resolver on this render —
+  // see `lib/auth/currentUser.ts`; this used to be its own HTTP call to Supabase Auth even though
+  // the layout and `getViewer()` had already made the identical one.
+  const user = await getCachedUser();
 
   if (!user) {
     redirect("/login");
@@ -133,26 +155,33 @@ export async function getWorkspaceGeneral() {
   
   const orgId: string = profile.org_id; // ensure non-null type
   const role = profile.role;
-  
-  // 3) Get organization name (using orgs table as source of truth)
-  const { data: org, error: orgErr } = await supabase
-    .from("orgs")
-    .select("id, name")
-    .eq("id", orgId)
-    .single<Organization>();
-  
+
+  /*
+   * 3+4) The org's name and its settings row, together (perf, 2026-09-05).
+   *
+   * Both are keyed on the org id that step 2 just produced and neither reads anything from the
+   * other, so waiting for the name before asking for the settings was a whole cross-country
+   * round-trip spent on nothing. The error handling below is unchanged — each still throws its
+   * own message, because "we could not load your organization" and "we could not load your
+   * settings" are different problems for whoever reads the log.
+   */
+  const [
+    { data: org, error: orgErr },
+    { data: settings, error: settingsErr },
+  ] = await Promise.all([
+    supabase.from("orgs").select("id, name").eq("id", orgId).single<Organization>(),
+    supabase
+      .from("organization_settings")
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle<OrganizationSettings>(),
+  ]);
+
   if (orgErr) {
     throw new Error(`Failed to load organization: ${orgErr.message}`);
   }
-  
-  const orgName = org?.name ?? "";
 
-  // 4) Get organization_settings for this org
-  const { data: settings, error: settingsErr } = await supabase
-    .from("organization_settings")
-    .select("*")
-    .eq("org_id", orgId)
-    .maybeSingle<OrganizationSettings>();
+  const orgName = org?.name ?? "";
 
   if (settingsErr) {
     throw new Error(`Failed to load settings: ${settingsErr.message}`);

@@ -28,8 +28,8 @@ import { WorkspaceControlsCard } from "./general/_components/WorkspaceControlsCa
 import MembersSection from "./_components/MembersSection";
 import { BusinessHoursCard } from "./general/_components/BusinessHoursCard";
 import { NotificationsCard } from "./general/_components/NotificationsCard";
-import { loadNotificationPrefs } from "@/lib/notifications/prefs.server";
-import { loadOrgHours } from "@/lib/business-hours/read";
+import { notificationPrefsFromRow } from "@/lib/notifications/prefs.server";
+import { orgHoursFromRow } from "@/lib/business-hours/read";
 import { getViewer, roleCan } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
@@ -87,16 +87,26 @@ export default async function WorkspaceSettingsPage() {
   const accessLabel = role === "owner" ? "Owner" : role === "admin" ? "Admin" : role || "Member";
   const workspaceStatus = (settings?.workspace_status as "active" | "paused") || "active";
   const pausedReason = settings?.paused_reason as "manual" | "hard_cap" | "past_due" | null | undefined;
-  const planCode = await getPlanCode(orgId);
   const displayName = orgName?.trim() || "Your workspace";
 
-  // The hours the AI actually follows, and whether this viewer may change them. Both resolved on
-  // the server so the editor never renders a control the save would refuse.
-  const [orgHours, viewer, notificationPrefs] = await Promise.all([
-    loadOrgHours(orgId),
-    getViewer(),
-    loadNotificationPrefs(orgId),
-  ]);
+  /*
+   * The hours the AI follows and the notification preferences are read from the settings row this
+   * page ALREADY has (perf, 2026-09-05).
+   *
+   * `getWorkspaceGeneral` returns `select("*")` on `organization_settings`, and this page then
+   * asked the same table for the same row twice more — once for three hours columns, once for
+   * five notification ones. Both readers keep their own loaders for every other caller; these are
+   * the pure mappers over a row that is already in hand, and they resolve an absent column to the
+   * identical default the loader's error path returns (see `orgHoursFromRow` — a missing
+   * `business_hours` still means "no hours configured", which means open).
+   *
+   * The plan code joins this stage rather than running before it: it reads a different table and
+   * needs nothing from any of this, so sequencing it cost a round-trip for a header pill.
+   */
+  const orgHours = orgHoursFromRow(settings);
+  const notificationPrefs = notificationPrefsFromRow(settings);
+
+  const [viewer, planCode] = await Promise.all([getViewer(), getPlanCode(orgId)]);
   const canEditSettings = roleCan(viewer.role, "manage_workspace_settings");
 
   return (
