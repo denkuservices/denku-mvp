@@ -522,10 +522,19 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     working the day the error was translated — actions return a `code`, pure validators return a
     `reason`. **(f) The auth layout must NOT call `setRequestLocale`**: it is next-intl's opt-in to
     static rendering, and `/forgot-password` reads `useSearchParams` with no Suspense boundary of
-    its own, so prerendering it fails the build. Two tests walk the source and fail on a new
-    untranslated string — `test/dashboard-i18n-coverage.test.ts` and
-    `test/public-i18n-coverage.test.ts`; their allowlists are for dead files, form-field names,
-    proper nouns and words identical in all four languages, and nothing else.
+    its own, so prerendering it fails the build. **(g) The signed-in product's language is
+    `DENKU_UI_LOCALE`, never `NEXT_LOCALE`** (R-160): next-intl rewrites `NEXT_LOCALE` on any
+    locale-resolving navigation on the marketing site, including a visit to the canonical English
+    `/`, so a customer who set the product to Turkish and then clicked the logo came back to an
+    English dashboard with their saved preference ignored. Resolve it through
+    `getDashboardLocale()`, whose order lives in the pure `resolveDashboardLocale` and is pinned by
+    tests; never re-derive it inline. **(h) The boundary walks `document.body`**, so anything
+    outside it — a `<title>` — needs `dashboardTitle()`; and it skips a `<textarea>`'s *value* but
+    NOT its `placeholder`/`aria-label`, because splitting those two rules is what un-Englished
+    every textarea prompt in the product. Three tests fail on a regression —
+    `test/dashboard-i18n-coverage.test.ts`, `test/public-i18n-coverage.test.ts` and
+    `test/dashboard-locale-resolution.test.ts`; the first two allowlist only dead files,
+    form-field names, proper nouns and words identical in all four languages, and nothing else.
 
 ## Design system (per-surface, do not cross-contaminate)
 
