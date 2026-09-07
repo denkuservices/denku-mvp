@@ -163,7 +163,17 @@ describe("chat plan keys", () => {
     expect(CHAT_ADDON_SLOTS.chat_standard).toBeGreaterThan(CHAT_ADDON_SLOTS.chat_basic);
   });
 
-  it("never grants more slots than there are chat channels the AI can answer on", async () => {
+  /*
+   * A longer timeout, for compile time rather than for work.
+   *
+   * The two `await import`s below pull in the whole transport registry — every channel adapter and
+   * its dependencies — and vitest transforms that graph on demand, inside this test's own timeout.
+   * The assertions themselves are two array walks. On a loaded machine the transform alone can
+   * exceed the 5s default, which failed the suite for a reason that had nothing to do with what is
+   * being asserted. Raising it here rather than globally keeps every other test honest about
+   * hanging.
+   */
+  it("never grants more slots than there are chat channels the AI can answer on", { timeout: 30_000 }, async () => {
     // A slot buys ANSWERING, so the measure is `canReplyOn` — the channel declares outbound
     // capability and a transport exists for it. Selling three slots against two answerable
     // channels would be selling a number, not a product.

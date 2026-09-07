@@ -35,6 +35,42 @@ export type OrgHours = {
  */
 const DEFAULT_BEHAVIOUR: AfterHoursBehaviour = "note_hours";
 
+/** The shape this reader needs out of an `organization_settings` row. */
+export type OrgHoursRow = {
+  business_hours?: unknown;
+  after_hours_behavior?: string | null;
+  default_timezone?: string | null;
+};
+
+/**
+ * An already-fetched settings row, read as hours. Pure.
+ *
+ * Exported so a caller that has ALREADY loaded the row does not fetch it a second time — the
+ * workspace settings page reads the whole row for its form and then used to ask for these three
+ * columns again (perf, 2026-09-05).
+ *
+ * **Every absent value resolves to "no hours configured", which the evaluator reads as always
+ * open.** That covers a null row, and it covers the not-yet-migrated case, where the columns are
+ * simply missing from a `select("*")` rather than raising a read error: `parseBusinessHours`
+ * answers null for `undefined`, and an unrecognised behaviour falls to the default. A business
+ * must never be treated as closed because a column was unreadable.
+ */
+export function orgHoursFromRow(row: OrgHoursRow | null | undefined): OrgHours {
+  if (!row) return { hours: null, timeZone: null, behaviour: DEFAULT_BEHAVIOUR };
+
+  const behaviour = (AFTER_HOURS_BEHAVIOURS as readonly string[]).includes(
+    row.after_hours_behavior ?? ""
+  )
+    ? (row.after_hours_behavior as AfterHoursBehaviour)
+    : DEFAULT_BEHAVIOUR;
+
+  return {
+    hours: parseBusinessHours(row.business_hours),
+    timeZone: row.default_timezone ?? null,
+    behaviour,
+  };
+}
+
 export async function loadOrgHours(
   orgId: string,
   db: SupabaseClient = supabaseAdmin
@@ -47,26 +83,12 @@ export async function loadOrgHours(
       .from("organization_settings")
       .select("business_hours, after_hours_behavior, default_timezone")
       .eq("org_id", orgId)
-      .maybeSingle<{
-        business_hours: unknown;
-        after_hours_behavior: string | null;
-        default_timezone: string | null;
-      }>();
+      .maybeSingle<OrgHoursRow>();
 
     // Includes the not-yet-migrated case: an unknown column is a read error, not a closed business.
     if (error || !data) return empty;
 
-    const behaviour = (AFTER_HOURS_BEHAVIOURS as readonly string[]).includes(
-      data.after_hours_behavior ?? ""
-    )
-      ? (data.after_hours_behavior as AfterHoursBehaviour)
-      : DEFAULT_BEHAVIOUR;
-
-    return {
-      hours: parseBusinessHours(data.business_hours),
-      timeZone: data.default_timezone ?? null,
-      behaviour,
-    };
+    return orgHoursFromRow(data);
   } catch {
     return empty;
   }
