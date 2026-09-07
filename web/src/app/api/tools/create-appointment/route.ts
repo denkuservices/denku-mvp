@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { parseSpokenTime } from "@/lib/time/spokenTime";
 import { fillMissingLeadName } from "@/lib/leads/fillMissingName";
+import { resolveLeadIdByPhone } from "@/lib/leads/resolveLead";
 
 /**
  * `create_appointment` — the tool the assistant calls while the caller is still on the line.
@@ -312,39 +313,32 @@ export async function POST(req: NextRequest) {
     } else {
       leadPhoneUsed = true;
 
-    // 3) Find or create lead by (org_id, phone)
-    const { data: leadExisting } = await supabaseAdmin
-      .from("leads")
-      .select("id")
-      .eq("org_id", org.id)
-      .eq("phone", leadPhone)
-      .maybeSingle();
+    // 3) Find or create the lead by (org_id, phone) — through the one resolver, backed by the
+    //    `leads_org_phone_key` unique index. This route used to carry its own copy of
+    //    select-then-insert, which is how a single caller became hundreds of customers.
+    leadId = await resolveLeadIdByPhone(org.id, leadPhone, {
+      source: "vapi",
+      name: input.lead_name ?? null,
+      email: input.lead_email ?? null,
+      notes: input.notes ?? null,
+    });
 
-    if (leadExisting?.id) {
-      leadId = leadExisting.id;
-      // The lead already exists because the webhook created it from caller ID at call start,
-      // before the caller said their name. Fill it in now — only if it is still empty.
+    if (leadId) {
+      // Usually it already existed: the webhook creates it from caller ID at call start, before
+      // the caller says their name. Fill it in now — only if it is still empty.
       await fillMissingLeadName(org.id, leadId, input.lead_name ?? null);
     } else {
-      const { data: leadNew, error: leadErr } = await supabaseAdmin
-        .from("leads")
-        .insert({
-          org_id: org.id,
-          name: input.lead_name ?? null,
-          phone: leadPhone,
-          email: input.lead_email ?? null,
-          source: "vapi",
-          status: "new",
-          notes: input.notes ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (leadErr || !leadNew?.id) {
-        return NextResponse.json({ error: "lead_create_failed" }, { status: 500 });
-      }
-
-      leadId = leadNew.id;
+      /*
+       * The contact could not be written. Book anyway.
+       *
+       * This used to return 500 `lead_create_failed`, which contradicted the paragraph directly
+       * above it: the appointment is what the caller asked for, the contact record is bookkeeping
+       * we attach when we can, and `appointments.lead_id` is nullable for exactly this reason. A
+       * caller who successfully booked was being told the booking failed because a row in a
+       * different table did not write — a dead end, and the one thing this platform promises not
+       * to do (CLAUDE.md philosophy #1).
+       */
+      console.error("[APPOINTMENT][LEAD][UNRESOLVED]", { orgId: org.id });
     }
     }
   }

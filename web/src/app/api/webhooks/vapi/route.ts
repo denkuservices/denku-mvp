@@ -15,6 +15,7 @@ import { checkVapiWebhookAuth } from "@/lib/vapi/webhookAuth";
 import { notifyNewArtifactsForCall } from "@/lib/notifications/artifactNotifications";
 import { parseSpokenTime } from "@/lib/time/spokenTime";
 import { classifyCallIntent } from "@/lib/intent/classifyCallIntent";
+import { resolveLeadIdByPhone } from "@/lib/leads/resolveLead";
 import { summarizeCallForTicket, type CallTicketSummary } from "@/lib/tickets/summarize";
 import { platformModelEnabled } from "@/lib/platform/flags";
 import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
@@ -1608,38 +1609,15 @@ ${metaDescription}`
 }
 
 /**
- * lead resolve/create by phone (opsiyonel ama lead_id doldurmak için gerekli)
- * Eğer leads tablon yoksa bunu tamamen kaldırabilirsin.
+ * lead resolve/create by phone.
+ *
+ * The body of this moved to `lib/leads/resolveLead.ts` when one caller turned into 266 rows: it
+ * was a select-then-insert with no unique key under it, and its `.maybeSingle()` lookup ERRORED
+ * on the duplicates it had already made, so every later event added another. This wrapper stays
+ * because six call sites in this file read better with the short name.
  */
 async function resolveLeadId(orgId: string, phone: string | null) {
-  const p = normalizePhone(phone);
-  if (!p) return null;
-
-  const { data: existing, error: e1 } = await supabaseAdmin
-    .from("leads")
-    .select("id")
-    .eq("org_id", orgId)
-    .eq("phone", p)
-    .maybeSingle();
-
-  if (!e1 && existing?.id) return existing.id as string;
-
-  const { data: created, error: e2 } = await supabaseAdmin
-    .from("leads")
-    .insert({
-      org_id: orgId,
-      phone: p,
-      name: null,
-      email: null,
-      source: "inbound_call",
-      status: "new",
-      notes: null,
-    })
-    .select("id")
-    .single();
-
-  if (e2) return null;
-  return created?.id ?? null;
+  return resolveLeadIdByPhone(orgId, normalizePhone(phone), { source: "inbound_call" });
 }
 
 /* -----------------------------

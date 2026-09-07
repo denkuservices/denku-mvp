@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { fillMissingLeadName } from "@/lib/leads/fillMissingName";
+import { resolveLeadIdByPhone } from "@/lib/leads/resolveLead";
 
 function checkAuth(request: NextRequest): boolean {
   const expected = process.env.DENKU_TOOL_SECRET;
@@ -30,44 +31,34 @@ async function resolveLeadId(
 ): Promise<string | null> {
   const normalizedPhone = normalizePhone(phone);
   
-  // Try phone first
+  // Phone first — it is the identity. One row per number is enforced by `leads_org_phone_key`
+  // and by the shared resolver; this route used to carry its own select-then-insert, which is
+  // half of how one caller became 266 customers.
   if (normalizedPhone) {
-    const { data: existing } = await supabaseAdmin
-      .from("leads")
-      .select("id")
-      .eq("org_id", orgId)
-      .eq("phone", normalizedPhone)
-      .maybeSingle<{ id: string }>();
-
-    if (existing?.id) {
-      await fillMissingLeadName(orgId, existing.id, name);
-      return existing.id;
+    const leadId = await resolveLeadIdByPhone(orgId, normalizedPhone, {
+      source: "vapi",
+      name: name ?? null,
+      email: email ?? null,
+    });
+    if (leadId) {
+      // The lead usually already exists: the webhook creates it from caller ID at call start,
+      // seconds before the caller says their name. Fill it in now, only if it is still empty.
+      await fillMissingLeadName(orgId, leadId, name);
+      return leadId;
     }
-
-    // Create lead with phone
-    const { data: created, error } = await supabaseAdmin
-      .from("leads")
-      .insert({
-        org_id: orgId,
-        phone: normalizedPhone,
-        name: name ?? null,
-        email: email ?? null,
-        source: "vapi",
-        status: "new",
-      })
-      .select("id")
-      .single<{ id: string }>();
-
-    if (!error && created?.id) return created.id;
   }
 
-  // Try email if no phone
+  // Then email. No unique index backs this one yet (see the migration's note), so the lookup
+  // takes the FIRST match rather than failing on several — the failure mode that let the phone
+  // path manufacture a new row on every call.
   if (email && email.trim().length > 0) {
     const { data: existing } = await supabaseAdmin
       .from("leads")
       .select("id")
       .eq("org_id", orgId)
       .eq("email", email.trim())
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle<{ id: string }>();
 
     if (existing?.id) {
@@ -105,25 +96,36 @@ async function deriveOrgIdFromContact(
 ): Promise<string | null> {
   const normalizedPhone = normalizePhone(phone);
   
-  // Try phone first
+  /*
+   * Which workspace does this caller belong to? Deliberately not org-scoped — this runs when the
+   * org is what we are trying to find.
+   *
+   * `.limit(1)` matters here for the same reason it does everywhere else in this file: a bare
+   * `.maybeSingle()` ERRORS on more than one match instead of returning the first, so while a
+   * number had duplicate leads this returned null and the org could not be resolved at all.
+   */
   if (normalizedPhone) {
     const { data: lead } = await supabaseAdmin
       .from("leads")
       .select("org_id")
       .eq("phone", normalizedPhone)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle<{ org_id: string }>();
-    
+
     if (lead?.org_id) return lead.org_id;
   }
-  
+
   // Try email
   if (email && email.trim().length > 0) {
     const { data: lead } = await supabaseAdmin
       .from("leads")
       .select("org_id")
       .eq("email", email.trim())
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle<{ org_id: string }>();
-    
+
     if (lead?.org_id) return lead.org_id;
   }
   

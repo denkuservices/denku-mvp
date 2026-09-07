@@ -57,8 +57,10 @@ describe("the AI fills a name in but never overwrites one", () => {
     expect(appt).toMatch(/fillMissingLeadName\(org\.id, leadId, input\.lead_name \?\? null\)/);
 
     const ticket = read("src/app/api/tools/create-ticket/route.ts");
-    // Both resolve branches: by phone and by email.
-    expect(ticket.match(/fillMissingLeadName\(orgId, existing\.id, name\)/g)).toHaveLength(2);
+    // Both resolve branches: by phone and by email. Matched on the ARGUMENTS rather than one
+    // spelling of the id — the phone branch now gets its lead from `resolveLeadIdByPhone`
+    // (one row per number), and pinning `existing.id` made this test fail for a rename.
+    expect(ticket.match(/fillMissingLeadName\(orgId, [\w.]+, name\)/g)).toHaveLength(2);
   });
 });
 
