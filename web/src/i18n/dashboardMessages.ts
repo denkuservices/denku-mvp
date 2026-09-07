@@ -989,6 +989,7 @@ const DASHBOARD_COPY: Readonly<Record<string, TranslationTuple>> = {
   "Tickets & appointments": ["Solicitudes y citas", "Anfragen und Termine", "Talepler ve randevular"],
   "Last active": ["Última actividad", "Zuletzt aktiv", "Son etkinlik"],
   "Unknown contact": ["Contacto desconocido", "Unbekannter Kontakt", "Bilinmeyen kişi"],
+  "Earlier conversations on this channel": ["Conversaciones anteriores en este canal", "Frühere Konversationen auf diesem Kanal", "Bu kanaldaki önceki görüşmeler"],
   "Manage your phone numbers and how calls are handled": ["Gestiona tus números de teléfono y cómo se atienden las llamadas", "Verwalten Sie Ihre Telefonnummern und die Anrufbearbeitung", "Telefon numaralarınızı ve aramaların nasıl yönetildiğini yönetin"],
   "+ Add phone number": ["+ Añadir número de teléfono", "+ Telefonnummer hinzufügen", "+ Telefon numarası ekle"],
 

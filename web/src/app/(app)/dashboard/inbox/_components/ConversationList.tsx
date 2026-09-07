@@ -426,6 +426,19 @@ function ConversationRow({
               {name}
             </span>
             <HandledChip handling={row.handling} />
+            {/* A returning customer, stated plainly. The row is one person on one channel now,
+                so without this the earlier conversations would simply be invisible — and "how
+                many times has this person been in touch" is the first thing an owner asks.
+                `aria-label` rather than `title`: the dashboard's locale boundary translates
+                aria-labels and does not walk title attributes (CLAUDE.md landmine #22h). */}
+            {row.mergedCount > 1 ? (
+              <span
+                className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium tabular-nums ${inbox.chipIdle}`}
+                aria-label="Earlier conversations on this channel"
+              >
+                {row.mergedCount}
+              </span>
+            ) : null}
             <span className={`shrink-0 text-[11px] tabular-nums ${inbox.metaFaint}`}>
               {formatShortWhen(row.lastActivityAt)}
             </span>

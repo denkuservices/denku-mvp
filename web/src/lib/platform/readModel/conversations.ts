@@ -465,6 +465,72 @@ export const CONVERSATION_SCAN_LIMIT = 500;
  * `CONVERSATION_SCAN_LIMIT`, applies filters, and reports `bounded` so the surface can say
  * "500+ matching" instead of inventing an exact number.
  */
+/**
+ * One row per person per channel — the Inbox is a messaging surface, not a call log.
+ *
+ * A voice row is built from a `calls` row, and `calls` holds one row per CALL because that is
+ * what it is for: the billing record, the transcript, the artifact's parent. Rendering that
+ * union straight into the Inbox meant a customer who rang eighteen times appeared eighteen
+ * times, which is the same list the Customers page had before its duplicates were merged, and
+ * just as unusable — the owner cannot tell a returning customer from a new one.
+ *
+ * So this collapses the VIEW, never the data. Every call keeps its row, its id, its deep link
+ * and the `/dashboard/calls/:id` redirect that depends on that id; what changes is that the
+ * newest one represents the group in the list.
+ *
+ * Three rules, and the middle one is the whole point of the request:
+ *
+ *   1. **The key is (channel, person).** Same number on voice and on WhatsApp are two different
+ *      conversations and stay two rows — a phone call and a chat thread are not the same thread,
+ *      and merging them would hide one behind the other.
+ *   2. **A person is `contact.id` when we have one, the channel handle when we do not.** The
+ *      handle is the fallback rather than the primary because a lead id survives a number being
+ *      reformatted, and both are matched exactly.
+ *   3. **Anonymous never merges.** A call with no contact and no caller ID is not the same
+ *      person as the next one — grouping them would invent a customer who does not exist. Those
+ *      rows each stand alone.
+ *
+ * Input must already be sorted newest-first (every caller sorts before it gets here), because
+ * the first row seen becomes the representative. Member ids ride along in `meta.mergedIds` so
+ * the caller can keep a star or an unread mark that lives on an older member — losing those was
+ * the one real cost of collapsing, and it is paid here rather than discovered later.
+ *
+ * Pure.
+ */
+export function collapseByContact(views: ConversationView[]): ConversationView[] {
+  const out: ConversationView[] = [];
+  const byKey = new Map<string, number>();
+
+  for (const v of views) {
+    const person = v.contact.id
+      ? `id:${v.contact.id}`
+      : v.contact.handle
+        ? `handle:${v.contact.handle}`
+        : null;
+
+    // Rule 3 — no identity, no grouping.
+    if (!person) {
+      out.push({ ...v, meta: { ...v.meta, mergedIds: [v.id], mergedCount: 1 } });
+      continue;
+    }
+
+    const key = `${v.channel}::${person}`;
+    const at = byKey.get(key);
+
+    if (at === undefined) {
+      byKey.set(key, out.length);
+      out.push({ ...v, meta: { ...v.meta, mergedIds: [v.id], mergedCount: 1 } });
+      continue;
+    }
+
+    const head = out[at];
+    const ids = [...((head.meta.mergedIds as string[]) ?? []), v.id];
+    out[at] = { ...head, meta: { ...head.meta, mergedIds: ids, mergedCount: ids.length } };
+  }
+
+  return out;
+}
+
 export async function listConversationPage(
   orgId: string,
   opts: ListConversationsOpts = {},
@@ -496,7 +562,7 @@ export async function listConversationPage(
       db
     );
     // Re-apply the remaining facets (search/date/intent); handling is already satisfied.
-    const filtered = filterConversationViews(fetched, { ...opts, handling: undefined });
+    const filtered = collapseByContact(filterConversationViews(fetched, { ...opts, handling: undefined }));
     return {
       items: filtered.slice(offset, offset + pageSize),
       total: filtered.length,
@@ -525,7 +591,11 @@ export async function listConversationPage(
     { channel: opts.channel, limit: CONVERSATION_SCAN_LIMIT, preview: searching },
     db
   );
-  const filtered = filterConversationViews(scanned, opts);
+  /*
+   * Collapse AFTER filtering, before paging: `total` and the page then describe the same thing
+   * the reader sees, so "1-25 of 40" cannot mean forty calls and twenty-five rows.
+   */
+  const filtered = collapseByContact(filterConversationViews(scanned, opts));
   const items = filtered.slice(offset, offset + pageSize);
 
   return {

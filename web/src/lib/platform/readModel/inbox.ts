@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Channel } from "@/lib/platform/channels";
 import { isKnownChannel } from "@/lib/platform/channels";
 import {
+  collapseByContact,
   listConversationPage,
   listConversationViews,
   filterConversationViews,
@@ -60,6 +61,11 @@ export interface InboxRow {
    * worse than one that stays quiet.
    */
   unread: number;
+  /**
+   * How many conversations this row stands for — 1 for most, higher for a customer who has been
+   * in touch before on this channel. The row itself opens the newest.
+   */
+  mergedCount: number;
 }
 
 export interface InboxPage {
@@ -234,7 +240,7 @@ export async function listInboxPage(
         return { ...EMPTY_PAGE, needsPersonCount: human.refs.size, canStar };
       }
       const fetched = await listConversationViews(orgId, { channel, ids: refs, limit: refs.length }, db);
-      const filtered = filterConversationViews(fetched, { search });
+      const filtered = collapseByContact(filterConversationViews(fetched, { search }));
       items = filtered.slice(offset, offset + limit);
       total = filtered.length;
       bounded = false;
@@ -257,7 +263,18 @@ export async function listInboxPage(
     }
   }
 
-  const refs = items.map((c) => c.id);
+  /*
+   * A collapsed row answers for everything inside it.
+   *
+   * The list shows the newest call of a group, so a star or an unread mark that lives on an
+   * OLDER member would simply vanish — the owner flags a conversation, the customer rings again,
+   * and the flag is gone. So every member id is looked up, and the row carries the strongest
+   * answer any of them gives: starred if any is starred, unread if any is unread, handled by a
+   * person if any is.
+   */
+  const memberIds = (c: ConversationView): string[] =>
+    ((c.meta.mergedIds as string[] | undefined) ?? [c.id]);
+  const refs = items.flatMap(memberIds);
   const { reads, available: readsAvailable } = await getReadStates(orgId, userId, refs, db);
 
   const [names, chatUnread] = await Promise.all([
@@ -268,15 +285,23 @@ export async function listInboxPage(
     ),
     chatUnreadCounts(
       orgId,
-      items.filter((c) => c.source === "conversations").map((c) => c.id),
+      items.filter((c) => c.source === "conversations").flatMap(memberIds),
       reads,
       db
     ),
   ]);
 
   const rows: InboxRow[] = items.map((c) => {
-    const unreadNow = isUnread(c.lastActivityAt, reads.get(c.id) ?? null, readsAvailable);
-    const counted = chatUnread.get(c.id) ?? 0;
+    const members = memberIds(c);
+    // The most recent time this viewer opened ANY member — reading the newest call is what
+    // clears the row, and an older one they never opened must not keep it bold forever.
+    const lastRead = members
+      .map((id) => reads.get(id) ?? null)
+      .filter((t): t is string => Boolean(t))
+      .sort()
+      .pop() ?? null;
+    const unreadNow = isUnread(c.lastActivityAt, lastRead, readsAvailable);
+    const counted = members.reduce((n, id) => n + (chatUnread.get(id) ?? 0), 0);
     return {
       id: c.id,
       source: c.source,
@@ -287,8 +312,9 @@ export async function listInboxPage(
       lastActivityAt: c.lastActivityAt,
       intent: c.intent,
       employeeName: c.employeeName,
-      handling: human.refs.has(c.id) ? "human" : "ai",
-      starred: starred.refs.has(c.id),
+      handling: members.some((id) => human.refs.has(id)) ? "human" : "ai",
+      starred: members.some((id) => starred.refs.has(id)),
+      mergedCount: members.length,
       // A voice call is one event; a chat thread counts its unseen inbound messages, falling
       // back to a single unit when the message scan could not resolve them.
       unread: unreadNow ? (c.source === "conversations" ? Math.max(1, counted) : 1) : 0,
