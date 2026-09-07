@@ -263,7 +263,120 @@
       "alreadyRegisteredTitle": "This email is already registered",
       "alreadyRegisteredBody": "We didn't send anything. Sign in with your password instead.",
       "goToSignIn": "Go to sign in",
-      "forgotPassword": "Forgot your password?"
+      "forgotPassword": "Forgot your password?",
+      "sendCodeFailed": "Failed to send verification code. Please try again.",
+      "tooManyRequests": "Too many requests. Please wait a moment and try again."
+    },
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Enter your email and password to sign in!",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "remember": "Keep me logged in",
+      "forgot": "Forgot Password?",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "noAccount": "Not registered yet?",
+      "createAccount": "Create an account",
+      "errorTitle": "Login error",
+      "loading": "Loading..."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email and we'll send you a link to set a new password.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "submit": "Send reset link",
+      "submitting": "Sending...",
+      "sent": "If an account exists for that email, a password reset link is on its way. Check your inbox (and spam folder) and follow the link to choose a new password.",
+      "remembered": "Remembered it?",
+      "backToSignIn": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account.",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmLabel": "Confirm new password",
+      "confirmPlaceholder": "Re-enter your new password",
+      "submit": "Update password",
+      "submitting": "Saving...",
+      "needLink": "Need a new link?",
+      "requestAnother": "Request another"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "subtitleWithEmail": "Enter the 8-digit code we sent to your email to continue.",
+      "subtitleNoEmail": "Enter your email address to receive a verification code.",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@company.com",
+      "sendCode": "Send verification email",
+      "sending": "Sending...",
+      "goToSignup": "Go to signup",
+      "codeLabel": "Verification code",
+      "codeSentTo": "Enter the 8-digit code sent to {email}",
+      "codeTooShort": "Enter the 8-digit code.",
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "resend": "Resend verification code",
+      "resendIn": "Resend code in {seconds}s",
+      "resendShort": "Resend code",
+      "resendFailed": "Failed to resend code",
+      "passwordIntro": "Create a password for your account.",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Minimum 8 characters",
+      "confirmLabel": "Confirm password",
+      "confirmPlaceholder": "Confirm your password",
+      "tooShort": "Password must be at least 8 characters.",
+      "mismatch": "Passwords do not match.",
+      "setPassword": "Set password and continue",
+      "settingPassword": "Setting password..."
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "signInFailed": "Failed to sign in. Please try again.",
+      "unexpected": "An unexpected error occurred. Please try again.",
+      "resetFailed": "Could not update your password. Please try again.",
+      "resetLinkExpired": "Your reset link has expired. Please request a new one.",
+      "sendCodeFailed": "Failed to send verification code. Please try again.",
+      "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+      "setPasswordFailed": "Failed to set password. Please try again.",
+      "passwordMismatch": "Passwords do not match",
+      "sessionExpired": "Session expired. Please verify again.",
+      "resendFailed": "Failed to resend code. Please try again.",
+      "invalidCode": "Invalid verification code. Please try again.",
+      "verifyFailed": "Verification failed. Please try again.",
+      "resetRequestFailed": "Could not send the reset link. Please try again.",
+      "passwordRequired": "Password is required.",
+      "passwordTooShort": "Password must be at least {min} characters."
+    },
+    "sceneContent": {
+      "incomingCall": "Incoming call",
+      "closed": "You're closed",
+      "pickedUp": "Denku picked up",
+      "greeting": "“Thanks for calling — how can I help this evening?”",
+      "askThursday": "Do you have anything Thursday?",
+      "offerTimes": "9:30am or 2pm — which suits?",
+      "acceptTime": "9:30 works.",
+      "appointment": "Appointment",
+      "appointmentCreated": "Thu 9:30am · created",
+      "callCount": "4th call · since March",
+      "timeline": [
+        [
+          "Mar 4",
+          "Called about a leak"
+        ],
+        [
+          "Mar 6",
+          "Booked Thu 9:30am"
+        ],
+        [
+          "Today",
+          "Greeted by name"
+        ]
+      ]
     }
   },
   "request": {
@@ -975,9 +1088,18 @@
         "headline": "One message becomes finished work.",
         "sub": "Every conversation follows one clear path: answered, understood, and visible to your team.",
         "steps": [
-          { "title": "A message arrives", "body": "From Telegram, email, or web chat." },
-          { "title": "Iris responds", "body": "With the context intact, in your voice." },
-          { "title": "The work gets done", "body": "As a ticket, lead, or appointment in your Inbox." }
+          {
+            "title": "A message arrives",
+            "body": "From Telegram, email, or web chat."
+          },
+          {
+            "title": "Iris responds",
+            "body": "With the context intact, in your voice."
+          },
+          {
+            "title": "The work gets done",
+            "body": "As a ticket, lead, or appointment in your Inbox."
+          }
         ]
       },
       "headline": "The messages, answered.",

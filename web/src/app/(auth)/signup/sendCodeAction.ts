@@ -1,6 +1,8 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { getBaseUrl } from "@/lib/utils/url";
 import { emailAlreadyRegistered } from "@/lib/auth/emailAlreadyRegistered";
 import { resolveRequestEmailLocale } from "@/lib/email/locale.server";
@@ -23,6 +25,8 @@ export type SendCodeResult =
   | { ok: false; code: "ERROR"; error: string };
 
 export async function sendCodeAction(formData: FormData): Promise<SendCodeResult> {
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.signup" });
+
   try {
     const email = mustString(formData.get("email"), "email");
 
@@ -81,7 +85,7 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
         errorMsg.includes("too many") ||
         error.status === 429
       ) {
-        return { ok: false, code: "ERROR", error: "Too many requests. Please wait a moment and try again." };
+        return { ok: false, code: "ERROR", error: t("tooManyRequests") };
       }
 
       if (
@@ -89,10 +93,10 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
         errorMsg.includes("email") ||
         error.status === 400
       ) {
-        return { ok: false, code: "ERROR", error: "Please enter a valid email address." };
+        return { ok: false, code: "ERROR", error: t("invalidEmail") };
       }
 
-      return { ok: false, code: "ERROR", error: "Failed to send verification code. Please try again." };
+      return { ok: false, code: "ERROR", error: t("sendCodeFailed") };
     }
 
     return { ok: true };
@@ -101,7 +105,7 @@ export async function sendCodeAction(formData: FormData): Promise<SendCodeResult
     // For form validation errors, return structured error
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     console.error("[sendCodeAction] Unexpected error:", errorMsg);
-    return { ok: false, code: "ERROR", error: "An unexpected error occurred. Please try again." };
+    return { ok: false, code: "ERROR", error: t("sendCodeFailed") };
   }
 }
 

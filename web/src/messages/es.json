@@ -263,7 +263,120 @@
       "alreadyRegisteredTitle": "Este correo ya está registrado",
       "alreadyRegisteredBody": "No hemos enviado nada. Inicia sesión con tu contraseña.",
       "goToSignIn": "Ir a iniciar sesión",
-      "forgotPassword": "¿Olvidaste tu contraseña?"
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "sendCodeFailed": "No se ha podido enviar el código de verificación. Inténtalo de nuevo.",
+      "tooManyRequests": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo."
+    },
+    "login": {
+      "title": "Iniciar sesión",
+      "subtitle": "Introduce tu correo y contraseña para entrar.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@empresa.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Tu contraseña",
+      "remember": "Mantener la sesión iniciada",
+      "forgot": "¿Has olvidado la contraseña?",
+      "submit": "Iniciar sesión",
+      "submitting": "Iniciando sesión...",
+      "noAccount": "¿Aún no te has registrado?",
+      "createAccount": "Crear una cuenta",
+      "errorTitle": "Error de inicio de sesión",
+      "loading": "Cargando..."
+    },
+    "forgot": {
+      "title": "Restablece tu contraseña",
+      "subtitle": "Introduce tu correo y te enviaremos un enlace para elegir una nueva contraseña.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@empresa.com",
+      "submit": "Enviar enlace",
+      "submitting": "Enviando...",
+      "sent": "Si existe una cuenta con ese correo, el enlace para restablecer la contraseña ya está en camino. Revisa tu bandeja de entrada (y la carpeta de spam) y sigue el enlace para elegir una nueva contraseña.",
+      "remembered": "¿Ya te acuerdas?",
+      "backToSignIn": "Volver a iniciar sesión"
+    },
+    "reset": {
+      "title": "Elige una nueva contraseña",
+      "subtitle": "Introduce una nueva contraseña para tu cuenta.",
+      "passwordLabel": "Nueva contraseña",
+      "passwordPlaceholder": "Al menos 8 caracteres",
+      "confirmLabel": "Confirmar nueva contraseña",
+      "confirmPlaceholder": "Vuelve a escribir la nueva contraseña",
+      "submit": "Actualizar contraseña",
+      "submitting": "Guardando...",
+      "needLink": "¿Necesitas un enlace nuevo?",
+      "requestAnother": "Pedir otro"
+    },
+    "verify": {
+      "title": "Verifica tu correo",
+      "subtitleWithEmail": "Introduce el código de 8 dígitos que hemos enviado a tu correo para continuar.",
+      "subtitleNoEmail": "Introduce tu dirección de correo para recibir un código de verificación.",
+      "emailLabel": "Dirección de correo",
+      "emailPlaceholder": "tu@empresa.com",
+      "sendCode": "Enviar correo de verificación",
+      "sending": "Enviando...",
+      "goToSignup": "Ir al registro",
+      "codeLabel": "Código de verificación",
+      "codeSentTo": "Introduce el código de 8 dígitos enviado a {email}",
+      "codeTooShort": "Introduce el código de 8 dígitos.",
+      "verify": "Verificar",
+      "verifying": "Verificando...",
+      "resend": "Reenviar código de verificación",
+      "resendIn": "Reenviar código en {seconds}s",
+      "resendShort": "Reenviar código",
+      "resendFailed": "No se ha podido reenviar el código",
+      "passwordIntro": "Crea una contraseña para tu cuenta.",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Mínimo 8 caracteres",
+      "confirmLabel": "Confirmar contraseña",
+      "confirmPlaceholder": "Confirma tu contraseña",
+      "tooShort": "La contraseña debe tener al menos 8 caracteres.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "setPassword": "Guardar contraseña y continuar",
+      "settingPassword": "Guardando contraseña..."
+    },
+    "errors": {
+      "invalidCredentials": "Correo o contraseña incorrectos",
+      "signInFailed": "No se ha podido iniciar sesión. Inténtalo de nuevo.",
+      "unexpected": "Se ha producido un error inesperado. Inténtalo de nuevo.",
+      "resetFailed": "No se ha podido actualizar tu contraseña. Inténtalo de nuevo.",
+      "resetLinkExpired": "Tu enlace de restablecimiento ha caducado. Pide uno nuevo.",
+      "sendCodeFailed": "No se ha podido enviar el código de verificación. Inténtalo de nuevo.",
+      "tooManyRequests": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+      "setPasswordFailed": "No se ha podido guardar la contraseña. Inténtalo de nuevo.",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "sessionExpired": "La sesión ha caducado. Vuelve a verificar.",
+      "resendFailed": "No se ha podido reenviar el código. Inténtalo de nuevo.",
+      "invalidCode": "Código de verificación no válido. Inténtalo de nuevo.",
+      "verifyFailed": "La verificación ha fallado. Inténtalo de nuevo.",
+      "resetRequestFailed": "No se ha podido enviar el enlace. Inténtalo de nuevo.",
+      "passwordRequired": "La contraseña es obligatoria.",
+      "passwordTooShort": "La contraseña debe tener al menos {min} caracteres."
+    },
+    "sceneContent": {
+      "incomingCall": "Llamada entrante",
+      "closed": "Estás cerrado",
+      "pickedUp": "Denku ha respondido",
+      "greeting": "“Gracias por llamar. ¿En qué puedo ayudarte esta tarde?”",
+      "askThursday": "¿Tenéis algo el jueves?",
+      "offerTimes": "¿A las 9:30 o a las 14:00?",
+      "acceptTime": "A las 9:30 me va bien.",
+      "appointment": "Cita",
+      "appointmentCreated": "Jue 9:30 · creada",
+      "callCount": "4.ª llamada · desde marzo",
+      "timeline": [
+        [
+          "4 mar",
+          "Llamó por una fuga"
+        ],
+        [
+          "6 mar",
+          "Reservó el jue a las 9:30"
+        ],
+        [
+          "Hoy",
+          "Saludada por su nombre"
+        ]
+      ]
     }
   },
   "request": {
@@ -975,9 +1088,18 @@
         "headline": "Un mensaje se convierte en trabajo resuelto.",
         "sub": "Cada conversación sigue un flujo claro: respondida, comprendida y visible para tu equipo.",
         "steps": [
-          { "title": "Llega un mensaje", "body": "Desde Telegram, correo o chat web." },
-          { "title": "Iris responde", "body": "Con todo el contexto y con tu tono." },
-          { "title": "El trabajo queda hecho", "body": "Como ticket, lead o cita en tu bandeja." }
+          {
+            "title": "Llega un mensaje",
+            "body": "Desde Telegram, correo o chat web."
+          },
+          {
+            "title": "Iris responde",
+            "body": "Con todo el contexto y con tu tono."
+          },
+          {
+            "title": "El trabajo queda hecho",
+            "body": "Como ticket, lead o cita en tu bandeja."
+          }
         ]
       },
       "headline": "Los mensajes, respondidos.",

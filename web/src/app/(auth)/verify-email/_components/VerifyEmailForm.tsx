@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { verifyOtpAction, resendCodeAction } from "../_actions/verify";
 
 interface VerifyEmailFormProps {
@@ -10,6 +11,7 @@ interface VerifyEmailFormProps {
 }
 
 export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
+  const t = useTranslations("auth.verify");
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
     setError(null);
 
     if (code.length !== 8) {
-      setError("Enter the 8-digit code.");
+      setError(t("codeTooShort"));
       return;
     }
 
@@ -60,14 +62,14 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
         });
       }, 1000);
     } else {
-      setError(result.error || "Failed to resend code");
+      setError(result.error || t("resendFailed"));
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Verification code</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">{t("codeLabel")}</label>
         <input
           type="text"
           inputMode="numeric"
@@ -86,7 +88,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
           autoFocus
         />
         <p className="mt-1 text-xs text-[var(--s-ink-faint)]">
-          Enter the 8-digit code sent to {email}
+          {t("codeSentTo", { email })}
         </p>
       </div>
 
@@ -101,7 +103,7 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
         disabled={isPending || code.length !== 8}
         className="w-full rounded-xl bg-[var(--s-cta-bg)] text-white py-3.5 font-medium hover:bg-[var(--s-accent)] active:bg-[var(--s-accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isPending ? "Verifying..." : "Verify"}
+        {isPending ? t("verifying") : t("verify")}
       </button>
 
       <div className="text-center">
@@ -112,8 +114,8 @@ export function VerifyEmailForm({ email, onVerified }: VerifyEmailFormProps) {
           className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {resendCooldown > 0
-            ? `Resend code in ${resendCooldown}s`
-            : "Resend verification code"}
+            ? t("resendIn", { seconds: resendCooldown })
+            : t("resend")}
         </button>
       </div>
     </form>

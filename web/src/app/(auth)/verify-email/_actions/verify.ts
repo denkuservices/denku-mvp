@@ -1,6 +1,8 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { getBaseUrl } from "@/lib/utils/url";
 import { resolveRequestEmailLocale } from "@/lib/email/locale.server";
 
@@ -9,6 +11,7 @@ export type VerifyOtpResult =
   | { ok: false; error: string };
 
 export async function verifyOtpAction(email: string, token: string): Promise<VerifyOtpResult> {
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.errors" });
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase.auth.verifyOtp({
@@ -18,11 +21,11 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
   });
 
   if (error) {
-    return { ok: false, error: "Invalid verification code. Please try again." };
+    return { ok: false, error: t("invalidCode") };
   }
 
   if (!data.user) {
-    return { ok: false, error: "Verification failed. Please try again." };
+    return { ok: false, error: t("verifyFailed") };
   }
 
   const locale = await resolveRequestEmailLocale();
@@ -35,6 +38,7 @@ export async function verifyOtpAction(email: string, token: string): Promise<Ver
 }
 
 export async function resendCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.errors" });
   const supabase = await createSupabaseServerClient();
   const locale = await resolveRequestEmailLocale();
 
@@ -52,7 +56,7 @@ export async function resendCodeAction(email: string): Promise<{ ok: boolean; er
   });
 
   if (error) {
-    return { ok: false, error: "Failed to resend code. Please try again." };
+    return { ok: false, error: t("resendFailed") };
   }
 
   // Note: Supabase's signInWithOtp automatically sends the OTP email

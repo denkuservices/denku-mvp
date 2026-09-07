@@ -1,6 +1,8 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { getBaseUrl } from "@/lib/utils/url";
 
 export type RequestPasswordResetResult =
@@ -42,12 +44,13 @@ export type RequestPasswordResetResult =
 export async function requestPasswordResetAction(
   formData: FormData
 ): Promise<RequestPasswordResetResult> {
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.signup" });
   const rawEmail = formData.get("email");
   const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
   // Minimal shape validation — do NOT reveal whether the account exists.
   if (!email || !email.includes("@")) {
-    return { ok: false, error: "Please enter a valid email address." };
+    return { ok: false, error: t("invalidEmail") };
   }
 
   try {

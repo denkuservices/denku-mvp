@@ -1,7 +1,9 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { validatePasswordChange } from "@/lib/auth/passwordPolicy";
+import { validatePasswordChange, PASSWORD_MIN_LENGTH } from "@/lib/auth/passwordPolicy";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { notifyPasswordChanged } from "@/lib/notifications/securityNotifications";
 
 export type UpdatePasswordResult =
@@ -21,6 +23,7 @@ export type UpdatePasswordResult =
 export async function updatePasswordAction(
   formData: FormData
 ): Promise<UpdatePasswordResult> {
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.errors" });
   const supabase = await createSupabaseServerClient();
 
   // 1) Must be authenticated via the recovery session.
@@ -30,10 +33,7 @@ export async function updatePasswordAction(
   } = await supabase.auth.getUser();
 
   if (getUserError || !user) {
-    return {
-      ok: false,
-      error: "Your reset link has expired. Please request a new one.",
-    };
+    return { ok: false, error: t("resetLinkExpired") };
   }
 
   // 2) Validate the new password (shared, unit-tested policy).
@@ -42,7 +42,13 @@ export async function updatePasswordAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!validation.ok) {
-    return { ok: false, error: validation.error };
+    const message =
+      validation.reason === "required"
+        ? t("passwordRequired")
+        : validation.reason === "mismatch"
+          ? t("passwordMismatch")
+          : t("passwordTooShort", { min: PASSWORD_MIN_LENGTH });
+    return { ok: false, error: message };
   }
 
   // 3) Apply the change.
@@ -52,7 +58,7 @@ export async function updatePasswordAction(
 
   if (updateErr) {
     console.error("[updatePassword] Update failed:", updateErr.message);
-    return { ok: false, error: "Could not update your password. Please try again." };
+    return { ok: false, error: t("resetFailed") };
   }
 
   // 4) Confirm the change by email. This is the notification that tells someone their

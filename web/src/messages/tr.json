@@ -263,7 +263,120 @@
       "alreadyRegisteredTitle": "Bu e-posta zaten kayıtlı",
       "alreadyRegisteredBody": "Hiçbir e-posta göndermedik. Şifrenizle giriş yapabilirsiniz.",
       "goToSignIn": "Giriş yap",
-      "forgotPassword": "Şifrenizi mi unuttunuz?"
+      "forgotPassword": "Şifrenizi mi unuttunuz?",
+      "sendCodeFailed": "Doğrulama kodu gönderilemedi. Lütfen tekrar deneyin.",
+      "tooManyRequests": "Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin."
+    },
+    "login": {
+      "title": "Giriş yap",
+      "subtitle": "Giriş yapmak için e-postanızı ve şifrenizi girin.",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "passwordLabel": "Şifre",
+      "passwordPlaceholder": "Şifreniz",
+      "remember": "Oturumum açık kalsın",
+      "forgot": "Şifrenizi mi unuttunuz?",
+      "submit": "Giriş yap",
+      "submitting": "Giriş yapılıyor...",
+      "noAccount": "Henüz kayıtlı değil misiniz?",
+      "createAccount": "Hesap oluştur",
+      "errorTitle": "Giriş hatası",
+      "loading": "Yükleniyor..."
+    },
+    "forgot": {
+      "title": "Şifrenizi sıfırlayın",
+      "subtitle": "E-postanızı girin, yeni şifre belirlemeniz için size bir bağlantı gönderelim.",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "submit": "Sıfırlama bağlantısı gönder",
+      "submitting": "Gönderiliyor...",
+      "sent": "Bu e-postaya ait bir hesap varsa şifre sıfırlama bağlantısı yola çıktı bile. Gelen kutunuza (ve spam klasörüne) bakın ve yeni şifrenizi belirlemek için bağlantıyı izleyin.",
+      "remembered": "Hatırladınız mı?",
+      "backToSignIn": "Girişe dön"
+    },
+    "reset": {
+      "title": "Yeni bir şifre belirleyin",
+      "subtitle": "Hesabınız için yeni bir şifre girin.",
+      "passwordLabel": "Yeni şifre",
+      "passwordPlaceholder": "En az 8 karakter",
+      "confirmLabel": "Yeni şifreyi doğrulayın",
+      "confirmPlaceholder": "Yeni şifrenizi tekrar girin",
+      "submit": "Şifreyi güncelle",
+      "submitting": "Kaydediliyor...",
+      "needLink": "Yeni bir bağlantı mı gerekiyor?",
+      "requestAnother": "Yenisini iste"
+    },
+    "verify": {
+      "title": "E-postanızı doğrulayın",
+      "subtitleWithEmail": "Devam etmek için e-postanıza gönderdiğimiz 8 haneli kodu girin.",
+      "subtitleNoEmail": "Doğrulama kodu almak için e-posta adresinizi girin.",
+      "emailLabel": "E-posta adresi",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "sendCode": "Doğrulama e-postası gönder",
+      "sending": "Gönderiliyor...",
+      "goToSignup": "Kayıt sayfasına git",
+      "codeLabel": "Doğrulama kodu",
+      "codeSentTo": "{email} adresine gönderilen 8 haneli kodu girin",
+      "codeTooShort": "8 haneli kodu girin.",
+      "verify": "Doğrula",
+      "verifying": "Doğrulanıyor...",
+      "resend": "Doğrulama kodunu yeniden gönder",
+      "resendIn": "Kodu yeniden gönderme: {seconds} sn",
+      "resendShort": "Kodu yeniden gönder",
+      "resendFailed": "Kod yeniden gönderilemedi",
+      "passwordIntro": "Hesabınız için bir şifre oluşturun.",
+      "passwordLabel": "Şifre",
+      "passwordPlaceholder": "En az 8 karakter",
+      "confirmLabel": "Şifreyi doğrulayın",
+      "confirmPlaceholder": "Şifrenizi tekrar girin",
+      "tooShort": "Şifre en az 8 karakter olmalı.",
+      "mismatch": "Şifreler eşleşmiyor.",
+      "setPassword": "Şifreyi kaydet ve devam et",
+      "settingPassword": "Şifre kaydediliyor..."
+    },
+    "errors": {
+      "invalidCredentials": "E-posta veya şifre hatalı",
+      "signInFailed": "Giriş yapılamadı. Lütfen tekrar deneyin.",
+      "unexpected": "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+      "resetFailed": "Şifreniz güncellenemedi. Lütfen tekrar deneyin.",
+      "resetLinkExpired": "Sıfırlama bağlantınızın süresi doldu. Lütfen yenisini isteyin.",
+      "sendCodeFailed": "Doğrulama kodu gönderilemedi. Lütfen tekrar deneyin.",
+      "tooManyRequests": "Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin.",
+      "setPasswordFailed": "Şifre kaydedilemedi. Lütfen tekrar deneyin.",
+      "passwordMismatch": "Şifreler eşleşmiyor",
+      "sessionExpired": "Oturum süresi doldu. Lütfen yeniden doğrulayın.",
+      "resendFailed": "Kod yeniden gönderilemedi. Lütfen tekrar deneyin.",
+      "invalidCode": "Doğrulama kodu geçersiz. Lütfen tekrar deneyin.",
+      "verifyFailed": "Doğrulama başarısız oldu. Lütfen tekrar deneyin.",
+      "resetRequestFailed": "Sıfırlama bağlantısı gönderilemedi. Lütfen tekrar deneyin.",
+      "passwordRequired": "Şifre zorunlu.",
+      "passwordTooShort": "Şifre en az {min} karakter olmalı."
+    },
+    "sceneContent": {
+      "incomingCall": "Gelen arama",
+      "closed": "Kapalısınız",
+      "pickedUp": "Denku yanıtladı",
+      "greeting": "“Aradığınız için teşekkürler — bu akşam size nasıl yardımcı olabilirim?”",
+      "askThursday": "Perşembe için yeriniz var mı?",
+      "offerTimes": "09.30 veya 14.00 — hangisi uyar?",
+      "acceptTime": "09.30 uygun.",
+      "appointment": "Randevu",
+      "appointmentCreated": "Per 09.30 · oluşturuldu",
+      "callCount": "4. arama · marttan beri",
+      "timeline": [
+        [
+          "4 Mar",
+          "Su kaçağı için aradı"
+        ],
+        [
+          "6 Mar",
+          "Per 09.30'a randevu aldı"
+        ],
+        [
+          "Bugün",
+          "Adıyla karşılandı"
+        ]
+      ]
     }
   },
   "request": {
@@ -975,9 +1088,18 @@
         "headline": "Bir mesaj, tamamlanmış bir işe dönüşür.",
         "sub": "Kanaldan gelen her konuşma aynı akışta yanıtlanır, sınıflandırılır ve ekibinize görünür.",
         "steps": [
-          { "title": "Mesaj gelir", "body": "Telegram, e-posta veya web sohbetinden." },
-          { "title": "Iris yanıtlar", "body": "Bağlamı koruyarak, sizin üslubunuzla." },
-          { "title": "İş tamamlanır", "body": "Talep, kayıt veya randevu olarak gelen kutunuza düşer." }
+          {
+            "title": "Mesaj gelir",
+            "body": "Telegram, e-posta veya web sohbetinden."
+          },
+          {
+            "title": "Iris yanıtlar",
+            "body": "Bağlamı koruyarak, sizin üslubunuzla."
+          },
+          {
+            "title": "İş tamamlanır",
+            "body": "Talep, kayıt veya randevu olarak gelen kutunuza düşer."
+          }
         ]
       },
       "headline": "Mesajlar, yanıtlanmış.",
