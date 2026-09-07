@@ -275,11 +275,23 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
         knownCarrier && "additionalGatewayHosts" in knownCarrier
           ? (knownCarrier.additionalGatewayHosts as readonly string[])
           : [];
+      /*
+       * …and the carrier's whole egress RANGE where it has given us one in writing.
+       *
+       * Netgsm's published hosts turned out to be a subset of what it actually sends from: the
+       * rest are its switchboard addresses, which appear in no DNS record we can read. Their
+       * support answered with the block itself, so the allowlist is the block.
+       */
+      const cidrGateways =
+        knownCarrier && "gatewayCidrs" in knownCarrier
+          ? (knownCarrier.gatewayCidrs as readonly string[])
+          : [];
 
       const credential = await createSipTrunkCredential({
         name: carrier.name || `${carrierKey ?? "SIP"} trunk`,
         gatewayHost: carrier.gatewayHost,
         additionalGatewayHosts: extraGateways,
+        gatewayCidrs: cidrGateways,
         gatewayPort: carrier.gatewayPort ?? null,
         authUsername: carrier.authUsername ?? null,
         authPassword: carrier.authPassword ?? null,
