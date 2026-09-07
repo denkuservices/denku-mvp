@@ -5,7 +5,20 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
+> **Last updated:** 2026-09-07 (**R-158 fixed · R-159 filed.** Half the product was English, in
+> every language but English. The dashboard is not localised at the call site — the components hold
+> literal English and a DOM boundary swaps it against a dictionary — so a missing entry is not a
+> failure, it is just English, and **763** strings had no entry: the whole billing page, every
+> channel setup card, every phone-line flow, members, security, analytics, most server-action
+> errors, and every empty state a new workspace opens on. Onboarding was excluded from that boundary
+> outright, so the first authenticated screens anyone sees were English whatever they picked on the
+> marketing site. Auth was literal English end to end, and /signup only *looked* translated —
+> outside `[locale]`, `getTranslations()` has no segment to read and quietly answers in English.
+> Five public pages — /docs, /support, /use-cases, /contact, /about, all in the sitemap — were
+> hardcoded, so /tr/docs served a complete English page. All fixed, plus two source-walking tests
+> that fail on the next one. R-159 files what those pages *claim*: Zendesk, Salesforce, API access
+> and a contractual SLA, none of which exist.)
+> **Prior:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
 > Workspace reading one `organization_settings` row **four times** — is fixed, and it needed none
 > of the risk that deferred it: `getWorkspaceGeneral` already does `select("*")`, so the page was
 > holding the answer and asking again. Pure mappers over the row it has; every loader intact for
@@ -2729,3 +2742,98 @@ resolvers' differing rules, and that a gate cookie from another session resolves
 still comes from the query it came from before), `slow-load-notice`. Measured live in a production
 build against the real database, signed in — the table above. Numbers are from a machine ~6× further
 from `us-west-2` than Vercel is; the round-trip *counts* are what transfer.
+
+---
+
+### R-158 — Half the product was English, in every language but English
+
+**Priority:** High · **Effort:** L · **Status:** Fixed (2026-09-07) · **Source:** owner report
+("dili türkçe olarak seçiyorum ama hala birçok yerde ingilizce kelimeler var")
+
+**Problem.** A workspace set to Turkish read Turkish in the sidebar and English in most of what the
+sidebar framed. Four separate causes, none of which fails, logs, or shows up in review:
+
+1. **The dashboard dictionary had no entry for most of the product.** The authenticated tree is not
+   localised at the call site: components hold literal English and `DashboardLocaleProvider` swaps
+   it in the DOM against `DASHBOARD_COPY`. A string with no entry simply stays English. Walking
+   `src/app/(app)` plus the shared dashboard components with the TypeScript parser and asking the
+   runtime for an answer found **763** such strings — the whole billing page, the
+   email/web-chat/Telegram/IdeaSoft setup cards, every phone-line flow, members and security, the
+   analytics tables, most server-action errors, and every empty state a new workspace opens on.
+2. **Onboarding was excluded outright.** The provider's effect bailed unless the path started with
+   `/dashboard`, so the entire setup flow — the first authenticated screens anyone sees — rendered
+   in English whatever they had picked on the marketing site.
+3. **Auth was English end to end.** `/login`, `/forgot-password`, `/reset-password` and
+   `/verify-email` were literal English including every error. `/signup` looked translated and was
+   not: auth sits outside `[locale]`, so `getTranslations()` there has no route segment to read and
+   quietly answers in the default locale.
+4. **Five public pages were hardcoded.** `/docs`, `/support`, `/use-cases`, `/contact` and `/about`
+   — all in the sitemap, four linked from the footer — plus the legal pages, the Instagram
+   data-deletion status page and three `metadata` exports. `/tr/docs` served a complete English page.
+
+**Fix.** 763 + ~60 dictionary entries for es/de/tr, written to the glossary the existing entries
+established; the observer extended to `/onboarding`; `src/i18n/authLocale.ts` so auth server
+components and actions take the cookie locale explicitly; the five public pages plus legal,
+Instagram and metadata moved into `src/messages/*.json`.
+
+Three things had to change shape rather than move:
+
+- **`SetPasswordForm` matched English words** (`"session expired"`) inside an error string to decide
+  whether to offer "resend the code". The action returns a `code` now.
+- **`validatePasswordChange`** is pure and unit-tested with no translator; it returns a stable
+  `reason` beside the English `error`, and the caller translates by reason.
+- **`AuthShell` became a client component.** As a server component its `useTranslations` resolved
+  from next-intl's request store, which nothing in a segment-less tree is guaranteed to have filled
+  — on `/signup` it had not, and the chrome said "Back to home" over a Turkish form.
+
+`loginAction` also stopped forwarding `error.message` from Supabase: English, and provider detail a
+customer can do nothing with. The server log still has it in full.
+
+**What makes it safe.** The auth layout deliberately does **not** call `setRequestLocale` — it is
+next-intl's opt-in to static rendering, and `/forgot-password` reads `useSearchParams` with no
+Suspense boundary of its own, so prerendering it fails the build outright. The dashboard observer is
+unchanged in every other respect: same exact-match dictionary, same skip rules, same
+requestAnimationFrame batching that keeps it out of React's hydration pass.
+
+**Deliberately not done.** The copy on `/docs` and `/support` is *stale* as well as untranslated —
+Zendesk, Intercom, Salesforce, HubSpot, Calendly, "API access on Scale plans", custom models, a
+"contractual SLA" with "guaranteed response times". None of it exists. It is translated faithfully
+rather than quietly rewritten, on the owner's instruction: the language problem is fixed now and the
+content is a separate decision. Filed as **R-159**.
+
+**Verification.** `tsc` clean on `src/`, `next build` green (186 static pages), **1705 tests pass
+across 120 files** (1703 before). Two new suites walk the source with the TypeScript parser and fail
+on a new untranslated string: `dashboard-i18n-coverage` (authenticated tree; allowlist limited to
+dead files, form-field names, proper nouns, and words identical in all four languages) and
+`public-i18n-coverage` (public + auth; every user-visible literal must exist in `en.json`). Checked
+live in a dev server: `/tr/docs`, `/de/support`, `/es/use-cases`, `/es/about`, and `/login`,
+`/signup`, `/verify-email`, `/forgot-password`, `/reset-password` in Turkish and German.
+**Not verified end to end:** the dashboard and onboarding themselves, which need a signed-in session.
+
+---
+
+### R-159 — /docs and /support promise integrations and SLAs that do not exist
+
+**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-158
+
+**Problem.** Both pages are pre-V3 copy that the landing rewrite never reached, and they are now
+translated into four languages, so the claims travel further than before.
+
+`/docs` — "Automatically create tickets in **Zendesk or Intercom**", "Book, reschedule, and confirm
+appointments through **Google Calendar or Calendly**", "sync structured data to **Salesforce,
+HubSpot**", "**Scale plans include full API access**", "**Scale plans support custom model
+configurations**", plus a webhook section telling customers to verify HMAC signatures on endpoints
+they cannot configure. The only commerce integration that exists is IdeaSoft, and it has never run
+against a real store.
+
+`/support` — a three-tier response table ending in "**Contractual SLA** · Guaranteed response times
+and escalation paths defined in contract", and "Community support" for Starter. There is no
+community, no contract tier, and no status page behind "Status page coming soon".
+
+`/use-cases` and `/about` are softer but still describe the pre-V3 product ("deploy AI agents on an
+architecture designed for multi-tenant SaaS products"), not the AI-employee positioning the landing
+page now leads with.
+
+**Decision needed.** Rewrite around what ships today (voice, Telegram, email, web chat, IdeaSoft;
+the real plan tiers), or unlink and remove. Either is a content decision, not an engineering one —
+which is why R-158 translated them as they stand instead of guessing.
