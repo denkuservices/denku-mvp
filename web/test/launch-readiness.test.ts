@@ -19,7 +19,7 @@ const READY_ENV: Record<string, string> = {
   VAPI_WEBHOOK_BASE_URL: "https://www.denku.io/api",
   OPENAI_API_KEY: "oai",
   RESEND_API_KEY: "re",
-  STRIPE_SECRET_KEY: "sk",
+  STRIPE_SECRET_KEY: "sk_live_abc123",
   STRIPE_WEBHOOK_SECRET: "wh",
   BILLING_NOTIFICATIONS_ENABLED: "true",
   CSP_MODE: "enforce",
@@ -31,11 +31,20 @@ function byId(env: Record<string, string | undefined>) {
 }
 
 describe("readiness — pure evaluation", () => {
-  it("a fully-configured env is READY (no required failures)", () => {
+  /**
+   * A fully-configured ENVIRONMENT is no longer the same thing as a launchable product.
+   *
+   * `concurrency_enforced` is a required check that fails on a code fact, not an env var (R-151),
+   * so it is the single remaining blocker no amount of configuration clears. That is the point:
+   * the preflight is what an operator reads before flipping a switch, and it must not report
+   * "ready" while a workspace can exceed the simultaneous calls it pays for.
+   *
+   * When R-151 is fixed, delete the check and this test goes back to asserting an empty list.
+   */
+  it("a fully-configured env clears every ENVIRONMENT check", () => {
     const summary = summarizeReadiness(evaluateReadiness(READY_ENV));
-    expect(summary.ready).toBe(true);
-    expect(summary.requiredFailures).toEqual([]);
-    expect(summary.counts.fail).toBe(0);
+    expect(summary.requiredFailures).toEqual(["concurrency_enforced"]);
+    expect(summary.ready).toBe(false);
   });
 
   it("webhook observe-only FAILS and blocks launch (R-001)", () => {
@@ -67,7 +76,8 @@ describe("readiness — pure evaluation", () => {
     const c = byId(env);
     expect(c.get("llm_api_key")!.status).toBe("warn");
     expect(c.get("llm_api_key")!.required).toBe(false);
-    expect(summarizeReadiness(evaluateReadiness(env)).ready).toBe(true);
+    // Asserted on the blocker list, not `ready` — see the R-151 note above.
+    expect(summarizeReadiness(evaluateReadiness(env)).requiredFailures).not.toContain("llm_api_key");
   });
 
   /**
@@ -113,8 +123,43 @@ describe("readiness — pure evaluation", () => {
     delete env.CSP_MODE;
     expect(byId(env).get("csp_mode")!.status).toBe("warn");
     expect(byId({ ...READY_ENV, CSP_MODE: "enforce" }).get("csp_mode")!.status).toBe("pass");
-    // report-only never blocks launch
-    expect(summarizeReadiness(evaluateReadiness(env)).ready).toBe(true);
+    // report-only never blocks launch — asserted on the blocker list rather than `ready`, which
+    // is held false by the R-151 code defect regardless of CSP.
+    expect(summarizeReadiness(evaluateReadiness(env)).requiredFailures).not.toContain("csp_mode");
+  });
+
+  /**
+   * Stripe test mode is the launch bug that looks exactly like success: checkout completes, the
+   * workspace is entitled, the dashboard shows the plan, and no card is ever charged. Nothing
+   * reports a problem until someone reconciles a bank statement — so this fails rather than warns.
+   */
+  it("a Stripe TEST key blocks launch, a live key clears it", () => {
+    const test = byId({ ...READY_ENV, STRIPE_SECRET_KEY: "sk_test_abc" });
+    expect(test.get("stripe_live_mode")!.status).toBe("fail");
+    expect(test.get("stripe_live_mode")!.required).toBe(true);
+    expect(test.get("stripe_live_mode")!.detail).toMatch(/no card is ever charged/i);
+    expect(
+      summarizeReadiness(evaluateReadiness({ ...READY_ENV, STRIPE_SECRET_KEY: "sk_test_abc" })).requiredFailures
+    ).toContain("stripe_live_mode");
+
+    expect(byId(READY_ENV).get("stripe_live_mode")!.status).toBe("pass");
+  });
+
+  it("an unrecognisable Stripe key warns rather than guessing which mode it is", () => {
+    expect(byId({ ...READY_ENV, STRIPE_SECRET_KEY: "sk" }).get("stripe_live_mode")!.status).toBe("warn");
+  });
+
+  /**
+   * R-151. Not an env var — a code fact, observed in production on 2026-09-03 when two callers
+   * were served on a plan with a limit of one. It stays a required failure until the fix ships.
+   */
+  it("unenforced concurrency blocks launch on every environment", () => {
+    const c = byId(READY_ENV).get("concurrency_enforced")!;
+    expect(c.status).toBe("fail");
+    expect(c.required).toBe(true);
+    expect(c.detail).toMatch(/R-151/);
+    // No configuration clears it — that is what makes it a code defect and not a setting.
+    expect(byId({}).get("concurrency_enforced")!.status).toBe("fail");
   });
 
   it("billing notifications off WARNs (recommended for launch)", () => {

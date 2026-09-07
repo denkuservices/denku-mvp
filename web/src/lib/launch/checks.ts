@@ -150,9 +150,75 @@ export function evaluateReadiness(env: Env): ReadinessCheck[] {
       present(env.STRIPE_WEBHOOK_SECRET) ? "Set" : "STRIPE_WEBHOOK_SECRET missing")
   );
   {
+    /*
+     * Stripe test mode vs live mode — the one setting that decides whether money moves.
+     *
+     * A `sk_test_` key is not a broken configuration: everything succeeds, checkout completes,
+     * the workspace is entitled, the dashboard says the customer is on the Growth plan. Nothing
+     * anywhere reports a problem, and no card is ever charged. That is the worst shape a launch
+     * bug can take — indistinguishable from working until someone reconciles a bank statement.
+     *
+     * So this is REQUIRED and it fails, not warns. Flipping it is a deliberate operator step:
+     * swap STRIPE_SECRET_KEY to the live key, re-point the webhook endpoint and put its live
+     * signing secret in STRIPE_WEBHOOK_SECRET (the test one will silently reject live events),
+     * and re-create the plan/add-on prices in live mode — price IDs do not cross the boundary.
+     */
+    const key = (env.STRIPE_SECRET_KEY ?? "").trim();
+    const isTest = key.startsWith("sk_test_") || key.startsWith("rk_test_");
+    const isLive = key.startsWith("sk_live_") || key.startsWith("rk_live_");
+    checks.push(
+      check(
+        "stripe_live_mode",
+        "Stripe is in LIVE mode",
+        "Billing",
+        true,
+        isLive ? "pass" : isTest ? "fail" : "warn",
+        isLive
+          ? "Live key — real cards are charged"
+          : isTest
+            ? "TEST key — checkout succeeds and entitles the workspace, but no card is ever charged. Swap the secret key, the webhook signing secret, AND the price IDs (they do not cross the test/live boundary)."
+            : "Key present but neither sk_test_ nor sk_live_ — cannot tell which mode this is; verify by hand before taking money."
+      )
+    );
+  }
+  {
     const on = (env.BILLING_NOTIFICATIONS_ENABLED ?? "").toLowerCase().trim() === "true";
     checks.push(check("billing_notifications", "Billing/usage notifications", "Billing", false, on ? "pass" : "warn",
       on ? "Enabled — usage alerts + pause emails send (R-009)" : "Off — no usage-warning or pause emails to owners"));
+  }
+  {
+    /*
+     * R-151 — the concurrency limit records the breach and then lets the call continue.
+     *
+     * Denku sells simultaneous calls as the difference between a $149 plan and an $899 one, and
+     * that limit is not enforced: `acquireOrgConcurrencyLease` runs in the Vapi webhook AFTER the
+     * call has been answered, and on `limit_reached` it returns a JSON body on a `status-update`
+     * event, which Vapi does not act on. There is no `assistant-request` handler and no call to
+     * Vapi's hangup control, so the (N+1)th caller talks to the AI and bills minutes the
+     * workspace did not buy.
+     *
+     * This is not an environment variable, so it cannot be probed — it is a code fact, and it
+     * stays here as a required FAIL until the fix lands and this check is deleted. It sits in the
+     * preflight rather than only in the roadmap because the roadmap is not what someone reads at
+     * 2am before flipping a switch, and this is a defect that costs money silently: it was
+     * observed in production on 2026-09-03, two callers served on a plan with a limit of one.
+     *
+     * Whoever fixes it owes two decisions, not just code: what the (N+1)th caller HEARS (a silent
+     * hangup reads as a broken number), and where it is enforced (post-answer hangup is small and
+     * always works; pre-answer refusal needs an `assistant-request` handler, which requires the
+     * phone number to NOT carry a bound assistantId — a change to how every line is provisioned
+     * and to how pause enforcement finds numbers).
+     */
+    checks.push(
+      check(
+        "concurrency_enforced",
+        "Concurrency limit actually rejects calls",
+        "Billing",
+        true,
+        "fail",
+        "NOT ENFORCED (R-151). The lease is taken after Vapi answers and the refusal is ignored, so a workspace can exceed the simultaneous calls it pays for and be billed for the overage. Confirmed in production 2026-09-03. Delete this check when the fix ships."
+      )
+    );
   }
 
   {
