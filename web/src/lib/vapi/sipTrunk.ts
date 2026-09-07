@@ -36,6 +36,14 @@ export interface SipTrunkInput {
    * the caller. Netgsm published exactly this trap (see `KNOWN_SIP_CARRIERS`).
    */
   additionalGatewayHosts?: readonly string[] | null;
+  /**
+   * Whole ranges the carrier may egress from, in CIDR — expanded to individual addresses before
+   * they reach Vapi, which refuses a mask.
+   *
+   * Only for a range the carrier has told us to trust in writing. A guessed range is a widened
+   * trust boundary bought with nothing.
+   */
+  gatewayCidrs?: readonly string[] | null;
   /** Usually 5060; omitted when the carrier uses the default. */
   gatewayPort?: number | null;
   /** Carrier SIP username. Not a secret — it identifies the trunk. */
@@ -87,12 +95,35 @@ export const KNOWN_SIP_CARRIERS = {
      * and then fails in the worst possible way: silently, intermittently, and with the caller
      * hearing a busy signal that looks exactly like the customer's own line being broken.
      *
-     * ⚠ This is still a floor, not a ceiling. Two hosts is what Netgsm's DNS admits to; their
-     * documented egress range is what we actually need, and Netgsm has never given us one. If a
-     * busy tone with no Vapi call record happens again, the first suspicion is a third address —
-     * widen this list, do not go looking at the assistant.
+     * Two hosts was a floor, and it was not enough — the busy tone came back. **Netgsm answered
+     * the question on 2026-09-03, in writing:** STH subscribers normally egress from
+     * `sip.netgsm.com.tr` only, `sip2` "should not" send us packets but may, *"and the rest of
+     * our IP addresses are the ones running on our switchboards"* — closing with
+     * **"185.88.7.0/24 bloğuna izin verebilirsiniz"** (you may allow the /24 block). So the
+     * missing calls were arriving from their PBX hosts, which are neither published in DNS nor
+     * enumerable by us.
+     *
+     * Hence the range rather than a list. See `gatewayCidrs` below for why this is expanded into
+     * individual addresses, and what it costs.
      */
     additionalGatewayHosts: ["185.88.7.196"],
+    /**
+     * Netgsm's whole allocation (RIPE: NETGSM-4), on Netgsm's own written instruction.
+     *
+     * **The trust boundary moves here, deliberately.** It used to be "one Netgsm host"; it is now
+     * "Netgsm's network". That is a real widening, and it is the correct trade: the alternative
+     * is not a tighter allowlist, it is a customer's published business number returning a busy
+     * signal to real callers some of the time, for a reason nothing on our side can observe. What
+     * an entry buys an attacker is also small — the ability to offer us a call for a number we
+     * already answer for anyone who dials it — and they would have to source-spoof from inside
+     * Netgsm's block to get it.
+     *
+     * ⚠ This is expanded to 254 individual gateways because **Vapi rejects CIDR outright**:
+     * `gateways.0.ip must be a numeric IPv4 address when inboundEnabled is true or omitted`
+     * (tested against the live API, 2026-09-03, along with the ceiling — 254 gateways on one
+     * credential is accepted). Do not "simplify" this back to a mask.
+     */
+    gatewayCidrs: ["185.88.7.0/24"],
     /** Human-facing name for the same host. Never sent to Vapi — see `gatewayHost`. */
     gatewayHostname: "sip.netgsm.com.tr",
     gatewayPort: 5060,
@@ -127,6 +158,43 @@ export function isIpv4(value: string): boolean {
 }
 
 /**
+ * Turn `a.b.c.d/NN` into the individual addresses Vapi will accept.
+ *
+ * Vapi rejects a mask outright — `gateways.0.ip must be a numeric IPv4 address when
+ * inboundEnabled is true or omitted` — so a carrier's egress RANGE can only be expressed one
+ * address at a time. Tested against the live API on 2026-09-03: a `/24` in `ip` is a 400, and 254
+ * gateways on a single credential is accepted.
+ *
+ * Deliberately capped at `/24`. That is 254 hosts, which is already at the tested ceiling; a
+ * `/16` would be 65,534 gateways, and a carrier asking for one is a conversation to have with a
+ * person, not a number to silently expand. Network and broadcast addresses are skipped — nothing
+ * sends SIP from either, and they would spend two of the 254 slots.
+ */
+export function expandIpv4Cidr(cidr: string): string[] {
+  const [base, maskRaw] = (cidr ?? "").trim().split("/");
+  const mask = Number(maskRaw);
+  if (!isIpv4(base) || !Number.isInteger(mask)) {
+    throw new Error(`Not a CIDR range: "${cidr}"`);
+  }
+  if (mask < 24 || mask > 32) {
+    throw new Error(`CIDR range must be between /24 and /32, got "${cidr}"`);
+  }
+
+  const octets = base.split(".").map(Number);
+  const size = 2 ** (32 - mask);
+  const start = octets[3] & (256 - size);
+
+  const out: string[] = [];
+  for (let i = 0; i < size; i++) {
+    const last = start + i;
+    // Skip network/broadcast only where they exist — a /32 is a single host and has neither.
+    if (size > 1 && (last === start || last === start + size - 1)) continue;
+    out.push(`${octets[0]}.${octets[1]}.${octets[2]}.${last}`);
+  }
+  return out;
+}
+
+/**
  * Build the `POST /credential` body. Pure.
  *
  * `inboundEnabled: true` is the whole point — without it Vapi will not accept calls the carrier
@@ -135,10 +203,16 @@ export function isIpv4(value: string): boolean {
  */
 export function buildTrunkCredentialPayload(input: SipTrunkInput): Record<string, unknown> {
   // Deduplicated, order preserved: the primary host stays gateway 0, which is the one Vapi names
-  // in its validation errors and the one a human recognises in the panel.
+  // in its validation errors and the one a human recognises in the panel. Ranges come last for
+  // the same reason — the named hosts stay readable at the top of the list even once a /24 has
+  // been expanded behind them.
   const hosts = Array.from(
     new Set(
-      [input.gatewayHost, ...(input.additionalGatewayHosts ?? [])]
+      [
+        input.gatewayHost,
+        ...(input.additionalGatewayHosts ?? []),
+        ...(input.gatewayCidrs ?? []).flatMap((c) => expandIpv4Cidr(c)),
+      ]
         .map((h) => (h ?? "").trim())
         .filter(Boolean)
     )

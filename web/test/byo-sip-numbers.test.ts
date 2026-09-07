@@ -18,6 +18,7 @@ vi.mock("@/lib/vapi/server", () => ({ vapiFetch: vi.fn() }));
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   buildTrunkCredentialPayload,
+  expandIpv4Cidr,
   buildByoPhoneNumberPayload,
   sipDestinationForLine,
   toE164,
@@ -130,6 +131,58 @@ describe("trunk credential payload", () => {
       additionalGatewayHosts: ["185.88.7.189", " 185.88.7.189 "],
     });
     expect(p.gateways as unknown[]).toHaveLength(1);
+  });
+});
+
+/**
+ * Netgsm's published hosts were a subset of what it actually sends from — the rest are its
+ * switchboard addresses, in no DNS record we can read. Netgsm answered in writing on 2026-09-03:
+ * *"185.88.7.0/24 bloğuna izin verebilirsiniz."* Vapi rejects a mask, so the block can only be
+ * expressed one address at a time.
+ */
+describe("carrier egress ranges", () => {
+  it("expands a /24 to the 254 usable hosts, skipping network and broadcast", () => {
+    const ips = expandIpv4Cidr("185.88.7.0/24");
+    expect(ips).toHaveLength(254);
+    expect(ips[0]).toBe("185.88.7.1");
+    expect(ips[253]).toBe("185.88.7.254");
+    expect(ips).not.toContain("185.88.7.0");
+    expect(ips).not.toContain("185.88.7.255");
+    // The two hosts that cost a customer a working phone line must be in there.
+    expect(ips).toContain("185.88.7.189");
+    expect(ips).toContain("185.88.7.196");
+  });
+
+  it("treats a /32 as the single host it is", () => {
+    expect(expandIpv4Cidr("185.88.7.189/32")).toEqual(["185.88.7.189"]);
+  });
+
+  it("refuses a range wider than /24 rather than silently expanding it", () => {
+    // A /16 is 65,534 gateways, far past the 254 Vapi was measured to accept. A carrier asking
+    // for one is a conversation, not a number to expand behind everyone's back.
+    expect(() => expandIpv4Cidr("185.88.0.0/16")).toThrow(/between \/24 and \/32/);
+    expect(() => expandIpv4Cidr("185.88.7.189")).toThrow(/Not a CIDR/);
+    expect(() => expandIpv4Cidr("sip.netgsm.com.tr/24")).toThrow(/Not a CIDR/);
+  });
+
+  it("keeps the named hosts first so gateway 0 is still the one a human recognises", () => {
+    const p = buildTrunkCredentialPayload({
+      name: "Netgsm",
+      gatewayHost: "185.88.7.189",
+      additionalGatewayHosts: ["185.88.7.196"],
+      gatewayCidrs: ["185.88.7.0/24"],
+      gatewayPort: 5060,
+    });
+    const gateways = p.gateways as { ip: string; inboundEnabled: boolean }[];
+    expect(gateways[0].ip).toBe("185.88.7.189");
+    expect(gateways[1].ip).toBe("185.88.7.196");
+    // The range overlaps both named hosts; neither may appear twice.
+    expect(gateways).toHaveLength(254);
+    expect(gateways.every((g) => g.inboundEnabled === true)).toBe(true);
+  });
+
+  it("carries Netgsm's written range on the preset", () => {
+    expect(KNOWN_SIP_CARRIERS.netgsm.gatewayCidrs).toContain("185.88.7.0/24");
   });
 });
 
