@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Facebook sayfa mesajları."
+        "line": "Facebook sayfa mesajları.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "İşletme mesajlaşması."
+        "line": "İşletme mesajlaşması.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "sms": {
         "label": "SMS",
-        "line": "Kaçan aramalara mesaj atar."
+        "line": "Kaçan aramalara mesaj atar.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "webchat": {
         "label": "Web sohbeti",
@@ -1398,170 +1401,6 @@
     "mailCompany": "Şirket",
     "mailChannel": "Ana kanal"
   },
-  "docsPage": {
-    "metaTitle": "Dokümantasyon",
-    "metaDescription": "{name} dokümantasyonu — ilk adımlar, sesli yapay zekâ çalışanının nasıl çalıştığı ve sık sorulan soruların yanıtları.",
-    "eyebrow": "Dokümantasyon",
-    "title": "Dokümantasyon",
-    "sub": "Dakikalar içinde başlayın.",
-    "getStarted": "Başlayın",
-    "talkToDenku": "Denku ile konuşun",
-    "gettingStartedTitle": "İlk adımlar",
-    "gettingStartedSub": "İlk yapay zekâ çalışanınızı dört adımda yayına alın.",
-    "steps": [
-      {
-        "title": "Çalışma alanı oluşturun",
-        "description": "Çalışma alanınızı kiracı yalıtımıyla kurun. Ekip üyelerini ve erişim rollerini belirleyin."
-      },
-      {
-        "title": "Çalışan oluşturun",
-        "description": "Çalışanınızı sistem talimatları, dil ayarları ve operasyonel sınırlarla tanımlayın."
-      },
-      {
-        "title": "Araçları bağlayın",
-        "description": "Hâlihazırda kullandıklarınızla bütünleştirin: CRM, takvimler, yardım masası veya web kancalarıyla kendi API'leriniz."
-      },
-      {
-        "title": "Ses/sohbeti yayına alın",
-        "description": "Herhangi bir kanalda yayına geçin. Performansı yerleşik panolar ve uyarılarla izleyin."
-      }
-    ],
-    "conceptsTitle": "Temel kavramlar",
-    "conceptsSub": "{name} platformunun yapı taşlarını tanıyın.",
-    "concepts": [
-      {
-        "title": "Kiracılar ve çalışma alanları",
-        "description": "Farklı ekipler veya müşteriler için yalıtılmış ortamlar. Her çalışma alanının kendi çalışanları, verileri ve erişim denetimleri vardır."
-      },
-      {
-        "title": "Çalışanlar",
-        "description": "Konuşmaları yürüten yapay zekâ çalışanları. Talimatlar, araçlar ve sınırlarla yapılandırılır. Hem sesli hem sohbetli çalışır."
-      },
-      {
-        "title": "Araçlar ve web kancaları",
-        "description": "Hazır entegrasyonlarla veya kendi web kancalarınızla dış servisleri bağlayın. Araçlar, çalışanın işlem yapmasını sağlar."
-      },
-      {
-        "title": "İzlenebilirlik",
-        "description": "Yapılandırılmış kayıtlar, dökümler, ölçütler ve gerçek zamanlı panolarla çalışan performansına tam görünürlük."
-      }
-    ],
-    "webhooksTitle": "Web kancaları",
-    "webhooksSub": "Çalışanlarınızdan olay almak için uç noktalar tanımlayın.",
-    "webhooksBody": "Tüm web kancası içerikleri HMAC-SHA256 ile imzalanır. İmzaları sunucunuzda web kancası gizli anahtarınızla doğrulayın.",
-    "integrationsTitle": "Entegrasyon örnekleri",
-    "integrationsSub": "Sık kullanılan kalıplar ve akışlar.",
-    "integrations": [
-      {
-        "title": "Yardım masası entegrasyonu",
-        "description": "Çalışan konuşmalarından Zendesk veya Intercom'da otomatik olarak talep oluşturun."
-      },
-      {
-        "title": "Takvim işlemleri",
-        "description": "Google Calendar veya Calendly üzerinden randevu alın, erteleyin ve onaylayın."
-      },
-      {
-        "title": "CRM'e potansiyel müşteri aktarımı",
-        "description": "Nitelenmiş potansiyel müşterileri toplayın ve yapılandırılmış verileri Salesforce, HubSpot veya kendi CRM'inizle eşitleyin."
-      }
-    ],
-    "faqTitle": "Dokümantasyon SSS",
-    "faqs": [
-      {
-        "question": "Ne kadar sürede başlayabilirim?",
-        "answer": "Çoğu ekip ilk çalışanını birkaç saat içinde yayına alıyor. Altyapıyı platform üstlenir; siz yalnızca yapılandırmayla ilgilenirsiniz."
-      },
-      {
-        "question": "API erişimi sunuyor musunuz?",
-        "answer": "Scale planları tam API erişimi içerir. Starter ve Growth planları web arayüzünü ve standart entegrasyonları kullanır."
-      },
-      {
-        "question": "Kendi modellerimi kullanabilir miyim?",
-        "answer": "Scale planları özel model yapılandırmalarını destekler. Seçenekler ve gereksinimler için satış ekibiyle görüşün."
-      },
-      {
-        "question": "Web kancaları nasıl çalışır?",
-        "answer": "Web kancası uç noktalarını çalışan ayarlarından tanımlayın. Giden tüm olaylar doğrulanabilmesi için HMAC ile imzalanır."
-      }
-    ]
-  },
-  "supportPage": {
-    "metaTitle": "Destek",
-    "metaDescription": "Denku ile ilgili yardım — desteğe nasıl ulaşılır, sık sorulan sorular ve sesli yapay zekâ çalışanınıza dair ipuçları.",
-    "eyebrow": "Destek",
-    "titleLead": "Öngörülebilir",
-    "titleEmphasis": "bir yardım",
-    "sub": "Dokümantasyon, yanıt hedefleri ve gerektiğinde üst kademeye taşıma.",
-    "contactSupport": "Destekle iletişime geçin",
-    "readDocs": "Dokümantasyonu okuyun",
-    "pathsTitle": "Yolunuzu seçin",
-    "paths": [
-      {
-        "title": "Dokümantasyon",
-        "desc": "Kurulum, entegrasyonlar ve operasyonel iyi uygulamalar.",
-        "label": "Dokümantasyona git"
-      },
-      {
-        "title": "Denku ile konuşun",
-        "desc": "Canlı yapay zekâ demomuzu kayıt olmadan deneyin.",
-        "label": "Canlı demoyu dene"
-      },
-      {
-        "title": "İletişim ve üst kademe",
-        "desc": "Demo, sorun giderme ve devreye alma için ekibimize ulaşın.",
-        "label": "Talep açın"
-      }
-    ],
-    "slaTitle": "Yanıt hedefleri",
-    "slaNote": "Kesin SLA'lar sözleşmeye göre değişir.",
-    "slaPlans": [
-      {
-        "name": "Starter",
-        "level": "Elden geldiğince",
-        "desc": "Topluluk desteği ve genelde 1–2 iş günü içinde e-posta yanıtı."
-      },
-      {
-        "name": "Growth",
-        "level": "Öncelikli ele alma",
-        "desc": "Aynı iş günü içinde yanıt hedefiyle öncelikli destek."
-      },
-      {
-        "name": "Scale",
-        "level": "Sözleşmeli SLA",
-        "desc": "Sözleşmede tanımlı garantili yanıt süreleri ve üst kademeye taşıma yolları."
-      }
-    ],
-    "fixesTitle": "Sık karşılaşılan çözümler",
-    "fixes": [
-      {
-        "q": "Mikrofon izni",
-        "a": "Tarayıcınızın mikrofon erişimine izin verdiğinden emin olun. Site ayarlarını kontrol edin ve sorulduğunda izni verin. Sorun sürerse tarayıcı önbelleğini temizleyip yeniden deneyin."
-      },
-      {
-        "q": "Çalışan başlamıyor",
-        "a": "Çalışan yapılandırmasını gözden geçirin (sistem talimatı, araçlar, sınırlar). Araç kimlik bilgilerinin geçerli ve erişilebilir olduğunu doğrulayın. Kesin hata mesajı için panodaki kayıtlara bakın."
-      },
-      {
-        "q": "Web kancası doğrulaması",
-        "a": "Web kancası gizli anahtarınızı çalışan ayarlarından kopyalayın. HMAC-SHA256 imzasını X-Signature başlığıyla doğrulayın ve istek gövdesi ile gizli anahtarın hesaplanan özetiyle karşılaştırın."
-      },
-      {
-        "q": "Gecikme",
-        "a": "Araç ve web kancası uç noktalarınıza olan ağ gecikmesini kontrol edin. Yavaş yanıtlar için çalışan kayıtlarını inceleyin. Ağır işlemler için önbellek veya eşzamansız web kancası kullanmayı değerlendirin."
-      },
-      {
-        "q": "Faturalandırma ve faturalar",
-        "a": "Faturalandırma geçmişini çalışma alanı ayarlarında görebilirsiniz. Faturaları faturalandırma sayfasından indirin. Plan değişiklikleri için oransal düzeltmeler konusunda destekle iletişime geçin."
-      }
-    ],
-    "statusTitle": "Durum",
-    "statusOperational": "Tüm sistemler çalışıyor",
-    "systemStatusTitle": "Sistem durumu",
-    "statusSoon": "Durum sayfası yakında.",
-    "ctaTitle": "Devreye alma planı mı gerekiyor?",
-    "ctaBody": "Kanallarınızı, araçlarınızı ve hacminizi anlatın. Size bir iş akışı önerelim.",
-    "ctaButton": "Demo talep edin"
-  },
   "useCasesPage": {
     "metaTitle": "Kullanım örnekleri",
     "metaDescription": "İşletmeler Denku'nun sesli yapay zekâ çalışanını her aramayı yanıtlamak, potansiyel müşteri nitelemek ve 7/24 randevu almak için nasıl kullanıyor: esnaf, klinik, salon ve daha fazlası.",
@@ -1656,5 +1495,205 @@
   "requestPage": {
     "namePlaceholder": "Ayşe Yılmaz",
     "topicLabel": "Ne hakkında yazıyorsunuz?"
+  },
+  "docsPage": {
+    "metaTitle": "Dokümantasyon",
+    "metaDescription": "Denku nasıl çalışır — yapay zekâ çalışanınız bir aramada ne yapar, nerelerde yanıt verir, ne üretir ve sizden ne ister.",
+    "eyebrow": "Dokümantasyon",
+    "title": "Denku nasıl çalışır",
+    "sub": "Yapay zekâ çalışanınız ne yapar, nerede yanıt verir ve sizden ne ister. Ürünle karşılaştırılabilsin diye yazıldı.",
+    "getStarted": "Ücretsiz başlayın",
+    "talkToDenku": "Yapay zekâya kendiniz sorun",
+    "gettingStartedTitle": "İlk adımlar",
+    "gettingStartedSub": "Dört adım. Bizden aldığınız numara aynı gün yayına girer; yapay zekâya işletmenizi öğretmek sonrasında devam eder.",
+    "steps": [
+      {
+        "title": "İşletmenizi anlatın",
+        "description": "Adınız, ne yaptığınız ve hangi dilde yanıt vermesini istediğiniz. Gerisini web sitenizden biz taslak olarak çıkarırız; kaydedilmeden önce siz düzeltirsiniz."
+      },
+      {
+        "title": "Neyi yanıtlayacağını seçin",
+        "description": "Telefonunuzu, mesajlarınızı ya da ikisini. Yalnızca seçtiğinize ait planlar gösterilir ve siz demeden hiçbir ücret alınmaz."
+      },
+      {
+        "title": "Bir kanal bağlayın",
+        "description": "Bizden numara alın, mevcut numaranızı bize yönlendirin, web sohbeti kodunu yapıştırın, bir Telegram botu bağlayın ya da bir e-posta adresini yönlendirin."
+      },
+      {
+        "title": "Mesaisi başlar",
+        "description": "Sonraki çalıştan ya da sonraki mesajdan itibaren. Her konuşma, dökümü ve ürettikleriyle birlikte Gelen Kutunuza düşer."
+      }
+    ],
+    "channelsTitle": "Nerelerde yanıt verir",
+    "channelsSub": "Her birinin üzerindeki rozet yol haritası değil, bugünkü dürüst durumdur. Bir kanal ancak yapay zekâ orada gerçekten yanıt veriyorsa satılır.",
+    "channelsNote": "Ses, sesli plana dakika üzerinden yansır. Her sohbet kanalı, sohbet planınızdaki kanal hakkından düşer.",
+    "outputTitle": "Her konuşmadan sonra elinize ne geçer",
+    "outputSub": "Yapay zekâ mesajı alıp kaybetmez. Biten her konuşma, üzerinde işlem yapabileceğiniz bir şeye dönüşür.",
+    "outputs": [
+      {
+        "title": "Bir talep ya da randevu",
+        "description": "Arayanın verdiği ayrıntılarla bir iş, ya da istediği saatle bir randevu talebi. Yapay zekâ konuşma sırasında oluşturmadıysa sistem sonradan dökümden oluşturur — hiçbir konuşma kaybolmaz."
+      },
+      {
+        "title": "Bir müşteri kaydı",
+        "description": "Konuştuğu herkes, tüm kanallardaki geçmişiyle kaydedilir. Sonraki arama sıfırdan değil, bir yerden başlar."
+      },
+      {
+        "title": "Kayıt ve döküm",
+        "description": "Konuşmaya eklenir; ne duyduğuna dair sözümüze güvenmek yerine tam olarak ne konuşulduğunu dinleyebilirsiniz."
+      },
+      {
+        "title": "İlgilenmeniz gerektiğinde e-posta",
+        "description": "Yeni bir talep ya da randevu düştüğünde seçtiğiniz adrese haber verilir — siz istemedikçe kişisel kutunuza değil."
+      }
+    ],
+    "knowledgeTitle": "Yapay zekâya işletmenizi öğretmek",
+    "knowledgeSub": "Yapay zekâ kendisine verilmeyen bir bilgiyi asla uydurmaz. Boş bıraktığınız her şey, yanıt yerine size bir talep olarak döner — bu güvenlidir ama ödediğiniz şey bu değildir.",
+    "knowledgePoints": [
+      {
+        "title": "Bilmesi gerekenleri doldurun",
+        "description": "Ne sattığınız, çalışma saatleriniz, hizmet bölgeniz, randevu ve iptal kurallarınız, en çok sorulan sorular ve istediğiniz üslup."
+      },
+      {
+        "title": "Ya da elinizdekini yükleyin",
+        "description": "Bir fiyat listesi, hizmet sayfası veya kural belgesi. Okuruz, içinde yazanı doldururuz; gerisini tahmin etmek yerine boş bırakırız."
+      },
+      {
+        "title": "Kaydedilmeden önce siz onaylarsınız",
+        "description": "Denku bu alanları web sitenizden taslak olarak çıkarabilir ama taslak her zaman düzeltmeniz için gösterilir — orada yazan her şey, sanki siz söylemişsiniz gibi müşterilerinize söylenir."
+      }
+    ],
+    "languagesTitle": "Diller",
+    "languagesSub": "Aramalarda ve sohbette bu dillerde konuşur ve dinler. Sohbette müşteri hangi dilde yazarsa o dilde yanıt verir.",
+    "languagesNote": "Arama, çalışanın ana dilinde başlar ve arayan işaretlediğiniz başka bir dili konuşursa o dile geçer.",
+    "languageNames": {
+      "en": "İngilizce",
+      "es": "İspanyolca",
+      "de": "Almanca",
+      "tr": "Türkçe"
+    },
+    "sensesTitle": "Neleri okuyabilir ve duyabilir",
+    "sensesSub": "Sohbet kanallarında müşterinin yazması şart değil.",
+    "senses": [
+      {
+        "title": "Fotoğraflar",
+        "description": "Müşteri parçanın, hasarın veya etiketin fotoğrafını gönderir; yapay zekâ içindekini okur ve yanıtlar."
+      },
+      {
+        "title": "Sesli mesajlar",
+        "description": "Sesli mesaj dinlenir ve yazılmış gibi yanıtlanır."
+      },
+      {
+        "title": "Okuyamadığında",
+        "description": "Bir dosya okunamıyorsa, içinde ne olduğunu tahmin etmek yerine okuyamadığını söyler."
+      }
+    ],
+    "takeoverTitle": "Yapay zekâdan devralmak",
+    "takeoverBody": "Sohbet kanallarında her konuşma tek bir Gelen Kutusunda durur; devralıp kendiniz yanıtlayabilirsiniz. Siz geri verene kadar yapay zekâ o konuşmayı yanıtlamayı bırakır.",
+    "takeoverCaveat": "Telefon görüşmesinde arayanı konuşma sırasında bir kişiye aktaramaz. Mesajı alır ve birinin geri dönmesi için bir talep oluşturur.",
+    "hoursTitle": "Çalışma saatleri",
+    "hoursBody": "Denku her kanalda, her saatte, 7/24 yanıt verir. Çalışma saatleri ekibinizin ne zaman işbaşında olduğunu anlatır — yapay zekânın yanıt vermesini asla durdurmaz.",
+    "hoursCaveat": "Yardımına tam olarak devam etmeden önce şu anda kapalı olduğunuzu söyleyip söylemeyeceğine siz karar verirsiniz.",
+    "storeTitle": "Çevrimiçi mağazanızı bağlamak",
+    "storeBody": "Denku bir e-ticaret kataloğunu okuyabilir; böylece yapay zekâ ürün sorularını yanıtlar — neyin olduğunu, fiyatını ve stokta ne kaldığını, renk ve beden ayrıntısına kadar. Desteklenen ilk sistem IdeaSoft. Müşteri yine sitenizde ya da Telegram'da konuşur; ürün bilgileri mağazanızdan gelir.",
+    "storeCaveat": "Bu özellik geliştirildi ama henüz gerçek bir mağazada çalıştırılmadı; bu yüzden kurulumu sizinle birlikte yapıp beraber doğruluyoruz. Sipariş sorgulama — “siparişim nerede” — bilerek yok, çünkü anonim bir ziyaretçi bir başkasının sipariş bilgilerini asla okuyabilmemeli.",
+    "faqTitle": "Yerinde sorular",
+    "faqs": [
+      {
+        "question": "Kurulum ne kadar sürer?",
+        "answer": "Yönlendirmeli kurulum birkaç dakika, bizden aldığınız numara aynı gün yayında. Kendi numaranız, operatörünüzün bizi göstermesi ne kadar sürerse o kadar. Yapay zekâya işletmenizi öğretmek sonrasında yapılır ve istediğiniz zaman geliştirilebilir."
+      },
+      {
+        "question": "Mevcut numaramı koruyabilir miyim?",
+        "answer": "Evet, numarayı operatörünüzden taşımadan. Operatörünüz o numaraya gelen aramaları SIP trunk üzerinden bize yönlendirir, yapay zekâ yanıtlar. Netgsm kanıtlanmış durumda ve hazır bir ön ayarı var; diğer operatörler ilkesel olarak çalışır ama kendi başınıza bırakmak yerine kurulumu sizinle birlikte yaparız."
+      },
+      {
+        "question": "Yanıtı bilmiyorsa ne olur?",
+        "answer": "Bilmediğini söyler ve müşterinin sorduğuyla birlikte size bir talep oluşturur. Yanıt uydurmaz. Tasarımı buna göre kurgulayın: Bilgi bölümüne ne kadar çok şey yazarsanız, size o kadar az talep düşer."
+      },
+      {
+        "question": "E-postalarımı okuyor musunuz?",
+        "answer": "Yalnızca yönlendirdiklerinizi. info@ gibi yayınlanmış bir adresi size verdiğimiz adrese yönlendirirsiniz — posta kutunuzun şifresini asla istemeyiz ve yönlendirmediğiniz hiçbir şeyi görmeyiz. Yönlendirme geçmişi de getirmez: yalnızca kuralı açtıktan sonra gelen postalar görünür."
+      },
+      {
+        "question": "Kendi alan adımdan e-posta gönderebilir mi?",
+        "answer": "Size verdiğimiz DNS kayıtlarını yayınladıktan sonra. O zamana kadar alır, okur ve taslak yazar; göndermeyi bir kişi yapar. Denku adresine geri dönüş yoktur, çünkü yabancı bir alan adından gelen yanıt, hiç yanıt gelmemesinden kötüdür."
+      },
+      {
+        "question": "API var mı?",
+        "answer": "Henüz yok. Denku, kontrol paneli ve yukarıdaki kanallar üzerinden kullanılır. Bir yere entegre etmeniz gerekiyorsa neye ihtiyacınız olduğunu söyleyin, var mı yok mu dürüstçe söyleyelim."
+      }
+    ],
+    "ctaTitle": "Hâlâ bir sorunuz mu var?",
+    "ctaBody": "Kendi sitemizdeki yapay zekâya sorun — bu sayfanın yazıldığı bilgilerin aynısından yanıt verir — ya da bir insana yazın.",
+    "ctaTalk": "Yapay zekâya sor",
+    "ctaSupport": "Bir kişiyle konuş"
+  },
+  "supportPage": {
+    "metaTitle": "Destek",
+    "metaDescription": "Denku desteğine nasıl ulaşılır, nelerde yardımcı olabiliriz ve en sık ters giden şeylerin çözümleri.",
+    "eyebrow": "Destek",
+    "titleLead": "Ürünü yazanlardan",
+    "titleEmphasis": "yardım",
+    "sub": "Küçük bir ekibiz. Talep numarası değil, ürünü değiştirebilecek birinden yanıt alırsınız.",
+    "contactSupport": "Destek e-postası",
+    "readDocs": "Dokümantasyonu okuyun",
+    "pathsTitle": "Yardım almanın üç yolu",
+    "paths": [
+      {
+        "title": "Dokümantasyonu okuyun",
+        "desc": "Nasıl çalıştığı, ne ürettiği ve her kanalın sizden ne istediği.",
+        "label": "Dokümantasyona git"
+      },
+      {
+        "title": "Kendi yapay zekâmıza sorun",
+        "desc": "Bu sitedeki asistan, dokümantasyonun yazıldığı bilgilerin aynısından yanıt verir. Kayıt gerekmez.",
+        "label": "Yapay zekâya sor"
+      },
+      {
+        "title": "Bize yazın",
+        "desc": "Gerçek bir kişi okur. Çalışma alanınızın adını ve ne yapmakta olduğunuzu ekleyin.",
+        "label": "Destek e-postası"
+      }
+    ],
+    "answerTitle": "Nasıl yanıt veriyoruz",
+    "answerBody": "Her e-postayı bir kişi okur ve yanıtlar. Müşterilerinizin size ulaşmasını engelleyen her şey — çalmayan bir hat, susan bir kanal — önce gelir.",
+    "answerHonesty": "Satın alınabilecek bir destek paketi ve sözleşmeye bağlı bir yanıt süresi yok. Bunu vaat edecek kadar büyük değiliz; tutmayabileceğimiz bir süre yazmaktansa bunu söylemeyi tercih ediyoruz.",
+    "fixesTitle": "En sık ters giden şeyler",
+    "fixes": [
+      {
+        "q": "Yepyeni numara henüz çalmıyor",
+        "a": "Telefon şebekesinin yeni bir numarayı yayına alması, aramalar ulaşabilmeden önce bir iki dakika sürer. Kaybolan bir şey yok — numara sizde kalır ve operatör işini bitirir bitirmez yanıt vermeye başlar. On dakika sonra hâlâ sessizse bize yazın."
+      },
+      {
+        "q": "Kendi numaram size ulaşıyor ama hiçbir hatla eşleşmiyor",
+        "a": "Neredeyse her zaman numara biçimi. Operatörünüz arayan ve aranan numaraları tam uluslararası biçimde göndermeli. Operatör panelinizdeki ön ekleri ve SIP sunucusunun sunucu adı değil sayısal bir IP adresi olduğunu kontrol edin."
+      },
+      {
+        "q": "Sohbet bileşeni sitemde görünmüyor",
+        "a": "Bileşen yalnızca kurulum sırasında listelediğiniz alan adlarında çalışır; liste boşsa her yerde reddeder. Sitenin sunulduğu tüm adresleri ekleyin — Shopify, Wix veya Squarespace kullanıyorsanız site kurucunun önizleme alan adını da."
+      },
+      {
+        "q": "Yönlendirilen e-posta gelmiyor",
+        "a": "Yönlendirme kuralının açık ve posta sağlayıcınızda onaylanmış olduğunu kontrol edin — Gmail onay ister. Yönlendirmenin, açmadan önceki hiçbir şeyi getirmediğini unutmayın; bu yüzden başka bir hesaptan yeni bir deneme mesajı gönderin."
+      },
+      {
+        "q": "Telegram botu mesaj alıyor ama yanıtlamıyor",
+        "a": "Ya çalışma alanının sohbet planı yoktur ya da bot bir yapay zekâ çalışanına atanmamıştır. İkisi de kontrol panelinizde kanalın kendi sayfasında görünür."
+      },
+      {
+        "q": "Yapay zekâ sürekli bilmediğini söylüyor",
+        "a": "Tasarım böyle — asla yanıt uydurmaz. Çalışan için Bilgi bölümünü doldurun ya da bir fiyat listesi veya hizmet sayfası yükleyin; o zaman bunları size talep olarak döndürmek yerine kendisi yanıtlar."
+      },
+      {
+        "q": "Fatura ya da dakikalarla ilgili bir soru",
+        "a": "Faturalandırma, kullanım ve geçmiş tüm faturalar Ayarlar → Faturalandırma bölümünde. Bir rakam yanlış görünüyorsa fatura referansını gönderin, nasıl hesaplandığını adım adım anlatalım."
+      }
+    ],
+    "statusTitle": "Sistem çökmüş olabilir mi?",
+    "statusBody": "Henüz herkese açık bir durum sayfası yok. Denku size yanıt vermiyorsa bize yazıp söyleyin — aldığımız en hızlı sinyal budur ve ne bulduğumuzu size söyleriz.",
+    "ctaTitle": "Ne olduğunu anlatın",
+    "ctaBody": "Çalışma alanınızın adı, kanal ve yaklaşık zaman. Kayıtlarda bulmamız için bu genelde yeter.",
+    "ctaButton": "Destek e-postası"
   }
 }

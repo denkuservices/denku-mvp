@@ -3,7 +3,18 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/marketing/Container';
 import { Section } from '@/components/marketing/Section';
 import { Reveal } from '@/components/marketing/Reveal';
-import { BookOpen, MessageSquare, Mail, Mic, AlertCircle, Webhook, Gauge, CreditCard } from 'lucide-react';
+import {
+  BookOpen,
+  CreditCard,
+  Globe,
+  Mail,
+  MailQuestion,
+  MessageSquare,
+  PhoneOff,
+  Send,
+  Sparkles,
+} from 'lucide-react';
+import { getSupportEmail, getSupportMailto } from '@/lib/support';
 import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
 
@@ -27,16 +38,28 @@ export async function generateMetadata({
 
 /** Icons and destinations, paired positionally with the translated path copy. */
 const PATH_CHROME = [
-  { icon: BookOpen, href: '/docs' },
-  { icon: MessageSquare, href: '/' },
-  { icon: Mail, href: '/#contact' },
+  { icon: BookOpen, href: '/docs', external: false },
+  { icon: Sparkles, href: '/#demo', external: false },
+  { icon: Mail, href: null, external: true },
 ];
 
-/** Growth is the highlighted tier; the copy itself lives in the message files. */
-const SLA_HIGHLIGHT = [false, true, false];
+const FIX_ICONS = [PhoneOff, PhoneOff, Globe, MailQuestion, Send, MessageSquare, CreditCard];
 
-const FIX_ICONS = [Mic, AlertCircle, Webhook, Gauge, CreditCard];
-
+/**
+ * Support.
+ *
+ * Rewritten 2026-09-07. What was here promised a three-tier response table ending in a
+ * "Contractual SLA · Guaranteed response times and escalation paths defined in contract", plus
+ * "Community support" on Starter — there is no contract tier, no community, and no status page
+ * behind the "coming soon" that sat under it. The troubleshooting was for a product with
+ * customer-configurable webhooks, which this one does not have.
+ *
+ * What replaces it is deliberately smaller: three ways to reach us, an honest paragraph about
+ * what we can and cannot promise, and fixes for the things that actually go wrong — every one of
+ * them drawn from a real failure mode in this repo (carrier number propagation, SIP number
+ * format, the web-chat origin allowlist, email forwarding bringing no history, a chat channel
+ * with no plan or no employee, an empty Knowledge section).
+ */
 export default async function SupportPage({
   params,
 }: {
@@ -47,8 +70,8 @@ export default async function SupportPage({
   const t = await getTranslations('supportPage');
 
   const paths = t.raw('paths') as { title: string; desc: string; label: string }[];
-  const slaPlans = t.raw('slaPlans') as { name: string; level: string; desc: string }[];
   const fixes = t.raw('fixes') as { q: string; a: string }[];
+  const mailto = getSupportMailto('Denku support');
 
   return (
     <>
@@ -63,14 +86,14 @@ export default async function SupportPage({
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-[18px] text-[var(--s-ink-soft)]">{t('sub')}</p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">{t('contactSupport')}</Link>
+              <a href={mailto} className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">{t('contactSupport')}</a>
               <Link href="/docs" className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 py-3.5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{t('readDocs')}</Link>
             </div>
           </Reveal>
         </Container>
       </Section>
 
-      {/* Paths */}
+      {/* Three ways */}
       <Section className="border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
         <Container>
           <Reveal className="mb-12 text-center">
@@ -78,7 +101,9 @@ export default async function SupportPage({
           </Reveal>
           <div className="grid gap-4 md:grid-cols-3">
             {paths.map((p, i) => {
-              const Icon = PATH_CHROME[i].icon;
+              const chrome = PATH_CHROME[i];
+              const Icon = chrome.icon;
+              const buttonClass = "inline-flex h-10 items-center justify-center rounded-[10px] border border-[var(--s-border)] px-5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]";
               return (
                 <Reveal key={p.title} delay={(i % 3) as 0 | 1 | 2} className="flex flex-col rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-8 text-center">
                   <div className="mx-auto mb-4 flex h-[50px] w-[50px] items-center justify-center rounded-[12px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
@@ -86,7 +111,11 @@ export default async function SupportPage({
                   </div>
                   <h3 className="font-display text-[18px] font-medium text-[var(--s-ink)]">{p.title}</h3>
                   <p className="mb-6 mt-2 flex-1 text-sm text-[var(--s-ink-soft)]">{p.desc}</p>
-                  <Link href={PATH_CHROME[i].href} className="inline-flex h-10 items-center justify-center rounded-[10px] border border-[var(--s-border)] px-5 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)]">{p.label}</Link>
+                  {chrome.href ? (
+                    <Link href={chrome.href} className={buttonClass}>{p.label}</Link>
+                  ) : (
+                    <a href={mailto} className={buttonClass}>{p.label}</a>
+                  )}
                 </Reveal>
               );
             })}
@@ -94,25 +123,15 @@ export default async function SupportPage({
         </Container>
       </Section>
 
-      {/* SLA */}
+      {/* How we answer — the honest paragraph that replaced the SLA table */}
       <Section>
         <Container>
-          <Reveal className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('slaTitle')}</h2>
+          <Reveal className="mx-auto max-w-3xl rounded-[20px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-8 md:p-10">
+            <h2 className="font-display text-[26px] font-normal tracking-[-0.5px] text-[var(--s-ink)]">{t('answerTitle')}</h2>
+            <p className="mt-4 text-[16px] leading-relaxed text-[var(--s-ink-soft)]">{t('answerBody')}</p>
+            <p className="mt-4 border-t border-[var(--s-border)] pt-4 text-sm leading-relaxed text-[var(--s-ink-faint)]">{t('answerHonesty')}</p>
+            <p className="mt-6 font-brand-mono text-xs text-[var(--s-ink-faint)]">{getSupportEmail()}</p>
           </Reveal>
-          <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-3">
-            {slaPlans.map((p, i) => {
-              const highlight = SLA_HIGHLIGHT[i];
-              return (
-                <Reveal key={p.name} delay={(i % 3) as 0 | 1 | 2} className={`rounded-[18px] border p-6 ${highlight ? 'border-[var(--s-border)] bg-[var(--s-cta-bg)] brand-shadow-md' : 'border-[var(--s-border)] bg-[var(--s-panel-2)]'}`}>
-                  <div className={`mb-1 text-sm font-bold ${highlight ? 'text-[var(--s-accent-deep)]' : 'text-[var(--s-ink-faint)]'}`}>{p.name}</div>
-                  <div className={`mb-3 font-display text-[18px] font-medium ${highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink)]'}`}>{p.level}</div>
-                  <p className={`text-sm leading-relaxed ${highlight ? 'text-[var(--s-cta-fg)]' : 'text-[var(--s-ink-soft)]'}`}>{p.desc}</p>
-                </Reveal>
-              );
-            })}
-          </div>
-          <p className="mt-4 text-center font-brand-mono text-xs text-[var(--s-ink-faint)]">{t('slaNote')}</p>
         </Container>
       </Section>
 
@@ -123,7 +142,7 @@ export default async function SupportPage({
             <h2 className="mb-10 text-center font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('fixesTitle')}</h2>
             <div className="space-y-4">
               {fixes.map((fix, i) => {
-                const Icon = FIX_ICONS[i];
+                const Icon = FIX_ICONS[i] ?? MessageSquare;
                 return (
                   <div key={fix.q} className="flex gap-4 rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-5">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]">
@@ -145,12 +164,8 @@ export default async function SupportPage({
       <Section>
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="mb-4 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('systemStatusTitle')}</h2>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] px-4 py-2 text-sm font-medium text-[var(--s-accent-deep)]">
-              <span className="h-2 w-2 rounded-full bg-[var(--s-accent)] pulse-dot" />
-              {t('statusOperational')}
-            </div>
-            <p className="mt-4 text-sm text-[var(--s-ink-faint)]">{t('statusSoon')}</p>
+            <h2 className="mb-4 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('statusTitle')}</h2>
+            <p className="text-sm leading-relaxed text-[var(--s-ink-soft)]">{t('statusBody')}</p>
           </div>
         </Container>
       </Section>
@@ -161,9 +176,9 @@ export default async function SupportPage({
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('ctaTitle')}</h2>
             <p className="mb-8 text-sm text-[var(--s-ink-soft)]">{t('ctaBody')}</p>
-            <Link href="/#contact" className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">
+            <a href={mailto} className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 py-3.5 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)]">
               {t('ctaButton')}
-            </Link>
+            </a>
           </div>
         </Container>
       </Section>

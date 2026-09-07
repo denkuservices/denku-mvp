@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Facebook page messages."
+        "line": "Facebook page messages.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "Business messaging."
+        "line": "Business messaging.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "sms": {
         "label": "SMS",
-        "line": "Texts back missed calls."
+        "line": "Texts back missed calls.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "webchat": {
         "label": "Web chat",
@@ -1398,170 +1401,6 @@
     "mailCompany": "Company",
     "mailChannel": "Primary channel"
   },
-  "docsPage": {
-    "metaTitle": "Docs",
-    "metaDescription": "Documentation for {name} — getting started, how the AI voice employee works, and answers to common questions.",
-    "eyebrow": "Documentation",
-    "title": "Docs",
-    "sub": "Get started in minutes.",
-    "getStarted": "Get started",
-    "talkToDenku": "Talk to Denku",
-    "gettingStartedTitle": "Getting started",
-    "gettingStartedSub": "Deploy your first agent in four simple steps.",
-    "steps": [
-      {
-        "title": "Create Workspace",
-        "description": "Set up your workspace with multi-tenant isolation. Configure team members and access roles."
-      },
-      {
-        "title": "Create Agent",
-        "description": "Define your agent with system prompts, language settings, and operational boundaries."
-      },
-      {
-        "title": "Connect Tools",
-        "description": "Integrate with your existing stack: CRM, calendars, helpdesk, or custom APIs via webhooks."
-      },
-      {
-        "title": "Deploy Voice/Chat",
-        "description": "Go live on any channel. Monitor performance with built-in dashboards and alerts."
-      }
-    ],
-    "conceptsTitle": "Core concepts",
-    "conceptsSub": "Understand the building blocks of {name}.",
-    "concepts": [
-      {
-        "title": "Tenants & Workspaces",
-        "description": "Isolated environments for different teams or customers. Each workspace has its own agents, data, and access controls."
-      },
-      {
-        "title": "Agents",
-        "description": "AI agents that handle conversations. Configure with prompts, tools, and boundaries. Support both voice and chat."
-      },
-      {
-        "title": "Tools & Webhooks",
-        "description": "Connect external services via pre-built integrations or custom webhooks. Tools enable agents to perform actions."
-      },
-      {
-        "title": "Observability",
-        "description": "Full visibility into agent performance with structured logs, transcripts, metrics, and real-time dashboards."
-      }
-    ],
-    "webhooksTitle": "Webhooks",
-    "webhooksSub": "Configure endpoints to receive events from your agents.",
-    "webhooksBody": "All webhook payloads are signed with HMAC-SHA256. Verify signatures on your server using your webhook secret.",
-    "integrationsTitle": "Integration examples",
-    "integrationsSub": "Common patterns and workflows.",
-    "integrations": [
-      {
-        "title": "Helpdesk Integration",
-        "description": "Automatically create tickets in Zendesk or Intercom from agent conversations."
-      },
-      {
-        "title": "Calendar Actions",
-        "description": "Book, reschedule, and confirm appointments through Google Calendar or Calendly."
-      },
-      {
-        "title": "CRM Lead Capture",
-        "description": "Capture qualified leads and sync structured data to Salesforce, HubSpot, or custom CRM."
-      }
-    ],
-    "faqTitle": "Documentation FAQ",
-    "faqs": [
-      {
-        "question": "How quickly can I get started?",
-        "answer": "Most teams can deploy their first agent within hours. The platform handles infrastructure, so you focus on configuration."
-      },
-      {
-        "question": "Do you provide API access?",
-        "answer": "Scale plans include full API access. Starter and Growth plans use the web interface and standard integrations."
-      },
-      {
-        "question": "Can I use custom models?",
-        "answer": "Scale plans support custom model configurations. Contact sales for details on model options and requirements."
-      },
-      {
-        "question": "How do webhooks work?",
-        "answer": "Configure webhook endpoints in your agent settings. All outbound events are signed with HMAC for verification."
-      }
-    ]
-  },
-  "supportPage": {
-    "metaTitle": "Support",
-    "metaDescription": "Get help with Denku — how to reach support, common questions, and guidance on your AI voice employee.",
-    "eyebrow": "Support",
-    "titleLead": "Help that's",
-    "titleEmphasis": "predictable",
-    "sub": "Docs, response targets, and escalation when it matters.",
-    "contactSupport": "Contact support",
-    "readDocs": "Read docs",
-    "pathsTitle": "Choose your path",
-    "paths": [
-      {
-        "title": "Documentation",
-        "desc": "Setup, integrations, and operational best practices.",
-        "label": "Go to docs"
-      },
-      {
-        "title": "Talk to Denku",
-        "desc": "Try our live agent demo with no signup required.",
-        "label": "Try live demo"
-      },
-      {
-        "title": "Contact & Escalation",
-        "desc": "Reach our team for demos, troubleshooting, and deployments.",
-        "label": "Open a request"
-      }
-    ],
-    "slaTitle": "Response targets",
-    "slaNote": "Exact SLAs depend on contract.",
-    "slaPlans": [
-      {
-        "name": "Starter",
-        "level": "Best effort",
-        "desc": "Community support and email responses typically within 1–2 business days."
-      },
-      {
-        "name": "Growth",
-        "level": "Priority handling",
-        "desc": "Priority support with same-business-day response targets."
-      },
-      {
-        "name": "Scale",
-        "level": "Contractual SLA",
-        "desc": "Guaranteed response times and escalation paths defined in contract."
-      }
-    ],
-    "fixesTitle": "Common fixes",
-    "fixes": [
-      {
-        "q": "Microphone permission",
-        "a": "Ensure your browser allows microphone access. Check site settings and grant permission when prompted. For persistent issues, clear browser cache and retry."
-      },
-      {
-        "q": "Agent not starting",
-        "a": "Check agent configuration (system prompt, tools, boundaries). Verify tool credentials are valid and accessible. Review logs in dashboard for specific error messages."
-      },
-      {
-        "q": "Webhook verification",
-        "a": "Copy your webhook secret from agent settings. Verify HMAC-SHA256 signature using the X-Signature header. Compare against computed hash of request body + secret."
-      },
-      {
-        "q": "Latency",
-        "a": "Check network latency to your tool/webhook endpoints. Review agent logs for slow tool responses. Consider tool caching or async webhooks for heavy operations."
-      },
-      {
-        "q": "Billing & invoices",
-        "a": "View billing history in workspace settings. Download invoices from billing page. For plan changes, contact support for prorated adjustments."
-      }
-    ],
-    "statusTitle": "Status",
-    "statusOperational": "All systems operational",
-    "systemStatusTitle": "System status",
-    "statusSoon": "Status page coming soon.",
-    "ctaTitle": "Need a deployment plan?",
-    "ctaBody": "Tell us your channels, tools, and volume. We'll propose a workflow.",
-    "ctaButton": "Request a demo"
-  },
   "useCasesPage": {
     "metaTitle": "Use Cases",
     "metaDescription": "See how businesses use Denku's AI voice employee to answer every call, qualify leads, and book appointments 24/7 — for trades, clinics, salons, and more.",
@@ -1656,5 +1495,205 @@
   "requestPage": {
     "namePlaceholder": "Jane Doe",
     "topicLabel": "What are you asking about?"
+  },
+  "docsPage": {
+    "metaTitle": "Docs",
+    "metaDescription": "How Denku works — what your AI employee does on a call, where it answers, what it produces, and what it needs from you.",
+    "eyebrow": "Documentation",
+    "title": "How Denku works",
+    "sub": "What your AI employee does, where it answers, and what it needs from you. Written to be checkable against the product.",
+    "getStarted": "Start free",
+    "talkToDenku": "Ask the AI yourself",
+    "gettingStartedTitle": "Getting started",
+    "gettingStartedSub": "Four steps. The number is live the same day; teaching it about your business carries on afterwards.",
+    "steps": [
+      {
+        "title": "Tell it about your business",
+        "description": "Your name, what you do, and the language you want it to answer in. We draft the rest from your website — you correct it before it is saved."
+      },
+      {
+        "title": "Choose what it answers",
+        "description": "Your phone, your messages, or both. You are only shown plans for what you pick, and nothing is charged until you say so."
+      },
+      {
+        "title": "Connect a channel",
+        "description": "Take a number from us, point your existing one at us, paste the web-chat snippet, connect a Telegram bot, or forward an email address."
+      },
+      {
+        "title": "It starts its shift",
+        "description": "From the next ring or the next message. Every conversation lands in your Inbox with a transcript and whatever it produced."
+      }
+    ],
+    "channelsTitle": "Where it answers",
+    "channelsSub": "The badge on each one is the honest status, not a roadmap. A channel is only sold when the AI actually replies there.",
+    "channelsNote": "Voice is billed in minutes on a voice plan. Every chat channel counts against the channel allowance on a chat plan.",
+    "outputTitle": "What you get after every conversation",
+    "outputSub": "The AI never just takes a message and loses it. Every finished conversation becomes something you can act on.",
+    "outputs": [
+      {
+        "title": "A request, or an appointment",
+        "description": "A task with the detail the caller gave, or a booking request with the time they asked for. If the AI did not create one during the conversation, the system creates it afterwards from the transcript — a conversation is never lost."
+      },
+      {
+        "title": "A customer record",
+        "description": "Everyone it speaks to is saved, with their history across every channel. The next call starts from something rather than from zero."
+      },
+      {
+        "title": "The recording and the transcript",
+        "description": "Attached to the conversation, so you can hear exactly what was said rather than take our word for what it heard."
+      },
+      {
+        "title": "An email when something needs you",
+        "description": "You are told when a new request or appointment lands, at the address you choose — not your personal inbox unless you say so."
+      }
+    ],
+    "knowledgeTitle": "Teaching it about your business",
+    "knowledgeSub": "The AI never invents a fact it was not given. Anything you leave blank becomes a request for you instead of an answer — which is safe, but it is not what you are paying for.",
+    "knowledgePoints": [
+      {
+        "title": "Fill in what it should know",
+        "description": "What you sell, your hours, your service area, your booking and cancellation rules, the questions you are asked most, and the tone you want."
+      },
+      {
+        "title": "Or upload what you already have",
+        "description": "A price list, a services page, a policy document. We read it and fill in what it says, leaving the rest blank rather than guessing."
+      },
+      {
+        "title": "You review before it is saved",
+        "description": "Denku can draft those fields from your website, but the draft is always shown for you to correct — anything in there is said to your customers as though you had said it."
+      }
+    ],
+    "languagesTitle": "Languages",
+    "languagesSub": "It speaks and listens in these, on calls and in chat. In chat it replies in whichever language the customer writes in.",
+    "languagesNote": "A call starts in the employee's main language and switches if the caller speaks another one you have ticked.",
+    "languageNames": {
+      "en": "English",
+      "es": "Spanish",
+      "de": "German",
+      "tr": "Turkish"
+    },
+    "sensesTitle": "What it can read and hear",
+    "sensesSub": "On chat channels, a customer does not have to type.",
+    "senses": [
+      {
+        "title": "Photos",
+        "description": "A customer sends a picture of the part, the damage or the label, and the AI reads what is in it and answers."
+      },
+      {
+        "title": "Voice notes",
+        "description": "A voice message is heard and answered as if it had been typed."
+      },
+      {
+        "title": "And when it can't",
+        "description": "If a file cannot be read, it says so rather than guessing at what was in it."
+      }
+    ],
+    "takeoverTitle": "Taking over from the AI",
+    "takeoverBody": "On chat channels, every conversation lives in one Inbox and you can take it over and reply yourself; the AI stops answering that conversation until you hand it back.",
+    "takeoverCaveat": "On a phone call it cannot transfer the caller to a person mid-call. It takes the message and creates a request so someone calls back.",
+    "hoursTitle": "Opening hours",
+    "hoursBody": "Denku answers around the clock, on every channel, at every hour. Opening hours describe when your staff are in — they never stop the AI from answering.",
+    "hoursCaveat": "You choose whether it mentions that you are currently closed before carrying on and helping fully, or simply does not raise it.",
+    "storeTitle": "Connecting your online store",
+    "storeBody": "Denku can read an e-commerce catalogue so the AI answers product questions — what exists, what it costs, and what is in stock, down to the colour and size. IdeaSoft is the first system supported. The customer still talks on your website or Telegram; the product facts come from your store.",
+    "storeCaveat": "This is built but has not yet run against a real store, so we set it up with you and verify it together. Order lookup — “where is my order” — is deliberately not available, because an anonymous visitor must never be able to read a stranger's order.",
+    "faqTitle": "Fair questions",
+    "faqs": [
+      {
+        "question": "How long does setup take?",
+        "answer": "The guided setup is a few minutes and a number from us is live the same day. Your own number takes as long as your carrier needs to point it at us. Teaching the AI about your business is done afterwards and improves at any time."
+      },
+      {
+        "question": "Can I keep my existing number?",
+        "answer": "Yes, without porting it away from your carrier. Your carrier forwards calls for that number to us over a SIP trunk and the AI answers. Netgsm is proven and has a ready-made preset; any other carrier works in principle but we set it up with you rather than leaving it self-serve."
+      },
+      {
+        "question": "What happens if it doesn't know the answer?",
+        "answer": "It says so and creates a request for you, with what the customer asked. It will not invent an answer. That is the behaviour to design around: the more you put in Knowledge, the fewer of those you get."
+      },
+      {
+        "question": "Do you read my email?",
+        "answer": "Only what you forward. You forward a published address such as info@ to an address we issue you — we never ask for your mailbox password and we never see anything you do not forward. Forwarding also brings nothing from the past: only mail arriving after you switch the rule on appears."
+      },
+      {
+        "question": "Can it send email as my own domain?",
+        "answer": "Once you publish the DNS records we give you. Until then it receives, reads and drafts, and a person sends. There is no fallback to a Denku address, because a reply from a stranger's domain is worse than no reply."
+      },
+      {
+        "question": "Is there an API?",
+        "answer": "Not yet. Denku is used through the dashboard and the channels above. If you need something integrated, tell us what and we will say honestly whether it exists."
+      }
+    ],
+    "ctaTitle": "Still have a question?",
+    "ctaBody": "Ask the AI on our own site — it answers from the same facts this page is written from — or write to a person.",
+    "ctaTalk": "Ask the AI",
+    "ctaSupport": "Talk to a person"
+  },
+  "supportPage": {
+    "metaTitle": "Support",
+    "metaDescription": "How to reach Denku support, what we can help with, and fixes for the things that most often go wrong.",
+    "eyebrow": "Support",
+    "titleLead": "Help from",
+    "titleEmphasis": "people who built it",
+    "sub": "We are a small team. You get an answer from someone who can change the product, not a ticket number.",
+    "contactSupport": "Email support",
+    "readDocs": "Read the docs",
+    "pathsTitle": "Three ways to get help",
+    "paths": [
+      {
+        "title": "Read the docs",
+        "desc": "How it works, what it produces, and what each channel needs from you.",
+        "label": "Go to docs"
+      },
+      {
+        "title": "Ask our own AI",
+        "desc": "The assistant on this site answers from the same facts the docs are written from. No signup.",
+        "label": "Ask the AI"
+      },
+      {
+        "title": "Write to us",
+        "desc": "A real person reads it. Include your workspace name and what you were doing.",
+        "label": "Email support"
+      }
+    ],
+    "answerTitle": "How we answer",
+    "answerBody": "A person reads every email and answers it. Anything that stops customers reaching you — a line not ringing, a channel gone silent — comes first.",
+    "answerHonesty": "There is no support tier to buy and no contractual response time. We are not big enough to promise one, and we would rather say that than print a number we might miss.",
+    "fixesTitle": "Things that most often go wrong",
+    "fixes": [
+      {
+        "q": "A brand-new number does not ring yet",
+        "a": "The phone network takes a minute or two to publish a new number before calls can reach it. Nothing is lost — the number stays yours and starts answering the moment the carrier finishes. If it is still silent after ten minutes, write to us."
+      },
+      {
+        "q": "My own number reaches you but matches nothing",
+        "a": "Almost always the number format. Your carrier must send the caller and called numbers in full international format. Check the prefixes in your carrier panel, and that the SIP server is a numeric IP address rather than a hostname."
+      },
+      {
+        "q": "The chat widget does not appear on my site",
+        "a": "The widget only runs on the domains you listed when you installed it, and an empty list refuses everywhere. Add every address the site is served from, including the builder preview domain on Shopify, Wix or Squarespace."
+      },
+      {
+        "q": "Forwarded email is not arriving",
+        "a": "Check the forwarding rule is switched on and confirmed at your mail host — Gmail asks for a confirmation. Remember that forwarding brings nothing from before you switched it on, so send a fresh test message from another account."
+      },
+      {
+        "q": "The Telegram bot receives but does not answer",
+        "a": "Either the workspace has no chat plan, or the bot is not assigned to an AI employee. Both are shown on the channel's own page in your dashboard."
+      },
+      {
+        "q": "The AI keeps saying it does not know",
+        "a": "That is the design — it never invents an answer. Fill in the Knowledge section for the employee, or upload a price list or services page, and it will answer those itself instead of turning them into requests for you."
+      },
+      {
+        "q": "A question about an invoice or minutes",
+        "a": "Billing, usage and every past invoice are in Settings → Billing. If a figure looks wrong, send us the invoice reference and we will explain exactly how it was calculated."
+      }
+    ],
+    "statusTitle": "Is it down?",
+    "statusBody": "There is no public status page yet. If Denku is not answering for you, write to us and say so — that is the fastest signal we get, and we will tell you what we find.",
+    "ctaTitle": "Tell us what happened",
+    "ctaBody": "Your workspace name, the channel, and roughly when. That is usually enough for us to find it in the logs.",
+    "ctaButton": "Email support"
   }
 }

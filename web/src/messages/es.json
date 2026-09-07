@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Mensajes de tu página de Facebook."
+        "line": "Mensajes de tu página de Facebook.",
+        "caveat": "Todavía no está construido ni incluido en ningún plan."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "Mensajería para empresas."
+        "line": "Mensajería para empresas.",
+        "caveat": "Todavía no está construido ni incluido en ningún plan."
       },
       "sms": {
         "label": "SMS",
-        "line": "Responde por texto a llamadas perdidas."
+        "line": "Responde por texto a llamadas perdidas.",
+        "caveat": "Todavía no está construido ni incluido en ningún plan."
       },
       "webchat": {
         "label": "Chat web",
@@ -1398,170 +1401,6 @@
     "mailCompany": "Empresa",
     "mailChannel": "Canal principal"
   },
-  "docsPage": {
-    "metaTitle": "Documentación",
-    "metaDescription": "Documentación de {name}: primeros pasos, cómo funciona el empleado de IA por voz y respuestas a las preguntas más habituales.",
-    "eyebrow": "Documentación",
-    "title": "Documentación",
-    "sub": "Empieza en unos minutos.",
-    "getStarted": "Empezar",
-    "talkToDenku": "Habla con Denku",
-    "gettingStartedTitle": "Primeros pasos",
-    "gettingStartedSub": "Despliega tu primer agente en cuatro pasos.",
-    "steps": [
-      {
-        "title": "Crear el espacio de trabajo",
-        "description": "Configura tu espacio de trabajo con aislamiento multiinquilino. Añade miembros del equipo y sus permisos."
-      },
-      {
-        "title": "Crear el agente",
-        "description": "Define tu agente con instrucciones de sistema, ajustes de idioma y límites operativos."
-      },
-      {
-        "title": "Conectar herramientas",
-        "description": "Intégralo con lo que ya usas: CRM, calendarios, helpdesk o APIs propias mediante webhooks."
-      },
-      {
-        "title": "Desplegar voz o chat",
-        "description": "Sal en directo en cualquier canal. Sigue el rendimiento con paneles y alertas incluidos."
-      }
-    ],
-    "conceptsTitle": "Conceptos básicos",
-    "conceptsSub": "Entiende las piezas que forman {name}.",
-    "concepts": [
-      {
-        "title": "Inquilinos y espacios de trabajo",
-        "description": "Entornos aislados para distintos equipos o clientes. Cada espacio de trabajo tiene sus propios agentes, datos y permisos."
-      },
-      {
-        "title": "Agentes",
-        "description": "Agentes de IA que gestionan conversaciones. Se configuran con instrucciones, herramientas y límites. Funcionan por voz y por chat."
-      },
-      {
-        "title": "Herramientas y webhooks",
-        "description": "Conecta servicios externos con integraciones ya hechas o webhooks propios. Las herramientas permiten al agente actuar."
-      },
-      {
-        "title": "Observabilidad",
-        "description": "Visibilidad completa del rendimiento del agente con registros estructurados, transcripciones, métricas y paneles en tiempo real."
-      }
-    ],
-    "webhooksTitle": "Webhooks",
-    "webhooksSub": "Configura endpoints para recibir los eventos de tus agentes.",
-    "webhooksBody": "Todos los payloads de webhook se firman con HMAC-SHA256. Verifica la firma en tu servidor con tu secreto de webhook.",
-    "integrationsTitle": "Ejemplos de integración",
-    "integrationsSub": "Patrones y flujos habituales.",
-    "integrations": [
-      {
-        "title": "Integración con helpdesk",
-        "description": "Crea automáticamente tickets en Zendesk o Intercom a partir de las conversaciones del agente."
-      },
-      {
-        "title": "Acciones de calendario",
-        "description": "Reserva, reprograma y confirma citas a través de Google Calendar o Calendly."
-      },
-      {
-        "title": "Captura de leads en el CRM",
-        "description": "Captura clientes potenciales cualificados y sincroniza datos estructurados con Salesforce, HubSpot o tu CRM."
-      }
-    ],
-    "faqTitle": "Preguntas frecuentes sobre la documentación",
-    "faqs": [
-      {
-        "question": "¿Cuánto se tarda en empezar?",
-        "answer": "La mayoría de los equipos despliega su primer agente en unas horas. La plataforma se ocupa de la infraestructura; tú solo configuras."
-      },
-      {
-        "question": "¿Ofrecéis acceso a la API?",
-        "answer": "Los planes Scale incluyen acceso completo a la API. Los planes Starter y Growth usan la interfaz web y las integraciones estándar."
-      },
-      {
-        "question": "¿Puedo usar modelos personalizados?",
-        "answer": "Los planes Scale admiten configuraciones de modelo personalizadas. Contacta con ventas para conocer las opciones y los requisitos."
-      },
-      {
-        "question": "¿Cómo funcionan los webhooks?",
-        "answer": "Configura los endpoints de webhook en los ajustes del agente. Todos los eventos salientes se firman con HMAC para poder verificarlos."
-      }
-    ]
-  },
-  "supportPage": {
-    "metaTitle": "Soporte",
-    "metaDescription": "Ayuda con Denku: cómo contactar con soporte, preguntas habituales y consejos sobre tu empleado de IA por voz.",
-    "eyebrow": "Soporte",
-    "titleLead": "Una ayuda",
-    "titleEmphasis": "previsible",
-    "sub": "Documentación, tiempos de respuesta y escalado cuando importa.",
-    "contactSupport": "Contactar con soporte",
-    "readDocs": "Leer la documentación",
-    "pathsTitle": "Elige tu camino",
-    "paths": [
-      {
-        "title": "Documentación",
-        "desc": "Configuración, integraciones y buenas prácticas de operación.",
-        "label": "Ir a la documentación"
-      },
-      {
-        "title": "Habla con Denku",
-        "desc": "Prueba nuestra demo del agente en vivo, sin registrarte.",
-        "label": "Probar la demo"
-      },
-      {
-        "title": "Contacto y escalado",
-        "desc": "Habla con nuestro equipo para demos, incidencias y despliegues.",
-        "label": "Abrir una solicitud"
-      }
-    ],
-    "slaTitle": "Tiempos de respuesta",
-    "slaNote": "Los SLA exactos dependen del contrato.",
-    "slaPlans": [
-      {
-        "name": "Starter",
-        "level": "Mejor esfuerzo",
-        "desc": "Soporte de la comunidad y respuestas por correo normalmente en 1–2 días laborables."
-      },
-      {
-        "name": "Growth",
-        "level": "Atención prioritaria",
-        "desc": "Soporte prioritario con objetivo de respuesta el mismo día laborable."
-      },
-      {
-        "name": "Scale",
-        "level": "SLA contractual",
-        "desc": "Tiempos de respuesta garantizados y vías de escalado definidos en el contrato."
-      }
-    ],
-    "fixesTitle": "Soluciones habituales",
-    "fixes": [
-      {
-        "q": "Permiso del micrófono",
-        "a": "Asegúrate de que tu navegador permite el acceso al micrófono. Revisa los ajustes del sitio y concede el permiso cuando te lo pida. Si el problema persiste, borra la caché del navegador y vuelve a intentarlo."
-      },
-      {
-        "q": "El agente no arranca",
-        "a": "Revisa la configuración del agente (instrucciones de sistema, herramientas, límites). Comprueba que las credenciales de las herramientas sean válidas y accesibles. Consulta los registros del panel para ver el error concreto."
-      },
-      {
-        "q": "Verificación de webhooks",
-        "a": "Copia el secreto del webhook desde los ajustes del agente. Verifica la firma HMAC-SHA256 con la cabecera X-Signature y compárala con el hash calculado del cuerpo de la petición más el secreto."
-      },
-      {
-        "q": "Latencia",
-        "a": "Comprueba la latencia de red hacia tus endpoints de herramientas y webhooks. Revisa los registros del agente en busca de respuestas lentas. Valora usar caché o webhooks asíncronos para operaciones pesadas."
-      },
-      {
-        "q": "Facturación y facturas",
-        "a": "Consulta el historial de facturación en los ajustes del espacio de trabajo. Descarga las facturas desde la página de facturación. Para cambios de plan, contacta con soporte para los ajustes prorrateados."
-      }
-    ],
-    "statusTitle": "Estado",
-    "statusOperational": "Todos los sistemas operativos",
-    "systemStatusTitle": "Estado del sistema",
-    "statusSoon": "La página de estado llegará pronto.",
-    "ctaTitle": "¿Necesitas un plan de despliegue?",
-    "ctaBody": "Cuéntanos tus canales, tus herramientas y tu volumen. Te propondremos un flujo de trabajo.",
-    "ctaButton": "Solicitar una demo"
-  },
   "useCasesPage": {
     "metaTitle": "Casos de uso",
     "metaDescription": "Descubre cómo los negocios usan el empleado de IA por voz de Denku para responder todas las llamadas, cualificar clientes potenciales y reservar citas 24/7: oficios, clínicas, salones y más.",
@@ -1656,5 +1495,205 @@
   "requestPage": {
     "namePlaceholder": "Lucía Fernández",
     "topicLabel": "¿Sobre qué nos escribes?"
+  },
+  "docsPage": {
+    "metaTitle": "Documentación",
+    "metaDescription": "Cómo funciona Denku: qué hace tu empleado de IA en una llamada, dónde responde, qué produce y qué necesita de ti.",
+    "eyebrow": "Documentación",
+    "title": "Cómo funciona Denku",
+    "sub": "Qué hace tu empleado de IA, dónde responde y qué necesita de ti. Escrito para que puedas contrastarlo con el producto.",
+    "getStarted": "Empieza gratis",
+    "talkToDenku": "Pregúntale tú mismo a la IA",
+    "gettingStartedTitle": "Primeros pasos",
+    "gettingStartedSub": "Cuatro pasos. Un número nuestro está activo el mismo día; enseñarle sobre tu negocio continúa después.",
+    "steps": [
+      {
+        "title": "Cuéntale sobre tu negocio",
+        "description": "Tu nombre, a qué te dedicas y el idioma en el que quieres que responda. El resto lo redactamos desde tu web y tú lo corriges antes de guardarlo."
+      },
+      {
+        "title": "Elige qué responde",
+        "description": "Tu teléfono, tus mensajes o ambos. Solo verás planes de lo que elijas, y no se cobra nada hasta que tú lo digas."
+      },
+      {
+        "title": "Conecta un canal",
+        "description": "Coge un número nuestro, apunta el tuyo hacia nosotros, pega el fragmento del chat web, conecta un bot de Telegram o reenvía una dirección de correo."
+      },
+      {
+        "title": "Empieza su turno",
+        "description": "Desde el siguiente timbre o el siguiente mensaje. Cada conversación llega a tu bandeja de entrada con la transcripción y todo lo que haya generado."
+      }
+    ],
+    "channelsTitle": "Dónde responde",
+    "channelsSub": "La etiqueta de cada uno es su estado honesto, no una hoja de ruta. Un canal solo se vende cuando la IA responde de verdad allí.",
+    "channelsNote": "La voz se factura por minutos en un plan de voz. Cada canal de chat cuenta contra los canales incluidos en tu plan de chat.",
+    "outputTitle": "Qué te queda después de cada conversación",
+    "outputSub": "La IA no se limita a tomar un mensaje y perderlo. Cada conversación terminada se convierte en algo sobre lo que puedes actuar.",
+    "outputs": [
+      {
+        "title": "Una solicitud o una cita",
+        "description": "Una tarea con lo que contó quien llamó, o una petición de cita con la hora que pidió. Si la IA no la creó durante la conversación, el sistema la crea después a partir de la transcripción: una conversación nunca se pierde."
+      },
+      {
+        "title": "Una ficha de cliente",
+        "description": "Todas las personas con las que habla quedan guardadas, con su historial en todos los canales. La siguiente llamada empieza desde algo y no desde cero."
+      },
+      {
+        "title": "La grabación y la transcripción",
+        "description": "Adjuntas a la conversación, para que puedas oír exactamente qué se dijo en lugar de creernos lo que dice haber oído."
+      },
+      {
+        "title": "Un correo cuando algo te necesita",
+        "description": "Te avisamos cuando entra una solicitud o una cita nueva, en la dirección que elijas: no en tu buzón personal salvo que lo pidas."
+      }
+    ],
+    "knowledgeTitle": "Enseñarle sobre tu negocio",
+    "knowledgeSub": "La IA nunca inventa un dato que no le hayas dado. Todo lo que dejes en blanco se convierte en una solicitud para ti en lugar de una respuesta, lo cual es seguro, pero no es lo que estás pagando.",
+    "knowledgePoints": [
+      {
+        "title": "Rellena lo que debe saber",
+        "description": "Qué vendes, tu horario, tu zona de servicio, tus normas de reserva y cancelación, las preguntas que más te hacen y el tono que quieres."
+      },
+      {
+        "title": "O sube lo que ya tienes",
+        "description": "Una lista de precios, una página de servicios, un documento de normas. Lo leemos y rellenamos lo que dice, dejando el resto en blanco en lugar de suponer."
+      },
+      {
+        "title": "Tú lo revisas antes de guardarlo",
+        "description": "Denku puede redactar esos campos desde tu web, pero el borrador siempre se muestra para que lo corrijas: todo lo que haya ahí se le dice a tus clientes como si lo hubieras dicho tú."
+      }
+    ],
+    "languagesTitle": "Idiomas",
+    "languagesSub": "Habla y escucha en estos, en llamadas y en chat. En el chat responde en el idioma en el que escriba el cliente.",
+    "languagesNote": "Una llamada empieza en el idioma principal del empleado y cambia si quien llama habla otro que hayas marcado.",
+    "languageNames": {
+      "en": "Inglés",
+      "es": "Español",
+      "de": "Alemán",
+      "tr": "Turco"
+    },
+    "sensesTitle": "Qué puede leer y oír",
+    "sensesSub": "En los canales de chat, el cliente no tiene por qué escribir.",
+    "senses": [
+      {
+        "title": "Fotos",
+        "description": "El cliente envía una foto de la pieza, del daño o de la etiqueta, y la IA lee lo que hay en ella y responde."
+      },
+      {
+        "title": "Notas de voz",
+        "description": "Un mensaje de voz se escucha y se responde como si se hubiera escrito."
+      },
+      {
+        "title": "Y cuando no puede",
+        "description": "Si un archivo no se puede leer, lo dice en lugar de suponer qué contenía."
+      }
+    ],
+    "takeoverTitle": "Tomar el relevo de la IA",
+    "takeoverBody": "En los canales de chat, cada conversación vive en una única bandeja de entrada y puedes asumirla y responder tú; la IA deja de responder esa conversación hasta que se la devuelvas.",
+    "takeoverCaveat": "En una llamada no puede transferir a quien llama a una persona a mitad de la conversación. Toma el mensaje y crea una solicitud para que alguien devuelva la llamada.",
+    "hoursTitle": "Horario de apertura",
+    "hoursBody": "Denku responde a todas horas, en todos los canales, todos los días. El horario describe cuándo está tu equipo: nunca impide que la IA responda.",
+    "hoursCaveat": "Tú eliges si menciona que ahora mismo estáis cerrados antes de seguir ayudando por completo, o si simplemente no lo saca.",
+    "storeTitle": "Conectar tu tienda online",
+    "storeBody": "Denku puede leer un catálogo de comercio electrónico para que la IA responda sobre productos: qué hay, cuánto cuesta y qué queda en stock, hasta el color y la talla. IdeaSoft es el primer sistema compatible. El cliente sigue hablando en tu web o en Telegram; los datos del producto vienen de tu tienda.",
+    "storeCaveat": "Está construido pero todavía no se ha probado con una tienda real, así que lo montamos contigo y lo verificamos juntos. La consulta de pedidos —«¿dónde está mi pedido?»— no está disponible a propósito, porque un visitante anónimo nunca debe poder leer el pedido de otra persona.",
+    "faqTitle": "Preguntas justas",
+    "faqs": [
+      {
+        "question": "¿Cuánto se tarda en configurarlo?",
+        "answer": "La configuración guiada son unos minutos y un número nuestro está activo el mismo día. Tu propio número tarda lo que tarde tu operador en apuntarlo hacia nosotros. Enseñarle sobre tu negocio se hace después y se puede mejorar cuando quieras."
+      },
+      {
+        "question": "¿Puedo conservar mi número actual?",
+        "answer": "Sí, sin portarlo fuera de tu operador. Tu operador reenvía las llamadas de ese número hacia nosotros por un troncal SIP y la IA responde. Netgsm está probado y tiene un preajuste listo; cualquier otro operador funciona en principio, pero lo montamos contigo en lugar de dejarlo en autoservicio."
+      },
+      {
+        "question": "¿Qué pasa si no sabe la respuesta?",
+        "answer": "Lo dice y crea una solicitud para ti con lo que preguntó el cliente. No se inventa una respuesta. Diséñalo pensando en eso: cuanto más rellenes en Conocimiento, menos solicitudes de ese tipo recibirás."
+      },
+      {
+        "question": "¿Leéis mi correo?",
+        "answer": "Solo lo que reenvíes. Reenvías una dirección pública como info@ a una dirección que te damos: nunca pedimos la contraseña de tu buzón y nunca vemos nada que no reenvíes. El reenvío tampoco trae nada del pasado: solo aparece el correo que llega después de activar la regla."
+      },
+      {
+        "question": "¿Puede enviar correo desde mi propio dominio?",
+        "answer": "En cuanto publiques los registros DNS que te damos. Hasta entonces recibe, lee y redacta, y una persona envía. No hay alternativa desde una dirección de Denku, porque una respuesta desde el dominio de un desconocido es peor que ninguna respuesta."
+      },
+      {
+        "question": "¿Hay API?",
+        "answer": "Todavía no. Denku se usa desde el panel y los canales de arriba. Si necesitas integrarlo con algo, dinos con qué y te diremos honestamente si existe."
+      }
+    ],
+    "ctaTitle": "¿Te queda alguna duda?",
+    "ctaBody": "Pregúntale a la IA de nuestra propia web —responde con los mismos datos con los que está escrita esta página— o escribe a una persona.",
+    "ctaTalk": "Preguntar a la IA",
+    "ctaSupport": "Hablar con una persona"
+  },
+  "supportPage": {
+    "metaTitle": "Soporte",
+    "metaDescription": "Cómo contactar con el soporte de Denku, en qué podemos ayudarte y soluciones para lo que más suele fallar.",
+    "eyebrow": "Soporte",
+    "titleLead": "Ayuda de",
+    "titleEmphasis": "quienes lo construyen",
+    "sub": "Somos un equipo pequeño. Te responde alguien que puede cambiar el producto, no un número de ticket.",
+    "contactSupport": "Escribir a soporte",
+    "readDocs": "Leer la documentación",
+    "pathsTitle": "Tres formas de conseguir ayuda",
+    "paths": [
+      {
+        "title": "Lee la documentación",
+        "desc": "Cómo funciona, qué produce y qué necesita de ti cada canal.",
+        "label": "Ir a la documentación"
+      },
+      {
+        "title": "Pregunta a nuestra IA",
+        "desc": "El asistente de esta web responde con los mismos datos con los que está escrita la documentación. Sin registro.",
+        "label": "Preguntar a la IA"
+      },
+      {
+        "title": "Escríbenos",
+        "desc": "Lo lee una persona de verdad. Incluye el nombre de tu espacio de trabajo y qué estabas haciendo.",
+        "label": "Escribir a soporte"
+      }
+    ],
+    "answerTitle": "Cómo respondemos",
+    "answerBody": "Una persona lee cada correo y lo contesta. Todo lo que impide que tus clientes te alcancen —una línea que no suena, un canal que se ha quedado mudo— va primero.",
+    "answerHonesty": "No hay un nivel de soporte que comprar ni un tiempo de respuesta contractual. No somos lo bastante grandes para prometerlo y preferimos decirlo antes que imprimir una cifra que podríamos incumplir.",
+    "fixesTitle": "Lo que más suele fallar",
+    "fixes": [
+      {
+        "q": "Un número recién creado todavía no suena",
+        "a": "La red telefónica tarda uno o dos minutos en publicar un número nuevo antes de que las llamadas puedan llegar. No se pierde nada: el número sigue siendo tuyo y empieza a responder en cuanto el operador termina. Si a los diez minutos sigue en silencio, escríbenos."
+      },
+      {
+        "q": "Mi número llega hasta vosotros pero no coincide con nada",
+        "a": "Casi siempre es el formato del número. Tu operador debe enviar el número llamante y el llamado en formato internacional completo. Revisa los prefijos en el panel de tu operador y que el servidor SIP sea una dirección IP numérica y no un nombre de host."
+      },
+      {
+        "q": "El widget de chat no aparece en mi web",
+        "a": "El widget solo funciona en los dominios que indicaste al instalarlo, y una lista vacía lo rechaza en todas partes. Añade todas las direcciones desde las que se sirve el sitio, incluido el dominio de vista previa del constructor en Shopify, Wix o Squarespace."
+      },
+      {
+        "q": "El correo reenviado no llega",
+        "a": "Comprueba que la regla de reenvío está activada y confirmada en tu proveedor de correo: Gmail pide una confirmación. Recuerda que el reenvío no trae nada de antes de activarlo, así que envía un mensaje de prueba nuevo desde otra cuenta."
+      },
+      {
+        "q": "El bot de Telegram recibe pero no responde",
+        "a": "O el espacio de trabajo no tiene plan de chat, o el bot no está asignado a un empleado de IA. Ambas cosas se ven en la página del propio canal en tu panel."
+      },
+      {
+        "q": "La IA dice todo el rato que no lo sabe",
+        "a": "Es el diseño: nunca inventa una respuesta. Rellena la sección de Conocimiento del empleado, o sube una lista de precios o una página de servicios, y responderá ella misma en lugar de convertirlo en solicitudes para ti."
+      },
+      {
+        "q": "Una duda sobre una factura o los minutos",
+        "a": "La facturación, el consumo y todas las facturas anteriores están en Configuración → Facturación. Si una cifra parece equivocada, mándanos la referencia de la factura y te explicamos exactamente cómo se calculó."
+      }
+    ],
+    "statusTitle": "¿Está caído?",
+    "statusBody": "Todavía no hay una página de estado pública. Si Denku no te está respondiendo, escríbenos y dínoslo: es la señal más rápida que recibimos, y te contaremos qué encontramos.",
+    "ctaTitle": "Cuéntanos qué ha pasado",
+    "ctaBody": "El nombre de tu espacio de trabajo, el canal y más o menos cuándo. Con eso solemos encontrarlo en los registros.",
+    "ctaButton": "Escribir a soporte"
   }
 }

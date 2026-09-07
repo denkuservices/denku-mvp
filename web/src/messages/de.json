@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Nachrichten Ihrer Facebook-Seite."
+        "line": "Nachrichten Ihrer Facebook-Seite.",
+        "caveat": "Noch nicht gebaut und in keinem Plan enthalten."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "Business-Nachrichten."
+        "line": "Business-Nachrichten.",
+        "caveat": "Noch nicht gebaut und in keinem Plan enthalten."
       },
       "sms": {
         "label": "SMS",
-        "line": "Antwortet auf verpasste Anrufe."
+        "line": "Antwortet auf verpasste Anrufe.",
+        "caveat": "Noch nicht gebaut und in keinem Plan enthalten."
       },
       "webchat": {
         "label": "Web-Chat",
@@ -1398,170 +1401,6 @@
     "mailCompany": "Unternehmen",
     "mailChannel": "Wichtigster Kanal"
   },
-  "docsPage": {
-    "metaTitle": "Dokumentation",
-    "metaDescription": "Dokumentation zu {name} – erste Schritte, wie der KI-Mitarbeiter am Telefon arbeitet und Antworten auf häufige Fragen.",
-    "eyebrow": "Dokumentation",
-    "title": "Dokumentation",
-    "sub": "In wenigen Minuten startklar.",
-    "getStarted": "Loslegen",
-    "talkToDenku": "Mit Denku sprechen",
-    "gettingStartedTitle": "Erste Schritte",
-    "gettingStartedSub": "Bringen Sie Ihren ersten Agenten in vier Schritten live.",
-    "steps": [
-      {
-        "title": "Arbeitsbereich anlegen",
-        "description": "Richten Sie Ihren Arbeitsbereich mit Mandantentrennung ein. Legen Sie Teammitglieder und Rollen fest."
-      },
-      {
-        "title": "Agent anlegen",
-        "description": "Definieren Sie Ihren Agenten mit System-Prompt, Spracheinstellungen und betrieblichen Grenzen."
-      },
-      {
-        "title": "Werkzeuge verbinden",
-        "description": "Binden Sie an, was Sie schon nutzen: CRM, Kalender, Helpdesk oder eigene APIs per Webhook."
-      },
-      {
-        "title": "Telefonie/Chat ausrollen",
-        "description": "Gehen Sie auf jedem Kanal live. Behalten Sie die Leistung mit eingebauten Dashboards und Warnungen im Blick."
-      }
-    ],
-    "conceptsTitle": "Grundbegriffe",
-    "conceptsSub": "Die Bausteine von {name} verstehen.",
-    "concepts": [
-      {
-        "title": "Mandanten & Arbeitsbereiche",
-        "description": "Getrennte Umgebungen für verschiedene Teams oder Kunden. Jeder Arbeitsbereich hat eigene Agenten, Daten und Zugriffsrechte."
-      },
-      {
-        "title": "Agenten",
-        "description": "KI-Agenten, die Unterhaltungen führen. Konfigurierbar über Prompts, Werkzeuge und Grenzen. Für Telefonie und Chat."
-      },
-      {
-        "title": "Werkzeuge & Webhooks",
-        "description": "Binden Sie externe Dienste über fertige Integrationen oder eigene Webhooks an. Werkzeuge erlauben dem Agenten zu handeln."
-      },
-      {
-        "title": "Beobachtbarkeit",
-        "description": "Volle Sicht auf die Leistung des Agenten mit strukturierten Protokollen, Transkripten, Kennzahlen und Echtzeit-Dashboards."
-      }
-    ],
-    "webhooksTitle": "Webhooks",
-    "webhooksSub": "Richten Sie Endpunkte ein, um Ereignisse Ihrer Agenten zu empfangen.",
-    "webhooksBody": "Alle Webhook-Payloads sind mit HMAC-SHA256 signiert. Prüfen Sie die Signaturen auf Ihrem Server mit Ihrem Webhook-Secret.",
-    "integrationsTitle": "Integrationsbeispiele",
-    "integrationsSub": "Häufige Muster und Abläufe.",
-    "integrations": [
-      {
-        "title": "Helpdesk-Integration",
-        "description": "Aus Agentengesprächen automatisch Tickets in Zendesk oder Intercom anlegen."
-      },
-      {
-        "title": "Kalenderaktionen",
-        "description": "Termine über Google Calendar oder Calendly buchen, verschieben und bestätigen."
-      },
-      {
-        "title": "Lead-Erfassung im CRM",
-        "description": "Qualifizierte Leads erfassen und strukturierte Daten mit Salesforce, HubSpot oder Ihrem CRM abgleichen."
-      }
-    ],
-    "faqTitle": "Häufige Fragen zur Dokumentation",
-    "faqs": [
-      {
-        "question": "Wie schnell kann ich starten?",
-        "answer": "Die meisten Teams bringen ihren ersten Agenten innerhalb weniger Stunden live. Die Plattform übernimmt die Infrastruktur, Sie kümmern sich um die Konfiguration."
-      },
-      {
-        "question": "Gibt es einen API-Zugang?",
-        "answer": "Scale-Pläne enthalten vollen API-Zugang. Starter und Growth nutzen die Weboberfläche und die Standardintegrationen."
-      },
-      {
-        "question": "Kann ich eigene Modelle verwenden?",
-        "answer": "Scale-Pläne unterstützen eigene Modellkonfigurationen. Für Optionen und Voraussetzungen wenden Sie sich an den Vertrieb."
-      },
-      {
-        "question": "Wie funktionieren Webhooks?",
-        "answer": "Richten Sie Webhook-Endpunkte in den Einstellungen des Agenten ein. Alle ausgehenden Ereignisse werden zur Prüfung mit HMAC signiert."
-      }
-    ]
-  },
-  "supportPage": {
-    "metaTitle": "Support",
-    "metaDescription": "Hilfe zu Denku – wie Sie den Support erreichen, häufige Fragen und Hinweise zu Ihrem KI-Mitarbeiter am Telefon.",
-    "eyebrow": "Support",
-    "titleLead": "Hilfe, auf die",
-    "titleEmphasis": "Verlass ist",
-    "sub": "Dokumentation, Reaktionszeiten und Eskalation, wenn es darauf ankommt.",
-    "contactSupport": "Support kontaktieren",
-    "readDocs": "Dokumentation lesen",
-    "pathsTitle": "Wählen Sie Ihren Weg",
-    "paths": [
-      {
-        "title": "Dokumentation",
-        "desc": "Einrichtung, Integrationen und bewährte Betriebspraxis.",
-        "label": "Zur Dokumentation"
-      },
-      {
-        "title": "Mit Denku sprechen",
-        "desc": "Testen Sie unsere Live-Demo ohne Registrierung.",
-        "label": "Live-Demo testen"
-      },
-      {
-        "title": "Kontakt & Eskalation",
-        "desc": "Erreichen Sie unser Team für Demos, Fehlersuche und Einführungen.",
-        "label": "Anfrage eröffnen"
-      }
-    ],
-    "slaTitle": "Reaktionszeiten",
-    "slaNote": "Die genauen SLAs richten sich nach dem Vertrag.",
-    "slaPlans": [
-      {
-        "name": "Starter",
-        "level": "Nach bestem Bemühen",
-        "desc": "Community-Support und E-Mail-Antworten in der Regel innerhalb von 1–2 Werktagen."
-      },
-      {
-        "name": "Growth",
-        "level": "Bevorzugte Bearbeitung",
-        "desc": "Bevorzugter Support mit dem Ziel einer Antwort am selben Werktag."
-      },
-      {
-        "name": "Scale",
-        "level": "Vertraglicher SLA",
-        "desc": "Garantierte Reaktionszeiten und Eskalationswege, im Vertrag festgelegt."
-      }
-    ],
-    "fixesTitle": "Häufige Lösungen",
-    "fixes": [
-      {
-        "q": "Mikrofonberechtigung",
-        "a": "Stellen Sie sicher, dass Ihr Browser den Zugriff auf das Mikrofon erlaubt. Prüfen Sie die Website-Einstellungen und erteilen Sie die Berechtigung, wenn Sie gefragt werden. Bei anhaltenden Problemen den Browser-Cache leeren und erneut versuchen."
-      },
-      {
-        "q": "Agent startet nicht",
-        "a": "Prüfen Sie die Konfiguration des Agenten (System-Prompt, Werkzeuge, Grenzen). Stellen Sie sicher, dass die Zugangsdaten der Werkzeuge gültig und erreichbar sind. Sehen Sie im Dashboard in den Protokollen nach der konkreten Fehlermeldung."
-      },
-      {
-        "q": "Webhook-Prüfung",
-        "a": "Kopieren Sie Ihr Webhook-Secret aus den Agenteneinstellungen. Prüfen Sie die HMAC-SHA256-Signatur über den Header X-Signature und vergleichen Sie sie mit dem berechneten Hash aus Request-Body und Secret."
-      },
-      {
-        "q": "Latenz",
-        "a": "Prüfen Sie die Netzwerklatenz zu Ihren Werkzeug- und Webhook-Endpunkten. Sehen Sie in den Agentenprotokollen nach langsamen Antworten. Erwägen Sie Caching oder asynchrone Webhooks für aufwendige Vorgänge."
-      },
-      {
-        "q": "Abrechnung & Rechnungen",
-        "a": "Den Abrechnungsverlauf finden Sie in den Arbeitsbereichseinstellungen. Rechnungen laden Sie auf der Abrechnungsseite herunter. Für Tarifwechsel wenden Sie sich wegen der anteiligen Verrechnung an den Support."
-      }
-    ],
-    "statusTitle": "Status",
-    "statusOperational": "Alle Systeme laufen",
-    "systemStatusTitle": "Systemstatus",
-    "statusSoon": "Eine Statusseite folgt in Kürze.",
-    "ctaTitle": "Brauchen Sie einen Einführungsplan?",
-    "ctaBody": "Nennen Sie uns Ihre Kanäle, Werkzeuge und Ihr Volumen. Wir schlagen Ihnen einen Ablauf vor.",
-    "ctaButton": "Demo anfragen"
-  },
   "useCasesPage": {
     "metaTitle": "Anwendungsfälle",
     "metaDescription": "So nutzen Unternehmen den KI-Mitarbeiter von Denku, um jeden Anruf zu beantworten, Leads zu qualifizieren und rund um die Uhr Termine zu buchen – für Handwerk, Praxen, Salons und mehr.",
@@ -1656,5 +1495,205 @@
   "requestPage": {
     "namePlaceholder": "Alex Fischer",
     "topicLabel": "Worum geht es?"
+  },
+  "docsPage": {
+    "metaTitle": "Dokumentation",
+    "metaDescription": "Wie Denku funktioniert – was Ihr KI-Mitarbeiter im Anruf tut, wo er antwortet, was er erzeugt und was er von Ihnen braucht.",
+    "eyebrow": "Dokumentation",
+    "title": "Wie Denku funktioniert",
+    "sub": "Was Ihr KI-Mitarbeiter tut, wo er antwortet und was er von Ihnen braucht. Geschrieben, damit Sie es am Produkt nachprüfen können.",
+    "getStarted": "Kostenlos starten",
+    "talkToDenku": "Fragen Sie die KI selbst",
+    "gettingStartedTitle": "Erste Schritte",
+    "gettingStartedSub": "Vier Schritte. Eine Nummer von uns ist am selben Tag aktiv; das Anlernen auf Ihr Unternehmen geht danach weiter.",
+    "steps": [
+      {
+        "title": "Erzählen Sie von Ihrem Unternehmen",
+        "description": "Ihr Name, was Sie tun, und in welcher Sprache geantwortet werden soll. Den Rest entwerfen wir aus Ihrer Website – Sie korrigieren ihn, bevor er gespeichert wird."
+      },
+      {
+        "title": "Wählen Sie, was beantwortet wird",
+        "description": "Ihr Telefon, Ihre Nachrichten oder beides. Sie sehen nur Pläne für Ihre Wahl, und es wird nichts berechnet, bis Sie es sagen."
+      },
+      {
+        "title": "Verbinden Sie einen Kanal",
+        "description": "Nehmen Sie eine Nummer von uns, richten Sie Ihre bestehende auf uns aus, fügen Sie das Web-Chat-Snippet ein, verbinden Sie einen Telegram-Bot oder leiten Sie eine E-Mail-Adresse weiter."
+      },
+      {
+        "title": "Die Schicht beginnt",
+        "description": "Ab dem nächsten Klingeln oder der nächsten Nachricht. Jede Unterhaltung landet in Ihrem Posteingang, mit Transkript und allem, was daraus entstanden ist."
+      }
+    ],
+    "channelsTitle": "Wo er antwortet",
+    "channelsSub": "Das Etikett an jedem Kanal ist der ehrliche Stand, keine Roadmap. Ein Kanal wird erst verkauft, wenn die KI dort wirklich antwortet.",
+    "channelsNote": "Telefonie wird im Sprachplan nach Minuten abgerechnet. Jeder Chat-Kanal zählt gegen das Kanal-Kontingent Ihres Chat-Plans.",
+    "outputTitle": "Was nach jeder Unterhaltung bleibt",
+    "outputSub": "Die KI nimmt nicht einfach eine Nachricht entgegen und verliert sie. Jede beendete Unterhaltung wird zu etwas, mit dem Sie arbeiten können.",
+    "outputs": [
+      {
+        "title": "Eine Anfrage oder ein Termin",
+        "description": "Eine Aufgabe mit dem, was der Anrufer gesagt hat, oder eine Terminanfrage mit der gewünschten Uhrzeit. Hat die KI während des Gesprächs keine erstellt, erstellt das System sie danach aus dem Transkript – eine Unterhaltung geht nie verloren."
+      },
+      {
+        "title": "Ein Kundendatensatz",
+        "description": "Jede Person, mit der gesprochen wird, wird gespeichert – mit ihrem kanalübergreifenden Verlauf. Der nächste Anruf beginnt nicht bei null."
+      },
+      {
+        "title": "Aufnahme und Transkript",
+        "description": "An der Unterhaltung hinterlegt, damit Sie genau hören können, was gesagt wurde, statt uns zu glauben, was gehört wurde."
+      },
+      {
+        "title": "Eine E-Mail, wenn etwas Sie braucht",
+        "description": "Sie werden benachrichtigt, wenn eine neue Anfrage oder ein Termin eingeht – an die Adresse Ihrer Wahl, nicht in Ihr privates Postfach, sofern Sie es nicht wünschen."
+      }
+    ],
+    "knowledgeTitle": "Ihr Unternehmen beibringen",
+    "knowledgeSub": "Die KI erfindet nie eine Angabe, die sie nicht bekommen hat. Alles, was Sie leer lassen, wird zu einer Anfrage für Sie statt zu einer Antwort – das ist sicher, aber es ist nicht, wofür Sie bezahlen.",
+    "knowledgePoints": [
+      {
+        "title": "Tragen Sie ein, was sie wissen soll",
+        "description": "Was Sie verkaufen, Ihre Öffnungszeiten, Ihr Einzugsgebiet, Ihre Buchungs- und Stornoregeln, die häufigsten Fragen und den gewünschten Ton."
+      },
+      {
+        "title": "Oder laden Sie hoch, was Sie schon haben",
+        "description": "Eine Preisliste, eine Leistungsseite, ein Regelwerk. Wir lesen es und tragen ein, was darin steht – der Rest bleibt leer statt geraten."
+      },
+      {
+        "title": "Sie prüfen, bevor gespeichert wird",
+        "description": "Denku kann diese Felder aus Ihrer Website entwerfen, aber der Entwurf wird immer zur Korrektur gezeigt: Alles darin wird Ihren Kunden gesagt, als hätten Sie es gesagt."
+      }
+    ],
+    "languagesTitle": "Sprachen",
+    "languagesSub": "In diesen spricht und hört sie – am Telefon und im Chat. Im Chat antwortet sie in der Sprache, in der der Kunde schreibt.",
+    "languagesNote": "Ein Anruf beginnt in der Hauptsprache des Mitarbeiters und wechselt, wenn der Anrufer eine andere von Ihnen ausgewählte Sprache spricht.",
+    "languageNames": {
+      "en": "Englisch",
+      "es": "Spanisch",
+      "de": "Deutsch",
+      "tr": "Türkisch"
+    },
+    "sensesTitle": "Was sie lesen und hören kann",
+    "sensesSub": "Auf Chat-Kanälen muss der Kunde nicht tippen.",
+    "senses": [
+      {
+        "title": "Fotos",
+        "description": "Ein Kunde schickt ein Bild des Teils, des Schadens oder des Etiketts, und die KI liest, was darauf zu sehen ist, und antwortet."
+      },
+      {
+        "title": "Sprachnachrichten",
+        "description": "Eine Sprachnachricht wird gehört und beantwortet, als wäre sie getippt worden."
+      },
+      {
+        "title": "Und wenn sie es nicht kann",
+        "description": "Lässt sich eine Datei nicht lesen, sagt sie das, statt den Inhalt zu erraten."
+      }
+    ],
+    "takeoverTitle": "Von der KI übernehmen",
+    "takeoverBody": "Auf Chat-Kanälen liegt jede Unterhaltung in einem Posteingang, und Sie können sie übernehmen und selbst antworten; die KI antwortet in dieser Unterhaltung nicht mehr, bis Sie zurückgeben.",
+    "takeoverCaveat": "In einem Telefonat kann sie den Anrufer nicht mitten im Gespräch an eine Person weiterleiten. Sie nimmt die Nachricht auf und erstellt eine Anfrage, damit jemand zurückruft.",
+    "hoursTitle": "Öffnungszeiten",
+    "hoursBody": "Denku antwortet rund um die Uhr, auf jedem Kanal, zu jeder Stunde. Öffnungszeiten beschreiben, wann Ihr Team da ist – sie halten die KI nie vom Antworten ab.",
+    "hoursCaveat": "Sie entscheiden, ob sie erwähnt, dass gerade geschlossen ist, bevor sie voll weiterhilft, oder ob sie es einfach nicht anspricht.",
+    "storeTitle": "Ihren Onlineshop verbinden",
+    "storeBody": "Denku kann einen E-Commerce-Katalog lesen, damit die KI Produktfragen beantwortet: was es gibt, was es kostet und was auf Lager ist, bis hin zu Farbe und Größe. IdeaSoft ist das erste unterstützte System. Der Kunde spricht weiterhin auf Ihrer Website oder in Telegram; die Produktdaten kommen aus Ihrem Shop.",
+    "storeCaveat": "Das ist gebaut, aber noch nie an einem echten Shop gelaufen – wir richten es also gemeinsam mit Ihnen ein und prüfen es zusammen. Eine Bestellabfrage – „wo ist meine Bestellung“ – gibt es bewusst nicht, weil ein anonymer Besucher niemals die Bestellung einer fremden Person lesen können darf.",
+    "faqTitle": "Berechtigte Fragen",
+    "faqs": [
+      {
+        "question": "Wie lange dauert die Einrichtung?",
+        "answer": "Die geführte Einrichtung dauert einige Minuten, und eine Nummer von uns ist am selben Tag aktiv. Ihre eigene Nummer dauert so lange, wie Ihr Anbieter braucht, um sie auf uns auszurichten. Das Anlernen auf Ihr Unternehmen geschieht danach und lässt sich jederzeit verbessern."
+      },
+      {
+        "question": "Kann ich meine bestehende Nummer behalten?",
+        "answer": "Ja, ohne sie von Ihrem Anbieter zu portieren. Ihr Anbieter leitet Anrufe für diese Nummer über einen SIP-Trunk an uns weiter, und die KI nimmt ab. Netgsm ist erprobt und hat eine fertige Voreinstellung; jeder andere Anbieter funktioniert im Prinzip, wird aber gemeinsam mit uns eingerichtet statt im Selbstbedienungsmodus."
+      },
+      {
+        "question": "Was passiert, wenn sie die Antwort nicht kennt?",
+        "answer": "Sie sagt es und erstellt eine Anfrage für Sie, mit dem, was der Kunde gefragt hat. Sie erfindet keine Antwort. Planen Sie damit: Je mehr im Wissen steht, desto weniger solche Anfragen bekommen Sie."
+      },
+      {
+        "question": "Lesen Sie meine E-Mails?",
+        "answer": "Nur das, was Sie weiterleiten. Sie leiten eine veröffentlichte Adresse wie info@ an eine Adresse weiter, die wir Ihnen geben – nach Ihrem Postfach-Passwort fragen wir nie, und wir sehen nichts, was Sie nicht weiterleiten. Die Weiterleitung bringt auch nichts aus der Vergangenheit: Es erscheint nur Post, die nach dem Einschalten der Regel eingeht."
+      },
+      {
+        "question": "Kann sie mit meiner eigenen Domain senden?",
+        "answer": "Sobald Sie die DNS-Einträge veröffentlichen, die wir Ihnen geben. Bis dahin empfängt, liest und entwirft sie, und ein Mensch sendet. Es gibt keinen Rückfall auf eine Denku-Adresse, denn eine Antwort von der Domain eines Fremden ist schlimmer als gar keine Antwort."
+      },
+      {
+        "question": "Gibt es eine API?",
+        "answer": "Noch nicht. Denku wird über das Dashboard und die oben genannten Kanäle genutzt. Wenn Sie etwas anbinden müssen, sagen Sie uns was – wir sagen Ihnen ehrlich, ob es das gibt."
+      }
+    ],
+    "ctaTitle": "Noch eine Frage offen?",
+    "ctaBody": "Fragen Sie die KI auf unserer eigenen Website – sie antwortet aus denselben Fakten, aus denen diese Seite geschrieben ist – oder schreiben Sie einem Menschen.",
+    "ctaTalk": "Die KI fragen",
+    "ctaSupport": "Mit einem Menschen sprechen"
+  },
+  "supportPage": {
+    "metaTitle": "Support",
+    "metaDescription": "Wie Sie den Denku-Support erreichen, wobei wir helfen können, und Lösungen für das, was am häufigsten schiefgeht.",
+    "eyebrow": "Support",
+    "titleLead": "Hilfe von denen,",
+    "titleEmphasis": "die es gebaut haben",
+    "sub": "Wir sind ein kleines Team. Sie bekommen eine Antwort von jemandem, der das Produkt ändern kann – keine Ticketnummer.",
+    "contactSupport": "Support anschreiben",
+    "readDocs": "Dokumentation lesen",
+    "pathsTitle": "Drei Wege zu Hilfe",
+    "paths": [
+      {
+        "title": "Dokumentation lesen",
+        "desc": "Wie es funktioniert, was es erzeugt und was jeder Kanal von Ihnen braucht.",
+        "label": "Zur Dokumentation"
+      },
+      {
+        "title": "Unsere eigene KI fragen",
+        "desc": "Der Assistent auf dieser Website antwortet aus denselben Fakten, aus denen die Dokumentation geschrieben ist. Ohne Registrierung.",
+        "label": "Die KI fragen"
+      },
+      {
+        "title": "Schreiben Sie uns",
+        "desc": "Ein echter Mensch liest es. Nennen Sie Ihren Arbeitsbereich und was Sie gerade getan haben.",
+        "label": "Support anschreiben"
+      }
+    ],
+    "answerTitle": "Wie wir antworten",
+    "answerBody": "Ein Mensch liest jede E-Mail und beantwortet sie. Alles, was Ihre Kunden davon abhält, Sie zu erreichen – eine Leitung, die nicht klingelt, ein Kanal, der verstummt ist – kommt zuerst.",
+    "answerHonesty": "Es gibt keine Supportstufe zu kaufen und keine vertragliche Reaktionszeit. Dafür sind wir nicht groß genug, und wir sagen das lieber, als eine Zahl zu drucken, die wir verfehlen könnten.",
+    "fixesTitle": "Was am häufigsten schiefgeht",
+    "fixes": [
+      {
+        "q": "Eine brandneue Nummer klingelt noch nicht",
+        "a": "Das Telefonnetz braucht ein bis zwei Minuten, um eine neue Nummer zu veröffentlichen, bevor Anrufe ankommen können. Es geht nichts verloren – die Nummer bleibt Ihre und antwortet, sobald der Anbieter fertig ist. Ist es nach zehn Minuten noch still, schreiben Sie uns."
+      },
+      {
+        "q": "Meine eigene Nummer erreicht Sie, passt aber zu nichts",
+        "a": "Fast immer das Nummernformat. Ihr Anbieter muss anrufende und angerufene Nummer im vollständigen internationalen Format senden. Prüfen Sie die Präfixe im Panel Ihres Anbieters und dass der SIP-Server eine numerische IP-Adresse ist und kein Hostname."
+      },
+      {
+        "q": "Das Chat-Widget erscheint nicht auf meiner Website",
+        "a": "Das Widget läuft nur auf den Domains, die Sie bei der Installation angegeben haben – eine leere Liste weist überall ab. Tragen Sie jede Adresse ein, unter der die Seite ausgeliefert wird, einschließlich der Vorschaudomain des Baukastens bei Shopify, Wix oder Squarespace."
+      },
+      {
+        "q": "Weitergeleitete E-Mails kommen nicht an",
+        "a": "Prüfen Sie, ob die Weiterleitungsregel aktiv und bei Ihrem Mailanbieter bestätigt ist – Gmail verlangt eine Bestätigung. Denken Sie daran, dass die Weiterleitung nichts von vor dem Einschalten bringt: Senden Sie also eine frische Testnachricht von einem anderen Konto."
+      },
+      {
+        "q": "Der Telegram-Bot empfängt, antwortet aber nicht",
+        "a": "Entweder hat der Arbeitsbereich keinen Chat-Plan, oder der Bot ist keinem KI-Mitarbeiter zugewiesen. Beides sehen Sie auf der Seite des Kanals in Ihrem Dashboard."
+      },
+      {
+        "q": "Die KI sagt ständig, sie wisse es nicht",
+        "a": "Das ist so gebaut – sie erfindet nie eine Antwort. Füllen Sie den Wissensbereich des Mitarbeiters aus oder laden Sie eine Preisliste oder Leistungsseite hoch, dann beantwortet sie das selbst, statt daraus Anfragen für Sie zu machen."
+      },
+      {
+        "q": "Eine Frage zu einer Rechnung oder zu Minuten",
+        "a": "Abrechnung, Nutzung und alle bisherigen Rechnungen finden Sie unter Einstellungen → Abrechnung. Wirkt eine Zahl falsch, schicken Sie uns die Rechnungsreferenz, und wir erklären genau, wie sie berechnet wurde."
+      }
+    ],
+    "statusTitle": "Ist es ausgefallen?",
+    "statusBody": "Es gibt noch keine öffentliche Statusseite. Wenn Denku Ihnen nicht antwortet, schreiben Sie uns und sagen Sie es – das ist das schnellste Signal, das wir bekommen, und wir sagen Ihnen, was wir finden.",
+    "ctaTitle": "Sagen Sie uns, was passiert ist",
+    "ctaBody": "Ihr Arbeitsbereich, der Kanal und ungefähr wann. Damit finden wir es meist in den Protokollen.",
+    "ctaButton": "Support anschreiben"
   }
 }
