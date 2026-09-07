@@ -62,6 +62,13 @@ export function translateDashboardCopy(
       .split(", ")
       .map((part) => dictionary[part] ?? part)
       .join(", ");
+  /** A list the product joined with " or " — each item translated, the joiner localised. */
+  const localizeChoices = (value: string, joiner: string) =>
+    value
+      .split(" or ")
+      .map((part) => dictionary[part] ?? part)
+      .join(` ${joiner} `);
+
   const rules: Array<string | null> = [
     replaceMatch(
       source,
@@ -92,6 +99,104 @@ export function translateDashboardCopy(
       es: (employee) => `Gestionado por ${employee}`,
       de: (employee) => `Bearbeitet von ${employee}`,
       tr: (employee) => `${employee} yönetti`,
+    }, targetLocale),
+    replaceMatch(source, /^(\d+) requests?$/, {
+      es: (count) => `${count} ${count === "1" ? "solicitud" : "solicitudes"}`,
+      de: (count) => `${count} ${count === "1" ? "Anfrage" : "Anfragen"}`,
+      tr: (count) => `${count} talep`,
+    }, targetLocale),
+    replaceMatch(
+      source,
+      /^(\d+) active sessions?\. Sign out of any you don't recognise\.$/,
+      {
+        es: (count) =>
+          `${count} ${count === "1" ? "sesión activa" : "sesiones activas"}. Cierra las que no reconozcas.`,
+        de: (count) =>
+          `${count} aktive ${count === "1" ? "Sitzung" : "Sitzungen"}. Melden Sie alles ab, was Sie nicht wiedererkennen.`,
+        tr: (count) => `${count} etkin oturum. Tanımadığınız varsa oturumunu kapatın.`,
+      },
+      targetLocale,
+    ),
+    replaceMatch(source, /^(Add|Remove) one (.+)$/, {
+      es: (verb, addon) =>
+        `${verb === "Add" ? "Añadir uno" : "Quitar uno"}: ${dictionary[addon] ?? addon}`,
+      de: (verb, addon) =>
+        `${verb === "Add" ? "Eins hinzufügen" : "Eins entfernen"}: ${dictionary[addon] ?? addon}`,
+      tr: (verb, addon) =>
+        `${dictionary[addon] ?? addon}: bir ${verb === "Add" ? "ekle" : "çıkar"}`,
+    }, targetLocale),
+    /*
+     * The employee's capability line on the channels tab — four verbs joined with " · ".
+     * Matched as a whole and mapped token by token so the joiner survives; the alternation is
+     * closed on purpose, so this can never fire on a customer's own text.
+     */
+    replaceMatch(
+      source,
+      /^((?:answer|reply|book & log|escalate)(?: · (?:answer|reply|book & log|escalate))*)$/,
+      {
+        es: (list) => list.split(" · ").map((verb) => dictionary[verb] ?? verb).join(" · "),
+        de: (list) => list.split(" · ").map((verb) => dictionary[verb] ?? verb).join(" · "),
+        tr: (list) => list.split(" · ").map((verb) => dictionary[verb] ?? verb).join(" · "),
+      },
+      targetLocale,
+    ),
+    replaceMatch(source, /^On calls it only speaks (.+)\.$/, {
+      es: (language) => `En las llamadas solo habla ${dictionary[language] ?? language}.`,
+      de: (language) => `Bei Anrufen spricht sie nur ${dictionary[language] ?? language}.`,
+      tr: (language) => `Aramalarda yalnızca ${dictionary[language] ?? language} konuşur.`,
+    }, targetLocale),
+    replaceMatch(
+      source,
+      /^It starts every call in (.+?) and switches if the caller speaks (.+)\.$/,
+      {
+        es: (primary, others) =>
+          `Empieza cada llamada en ${dictionary[primary] ?? primary} y cambia si quien llama habla ${localizeChoices(others, "o")}.`,
+        de: (primary, others) =>
+          `Sie beginnt jeden Anruf auf ${dictionary[primary] ?? primary} und wechselt, wenn der Anrufer ${localizeChoices(others, "oder")} spricht.`,
+        tr: (primary, others) =>
+          `Her aramaya ${dictionary[primary] ?? primary} dilinde başlar; arayan ${localizeChoices(others, "veya")} konuşursa o dile geçer.`,
+      },
+      targetLocale,
+    ),
+    replaceMatch(
+      source,
+      /^Tick any language it should answer in besides (.+?)\. The first tick switches listening from \1 alone to code-switching, which is slightly less accurate for \1\. Ticking more after that costs nothing extra\.$/,
+      {
+        es: (language) => {
+          const name = dictionary[language] ?? language;
+          return `Marca cualquier idioma en el que deba responder además de ${name}. La primera marca cambia la escucha de solo ${name} a cambio de idioma, lo que es algo menos preciso para ${name}. Marcar más después no cuesta nada.`;
+        },
+        de: (language) => {
+          const name = dictionary[language] ?? language;
+          return `Wählen Sie jede weitere Sprache aus, in der sie neben ${name} antworten soll. Die erste Auswahl stellt das Zuhören von nur ${name} auf Sprachwechsel um, was für ${name} etwas ungenauer ist. Weitere kosten danach nichts extra.`;
+        },
+        tr: (language) => {
+          const name = dictionary[language] ?? language;
+          return `${name} dışında yanıt vermesini istediğiniz dilleri işaretleyin. İlk işaret, dinlemeyi yalnızca ${name} yerine diller arası geçişe alır; bu ${name} için biraz daha az isabetlidir. Sonrasında daha fazlasını işaretlemek ek maliyet getirmez.`;
+        },
+      },
+      targetLocale,
+    ),
+    replaceMatch(source, /^Voices that speak (.+?) — (.+)$/, {
+      es: (language, legend) =>
+        `Voces que hablan ${dictionary[language] ?? language} — ${dictionary[legend] ?? legend}`,
+      de: (language, legend) =>
+        `Stimmen, die ${dictionary[language] ?? language} sprechen – ${dictionary[legend] ?? legend}`,
+      tr: (language, legend) =>
+        `${dictionary[language] ?? language} konuşan sesler — ${dictionary[legend] ?? legend}`,
+    }, targetLocale),
+    replaceMatch(source, /^Humanness (\d)\/5 — (.+?)\. (.+)$/, {
+      es: (score, label, legend) =>
+        `Naturalidad ${score}/5 — ${dictionary[label] ?? label}. ${dictionary[legend] ?? legend}`,
+      de: (score, label, legend) =>
+        `Natürlichkeit ${score}/5 – ${dictionary[label] ?? label}. ${dictionary[legend] ?? legend}`,
+      tr: (score, label, legend) =>
+        `Doğallık ${score}/5 — ${dictionary[label] ?? label}. ${dictionary[legend] ?? legend}`,
+    }, targetLocale),
+    replaceMatch(source, /^Humanness (\d) out of 5, (.+)$/, {
+      es: (score, label) => `Naturalidad ${score} de 5, ${dictionary[label] ?? label}`,
+      de: (score, label) => `Natürlichkeit ${score} von 5, ${dictionary[label] ?? label}`,
+      tr: (score, label) => `Doğallık 5 üzerinden ${score}, ${dictionary[label] ?? label}`,
     }, targetLocale),
     replaceMatch(source, /^About (\d+) min left$/, {
       es: (amount) => `Quedan unos ${amount} min`,

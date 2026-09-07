@@ -1878,6 +1878,142 @@ const DASHBOARD_COPY: Readonly<Record<string, TranslationTuple>> = {
   Support: ["Soporte", "Support", "Destek"],
   Address: ["Dirección", "Adresse", "Adres"],
   "Please enter a valid email address": ["Introduce una dirección de correo válida", "Bitte geben Sie eine gültige E-Mail-Adresse ein", "Lütfen geçerli bir e-posta adresi girin"],
+
+  /*
+   * ---------------------------------------------------------------------------------------
+   * Signed-in walk, 2026-09-07.
+   *
+   * The parser sweep above finds copy written as a literal in a component. These are what a
+   * person walking the product in Turkish still hit: copy that arrives as DATA (billing add-on
+   * names from the catalogue, lifecycle descriptions, voice descriptions), copy assembled from
+   * codes at render time (the audit vocabulary), and prompts on `<textarea>` elements, which the
+   * boundary used to skip along with the customer's typed value.
+   * ---------------------------------------------------------------------------------------
+   */
+
+  // CRM metric cards
+  "Service requests in your CRM": ["Solicitudes de servicio en tu CRM", "Serviceanfragen in Ihrem CRM", "CRM'inizdeki hizmet talepleri"],
+  "Waiting for action": ["Pendientes de acción", "Warten auf Bearbeitung", "İşlem bekliyor"],
+  "Completed in this view": ["Completadas en esta vista", "In dieser Ansicht abgeschlossen", "Bu görünümde tamamlanan"],
+  "Requires faster attention": ["Requiere atención más rápida", "Erfordert schnellere Aufmerksamkeit", "Daha hızlı ilgi gerektiriyor"],
+  "Customer commitments ahead": ["Compromisos con clientes por delante", "Bevorstehende Kundentermine", "Önümüzdeki müşteri sözleri"],
+  "Finished appointments": ["Citas finalizadas", "Abgeschlossene Termine", "Tamamlanan randevular"],
+  "Nothing here": ["Nada por aquí", "Nichts hier", "Burada bir şey yok"],
+
+  // Billing and add-ons. The labels come from `billing_addon_catalog`, so they arrive as data.
+  "No plan yet": ["Aún sin plan", "Noch kein Plan", "Henüz plan yok"],
+  "Choose a plan to start tracking usage.": ["Elige un plan para empezar a medir el consumo.", "Wählen Sie einen Plan, um die Nutzung zu erfassen.", "Kullanımı takip etmeye başlamak için bir plan seçin."],
+  "Choose plan": ["Elegir plan", "Plan wählen", "Plan seç"],
+  "Extra concurrent calls": ["Llamadas simultáneas adicionales", "Zusätzliche gleichzeitige Anrufe", "Ek eşzamanlı arama"],
+  "Extra phone number": ["Número de teléfono adicional", "Zusätzliche Telefonnummer", "Ek telefon numarası"],
+  "Chat — 1 channel": ["Chat — 1 canal", "Chat — 1 Kanal", "Sohbet — 1 kanal"],
+  "Chat — 2 channels": ["Chat — 2 canales", "Chat — 2 Kanäle", "Sohbet — 2 kanal"],
+  "Simultaneous calls": ["Llamadas simultáneas", "Gleichzeitige Anrufe", "Eşzamanlı aramalar"],
+  "Add channel": ["Añadir canal", "Kanal hinzufügen", "Kanal ekle"],
+
+  // Account and security
+  "Email & password": ["Correo y contraseña", "E-Mail & Passwort", "E-posta ve şifre"],
+  "Sign out here": ["Cerrar sesión aquí", "Hier abmelden", "Buradaki oturumu kapat"],
+  "Show password": ["Mostrar contraseña", "Passwort anzeigen", "Şifreyi göster"],
+  "Hide password": ["Ocultar contraseña", "Passwort verbergen", "Şifreyi gizle"],
+
+  // Channels
+  "Choose one when you connect it, or customers reaching this channel will not be answered.": ["Elige uno al conectarlo o los clientes que lleguen por este canal no recibirán respuesta.", "Wählen Sie beim Verbinden einen aus, sonst erhalten Kunden auf diesem Kanal keine Antwort.", "Bağlarken birini seçin; yoksa bu kanaldan ulaşan müşteriler yanıtlanmaz."],
+  "Get my forwarding address": ["Obtener mi dirección de reenvío", "Meine Weiterleitungsadresse holen", "Yönlendirme adresimi al"],
+  "Setting up…": ["Configurando…", "Wird eingerichtet…", "Kuruluyor…"],
+  "Connect your bot": ["Conecta tu bot", "Verbinden Sie Ihren Bot", "Botunuzu bağlayın"],
+  "Connect bot": ["Conectar bot", "Bot verbinden", "Botu bağla"],
+  ". It has to match exactly. IdeaSoft will then show you a Client ID and a Client Secret.": [". Tiene que coincidir exactamente. IdeaSoft te mostrará entonces un Client ID y un Client Secret.", ". Sie muss exakt übereinstimmen. IdeaSoft zeigt Ihnen dann eine Client-ID und ein Client Secret.", ". Birebir aynı olmalı. IdeaSoft ardından size bir İstemci Kimliği ve İstemci Gizli Anahtarı gösterir."],
+
+  // Inbox thread
+  "Your AI Employee is answering": ["Tu empleado de IA está respondiendo", "Ihr KI-Mitarbeiter antwortet", "Yapay zekâ çalışanınız yanıtlıyor"],
+  "Not starred": ["Sin destacar", "Nicht markiert", "Yıldızsız"],
+  "Star this conversation": ["Destacar esta conversación", "Diese Unterhaltung markieren", "Bu konuşmayı yıldızla"],
+  "Remove star": ["Quitar de destacadas", "Markierung entfernen", "Yıldızı kaldır"],
+  "Starring isn't available yet": ["Destacar aún no está disponible", "Markieren ist noch nicht verfügbar", "Yıldızlama henüz kullanılamıyor"],
+  "Sent by the customer": ["Enviado por el cliente", "Vom Kunden gesendet", "Müşteri gönderdi"],
+  "Sent by your AI Employee": ["Enviado por tu empleado de IA", "Von Ihrem KI-Mitarbeiter gesendet", "Yapay zekâ çalışanınız gönderdi"],
+  "Replying takes this conversation over; the AI stops answering until you hand it back.": ["Al responder tomas el control de esta conversación; la IA deja de responder hasta que se la devuelvas.", "Mit einer Antwort übernehmen Sie diese Unterhaltung; die KI antwortet erst wieder, wenn Sie zurückgeben.", "Yanıtlamak bu konuşmayı size devreder; siz geri verene kadar yapay zekâ yanıtlamayı bırakır."],
+  "Write a message…": ["Escribe un mensaje…", "Nachricht schreiben…", "Bir mesaj yazın…"],
+
+  // Contacts
+  "Visible to your team": ["Visible para tu equipo", "Für Ihr Team sichtbar", "Ekibinize görünür"],
+  "Add note": ["Añadir nota", "Notiz hinzufügen", "Not ekle"],
+  "Heard on a call — correct it if the spelling is wrong. Your AI won't overwrite it.": ["Escuchado en una llamada: corrígelo si está mal escrito. Tu IA no lo sobrescribirá.", "In einem Anruf gehört – korrigieren Sie die Schreibweise, falls sie falsch ist. Ihre KI überschreibt sie nicht.", "Bir aramada duyuldu — yazımı yanlışsa düzeltin. Yapay zekânız üzerine yazmaz."],
+  "Your AI has heard from them, but nobody has followed up yet.": ["Tu IA ha tenido contacto, pero nadie ha hecho seguimiento todavía.", "Ihre KI hatte Kontakt, aber es hat sich noch niemand zurückgemeldet.", "Yapay zekânız onlardan haber aldı ama henüz kimse dönüş yapmadı."],
+  "Someone — your AI or your team — has been in touch.": ["Alguien —tu IA o tu equipo— ha estado en contacto.", "Jemand – Ihre KI oder Ihr Team – hatte Kontakt.", "Biri — yapay zekânız ya da ekibiniz — iletişime geçti."],
+  "A real opportunity worth your team's time.": ["Una oportunidad real que merece el tiempo de tu equipo.", "Eine echte Chance, die die Zeit Ihres Teams wert ist.", "Ekibinizin zamanına değecek gerçek bir fırsat."],
+  "Not a fit — kept for history, not for follow-up.": ["No encaja: se conserva por historial, no para seguimiento.", "Kein passender Fall – bleibt für die Historie, nicht für die Nachverfolgung.", "Uygun değil — takip için değil, geçmiş kaydı olarak tutuluyor."],
+
+  // Tickets
+  "Comment added": ["Comentario añadido", "Kommentar hinzugefügt", "Yorum eklendi"],
+  "Notes are internal and visible to your team.": ["Las notas son internas y visibles para tu equipo.", "Notizen sind intern und für Ihr Team sichtbar.", "Notlar dahilidir ve ekibinize görünür."],
+  "Add an internal note…": ["Añade una nota interna…", "Interne Notiz hinzufügen…", "Dahili bir not ekleyin…"],
+
+  // Knowledge prompts. Placeholders, so they follow the interface language like the labels
+  // beside them — see the note in `knowledgeExamples.ts`.
+  "Draft with AI": ["Redactar con IA", "Mit KI entwerfen", "Yapay zekâ ile taslak oluştur"],
+  "e.g. Northside Supply": ["p. ej., Suministros Norte", "z. B. Nordstadt Handel", "örn. Kuzey Tedarik"],
+  "e.g. what you sell or do, and anything a customer often asks whether you offer": ["p. ej., lo que vendes o haces, y todo aquello que los clientes suelen preguntar si ofreces", "z. B. was Sie verkaufen oder tun, und alles, wonach Kunden häufig fragen", "örn. ne sattığınız ya da yaptığınız ve müşterilerin sık sık sunup sunmadığınızı sorduğu şeyler"],
+  "e.g. Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday": ["p. ej., lun–vie 9:00–18:00, sáb 10:00–14:00, domingo cerrado", "z. B. Mo–Fr 9:00–18:00, Sa 10:00–14:00, Sonntag geschlossen", "örn. Pzt–Cum 09.00–18.00, Cmt 10.00–14.00, pazar kapalı"],
+  "e.g. the cities, districts or regions you serve": ["p. ej., las ciudades, barrios o regiones a los que atiendes", "z. B. die Städte, Stadtteile oder Regionen, die Sie bedienen", "örn. hizmet verdiğiniz şehirler, ilçeler veya bölgeler"],
+  "e.g. Do you deliver outside the city? — Yes, within 3 working days.": ["p. ej., ¿Hacéis envíos fuera de la ciudad? — Sí, en 3 días laborables.", "z. B. Liefern Sie auch außerhalb der Stadt? – Ja, innerhalb von 3 Werktagen.", "örn. Şehir dışına teslimat yapıyor musunuz? — Evet, 3 iş günü içinde."],
+  "e.g. how far ahead customers should book, and whether same-day is possible": ["p. ej., con cuánta antelación deben reservar y si es posible el mismo día", "z. B. wie weit im Voraus gebucht werden sollte und ob es auch am selben Tag geht", "örn. müşterilerin ne kadar önceden randevu alması gerektiği ve aynı gün mümkün mü"],
+  "e.g. how much notice you need, and any fee": ["p. ej., con cuánta antelación hay que avisar y si hay penalización", "z. B. welche Frist Sie brauchen und ob eine Gebühr anfällt", "örn. ne kadar önceden haber verilmesi gerektiği ve varsa ücret"],
+  "e.g. warm and patient; or brisk and to the point": ["p. ej., cercano y paciente; o ágil y directo", "z. B. herzlich und geduldig; oder zügig und auf den Punkt", "örn. sıcak ve sabırlı; ya da hızlı ve doğrudan"],
+
+  // Voices. The catalogue is data, and every line of it is read by the person choosing.
+  "Humanness is Denku's own 1–5 rating of how lifelike a voice sounds on a call — not a score from the voice provider.": ["La naturalidad es la valoración propia de Denku, de 1 a 5, de lo humana que suena una voz en una llamada; no es una puntuación del proveedor de voz.", "Natürlichkeit ist Denkus eigene Bewertung von 1–5, wie lebensecht eine Stimme im Anruf klingt – keine Bewertung des Stimmanbieters.", "Doğallık, bir sesin aramada ne kadar insan gibi duyulduğuna dair Denku'nun kendi 1–5 puanıdır; ses sağlayıcısının puanı değildir."],
+  Indistinguishable: ["Indistinguible", "Nicht zu unterscheiden", "Ayırt edilemez"],
+  "Very natural": ["Muy natural", "Sehr natürlich", "Çok doğal"],
+  Natural: ["Natural", "Natürlich", "Doğal"],
+  Plain: ["Sencilla", "Schlicht", "Yalın"],
+  Robotic: ["Robótica", "Roboterhaft", "Robotik"],
+  "Vapi's own voice — calm, quick to answer, and the shortest silence between turns.": ["La voz propia de Vapi: tranquila, rápida al responder y con el silencio más corto entre turnos.", "Vapis eigene Stimme – ruhig, schnell in der Antwort und mit der kürzesten Pause zwischen den Sprechern.", "Vapi'nin kendi sesi — sakin, hızlı yanıt veren ve konuşma sıraları arasında en kısa sessizliğe sahip."],
+  "OpenAI's voice — clear and even, with less colour than the ElevenLabs voices.": ["La voz de OpenAI: clara y uniforme, con menos color que las voces de ElevenLabs.", "Die Stimme von OpenAI – klar und gleichmäßig, mit weniger Farbe als die ElevenLabs-Stimmen.", "OpenAI'nin sesi — net ve dengeli, ElevenLabs seslerine göre daha az renkli."],
+  "Warm and unhurried, with a reassuring, professional tone. The default for most businesses.": ["Cálida y sin prisas, con un tono profesional que tranquiliza. La opción por defecto para la mayoría de los negocios.", "Warm und ohne Eile, mit beruhigendem, professionellem Ton. Die Standardwahl für die meisten Unternehmen.", "Sıcak ve acelesiz, güven veren profesyonel bir ton. Çoğu işletme için varsayılan."],
+  "Brighter and quicker than Sarah — a pleasing alto that keeps a call moving.": ["Más luminosa y ágil que Sarah: una contralto agradable que mantiene la llamada en marcha.", "Heller und schneller als Sarah – ein angenehmer Alt, der das Gespräch in Fluss hält.", "Sarah'dan daha parlak ve hızlı — aramayı akışta tutan hoş bir alto."],
+  "Calm and even. Reads long answers well.": ["Tranquila y uniforme. Lee bien las respuestas largas.", "Ruhig und gleichmäßig. Liest lange Antworten gut vor.", "Sakin ve dengeli. Uzun yanıtları iyi okur."],
+  "Direct and businesslike.": ["Directa y profesional.", "Direkt und sachlich.", "Doğrudan ve iş odaklı."],
+  "Native Turkish. Correct stress and plain delivery — accurate rather than expressive.": ["Turco nativo. Acentuación correcta y entrega sobria: precisa más que expresiva.", "Muttersprachlich Türkisch. Korrekte Betonung und schlichte Vortragsweise – eher genau als ausdrucksstark.", "Ana dili Türkçe. Doğru vurgu ve yalın anlatım — etkileyici olmaktan çok isabetli."],
+  "Native Turkish, the male counterpart to Emel. Same accuracy, same flat delivery.": ["Turco nativo, la contraparte masculina de Emel. La misma precisión, la misma entrega plana.", "Muttersprachlich Türkisch, das männliche Gegenstück zu Emel. Dieselbe Genauigkeit, dieselbe nüchterne Vortragsweise.", "Ana dili Türkçe, Emel'in erkek karşılığı. Aynı isabet, aynı düz anlatım."],
+
+  // Audit vocabulary. Assembled from dot-separated action codes at render time, so a new code
+  // shows its prettified English name until it is added here.
+  "Agent Update": ["Actualización del agente", "Agent aktualisiert", "Çalışan güncellendi"],
+  "Billing Addon Increase": ["Aumento de complemento de facturación", "Zusatzoption erhöht", "Ek paket artırıldı"],
+  "Concurrency Limit Reached": ["Límite de simultaneidad alcanzado", "Grenze gleichzeitiger Anrufe erreicht", "Eşzamanlılık sınırına ulaşıldı"],
+  "Ticket Comment Created": ["Comentario de solicitud creado", "Kommentar zur Anfrage erstellt", "Talep yorumu oluşturuldu"],
+  "Ticket Created": ["Solicitud creada", "Anfrage erstellt", "Talep oluşturuldu"],
+  "Ticket Updated": ["Solicitud actualizada", "Anfrage aktualisiert", "Talep güncellendi"],
+  "Workspace Paused Webhook Ignored": ["Espacio pausado: webhook ignorado", "Arbeitsbereich pausiert – Webhook ignoriert", "Çalışma alanı duraklatıldı — web kancası yok sayıldı"],
+  "Agent Prompt_override": ["Anulación del prompt del agente", "Agent-Prompt-Überschreibung", "Çalışan talimatı geçersiz kılma"],
+  "Agent Configuration": ["Configuración del agente", "Agentenkonfiguration", "Çalışan yapılandırması"],
+  "Billing Addon": ["Complemento de facturación", "Abrechnungs-Zusatzoption", "Faturalandırma ek paketi"],
+  /*
+   * Raw status and priority values, shown as-is on the request pill. Lowercase on purpose —
+   * these are the database's words, not a label, and the pill prints them unchanged.
+   */
+  open: ["abierta", "offen", "açık"],
+  pending: ["pendiente", "ausstehend", "beklemede"],
+  closed: ["cerrada", "geschlossen", "kapalı"],
+  resolved: ["resuelta", "gelöst", "çözüldü"],
+  cancelled: ["cancelada", "storniert", "iptal edildi"],
+  normal: ["normal", "normal", "normal"],
+  low: ["baja", "niedrig", "düşük"],
+  high: ["alta", "hoch", "yüksek"],
+  urgent: ["urgente", "dringend", "acil"],
+  Ticket: ["Solicitud", "Anfrage", "Talep"],
+  "Ticket Comment": ["Comentario de solicitud", "Anfragen-Kommentar", "Talep yorumu"],
+  Webcall: ["Llamada web", "Webanruf", "Web araması"],
+  Webhook: ["Webhook", "Webhook", "Web kancası"],
+  System: ["Sistema", "System", "Sistem"],
+
+  // Employee capability verbs, joined with " · " on the channels tab.
+  answer: ["responder", "beantworten", "yanıtlar"],
+  reply: ["contestar", "antworten", "cevap yazar"],
+  "book & log": ["reservar y registrar", "buchen & erfassen", "randevu alır ve kaydeder"],
+  escalate: ["escalar", "eskalieren", "üst kademeye taşır"],
 };
 
 const MESSAGE_TREES: Record<Locale, unknown> = { en, es, de, tr };
