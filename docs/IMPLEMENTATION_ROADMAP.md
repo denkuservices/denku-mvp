@@ -3133,3 +3133,61 @@ so the platform console reports chat LLM spend as "not measured" and the margin 
 only. The reply engine knows the model and the token counts at the moment it answers; writing them
 into `messages.meta` (and the perception stage doing the same for vision and transcription, which
 are billed separately) would close it. Until then, do not let any report imply chat is free.
+### R-164 — Onboarding was English in every language but English
+
+**Priority:** High · **Effort:** M · **Status:** Fixed (2026-09-09) · **Source:** asked to walk
+onboarding end to end in Turkish
+
+**Problem.** Onboarding was the least translated surface in the product. Measured against the real
+runtime (`getDashboardDictionary(locale)` + `translateDashboardCopy`, not a reimplementation of
+them): of 96 candidate strings, **one** had a dictionary entry, **six** were answered only by a
+pattern rule — all six mangled — and **eighty-nine** had no answer at all. Roughly eighty of those
+are copy a customer reads: the six step descriptions in the progress rail (on screen at every
+step), the goal options, every question and explanation on the plan step, the whole activation
+screen, the channel-connect step, and fifteen error messages.
+
+`test/dashboard-i18n-coverage.test.ts` walks `src/app/(app)`, which includes onboarding, and
+passed the whole time. Three blind spots, each of which had to be true for this to survive:
+
+1. **`desc` was not in `COPY_PROPERTIES`** — `description` was. The step rail is a `desc:` table,
+   so all six descriptions were never collected.
+2. **Bare call arguments were not collected.** `setError("Something went wrong.")` is how most
+   error copy reaches a screen, and none of it was checked. Widening the walk to `set*Error` /
+   `toast` / `alert` arguments immediately surfaced **41 more untranslated strings across the
+   product** — billing, members, two-step verification, connecting a channel, the Inbox composer.
+3. **The oracle was "did the string change?"** So a pattern rule that mangles a string counted as
+   a translation. `^(Select|Open|Call|View details for) (.+)$` and `^(.+) connected$` were written
+   for aria-labels built around workspace data and their `(.+)` swallowed ordinary sentences:
+   "Select plan" became *"plan kişisini seç"* (select the person named plan), "Call your AI now"
+   became *"your AI now kişisini ara"*, and "Not connected" on three channel cards became
+   *"Not bağlı"* — a status indicator reading as noise. Nine strings product-wide.
+
+A fourth, separate leak: `ALLOWED_ENGLISH` exempted "Invalid plan_code", "Checkout session created
+but no URL returned" and friends as *"operator-facing, never renders as customer copy"*. Every
+onboarding call site did `setError(result.error || "…")`, so they rendered — in English, on a
+translated page, usually while the customer was trying to pay.
+
+**Fix.** 127 dictionary entries in Spanish, German and Turkish. Guards on the two over-broad
+pattern rules (`looksLikeDataValue`, `looksLikeChannelList`) so a capture meant to be a name or a
+channel list cannot be a sentence; exact dictionary entries for the nine mangled strings, which
+win over any rule. `onScreenError` in `OnboardingClient.tsx` logs an internal failure and shows a
+translated message instead, which is what makes the `ALLOWED_ENGLISH` block honest — if that guard
+is removed, those strings belong in the dictionary, not the allowlist. The coverage test now
+collects `desc:` and bare call arguments, and a new assertion forbids a source literal being
+answered by a pattern rule at all: rules exist for copy assembled at runtime, which this walk
+cannot see as a literal anyway.
+
+**Verification.** A throwaway workspace was created in production, walked through the step machine
+(DB steps 1–6 across the voice, chat and free branches — nine screens), and the rendered markup of
+each screen was run through the real locale boundary **in all three languages**. That is stronger
+than a source scan: it sees text React composes at runtime, and it found three more classes of
+English no static pass could — `"Step 4 of 6 · Plan"`, `"Back to What it answers"` and
+`"Pick any 2 of these"`, now runtime rules guarded on a known step label. The account and its
+workspace were deleted and the deletion verified. Nothing was charged: the free branch touches
+neither Stripe nor Vapi, and fetching markup fires no server action.
+
+**Not fixed, and worth its own look:** `runActivation` builds the Vapi assistant's opening line as
+a hardcoded English template (`Hi — thanks for calling ${workspaceName}. How can I help today?`)
+while passing `onboarding_language` separately for voice and transcription. Whether a Turkish
+workspace ends up greeting callers in English depends on what overwrites `firstMessage` later,
+which was not traced here.

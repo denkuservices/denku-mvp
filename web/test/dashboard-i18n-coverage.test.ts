@@ -41,8 +41,20 @@ const COPY_PROPERTIES = new Set([
   "emptyBody", "cta", "ctaLabel", "buttonLabel", "actionLabel", "confirmLabel", "cancelLabel",
   "name", "caption", "note", "text", "body", "copy", "blurb", "eyebrow", "kicker", "header",
   "statusLabel", "badge", "detail", "details", "short", "long", "headline", "subtext", "question",
-  "answer", "legend",
+  // `desc` was missing until 2026-09-09, and the onboarding step rail is a `desc:` table — so all
+  // six of its descriptions, on screen at every step of the wizard, were invisible to this walk.
+  "desc", "answer", "legend",
 ]);
+
+/**
+ * Functions whose first string argument goes straight onto the screen.
+ *
+ * Copy reaches a customer as a bare call argument as often as it does through a prop, and this
+ * walk used to look only at props and JSX. `setError("Something went wrong.")` in onboarding was
+ * therefore never checked — nor were a dozen more like it, which is most of what a customer sees
+ * when something breaks, in the language they are least able to absorb an English sentence in.
+ */
+const COPY_CALLS = /^(set[A-Z]\w*Error|setError|toast|toastError|notify|alert)$/;
 
 /**
  * English that is allowed to stay English, with the reason.
@@ -71,12 +83,22 @@ const ALLOWED_ENGLISH = new Set([
   "Gmail", "Outlook", "IdeaSoft", "Instagram", "Instagram Business", "Telegram", "Vapi",
   "Netgsm (Türkiye)", "Main Line",
 
-  // Operator-facing: log reasons and internal failures that never render as customer copy.
+  // Operator-facing: log reasons that never reach a screen.
   "activation asked for a workspace that is already live — refused",
   "customer brings their own number — no US line provisioned",
   "workspace holds a voice plan against a non-voice intent — refusing to provision",
+
+  /*
+   * Internal failures returned in an action's `error`. This block used to be justified as
+   * "never renders as customer copy", and that was simply untrue: every onboarding call site
+   * did `setError(result.error || "…")`, so a customer could be shown "Invalid plan_code" in
+   * English at the moment they were trying to pay. It is true NOW because `onScreenError` in
+   * `OnboardingClient.tsx` logs these and substitutes a translated message — so if that guard
+   * is ever removed, these belong back in the dictionary, not here.
+   */
   "Checkout session created but no URL returned", "Invalid plan_code",
   "stripe_price_id not configured", "Provisioned line, waiting for number assignment",
+  "Stripe initialization failed", "Customer creation failed", "Checkout session creation failed",
 
   // Identical in all four languages, so the dictionary returns the source unchanged.
   "Model", "Normal", "Plan", "Tablet", "Web",
@@ -166,6 +188,23 @@ function collectCopy(file: string, into: Map<string, string>) {
     ) {
       const text = literalText(node.expression);
       if (text !== null) record(text, node.expression);
+    } else if (ts.isCallExpression(node) && COPY_CALLS.test(node.expression.getText(source))) {
+      // `setError("…")` and friends: the message, and both sides of a `x || "fallback"`.
+      const fromArgument = (expression: ts.Expression): void => {
+        if (ts.isBinaryExpression(expression)) {
+          fromArgument(expression.left);
+          fromArgument(expression.right);
+          return;
+        }
+        if (ts.isParenthesizedExpression(expression)) return fromArgument(expression.expression);
+        if (ts.isCallExpression(expression)) {
+          expression.arguments.forEach((a) => fromArgument(a as ts.Expression));
+          return;
+        }
+        const text = literalText(expression);
+        if (text !== null) record(text, expression);
+      };
+      node.arguments.forEach((a) => fromArgument(a as ts.Expression));
     }
     ts.forEachChild(node, visit);
   };
@@ -204,5 +243,34 @@ describe("the authenticated product is translated, not half-translated", () => {
     }
 
     expect(untranslated).toEqual([]);
+  });
+
+  /**
+   * A pattern rule changing a string is not the same as translating it.
+   *
+   * The check above asks "did the runtime return something different?", and that is the whole
+   * reason the mangling below shipped unnoticed. Pattern rules in `dashboardRuntime.ts` exist for
+   * copy assembled at RUNTIME around workspace data — "4 requests", "Telegram, email connected" —
+   * which never appears in the source as a literal, so this walk cannot see it anyway. A literal
+   * it CAN see should therefore be answered by the dictionary, exactly.
+   *
+   * When that was not enforced, `^(Select|Open|Call|View details for) (.+)$` and `^(.+) connected$`
+   * quietly swallowed nine ordinary sentences and returned nonsense, all of which counted as
+   * translated: "Select plan" became "plan kişisini seç" (select the person named plan), "Not
+   * connected" on three channel cards became "Not bağlı", and the last button of onboarding,
+   * "Call your AI now", became "your AI now kişisini ara".
+   */
+  it.each(NON_ENGLISH)("%s answers source literals from the dictionary, not by pattern", (locale) => {
+    const dictionary = getDashboardDictionary(locale);
+    const patternOnly: string[] = [];
+
+    for (const [text, where] of copy) {
+      if (ALLOWED_ENGLISH.has(text)) continue;
+      if (dictionary[text] !== undefined) continue;
+      const answer = translateDashboardCopy(text, dictionary, locale);
+      if (answer !== text) patternOnly.push(`${where}  ${JSON.stringify(text)} -> ${JSON.stringify(answer)}`);
+    }
+
+    expect(patternOnly).toEqual([]);
   });
 });
