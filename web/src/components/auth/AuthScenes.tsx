@@ -19,19 +19,34 @@ import { useTranslations } from "next-intl";
  * metrics — the numbers here describe the scene, not Denku's traction.
  */
 
+/** The sample data inside the cards. It is copy a visitor reads, so it is translated too. */
+type SceneCopy = {
+  incomingCall: string;
+  closed: string;
+  pickedUp: string;
+  greeting: string;
+  askThursday: string;
+  offerTimes: string;
+  acceptTime: string;
+  appointment: string;
+  appointmentCreated: string;
+  callCount: string;
+  timeline: [string, string][];
+};
+
 const SCENES = [
   {
     n: "1",
     caption: "The call you'd have missed",
     note: "After hours, mid-job, or already on the line — it still gets answered.",
-    render: () => (
+    render: (c: SceneCopy) => (
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between rounded-2xl border border-[var(--d-border)] bg-[var(--d-bg-raised)] px-4 py-3.5">
           <div className="flex items-center gap-3">
             <span className="landing-pulse relative h-2 w-2 rounded-full bg-[var(--d-success)]" />
             <div>
               <div className="text-[13.5px] font-medium text-[var(--d-ink)]">
-                Incoming call
+                {c.incomingCall}
               </div>
               <div className="font-brand-mono text-[10.5px] text-[var(--d-ink-faint)]">
                 (321) ••• ••42 · 6:04 PM
@@ -39,15 +54,15 @@ const SCENES = [
             </div>
           </div>
           <span className="rounded-full border border-[rgba(200,148,104,.3)] bg-[rgba(200,148,104,.10)] px-2.5 py-1 font-brand-mono text-[9px] uppercase tracking-[.12em] text-[var(--d-copper)]">
-            You&apos;re closed
+            {c.closed}
           </span>
         </div>
         <div className="rounded-2xl border border-[rgba(47,163,154,.24)] bg-[rgba(47,163,154,.10)] px-4 py-3.5">
           <div className="font-brand-mono text-[9.5px] uppercase tracking-[.14em] text-[var(--d-teal)]">
-            Denku picked up
+            {c.pickedUp}
           </div>
           <div className="mt-1.5 text-[13.5px] text-[var(--d-ink-soft)]">
-            &ldquo;Thanks for calling — how can I help this evening?&rdquo;
+            {c.greeting}
           </div>
         </div>
       </div>
@@ -57,22 +72,22 @@ const SCENES = [
     n: "2",
     caption: "It books the job itself",
     note: "The conversation becomes an appointment request, written while you're away.",
-    render: () => (
+    render: (c: SceneCopy) => (
       <div className="flex flex-col gap-2.5">
         <div className="self-start max-w-[80%] rounded-2xl border border-[var(--d-border)] bg-[var(--d-surface-glass)] px-3.5 py-2 text-[13px] text-[var(--d-ink-soft)]">
-          Do you have anything Thursday?
+          {c.askThursday}
         </div>
         <div className="self-end max-w-[80%] rounded-2xl border border-[rgba(47,163,154,.24)] bg-[rgba(47,163,154,.16)] px-3.5 py-2 text-[13px] text-[var(--d-ink)]">
-          9:30am or 2pm — which suits?
+          {c.offerTimes}
         </div>
         <div className="self-start max-w-[80%] rounded-2xl border border-[var(--d-border)] bg-[var(--d-surface-glass)] px-3.5 py-2 text-[13px] text-[var(--d-ink-soft)]">
-          9:30 works.
+          {c.acceptTime}
         </div>
         <div className="mt-1.5 flex items-center gap-2.5 rounded-xl border border-[rgba(200,148,104,.34)] bg-[rgba(200,148,104,.08)] px-3.5 py-2.5">
           <span className="font-brand-mono text-[9.5px] uppercase tracking-[.14em] text-[var(--d-copper)]">
-            Appointment
+            {c.appointment}
           </span>
-          <span className="text-[12.5px] text-[var(--d-ink-soft)]">Thu 9:30am · created</span>
+          <span className="text-[12.5px] text-[var(--d-ink-soft)]">{c.appointmentCreated}</span>
         </div>
       </div>
     ),
@@ -81,7 +96,7 @@ const SCENES = [
     n: "3",
     caption: "It never forgets a customer",
     note: "Every call joins a contact's history, so the next one starts from something.",
-    render: () => (
+    render: (c: SceneCopy) => (
       <div className="rounded-2xl border border-[var(--d-border)] bg-[var(--d-bg-raised)] p-4">
         <div className="mb-3 flex items-center gap-3 border-b border-[var(--d-border)] pb-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--d-border)] bg-[var(--d-surface-glass)] text-[12px] text-[var(--d-ink-soft)]">
@@ -90,16 +105,12 @@ const SCENES = [
           <div>
             <div className="text-[13.5px] font-semibold text-[var(--d-ink)]">Dana M.</div>
             <div className="font-brand-mono text-[10px] text-[var(--d-ink-faint)]">
-              4th call · since March
+              {c.callCount}
             </div>
           </div>
         </div>
         <ol className="flex flex-col gap-2.5 pl-3.5">
-          {[
-            ["Mar 4", "Called about a leak"],
-            ["Mar 6", "Booked Thu 9:30am"],
-            ["Today", "Greeted by name"],
-          ].map(([when, what], i) => (
+          {c.timeline.map(([when, what], i) => (
             <li key={when} className="relative">
               <span
                 aria-hidden="true"
@@ -121,6 +132,7 @@ const SCENES = [
 export function AuthScenes() {
   const t = useTranslations("auth");
   const copy = t.raw("scenes") as { caption: string; note: string }[];
+  const sceneCopy = t.raw("sceneContent") as SceneCopy;
   const [i, setI] = React.useState(0);
   const [reduced, setReduced] = React.useState(false);
 
@@ -149,7 +161,7 @@ export function AuthScenes() {
               }}
               aria-hidden={!active}
             >
-              {s.render()}
+              {s.render(sceneCopy)}
             </div>
           );
         })}

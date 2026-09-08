@@ -499,6 +499,43 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     removed, never their semantics. Full account:
     [docs/denku-2.0/01-performance.md](docs/denku-2.0/01-performance.md).
 
+22. **The product is localised in TWO different ways, and only one of them fails loudly.**
+    The marketing site and the auth pages use next-intl: copy lives in `src/messages/{en,es,de,tr}.json`
+    and a missing key is visible. The authenticated tree does NOT — it holds literal English, and
+    `DashboardLocaleProvider` swaps it in the DOM at runtime against `DASHBOARD_COPY`
+    (`src/i18n/dashboardMessages.ts`), matched **exactly**. **A string with no entry is not an
+    error; it is just English**, forever, for every customer who is not reading English. That is how
+    763 of them accumulated by 2026-09-07 (R-158): the whole billing page, every channel setup card,
+    every phone-line flow, members, security, analytics, most server-action errors. Six rules.
+    **(a) New authenticated UI copy needs a `DASHBOARD_COPY` entry in the same change** — or use the
+    locale context directly, which is better and is what that file's own header asks for.
+    **(b) Sentence fragments are keys too**: the observer translates one DOM *text node* at a time,
+    so a sentence broken by a `<strong>` or a `{value}` arrives in pieces and each piece needs its
+    own entry. **(c) Keys are the DECODED, whitespace-collapsed text** — JSX `&apos;` is `'` in the
+    DOM. **(d) Anything outside `[locale]` must pass the locale explicitly.** next-intl reads it
+    from the route segment; `/login`, `/signup` and `/onboarding` have none, so a bare
+    `getTranslations()` there silently answers in English — use `getAuthLocale()`
+    (`src/i18n/authLocale.ts`). A **server** component's `useTranslations` has the same problem via
+    the request store, which is why `AuthShell` is a client component; do not "optimise" it back.
+    **(e) Never branch on the words in a translated string.** `SetPasswordForm` decided whether to
+    offer "resend the code" by matching `"session expired"` inside an error, and that stopped
+    working the day the error was translated — actions return a `code`, pure validators return a
+    `reason`. **(f) The auth layout must NOT call `setRequestLocale`**: it is next-intl's opt-in to
+    static rendering, and `/forgot-password` reads `useSearchParams` with no Suspense boundary of
+    its own, so prerendering it fails the build. **(g) The signed-in product's language is
+    `DENKU_UI_LOCALE`, never `NEXT_LOCALE`** (R-160): next-intl rewrites `NEXT_LOCALE` on any
+    locale-resolving navigation on the marketing site, including a visit to the canonical English
+    `/`, so a customer who set the product to Turkish and then clicked the logo came back to an
+    English dashboard with their saved preference ignored. Resolve it through
+    `getDashboardLocale()`, whose order lives in the pure `resolveDashboardLocale` and is pinned by
+    tests; never re-derive it inline. **(h) The boundary walks `document.body`**, so anything
+    outside it — a `<title>` — needs `dashboardTitle()`; and it skips a `<textarea>`'s *value* but
+    NOT its `placeholder`/`aria-label`, because splitting those two rules is what un-Englished
+    every textarea prompt in the product. Three tests fail on a regression —
+    `test/dashboard-i18n-coverage.test.ts`, `test/public-i18n-coverage.test.ts` and
+    `test/dashboard-locale-resolution.test.ts`; the first two allowlist only dead files,
+    form-field names, proper nouns and words identical in all four languages, and nothing else.
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,

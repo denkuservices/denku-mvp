@@ -5,7 +5,23 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
+> **Last updated:** 2026-09-07 (**R-158 · R-159 · R-160.** Half the product was English in every
+> language but English. The dashboard is not localised at the call site — the components hold
+> literal English and a DOM boundary swaps it against a dictionary — so a missing entry is not a
+> failure, it is just English, and **763** strings had no entry. Onboarding was excluded from that
+> boundary outright; auth was literal English end to end; five public pages in the sitemap were
+> hardcoded, so /tr/docs served a complete English page. Then the owner signed in and the product
+> was walked page by page in Turkish, which found what a parser structurally cannot: the boundary
+> skipped every `<textarea>` **attribute** along with its value, copy that arrives as data (billing
+> add-ons, the voice catalogue, the audit vocabulary, raw status values), sentences assembled
+> around a counter, and two browser-tab titles. **R-160** came out of that walk and was the reason
+> the owner kept seeing English at all: the dashboard read `NEXT_LOCALE`, which next-intl rewrites
+> on any marketing navigation, so clicking the Denku logo silently reset a Turkish product to
+> English with the saved preference ignored. **R-159** — /docs promising Zendesk, Salesforce, API
+> access and custom models, /support promising a contractual SLA — is fixed for those two pages,
+> rewritten from the same registries and corpus the site's own sales assistant answers from.
+> /use-cases and /about remain, still selling the pre-V3 product.)
+> **Prior:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
 > Workspace reading one `organization_settings` row **four times** — is fixed, and it needed none
 > of the risk that deferred it: `getWorkspaceGeneral` already does `select("*")`, so the page was
 > holding the answer and asking again. Pure mappers over the row it has; every loader intact for
@@ -2729,3 +2745,182 @@ resolvers' differing rules, and that a gate cookie from another session resolves
 still comes from the query it came from before), `slow-load-notice`. Measured live in a production
 build against the real database, signed in — the table above. Numbers are from a machine ~6× further
 from `us-west-2` than Vercel is; the round-trip *counts* are what transfer.
+
+---
+
+### R-158 — Half the product was English, in every language but English
+
+**Priority:** High · **Effort:** L · **Status:** Fixed (2026-09-07) · **Source:** owner report
+("dili türkçe olarak seçiyorum ama hala birçok yerde ingilizce kelimeler var")
+
+**Problem.** A workspace set to Turkish read Turkish in the sidebar and English in most of what the
+sidebar framed. Four separate causes, none of which fails, logs, or shows up in review:
+
+1. **The dashboard dictionary had no entry for most of the product.** The authenticated tree is not
+   localised at the call site: components hold literal English and `DashboardLocaleProvider` swaps
+   it in the DOM against `DASHBOARD_COPY`. A string with no entry simply stays English. Walking
+   `src/app/(app)` plus the shared dashboard components with the TypeScript parser and asking the
+   runtime for an answer found **763** such strings — the whole billing page, the
+   email/web-chat/Telegram/IdeaSoft setup cards, every phone-line flow, members and security, the
+   analytics tables, most server-action errors, and every empty state a new workspace opens on.
+2. **Onboarding was excluded outright.** The provider's effect bailed unless the path started with
+   `/dashboard`, so the entire setup flow — the first authenticated screens anyone sees — rendered
+   in English whatever they had picked on the marketing site.
+3. **Auth was English end to end.** `/login`, `/forgot-password`, `/reset-password` and
+   `/verify-email` were literal English including every error. `/signup` looked translated and was
+   not: auth sits outside `[locale]`, so `getTranslations()` there has no route segment to read and
+   quietly answers in the default locale.
+4. **Five public pages were hardcoded.** `/docs`, `/support`, `/use-cases`, `/contact` and `/about`
+   — all in the sitemap, four linked from the footer — plus the legal pages, the Instagram
+   data-deletion status page and three `metadata` exports. `/tr/docs` served a complete English page.
+
+**Fix.** 763 + ~60 dictionary entries for es/de/tr, written to the glossary the existing entries
+established; the observer extended to `/onboarding`; `src/i18n/authLocale.ts` so auth server
+components and actions take the cookie locale explicitly; the five public pages plus legal,
+Instagram and metadata moved into `src/messages/*.json`.
+
+Three things had to change shape rather than move:
+
+- **`SetPasswordForm` matched English words** (`"session expired"`) inside an error string to decide
+  whether to offer "resend the code". The action returns a `code` now.
+- **`validatePasswordChange`** is pure and unit-tested with no translator; it returns a stable
+  `reason` beside the English `error`, and the caller translates by reason.
+- **`AuthShell` became a client component.** As a server component its `useTranslations` resolved
+  from next-intl's request store, which nothing in a segment-less tree is guaranteed to have filled
+  — on `/signup` it had not, and the chrome said "Back to home" over a Turkish form.
+
+`loginAction` also stopped forwarding `error.message` from Supabase: English, and provider detail a
+customer can do nothing with. The server log still has it in full.
+
+**What makes it safe.** The auth layout deliberately does **not** call `setRequestLocale` — it is
+next-intl's opt-in to static rendering, and `/forgot-password` reads `useSearchParams` with no
+Suspense boundary of its own, so prerendering it fails the build outright. The dashboard observer is
+unchanged in every other respect: same exact-match dictionary, same skip rules, same
+requestAnimationFrame batching that keeps it out of React's hydration pass.
+
+**Deliberately not done.** The copy on `/docs` and `/support` is *stale* as well as untranslated —
+Zendesk, Intercom, Salesforce, HubSpot, Calendly, "API access on Scale plans", custom models, a
+"contractual SLA" with "guaranteed response times". None of it exists. It is translated faithfully
+rather than quietly rewritten, on the owner's instruction: the language problem is fixed now and the
+content is a separate decision. Filed as **R-159**.
+
+**A second pass, signed in (same day).** The owner logged in and the whole product was walked
+page by page in Turkish on a production build. The parser sweep had found copy written as a
+literal; this found what it structurally could not.
+
+1. **The boundary skipped `<textarea>` wholesale** — right for the value inside one, wrong for its
+   attributes. Every textarea prompt in the product was English, most of them already sitting
+   translated in the dictionary and never reached. Text and attributes now have separate rules.
+2. **Copy that arrives as DATA**: billing add-on names from `billing_addon_catalog`, lifecycle
+   descriptions, the voice catalogue, raw ticket status and priority values printed on the pill,
+   and the audit vocabulary prettified from dot-separated action codes.
+3. **Sentences assembled at render time**: "N requests", "N active sessions…", "Add one <add-on>",
+   the capability line joined with " · ", the language sentence joined with " or ", and the two
+   home-page nudges whose counter sat mid-sentence — those reached a Turkish reader as two
+   translated fragments with an English "conversations" wedged between them.
+4. **Two Inbox fallbacks inside `data-dashboard-user-content`** — "Unknown contact" and "Handled
+   by X" — which the boundary skips on purpose so it can never rewrite a customer's name. They are
+   ours, so they are translated at the source instead.
+5. **Two browser-tab titles**, which the boundary cannot reach at all: it walks the body, not the
+   head.
+
+**And one bug that was not about missing strings at all — R-160, below.** The dashboard read
+`NEXT_LOCALE`, which next-intl rewrites on any marketing navigation. Setting the product to
+Turkish and clicking the Denku logo brought it back in English, with the saved preference ignored.
+
+**Verification.** `tsc` clean on `src/`, `next build` green (186 static pages), **1767 tests pass
+across 121 files** (1703 before). Three suites walk the source or pin the rules and fail on a
+regression: `dashboard-i18n-coverage` (authenticated tree), `public-i18n-coverage` (public + auth;
+every user-visible literal must exist in `en.json`), and `dashboard-locale-resolution` (the
+fallback order, and the boundary's path rule). Checked live and signed in, in Turkish, on: home,
+inbox, a conversation, analytics, customers, a customer, requests, a request, appointments, team,
+an employee and its five tabs, channels and each channel, settings, billing, usage, members, audit,
+account security — plus `/tr/docs`, `/de/support`, `/es/use-cases`, `/es/about` and all five auth
+pages in Turkish and German. What the scanner still reports is the customer's own transcript,
+webhook event names, and an example address.
+
+**Still not verified end to end:** onboarding, which cannot be walked with an account that has
+already finished it. Its dictionary coverage is asserted and the boundary's path rule is now a
+tested pure function, but no human has seen a first run in Turkish.
+
+---
+
+### R-159 — /docs and /support promise integrations and SLAs that do not exist
+
+**Priority:** Medium · **Effort:** M · **Status:** Fixed for /docs and /support (2026-09-07);
+**/use-cases and /about still open** · **Source:** R-158
+
+**Problem.** Both pages are pre-V3 copy that the landing rewrite never reached, and they are now
+translated into four languages, so the claims travel further than before.
+
+`/docs` — "Automatically create tickets in **Zendesk or Intercom**", "Book, reschedule, and confirm
+appointments through **Google Calendar or Calendly**", "sync structured data to **Salesforce,
+HubSpot**", "**Scale plans include full API access**", "**Scale plans support custom model
+configurations**", plus a webhook section telling customers to verify HMAC signatures on endpoints
+they cannot configure. The only commerce integration that exists is IdeaSoft, and it has never run
+against a real store.
+
+`/support` — a three-tier response table ending in "**Contractual SLA** · Guaranteed response times
+and escalation paths defined in contract", and "Community support" for Starter. There is no
+community, no contract tier, and no status page behind "Status page coming soon".
+
+`/use-cases` and `/about` are softer but still describe the pre-V3 product ("deploy AI agents on an
+architecture designed for multi-tenant SaaS products"), not the AI-employee positioning the landing
+page now leads with.
+
+**Decision taken (2026-09-07).** The owner chose to rewrite rather than remove, and `/docs` and
+`/support` were rewritten around the product that exists.
+
+What makes the new pages harder to rot: the channel roster on `/docs` is rendered from
+`lib/marketing/content/channels.ts` with its real badges, so the page cannot claim a channel the
+site has not agreed is live; the language list comes from the language registry; and every
+behavioural claim is one the assistant that sells Denku already makes from
+`lib/denku-agent/corpus.ts` — page and salesperson cannot disagree. `/support` states plainly that
+there is no support tier to buy and no contractual response time, and its seven fixes are real
+failure modes from this repo rather than a generic troubleshooting list. The old message
+namespaces were deleted rather than merged over, so no removed claim survives as an unused key.
+
+**Still open: `/use-cases` and `/about`.** Both still describe the pre-V3 product — "deploy AI
+agents on an architecture designed for multi-tenant SaaS products", a CRM/helpdesk flow diagram —
+rather than the AI-employee positioning the landing page leads with. Neither states anything
+false, which is why they were left; they are simply selling an older product.
+
+---
+
+### R-160 — The marketing site reset the signed-in product's language
+
+**Priority:** High · **Effort:** S · **Status:** Fixed (2026-09-07) · **Source:** found while
+walking the signed-in product for R-158
+
+**Problem.** Set the dashboard to Turkish, click the Denku logo, come back: English. The account
+preference still said Turkish and was ignored.
+
+The dashboard read `NEXT_LOCALE`. That is next-intl's cookie, and its middleware rewrites it on any
+locale-resolving navigation on the marketing site — including a visit to the canonical English `/`,
+the URL in the sitemap and the one the logo points at. The authenticated layout only consulted
+`profiles.ui_locale` when the cookie was **absent**, and after any marketing navigation it never
+was. Reproduced on the owner's own workspace: `NEXT_LOCALE` flipped `tr` → `en` on one visit to the
+homepage, and every dashboard page after it rendered English.
+
+`routing.ts` already carried the same lesson one layer up — `DENKU_LOCALE` exists precisely because
+`NEXT_LOCALE` cannot answer "did this person choose?" — but the authenticated app had never been
+given its own.
+
+**Fix.** `DENKU_UI_LOCALE`, written only by the dashboard language switcher, and a resolution order
+that lives in one pure function (`resolveDashboardLocale`) with tests on it: the dashboard's own
+cookie, then the account preference carried in the session's metadata (cross-device, and free —
+the user object is already loaded), then `profiles.ui_locale` for accounts saved before that
+metadata existed, and only then `NEXT_LOCALE` as a hint for somebody who has never chosen. The
+switcher still writes `NEXT_LOCALE` alongside, so the marketing site and the signed-out auth pages
+follow the same choice while it lasts — but nothing in the product depends on it any more.
+
+`getDashboardLocale()` (server, React-`cache`d) is the single caller-facing resolver, shared by the
+layout and by `generateMetadata` on the two pages that set a browser-tab title. The database is
+still asked last and only when both free answers are absent, so the common case costs no extra
+round-trip — R-157's rule is intact.
+
+**Verification.** Signed in, on a production build: switching to Türkçe turns the product Turkish
+and writes both cookies; a round trip through the marketing homepage — which does still flip
+`NEXT_LOCALE` to `en` — leaves the dashboard Turkish. Eight unit tests pin the order, including
+that a value which is not a locale we serve is refused at every level, and that the two cookie
+names never converge.

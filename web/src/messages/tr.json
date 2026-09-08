@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Facebook sayfa mesajları."
+        "line": "Facebook sayfa mesajları.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "İşletme mesajlaşması."
+        "line": "İşletme mesajlaşması.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "sms": {
         "label": "SMS",
-        "line": "Kaçan aramalara mesaj atar."
+        "line": "Kaçan aramalara mesaj atar.",
+        "caveat": "Henüz geliştirilmedi ve hiçbir plana dâhil değil."
       },
       "webchat": {
         "label": "Web sohbeti",
@@ -263,7 +266,120 @@
       "alreadyRegisteredTitle": "Bu e-posta zaten kayıtlı",
       "alreadyRegisteredBody": "Hiçbir e-posta göndermedik. Şifrenizle giriş yapabilirsiniz.",
       "goToSignIn": "Giriş yap",
-      "forgotPassword": "Şifrenizi mi unuttunuz?"
+      "forgotPassword": "Şifrenizi mi unuttunuz?",
+      "sendCodeFailed": "Doğrulama kodu gönderilemedi. Lütfen tekrar deneyin.",
+      "tooManyRequests": "Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin."
+    },
+    "login": {
+      "title": "Giriş yap",
+      "subtitle": "Giriş yapmak için e-postanızı ve şifrenizi girin.",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "passwordLabel": "Şifre",
+      "passwordPlaceholder": "Şifreniz",
+      "remember": "Oturumum açık kalsın",
+      "forgot": "Şifrenizi mi unuttunuz?",
+      "submit": "Giriş yap",
+      "submitting": "Giriş yapılıyor...",
+      "noAccount": "Henüz kayıtlı değil misiniz?",
+      "createAccount": "Hesap oluştur",
+      "errorTitle": "Giriş hatası",
+      "loading": "Yükleniyor..."
+    },
+    "forgot": {
+      "title": "Şifrenizi sıfırlayın",
+      "subtitle": "E-postanızı girin, yeni şifre belirlemeniz için size bir bağlantı gönderelim.",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "submit": "Sıfırlama bağlantısı gönder",
+      "submitting": "Gönderiliyor...",
+      "sent": "Bu e-postaya ait bir hesap varsa şifre sıfırlama bağlantısı yola çıktı bile. Gelen kutunuza (ve spam klasörüne) bakın ve yeni şifrenizi belirlemek için bağlantıyı izleyin.",
+      "remembered": "Hatırladınız mı?",
+      "backToSignIn": "Girişe dön"
+    },
+    "reset": {
+      "title": "Yeni bir şifre belirleyin",
+      "subtitle": "Hesabınız için yeni bir şifre girin.",
+      "passwordLabel": "Yeni şifre",
+      "passwordPlaceholder": "En az 8 karakter",
+      "confirmLabel": "Yeni şifreyi doğrulayın",
+      "confirmPlaceholder": "Yeni şifrenizi tekrar girin",
+      "submit": "Şifreyi güncelle",
+      "submitting": "Kaydediliyor...",
+      "needLink": "Yeni bir bağlantı mı gerekiyor?",
+      "requestAnother": "Yenisini iste"
+    },
+    "verify": {
+      "title": "E-postanızı doğrulayın",
+      "subtitleWithEmail": "Devam etmek için e-postanıza gönderdiğimiz 8 haneli kodu girin.",
+      "subtitleNoEmail": "Doğrulama kodu almak için e-posta adresinizi girin.",
+      "emailLabel": "E-posta adresi",
+      "emailPlaceholder": "siz@sirketiniz.com",
+      "sendCode": "Doğrulama e-postası gönder",
+      "sending": "Gönderiliyor...",
+      "goToSignup": "Kayıt sayfasına git",
+      "codeLabel": "Doğrulama kodu",
+      "codeSentTo": "{email} adresine gönderilen 8 haneli kodu girin",
+      "codeTooShort": "8 haneli kodu girin.",
+      "verify": "Doğrula",
+      "verifying": "Doğrulanıyor...",
+      "resend": "Doğrulama kodunu yeniden gönder",
+      "resendIn": "Kodu yeniden gönderme: {seconds} sn",
+      "resendShort": "Kodu yeniden gönder",
+      "resendFailed": "Kod yeniden gönderilemedi",
+      "passwordIntro": "Hesabınız için bir şifre oluşturun.",
+      "passwordLabel": "Şifre",
+      "passwordPlaceholder": "En az 8 karakter",
+      "confirmLabel": "Şifreyi doğrulayın",
+      "confirmPlaceholder": "Şifrenizi tekrar girin",
+      "tooShort": "Şifre en az 8 karakter olmalı.",
+      "mismatch": "Şifreler eşleşmiyor.",
+      "setPassword": "Şifreyi kaydet ve devam et",
+      "settingPassword": "Şifre kaydediliyor..."
+    },
+    "errors": {
+      "invalidCredentials": "E-posta veya şifre hatalı",
+      "signInFailed": "Giriş yapılamadı. Lütfen tekrar deneyin.",
+      "unexpected": "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+      "resetFailed": "Şifreniz güncellenemedi. Lütfen tekrar deneyin.",
+      "resetLinkExpired": "Sıfırlama bağlantınızın süresi doldu. Lütfen yenisini isteyin.",
+      "sendCodeFailed": "Doğrulama kodu gönderilemedi. Lütfen tekrar deneyin.",
+      "tooManyRequests": "Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin.",
+      "setPasswordFailed": "Şifre kaydedilemedi. Lütfen tekrar deneyin.",
+      "passwordMismatch": "Şifreler eşleşmiyor",
+      "sessionExpired": "Oturum süresi doldu. Lütfen yeniden doğrulayın.",
+      "resendFailed": "Kod yeniden gönderilemedi. Lütfen tekrar deneyin.",
+      "invalidCode": "Doğrulama kodu geçersiz. Lütfen tekrar deneyin.",
+      "verifyFailed": "Doğrulama başarısız oldu. Lütfen tekrar deneyin.",
+      "resetRequestFailed": "Sıfırlama bağlantısı gönderilemedi. Lütfen tekrar deneyin.",
+      "passwordRequired": "Şifre zorunlu.",
+      "passwordTooShort": "Şifre en az {min} karakter olmalı."
+    },
+    "sceneContent": {
+      "incomingCall": "Gelen arama",
+      "closed": "Kapalısınız",
+      "pickedUp": "Denku yanıtladı",
+      "greeting": "“Aradığınız için teşekkürler — bu akşam size nasıl yardımcı olabilirim?”",
+      "askThursday": "Perşembe için yeriniz var mı?",
+      "offerTimes": "09.30 veya 14.00 — hangisi uyar?",
+      "acceptTime": "09.30 uygun.",
+      "appointment": "Randevu",
+      "appointmentCreated": "Per 09.30 · oluşturuldu",
+      "callCount": "4. arama · marttan beri",
+      "timeline": [
+        [
+          "4 Mar",
+          "Su kaçağı için aradı"
+        ],
+        [
+          "6 Mar",
+          "Per 09.30'a randevu aldı"
+        ],
+        [
+          "Bugün",
+          "Adıyla karşılandı"
+        ]
+      ]
     }
   },
   "request": {
@@ -309,7 +425,9 @@
         "label": "Hangi sistemlerle konuşmalı?",
         "placeholder": "örn. HubSpot, Google Takvim, kendi API'miz"
       }
-    }
+    },
+    "emailPlaceholder": "siz@sirketiniz.com",
+    "companyPlaceholder": "Şirket adı"
   },
   "subpage": {
     "dayTitle": "Bir günü.",
@@ -324,7 +442,8 @@
     "platform": "Platform",
     "doneForYou": "Sizin için yapılıyor",
     "pricePrinted": "Fiyatı açık",
-    "quoted": "Teklifle"
+    "quoted": "Teklifle",
+    "notFound": "Bulunamadı"
   },
   "employeeCard": {
     "onShift": "Görevde",
@@ -833,7 +952,9 @@
         ]
       }
     },
-    "planCta": "Başla"
+    "planCta": "Başla",
+    "metaTitle": "Fiyatlar",
+    "metaDescription": "Denku'nun sesli yapay zekâ çalışanı için sade ve şeffaf fiyatlandırma — plana göre dâhil dakikalar, telefon numaraları ve eşzamanlı arama, kullandıkça öde aşım ücretiyle."
   },
   "securityPage": {
     "eyebrow": "Güvenlik & güven",
@@ -975,9 +1096,18 @@
         "headline": "Bir mesaj, tamamlanmış bir işe dönüşür.",
         "sub": "Kanaldan gelen her konuşma aynı akışta yanıtlanır, sınıflandırılır ve ekibinize görünür.",
         "steps": [
-          { "title": "Mesaj gelir", "body": "Telegram, e-posta veya web sohbetinden." },
-          { "title": "Iris yanıtlar", "body": "Bağlamı koruyarak, sizin üslubunuzla." },
-          { "title": "İş tamamlanır", "body": "Talep, kayıt veya randevu olarak gelen kutunuza düşer." }
+          {
+            "title": "Mesaj gelir",
+            "body": "Telegram, e-posta veya web sohbetinden."
+          },
+          {
+            "title": "Iris yanıtlar",
+            "body": "Bağlamı koruyarak, sizin üslubunuzla."
+          },
+          {
+            "title": "İş tamamlanır",
+            "body": "Talep, kayıt veya randevu olarak gelen kutunuza düşer."
+          }
         ]
       },
       "headline": "Mesajlar, yanıtlanmış.",
@@ -1162,5 +1292,408 @@
         }
       }
     }
+  },
+  "legalPages": {
+    "eyebrow": "Yasal",
+    "privacyTitle": "Gizlilik Politikası",
+    "privacyIntro": "Neyi, neden topladığımızın ve bu konuda bize nasıl ulaşacağınızın özeti. Ürün büyüdükçe bu belgeyi genişletiyoruz — burada anlaşılmayan bir şey varsa sorun, açıkça yanıtlayalım.",
+    "privacySections": [
+      {
+        "title": "Topladığımız veriler",
+        "body": "Hizmeti sunabilmek için hesap bilgilerini, iletişim bilgilerini ve operasyonel üstverileri (kullanım olayları, kayıtlar ve yapılandırma verileri gibi) toplayabiliriz."
+      },
+      {
+        "title": "Verileri nasıl kullanıyoruz",
+        "body": "Verileri platformu işletmek, destek vermek, güvenilirliği artırmak ve güvenliği korumak için kullanırız. Kişisel verileri satmayız."
+      },
+      {
+        "title": "İletişim",
+        "body": "Gizlilikle ilgili sorularınız için İletişim sayfasından bize yazın."
+      }
+    ],
+    "termsTitle": "Hizmet Şartları",
+    "termsIntro": "Denku'yu kullanırken kabul ettiğiniz şartlar. Bilerek sade ve kısa tutuldu.",
+    "termsSections": [
+      {
+        "title": "Hizmetin kullanımı",
+        "body": "Hizmeti yürürlükteki yasalara uygun kullanmayı, platformu kötüye kullanmamayı ve işleyişine müdahale etmemeyi kabul edersiniz."
+      },
+      {
+        "title": "Erişilebilirlik",
+        "body": "Hizmet \"olduğu gibi\" sunulur. Ürünü geliştirdikçe özellikleri değiştirebiliriz; güvendiğiniz bir şey kaldırılmadan önce size haber veririz."
+      },
+      {
+        "title": "Sorumluluğun sınırı",
+        "body": "Yasaların izin verdiği ölçüde dolaylı veya sonuç olarak doğan zararlardan sorumlu değiliz. Kurumsal şartlar ayrı bir sözleşmeyle belirlenebilir."
+      }
+    ]
+  },
+  "aboutPage": {
+    "metaTitle": "Hakkımızda",
+    "metaDescription": "Denku hakkında — işletmeler tek bir aramayı bile kaçırmasın diye sesli yapay zekâ çalışanları geliştiriyoruz.",
+    "eyebrow": "Hakkımızda",
+    "title": "{name} hakkında",
+    "intro": "{name}, ekiplerin yapay zekâ çalışanlarını — ses, sohbet ve otomasyon — çok kiracılı SaaS ürünleri için tasarlanmış bir mimari üzerinde devreye almasına yardımcı olur.",
+    "missionEyebrow": "Misyon",
+    "missionTitle": "Yapay zekâ çalışanlarını bugünün işletmeleri için üretime hazır hâle getirmek.",
+    "missionBody": "Güvenli devreye alma kalıplarına odaklanıyoruz: açıkça tanımlı araçlar, dar kapsamlı erişim ve temiz izlenebilirlik — böylece şirketler yapay zekâ çalışanlarını hızla yayına alır ve güvenle işletir.",
+    "pillars": [
+      {
+        "title": "Çok kiracılı mimari",
+        "desc": "Kiracı bazında yalıtılmış veri erişimi ve dar kapsamlı araçlar — SaaS ölçeği ve müşteriler arasında temiz ayrım için tasarlandı."
+      },
+      {
+        "title": "Operasyonel denetim",
+        "desc": "Açıkça tanımlı araçlar, kurallar ve koruma bantları sayesinde çalışanlar üretimde güvenle iş görür."
+      },
+      {
+        "title": "İzlenebilirlik",
+        "desc": "Denetimi, iyileştirmeyi ve güvenilirliği destekleyen yapılandırılmış olaylar ve kayıtlar."
+      }
+    ],
+    "principlesTitle": "İlkeler",
+    "principles": [
+      "Varsayılan olarak kiracı yalıtımı",
+      "En az yetkili araçlar ve dar kapsamlı erişim",
+      "Yapılandırılmış olaylarla denetlenebilir işleyiş",
+      "Güvenli entegrasyonlar ve temiz web kancası pratiği",
+      "Denetimden ödün vermeden hızlı başlangıç"
+    ],
+    "whatYouGetTitle": "Elde ettikleriniz",
+    "whatYouGetBody": "Sade başlayıp sizinle büyüyen bir platform: tek bir yapay zekâ çalışanından birçoğuna, sesle başlayıp yayınladıkça yeni kanallar ekleyerek, temel kayıt tutmadan gelişmiş erişim denetimlerine.",
+    "viewPricing": "Fiyatları gör",
+    "talkToUs": "Bizimle konuşun"
+  },
+  "contactPage": {
+    "eyebrow": "İletişim",
+    "title": "İletişim",
+    "intro": "Sektörünüzü, kanallarınızı ve yapay zekâ çalışanının neyi üstlenmesini istediğinizi anlatın. Size bir iş akışı ve devreye alma planı önerelim.",
+    "outcomesTitle": "Tipik sonuçlar",
+    "outcomes": [
+      "Daha az destek yükü ve daha hızlı yanıt süreleri",
+      "Gelen arama ve sohbetlerde daha yüksek dönüşüm",
+      "CRM'inize veya sistemlerinize yapılandırılmış veri akışı"
+    ],
+    "includeTitle": "Nelerden bahsedin",
+    "includeBody": "Web siteniz, ana kanalınız (telefon/web), diller ve otomatikleştirmek istediğiniz 2–3 öncelikli iş.",
+    "formTitle": "Demo talep edin",
+    "formNote": "Gönderdiğinizde {email} adresindeki ekibimize bir e-posta açılır.",
+    "emailLabel": "İş e-postası",
+    "emailPlaceholder": "siz@sirketiniz.com",
+    "companyLabel": "Şirket",
+    "companyPlaceholder": "Şirket adı",
+    "websiteLabel": "Web sitesi",
+    "channelLabel": "Ana kanal",
+    "channelVoice": "Ses (telefon)",
+    "channelChat": "Sohbet (web sitesi)",
+    "channelBoth": "İkisi de",
+    "languageLabel": "Dil",
+    "languageEnglish": "İngilizce",
+    "languageSpanish": "İspanyolca",
+    "languageTurkish": "Türkçe",
+    "languageOther": "Diğer",
+    "messageLabel": "Yapay zekâ çalışanı neyi üstlensin?",
+    "messagePlaceholder": "Örnek: randevu alma, sipariş durumu, sık sorulan sorular, potansiyel müşteri niteleme...",
+    "submit": "Talebi gönder",
+    "consent": "Gönderdiğinizde {name} hakkında sizinle iletişime geçmemizi kabul etmiş olursunuz. Spam yok.",
+    "mailSubject": "Denku demo talebi",
+    "mailFrom": "Gönderen",
+    "mailCompany": "Şirket",
+    "mailChannel": "Ana kanal"
+  },
+  "useCasesPage": {
+    "metaTitle": "Kullanım örnekleri",
+    "metaDescription": "İşletmeler Denku'nun sesli yapay zekâ çalışanını her aramayı yanıtlamak, potansiyel müşteri nitelemek ve 7/24 randevu almak için nasıl kullanıyor: esnaf, klinik, salon ve daha fazlası.",
+    "eyebrow": "Kullanım örnekleri",
+    "titleLead": "Yapay zekâ çalışanınızın neyi",
+    "titleEmphasis": "üstlenmesini istersiniz",
+    "sub": "Bir iş akışı seçin. Gerçek işleyişte nasıl çalıştığını görün.",
+    "viewFlow": "Akışı gör",
+    "howItWorks": "Nasıl çalışır",
+    "whatItDoes": "Yapay zekâ çalışanı ne yapar",
+    "ctaTitle": "Canlı görmek ister misiniz?",
+    "ctaBody": "Şimdi canlı sesli yapay zekâyı deneyin, sonra kendi akışınızı kurmanıza yardım edelim.",
+    "ctaTalk": "Denku ile konuşun",
+    "ctaStart": "Başlayın",
+    "cases": {
+      "support": {
+        "title": "Müşteri desteği",
+        "description": "Talep yükünü azaltın, yanıt süresini kısaltın.",
+        "flow": [
+          "Gelen arama",
+          "Yapay zekâ anında yanıtlar",
+          "Sistemi kontrol eder (CRM / yardım masası)",
+          "Çözer veya üst kademeye taşır"
+        ],
+        "bullets": [
+          "Sık sorulan ve ürün sorularını anında yanıtlar",
+          "Yapılandırılmış içerikle talep oluşturur",
+          "Tüm bağlamıyla birlikte bir kişiye devreder"
+        ]
+      },
+      "sales": {
+        "title": "Satış karşılama",
+        "description": "Potansiyel müşterileri yapılandırılmış biçimde toplayın ve yönlendirin.",
+        "flow": [
+          "Potansiyel müşteriden arama",
+          "Yapay zekâ anında niteler",
+          "Puanlar ve yönlendirir",
+          "CRM'e aktarır"
+        ],
+        "bullets": [
+          "Niteleme sorularını otomatik sorar",
+          "Potansiyel müşterileri puanlayıp doğru ekibe yönlendirir",
+          "Web kancası veya araç üzerinden CRM'e aktarır"
+        ]
+      },
+      "appointment": {
+        "title": "Randevu alma",
+        "description": "Sesle ya da sohbetle randevu alın, erteleyin ve onaylayın.",
+        "flow": [
+          "Müşteri randevu ister",
+          "Yapay zekâ uygunluğu kontrol eder",
+          "Randevu alır veya saat önerir",
+          "Onay gönderir"
+        ],
+        "bullets": [
+          "Takvim uygunluğunu anlık kontrol eder",
+          "Randevu alır veya erteler",
+          "Onay ve hatırlatma gönderir"
+        ]
+      },
+      "order-status": {
+        "title": "Sipariş durumu ve bilgilendirme",
+        "description": "\"Siparişim nerede?\" ve durum sorularını otomatikleştirin.",
+        "flow": [
+          "Müşteri durumu sorar",
+          "Yapay zekâ sipariş sistemini kontrol eder",
+          "Anında bilgi verir",
+          "Önden bilgilendirme"
+        ],
+        "bullets": [
+          "Sipariş durumunu araç veya web kancasıyla kontrol eder",
+          "Gerektiğinde önden bilgi verir",
+          "Tekrar eden soruları karşılar"
+        ]
+      }
+    }
+  },
+  "instagramDeletion": {
+    "title": "Instagram veri silme",
+    "intro": "Bu sayfa, Denku'ya bağlı bir Instagram hesabı için yapılan veri silme talebinin durumunu gösterir.",
+    "noCode": "Onay kodu verilmedi. Instagram'ın size verdiği bağlantıyı kullanın.",
+    "statusLabel": "Durum",
+    "codeLabel": "Onay kodu",
+    "requestedLabel": "Talep edildi",
+    "completedLabel": "Tamamlandı",
+    "notFound": "Bu onay koduna ait talep bulunamadı",
+    "footnote": "Silme işlemi, saklanan Instagram bağlantısını ve hesap için kaydedilmiş tüm Instagram olaylarını kaldırır. Sorunuz mu var? Destek ekibiyle iletişime geçin.",
+    "statusNeedsAttention": "İlgi gerekiyor",
+    "statusInProgress": "Sürüyor",
+    "statusNotFound": "Bulunamadı"
+  },
+  "requestPage": {
+    "namePlaceholder": "Ayşe Yılmaz",
+    "topicLabel": "Ne hakkında yazıyorsunuz?"
+  },
+  "docsPage": {
+    "metaTitle": "Dokümantasyon",
+    "metaDescription": "Denku nasıl çalışır — yapay zekâ çalışanınız bir aramada ne yapar, nerelerde yanıt verir, ne üretir ve sizden ne ister.",
+    "eyebrow": "Dokümantasyon",
+    "title": "Denku nasıl çalışır",
+    "sub": "Yapay zekâ çalışanınız ne yapar, nerede yanıt verir ve sizden ne ister. Ürünle karşılaştırılabilsin diye yazıldı.",
+    "getStarted": "Ücretsiz başlayın",
+    "talkToDenku": "Yapay zekâya kendiniz sorun",
+    "gettingStartedTitle": "İlk adımlar",
+    "gettingStartedSub": "Dört adım. Bizden aldığınız numara aynı gün yayına girer; yapay zekâya işletmenizi öğretmek sonrasında devam eder.",
+    "steps": [
+      {
+        "title": "İşletmenizi anlatın",
+        "description": "Adınız, ne yaptığınız ve hangi dilde yanıt vermesini istediğiniz. Gerisini web sitenizden biz taslak olarak çıkarırız; kaydedilmeden önce siz düzeltirsiniz."
+      },
+      {
+        "title": "Neyi yanıtlayacağını seçin",
+        "description": "Telefonunuzu, mesajlarınızı ya da ikisini. Yalnızca seçtiğinize ait planlar gösterilir ve siz demeden hiçbir ücret alınmaz."
+      },
+      {
+        "title": "Bir kanal bağlayın",
+        "description": "Bizden numara alın, mevcut numaranızı bize yönlendirin, web sohbeti kodunu yapıştırın, bir Telegram botu bağlayın ya da bir e-posta adresini yönlendirin."
+      },
+      {
+        "title": "Mesaisi başlar",
+        "description": "Sonraki çalıştan ya da sonraki mesajdan itibaren. Her konuşma, dökümü ve ürettikleriyle birlikte Gelen Kutunuza düşer."
+      }
+    ],
+    "channelsTitle": "Nerelerde yanıt verir",
+    "channelsSub": "Her birinin üzerindeki rozet yol haritası değil, bugünkü dürüst durumdur. Bir kanal ancak yapay zekâ orada gerçekten yanıt veriyorsa satılır.",
+    "channelsNote": "Ses, sesli plana dakika üzerinden yansır. Her sohbet kanalı, sohbet planınızdaki kanal hakkından düşer.",
+    "outputTitle": "Her konuşmadan sonra elinize ne geçer",
+    "outputSub": "Yapay zekâ mesajı alıp kaybetmez. Biten her konuşma, üzerinde işlem yapabileceğiniz bir şeye dönüşür.",
+    "outputs": [
+      {
+        "title": "Bir talep ya da randevu",
+        "description": "Arayanın verdiği ayrıntılarla bir iş, ya da istediği saatle bir randevu talebi. Yapay zekâ konuşma sırasında oluşturmadıysa sistem sonradan dökümden oluşturur — hiçbir konuşma kaybolmaz."
+      },
+      {
+        "title": "Bir müşteri kaydı",
+        "description": "Konuştuğu herkes, tüm kanallardaki geçmişiyle kaydedilir. Sonraki arama sıfırdan değil, bir yerden başlar."
+      },
+      {
+        "title": "Kayıt ve döküm",
+        "description": "Konuşmaya eklenir; ne duyduğuna dair sözümüze güvenmek yerine tam olarak ne konuşulduğunu dinleyebilirsiniz."
+      },
+      {
+        "title": "İlgilenmeniz gerektiğinde e-posta",
+        "description": "Yeni bir talep ya da randevu düştüğünde seçtiğiniz adrese haber verilir — siz istemedikçe kişisel kutunuza değil."
+      }
+    ],
+    "knowledgeTitle": "Yapay zekâya işletmenizi öğretmek",
+    "knowledgeSub": "Yapay zekâ kendisine verilmeyen bir bilgiyi asla uydurmaz. Boş bıraktığınız her şey, yanıt yerine size bir talep olarak döner — bu güvenlidir ama ödediğiniz şey bu değildir.",
+    "knowledgePoints": [
+      {
+        "title": "Bilmesi gerekenleri doldurun",
+        "description": "Ne sattığınız, çalışma saatleriniz, hizmet bölgeniz, randevu ve iptal kurallarınız, en çok sorulan sorular ve istediğiniz üslup."
+      },
+      {
+        "title": "Ya da elinizdekini yükleyin",
+        "description": "Bir fiyat listesi, hizmet sayfası veya kural belgesi. Okuruz, içinde yazanı doldururuz; gerisini tahmin etmek yerine boş bırakırız."
+      },
+      {
+        "title": "Kaydedilmeden önce siz onaylarsınız",
+        "description": "Denku bu alanları web sitenizden taslak olarak çıkarabilir ama taslak her zaman düzeltmeniz için gösterilir — orada yazan her şey, sanki siz söylemişsiniz gibi müşterilerinize söylenir."
+      }
+    ],
+    "languagesTitle": "Diller",
+    "languagesSub": "Aramalarda ve sohbette bu dillerde konuşur ve dinler. Sohbette müşteri hangi dilde yazarsa o dilde yanıt verir.",
+    "languagesNote": "Arama, çalışanın ana dilinde başlar ve arayan işaretlediğiniz başka bir dili konuşursa o dile geçer.",
+    "languageNames": {
+      "en": "İngilizce",
+      "es": "İspanyolca",
+      "de": "Almanca",
+      "tr": "Türkçe"
+    },
+    "sensesTitle": "Neleri okuyabilir ve duyabilir",
+    "sensesSub": "Sohbet kanallarında müşterinin yazması şart değil.",
+    "senses": [
+      {
+        "title": "Fotoğraflar",
+        "description": "Müşteri parçanın, hasarın veya etiketin fotoğrafını gönderir; yapay zekâ içindekini okur ve yanıtlar."
+      },
+      {
+        "title": "Sesli mesajlar",
+        "description": "Sesli mesaj dinlenir ve yazılmış gibi yanıtlanır."
+      },
+      {
+        "title": "Okuyamadığında",
+        "description": "Bir dosya okunamıyorsa, içinde ne olduğunu tahmin etmek yerine okuyamadığını söyler."
+      }
+    ],
+    "takeoverTitle": "Yapay zekâdan devralmak",
+    "takeoverBody": "Sohbet kanallarında her konuşma tek bir Gelen Kutusunda durur; devralıp kendiniz yanıtlayabilirsiniz. Siz geri verene kadar yapay zekâ o konuşmayı yanıtlamayı bırakır.",
+    "takeoverCaveat": "Telefon görüşmesinde arayanı konuşma sırasında bir kişiye aktaramaz. Mesajı alır ve birinin geri dönmesi için bir talep oluşturur.",
+    "hoursTitle": "Çalışma saatleri",
+    "hoursBody": "Denku her kanalda, her saatte, 7/24 yanıt verir. Çalışma saatleri ekibinizin ne zaman işbaşında olduğunu anlatır — yapay zekânın yanıt vermesini asla durdurmaz.",
+    "hoursCaveat": "Yardımına tam olarak devam etmeden önce şu anda kapalı olduğunuzu söyleyip söylemeyeceğine siz karar verirsiniz.",
+    "storeTitle": "Çevrimiçi mağazanızı bağlamak",
+    "storeBody": "Denku bir e-ticaret kataloğunu okuyabilir; böylece yapay zekâ ürün sorularını yanıtlar — neyin olduğunu, fiyatını ve stokta ne kaldığını, renk ve beden ayrıntısına kadar. Desteklenen ilk sistem IdeaSoft. Müşteri yine sitenizde ya da Telegram'da konuşur; ürün bilgileri mağazanızdan gelir.",
+    "storeCaveat": "Bu özellik geliştirildi ama henüz gerçek bir mağazada çalıştırılmadı; bu yüzden kurulumu sizinle birlikte yapıp beraber doğruluyoruz. Sipariş sorgulama — “siparişim nerede” — bilerek yok, çünkü anonim bir ziyaretçi bir başkasının sipariş bilgilerini asla okuyabilmemeli.",
+    "faqTitle": "Yerinde sorular",
+    "faqs": [
+      {
+        "question": "Kurulum ne kadar sürer?",
+        "answer": "Yönlendirmeli kurulum birkaç dakika, bizden aldığınız numara aynı gün yayında. Kendi numaranız, operatörünüzün bizi göstermesi ne kadar sürerse o kadar. Yapay zekâya işletmenizi öğretmek sonrasında yapılır ve istediğiniz zaman geliştirilebilir."
+      },
+      {
+        "question": "Mevcut numaramı koruyabilir miyim?",
+        "answer": "Evet, numarayı operatörünüzden taşımadan. Operatörünüz o numaraya gelen aramaları SIP trunk üzerinden bize yönlendirir, yapay zekâ yanıtlar. Netgsm kanıtlanmış durumda ve hazır bir ön ayarı var; diğer operatörler ilkesel olarak çalışır ama kendi başınıza bırakmak yerine kurulumu sizinle birlikte yaparız."
+      },
+      {
+        "question": "Yanıtı bilmiyorsa ne olur?",
+        "answer": "Bilmediğini söyler ve müşterinin sorduğuyla birlikte size bir talep oluşturur. Yanıt uydurmaz. Tasarımı buna göre kurgulayın: Bilgi bölümüne ne kadar çok şey yazarsanız, size o kadar az talep düşer."
+      },
+      {
+        "question": "E-postalarımı okuyor musunuz?",
+        "answer": "Yalnızca yönlendirdiklerinizi. info@ gibi yayınlanmış bir adresi size verdiğimiz adrese yönlendirirsiniz — posta kutunuzun şifresini asla istemeyiz ve yönlendirmediğiniz hiçbir şeyi görmeyiz. Yönlendirme geçmişi de getirmez: yalnızca kuralı açtıktan sonra gelen postalar görünür."
+      },
+      {
+        "question": "Kendi alan adımdan e-posta gönderebilir mi?",
+        "answer": "Size verdiğimiz DNS kayıtlarını yayınladıktan sonra. O zamana kadar alır, okur ve taslak yazar; göndermeyi bir kişi yapar. Denku adresine geri dönüş yoktur, çünkü yabancı bir alan adından gelen yanıt, hiç yanıt gelmemesinden kötüdür."
+      },
+      {
+        "question": "API var mı?",
+        "answer": "Henüz yok. Denku, kontrol paneli ve yukarıdaki kanallar üzerinden kullanılır. Bir yere entegre etmeniz gerekiyorsa neye ihtiyacınız olduğunu söyleyin, var mı yok mu dürüstçe söyleyelim."
+      }
+    ],
+    "ctaTitle": "Hâlâ bir sorunuz mu var?",
+    "ctaBody": "Kendi sitemizdeki yapay zekâya sorun — bu sayfanın yazıldığı bilgilerin aynısından yanıt verir — ya da bir insana yazın.",
+    "ctaTalk": "Yapay zekâya sor",
+    "ctaSupport": "Bir kişiyle konuş"
+  },
+  "supportPage": {
+    "metaTitle": "Destek",
+    "metaDescription": "Denku desteğine nasıl ulaşılır, nelerde yardımcı olabiliriz ve en sık ters giden şeylerin çözümleri.",
+    "eyebrow": "Destek",
+    "titleLead": "Ürünü yazanlardan",
+    "titleEmphasis": "yardım",
+    "sub": "Küçük bir ekibiz. Talep numarası değil, ürünü değiştirebilecek birinden yanıt alırsınız.",
+    "contactSupport": "Destek e-postası",
+    "readDocs": "Dokümantasyonu okuyun",
+    "pathsTitle": "Yardım almanın üç yolu",
+    "paths": [
+      {
+        "title": "Dokümantasyonu okuyun",
+        "desc": "Nasıl çalıştığı, ne ürettiği ve her kanalın sizden ne istediği.",
+        "label": "Dokümantasyona git"
+      },
+      {
+        "title": "Kendi yapay zekâmıza sorun",
+        "desc": "Bu sitedeki asistan, dokümantasyonun yazıldığı bilgilerin aynısından yanıt verir. Kayıt gerekmez.",
+        "label": "Yapay zekâya sor"
+      },
+      {
+        "title": "Bize yazın",
+        "desc": "Gerçek bir kişi okur. Çalışma alanınızın adını ve ne yapmakta olduğunuzu ekleyin.",
+        "label": "Destek e-postası"
+      }
+    ],
+    "answerTitle": "Nasıl yanıt veriyoruz",
+    "answerBody": "Her e-postayı bir kişi okur ve yanıtlar. Müşterilerinizin size ulaşmasını engelleyen her şey — çalmayan bir hat, susan bir kanal — önce gelir.",
+    "answerHonesty": "Satın alınabilecek bir destek paketi ve sözleşmeye bağlı bir yanıt süresi yok. Bunu vaat edecek kadar büyük değiliz; tutmayabileceğimiz bir süre yazmaktansa bunu söylemeyi tercih ediyoruz.",
+    "fixesTitle": "En sık ters giden şeyler",
+    "fixes": [
+      {
+        "q": "Yepyeni numara henüz çalmıyor",
+        "a": "Telefon şebekesinin yeni bir numarayı yayına alması, aramalar ulaşabilmeden önce bir iki dakika sürer. Kaybolan bir şey yok — numara sizde kalır ve operatör işini bitirir bitirmez yanıt vermeye başlar. On dakika sonra hâlâ sessizse bize yazın."
+      },
+      {
+        "q": "Kendi numaram size ulaşıyor ama hiçbir hatla eşleşmiyor",
+        "a": "Neredeyse her zaman numara biçimi. Operatörünüz arayan ve aranan numaraları tam uluslararası biçimde göndermeli. Operatör panelinizdeki ön ekleri ve SIP sunucusunun sunucu adı değil sayısal bir IP adresi olduğunu kontrol edin."
+      },
+      {
+        "q": "Sohbet bileşeni sitemde görünmüyor",
+        "a": "Bileşen yalnızca kurulum sırasında listelediğiniz alan adlarında çalışır; liste boşsa her yerde reddeder. Sitenin sunulduğu tüm adresleri ekleyin — Shopify, Wix veya Squarespace kullanıyorsanız site kurucunun önizleme alan adını da."
+      },
+      {
+        "q": "Yönlendirilen e-posta gelmiyor",
+        "a": "Yönlendirme kuralının açık ve posta sağlayıcınızda onaylanmış olduğunu kontrol edin — Gmail onay ister. Yönlendirmenin, açmadan önceki hiçbir şeyi getirmediğini unutmayın; bu yüzden başka bir hesaptan yeni bir deneme mesajı gönderin."
+      },
+      {
+        "q": "Telegram botu mesaj alıyor ama yanıtlamıyor",
+        "a": "Ya çalışma alanının sohbet planı yoktur ya da bot bir yapay zekâ çalışanına atanmamıştır. İkisi de kontrol panelinizde kanalın kendi sayfasında görünür."
+      },
+      {
+        "q": "Yapay zekâ sürekli bilmediğini söylüyor",
+        "a": "Tasarım böyle — asla yanıt uydurmaz. Çalışan için Bilgi bölümünü doldurun ya da bir fiyat listesi veya hizmet sayfası yükleyin; o zaman bunları size talep olarak döndürmek yerine kendisi yanıtlar."
+      },
+      {
+        "q": "Fatura ya da dakikalarla ilgili bir soru",
+        "a": "Faturalandırma, kullanım ve geçmiş tüm faturalar Ayarlar → Faturalandırma bölümünde. Bir rakam yanlış görünüyorsa fatura referansını gönderin, nasıl hesaplandığını adım adım anlatalım."
+      }
+    ],
+    "statusTitle": "Sistem çökmüş olabilir mi?",
+    "statusBody": "Henüz herkese açık bir durum sayfası yok. Denku size yanıt vermiyorsa bize yazıp söyleyin — aldığımız en hızlı sinyal budur ve ne bulduğumuzu size söyleriz.",
+    "ctaTitle": "Ne olduğunu anlatın",
+    "ctaBody": "Çalışma alanınızın adı, kanal ve yaklaşık zaman. Kayıtlarda bulmamız için bu genelde yeter.",
+    "ctaButton": "Destek e-postası"
   }
 }

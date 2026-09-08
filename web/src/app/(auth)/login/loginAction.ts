@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getPlanState } from "@/lib/billing/planState";
@@ -15,6 +17,12 @@ export type LoginResult =
   | { ok: false; error: string };
 
 export async function loginAction(formData: FormData): Promise<LoginResult> {
+  /*
+   * Auth is outside `[locale]`, so next-intl has no segment to read and would answer in English.
+   * The locale comes from the same cookie the auth layout uses — see `getAuthLocale`.
+   */
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.errors" });
+
   try {
     const supabase = await createSupabaseServerClient();
     
@@ -48,18 +56,18 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
         errorMsg.includes("password") ||
         error.status === 400
       ) {
-        return { ok: false, error: "Invalid email or password" };
+        return { ok: false, error: t("invalidCredentials") };
       }
       
       // Other auth errors
-      return { ok: false, error: error.message || "Failed to sign in. Please try again." };
+      return { ok: false, error: t("signInFailed") };
     }
 
     // Check onboarding completion status
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.error("[loginAction] SignIn succeeded but no user returned");
-      return { ok: false, error: "Failed to sign in. Please try again." };
+      return { ok: false, error: t("signInFailed") };
     }
 
     // Get org_id
@@ -125,6 +133,6 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     
     // For truly unexpected errors, still return structured error instead of throwing
     // This prevents SSR crash while still logging the error
-    return { ok: false, error: "An unexpected error occurred. Please try again." };
+    return { ok: false, error: t("unexpected") };
   }
 }

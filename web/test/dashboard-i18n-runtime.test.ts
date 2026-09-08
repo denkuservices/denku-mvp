@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { translateDashboardCopy } from "@/i18n/dashboardRuntime";
+import { getDashboardDictionary } from "@/i18n/dashboardMessages";
+import { routing } from "@/i18n/routing";
+
+const NON_ENGLISH = routing.locales.filter((locale) => locale !== "en");
 
 describe("dashboard runtime translations", () => {
   it("translates changing Turkish counters without touching their values", () => {
@@ -35,5 +39,79 @@ describe("dashboard runtime translations", () => {
     expect(translateDashboardCopy("3 of 6 complete", dictionary, "tr")).toBe(
       "6 adımdan 3 tanesi tamamlandı",
     );
+  });
+});
+
+/**
+ * Counted sentences that used to arrive in pieces.
+ *
+ * Both nudges on the dashboard home interpolate a number into the middle of a sentence. Rendered
+ * as separate JSX children they reach the locale boundary as separate DOM text nodes, and the
+ * boundary translates one node at a time — so a Turkish reader got two translated fragments with
+ * an English "conversations" between them, in English clause order. The components compose them
+ * into one string now, and these rules are what that string is for.
+ */
+describe("counted dashboard sentences", () => {
+  const cases = [
+    "Your AI has answered 3 conversations without knowing anything about your business.",
+    "Your AI has answered 1 conversation without knowing anything about your business.",
+    "You are paying for 99 chat channels and using 1.",
+    "You are paying for 1 chat channel and using 0.",
+  ];
+
+  it.each(NON_ENGLISH.flatMap((locale) => cases.map((source) => [locale, source] as const)))(
+    "%s translates %s",
+    (locale, source) => {
+      const translated = translateDashboardCopy(source, getDashboardDictionary(locale), locale);
+      expect(translated).not.toBe(source);
+      // The counter survives; only the words around it change.
+      for (const number of source.match(/\d+/g) ?? []) {
+        expect(translated).toContain(number);
+      }
+      expect(translated).not.toMatch(/conversations?\b|chat channels?\b/);
+    },
+  );
+});
+
+/**
+ * Strings the signed-in walk of 2026-09-07 found still in English.
+ *
+ * Each of these is assembled at render time — a counter, an add-on name from the billing
+ * catalogue, a language name, a list joined with " · " or " or " — so none of them can be a
+ * plain dictionary key. The rules are what make them translatable; these are what stop the rules
+ * from being quietly broken by the next edit to the sentence they match.
+ */
+describe("assembled dashboard strings", () => {
+  const cases = [
+    "4 requests",
+    "1 request",
+    "1 active session. Sign out of any you don't recognise.",
+    "3 active sessions. Sign out of any you don't recognise.",
+    "Add one Extra phone number",
+    "Remove one Extra concurrent calls",
+    "answer · reply · book & log · escalate",
+    "answer · escalate",
+    "On calls it only speaks English.",
+    "It starts every call in English and switches if the caller speaks Turkish or German.",
+    "Voices that speak Turkish — Humanness is Denku's own 1–5 rating of how lifelike a voice sounds on a call — not a score from the voice provider.",
+    "Humanness 4/5 — Very natural. Humanness is Denku's own 1–5 rating of how lifelike a voice sounds on a call — not a score from the voice provider.",
+    "Humanness 4 out of 5, Very natural",
+  ];
+
+  it.each(NON_ENGLISH.flatMap((locale) => cases.map((source) => [locale, source] as const)))(
+    "%s translates %s",
+    (locale, source) => {
+      const translated = translateDashboardCopy(source, getDashboardDictionary(locale), locale);
+      expect(translated).not.toBe(source);
+      for (const number of source.match(/\d+/g) ?? []) {
+        expect(translated).toContain(number);
+      }
+    },
+  );
+
+  it("leaves a customer's own words alone even when they contain a rule's words", () => {
+    const dictionary = getDashboardDictionary("tr");
+    const theirs = "please answer · I need a reply about my order";
+    expect(translateDashboardCopy(theirs, dictionary, "tr")).toBe(theirs);
   });
 });

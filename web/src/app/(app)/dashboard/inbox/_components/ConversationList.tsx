@@ -12,6 +12,7 @@ import ChannelBadge, { channelIcon, channelIconClass } from "../../_platform/Cha
 import { formatShortWhen } from "../../_platform/format";
 import { fetchInboxPageAction } from "../_actions";
 import { inbox } from "./theme";
+import { useDashboardLocale } from "@/components/dashboard-i18n/DashboardLocaleProvider";
 
 /**
  * The Inbox list panel — the left half of the split view.
@@ -391,8 +392,16 @@ function ConversationRow({
   prefetch: (id: string) => void;
   eager?: boolean;
 }) {
-  const name = row.displayName || row.handle || "Unknown contact";
-  const preview = row.summary || (row.employeeName ? `Handled by ${row.employeeName}` : "—");
+  /*
+   * Translated here rather than by the DOM boundary: both of these sit inside spans marked
+   * `data-dashboard-user-content`, which the boundary skips on purpose so it can never rewrite a
+   * customer's name or their own words. The fallbacks are ours, though, and were the two English
+   * lines left in a Turkish Inbox.
+   */
+  const { translate } = useDashboardLocale();
+  const name = row.displayName || row.handle || translate("Unknown contact");
+  const preview =
+    row.summary || (row.employeeName ? translate(`Handled by ${row.employeeName}`) : "—");
 
   useEffect(() => {
     if (eager) prefetch(row.id);

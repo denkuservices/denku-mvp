@@ -1,4 +1,6 @@
+import { getTranslations } from "next-intl/server";
 import { VerifyEmailPageClient } from "./_components/VerifyEmailPageClient";
+import { getAuthLocale } from "@/i18n/authLocale";
 import { AuthShell } from "@/components/auth/AuthShell";
 
 interface VerifyEmailPageProps {
@@ -22,15 +24,12 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
   // Resolve searchParams (Next.js 16+)
   const resolvedSearchParams = await searchParams;
   const emailParam = resolvedSearchParams.email || "";
+  const t = await getTranslations({ locale: await getAuthLocale(), namespace: "auth.verify" });
 
   return (
     <AuthShell
-      title="Verify your email"
-      subtitle={
-        emailParam
-          ? "Enter the 8-digit code we sent to your email to continue."
-          : "Enter your email address to receive a verification code."
-      }
+      title={t("title")}
+      subtitle={emailParam ? t("subtitleWithEmail") : t("subtitleNoEmail")}
       showBackLink
     >
       <VerifyEmailPageClient initialEmail={emailParam} />

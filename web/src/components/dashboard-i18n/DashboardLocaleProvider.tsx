@@ -26,15 +26,45 @@ function normalizeCopy(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Copy this boundary must never rewrite: a customer's own words, and anything a page has
+ * explicitly opted out of. Applies to attributes and to text alike.
+ */
+function isOptedOut(node: Node): boolean {
+  const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  if (!element) return true;
+  return Boolean(
+    element.closest(
+      '[data-dashboard-no-translate="true"], [contenteditable="true"], [data-dashboard-user-content="true"]',
+    ),
+  );
+}
+
+/**
+ * Whether to leave a node's TEXT alone.
+ *
+ * `SKIPPED_TAGS` is about content, not about the element: the text inside a `<textarea>` is what
+ * the customer typed, and the text inside `<code>`/`<pre>` is a snippet they are meant to copy
+ * verbatim. Their *attributes* are a different matter — see `shouldSkipAttributes`.
+ */
 function shouldSkip(node: Node): boolean {
   const parent = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   if (!parent) return true;
   if (SKIPPED_TAGS.has(parent.tagName)) return true;
-  return Boolean(
-    parent.closest(
-      '[data-dashboard-no-translate="true"], [contenteditable="true"], [data-dashboard-user-content="true"]',
-    ),
-  );
+  return isOptedOut(node);
+}
+
+/**
+ * Whether to leave a node's ATTRIBUTES alone.
+ *
+ * Deliberately does NOT consult `SKIPPED_TAGS`. A `<textarea>`'s value belongs to the customer;
+ * its `placeholder` and `aria-label` are ours, and skipping the element wholesale left every
+ * textarea prompt in the product in English — "Add an internal note…", "Add what you know about
+ * this customer…", the six knowledge hints — each of them already sitting translated in the
+ * dictionary, never reached (found 2026-09-07 while walking the signed-in product).
+ */
+function shouldSkipAttributes(element: Element): boolean {
+  return isOptedOut(element);
 }
 
 function translateTextNode(
@@ -59,7 +89,7 @@ function translateAttributes(
   dictionary: Readonly<Record<string, string>>,
   locale: Locale,
 ) {
-  if (shouldSkip(element)) return;
+  if (shouldSkipAttributes(element)) return;
 
   for (const attribute of TRANSLATABLE_ATTRIBUTES) {
     const raw = element.getAttribute(attribute);
@@ -92,7 +122,9 @@ function translateElement(
   dictionary: Readonly<Record<string, string>>,
   locale: Locale,
 ) {
-  if (shouldSkip(element)) return;
+  // Only the opt-outs stop the walk here. A `<textarea>` still has its own attributes read —
+  // `translateTextNode` and `translateLeafElement` are what protect the value inside it.
+  if (isOptedOut(element)) return;
 
   translateAttributes(element, dictionary, locale);
   if (translateLeafElement(element, dictionary, locale)) return;
@@ -114,6 +146,21 @@ function translateElement(
 }
 
 /**
+ * Which paths this boundary translates.
+ *
+ * Exported and pure so it can be asserted: onboarding was excluded until 2026-09-07 — the guard
+ * only checked `/dashboard`, because that is where the language switcher lives — and so the whole
+ * setup flow, the first authenticated screens a customer ever sees and the ones that decide
+ * whether they trust the product enough to pay, rendered in English whatever they had picked on
+ * the marketing site. Same tree, same dictionary, same skip rules: there was never anything to
+ * gate.
+ */
+export function isLocalizedAppPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding");
+}
+
+/**
  * Locale boundary for the authenticated product.
  *
  * The marketing site was born on next-intl, while the older authenticated tree contains literal
@@ -131,7 +178,7 @@ export function DashboardLocaleProvider({
   dictionary: Readonly<Record<string, string>>;
 }) {
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith("/dashboard") ?? false;
+  const isLocalizedApp = isLocalizedAppPath(pathname);
 
   const translate = useCallback(
     (english: string) => translateDashboardCopy(english, dictionary, locale),
@@ -144,7 +191,7 @@ export function DashboardLocaleProvider({
   );
 
   useEffect(() => {
-    if (!isDashboard) return;
+    if (!isLocalizedApp) return;
     document.documentElement.lang = locale;
     if (locale === "en" || Object.keys(dictionary).length === 0) return;
 
@@ -213,7 +260,7 @@ export function DashboardLocaleProvider({
       pendingNodes.clear();
       if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
     };
-  }, [dictionary, isDashboard, locale]);
+  }, [dictionary, isLocalizedApp, locale]);
 
   return (
     <DashboardLocaleContext.Provider value={contextValue}>

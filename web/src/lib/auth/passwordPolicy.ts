@@ -14,9 +14,15 @@
 /** Minimum length for a user-chosen password. Matches the existing signup rule. */
 export const PASSWORD_MIN_LENGTH = 8;
 
+/**
+ * `reason` is what a caller translates by. `error` stays as the English wording the unit tests
+ * pin and as the fallback for any caller that has no translator to hand — the two must not drift.
+ */
+export type PasswordValidationReason = "required" | "tooShort" | "mismatch";
+
 export type PasswordValidationResult =
   | { ok: true; password: string }
-  | { ok: false; error: string };
+  | { ok: false; reason: PasswordValidationReason; error: string };
 
 /**
  * Validate a new-password / confirm-password pair.
@@ -29,18 +35,19 @@ export function validatePasswordChange(input: {
   const { password, confirmPassword } = input;
 
   if (typeof password !== "string" || typeof confirmPassword !== "string") {
-    return { ok: false, error: "Password is required." };
+    return { ok: false, reason: "required", error: "Password is required." };
   }
 
   if (password.length < PASSWORD_MIN_LENGTH) {
     return {
       ok: false,
+      reason: "tooShort",
       error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
     };
   }
 
   if (password !== confirmPassword) {
-    return { ok: false, error: "Passwords do not match." };
+    return { ok: false, reason: "mismatch", error: "Passwords do not match." };
   }
 
   return { ok: true, password };

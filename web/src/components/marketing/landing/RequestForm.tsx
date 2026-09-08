@@ -32,6 +32,8 @@ const EXTRA_FIELD: Record<string, string> = {
 export function RequestForm({ initialService }: { initialService?: string }) {
   const t = useTranslations("request");
   const tsv = useTranslations("services");
+  const tp = useTranslations("requestPage");
+  const tc = useTranslations("common");
   const nextSteps = t.raw("next") as string[];
   const valid = SERVICES.some((s) => s.slug === initialService);
   const [active, setActive] = React.useState(
@@ -98,7 +100,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
           {/* Intent tabs */}
           <div
             role="tablist"
-            aria-label="What are you asking about?"
+            aria-label={tp("topicLabel")}
             className="mb-8 flex flex-wrap gap-2"
           >
             {SERVICES.map((s) => {
@@ -150,7 +152,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
                   <label className={label} htmlFor="req-name">
                     {t("name")}
                   </label>
-                  <input id="req-name" name="name" className={field} placeholder="Jane Doe" />
+                  <input id="req-name" name="name" className={field} placeholder={tp("namePlaceholder")} />
                 </div>
                 <div>
                   <label className={label} htmlFor="req-email">
@@ -162,7 +164,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
                     type="email"
                     required
                     className={field}
-                    placeholder="you@company.com"
+                    placeholder={t("emailPlaceholder")}
                   />
                 </div>
               </div>
@@ -171,7 +173,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
                 <label className={label} htmlFor="req-company">
                   {t("company")}
                 </label>
-                <input id="req-company" name="company" className={field} placeholder="Company name" />
+                <input id="req-company" name="company" className={field} placeholder={t("companyPlaceholder")} />
               </div>
 
               <div>
@@ -239,7 +241,7 @@ export function RequestForm({ initialService }: { initialService?: string }) {
               href="/#demo"
               className="mt-2 inline-flex items-center gap-2.5 self-start rounded-full border border-[var(--d-border)] px-6 py-3 text-[14.5px] font-medium text-[var(--d-ink)] transition-colors hover:border-[rgba(200,148,104,.5)]"
             >
-              Talk to Denku <span aria-hidden="true">→</span>
+              {tc("talkToDenku")} <span aria-hidden="true">→</span>
             </Link>
           </div>
 

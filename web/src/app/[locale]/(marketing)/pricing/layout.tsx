@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
 // Pricing page is a client component, so its metadata lives in this route layout (R-067).
-export const metadata: Metadata = {
-  title: "Pricing",
-  description:
-    "Simple, transparent pricing for Denku's AI voice employee — included minutes, phone numbers, and concurrency per plan, with pay-as-you-go overage.",
-  alternates: { canonical: "/pricing" },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "pricingPage" });
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+    alternates: { canonical: "/pricing" },
+  };
+}
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return children;

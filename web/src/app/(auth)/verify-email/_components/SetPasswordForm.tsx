@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { setPasswordAction } from "../_actions/setPassword";
 
 interface SetPasswordFormProps {
@@ -11,6 +12,7 @@ interface SetPasswordFormProps {
 }
 
 export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormProps) {
+  const t = useTranslations("auth.verify");
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,12 +25,12 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
     setError(null);
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("tooShort"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("mismatch"));
       return;
     }
 
@@ -36,14 +38,9 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       // orgName and fullName are empty strings (will be collected in onboarding)
       const result = await setPasswordAction(password, confirmPassword, orgName, fullName);
       if (!result.ok) {
-        // Check if error indicates session expired
-        const errorMsg = result.error?.toLowerCase() || "";
-        if (errorMsg.includes("session expired") || errorMsg.includes("verify again")) {
-          setSessionExpired(true);
-          setError(result.error);
-        } else {
-          setError(result.error);
-        }
+        // The action names the case; matching English words here broke once it was translated.
+        setSessionExpired(result.code === "SESSION_EXPIRED");
+        setError(result.error);
         return;
       }
 
@@ -56,11 +53,11 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="text-sm text-[var(--s-ink-soft)]">
-        Create a password for your account.
+        {t("passwordIntro")}
       </p>
 
       <div>
-        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Password</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">{t("passwordLabel")}</label>
         <input
           type="password"
           value={password}
@@ -73,12 +70,12 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           required
           autoComplete="new-password"
           className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
-          placeholder="Minimum 8 characters"
+          placeholder={t("passwordPlaceholder")}
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Confirm password</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">{t("confirmLabel")}</label>
         <input
           type="password"
           value={confirmPassword}
@@ -91,7 +88,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
           required
           autoComplete="new-password"
           className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
-          placeholder="Confirm your password"
+          placeholder={t("confirmPlaceholder")}
         />
       </div>
 
@@ -108,7 +105,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
                 }}
                 className="text-sm text-red-800 underline hover:text-red-900 transition-colors"
               >
-                Resend code
+                {t("resendShort")}
               </button>
             </div>
           )}
@@ -120,7 +117,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
         disabled={isPending}
         className="w-full rounded-xl bg-[var(--s-cta-bg)] text-white py-3.5 font-medium hover:bg-[var(--s-accent)] active:bg-[var(--s-accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isPending ? "Setting password..." : "Set password and continue"}
+        {isPending ? t("settingPassword") : t("setPassword")}
       </button>
     </form>
   );

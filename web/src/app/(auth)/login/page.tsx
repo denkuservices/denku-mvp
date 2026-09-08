@@ -3,11 +3,13 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { loginAction, type LoginResult } from "./loginAction";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default function LoginPage() {
+  const t = useTranslations("auth.login");
   const router = useRouter();
   /*
    * Carry the address across from a signup that refused to send.
@@ -42,15 +44,15 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      title="Sign In"
-      subtitle="Enter your email and password to sign in!"
+      title={t("title")}
+      subtitle={t("subtitle")}
       showBackLink
       secondary={<SocialAuthButtons surface="dark" />}
       footer={
         <p className="text-sm text-[var(--s-ink-faint)]">
-          Not registered yet?{" "}
+          {t("noAccount")}{" "}
           <Link className="font-medium text-[var(--s-accent)] underline-offset-2 hover:underline" href="/signup">
-            Create an account
+            {t("createAccount")}
           </Link>
         </p>
       }
@@ -58,7 +60,7 @@ export default function LoginPage() {
       <form action={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
-            Email
+            {t("emailLabel")}
           </label>
           <input
             id="email"
@@ -68,13 +70,13 @@ export default function LoginPage() {
             defaultValue={prefilledEmail}
             autoComplete="email"
             className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
-            placeholder="you@company.com"
+            placeholder={t("emailPlaceholder")}
           />
         </div>
 
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
-            Password
+            {t("passwordLabel")}
           </label>
           <input
             id="password"
@@ -83,7 +85,7 @@ export default function LoginPage() {
             required
             autoComplete="current-password"
             className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
-            placeholder="Your password"
+            placeholder={t("passwordPlaceholder")}
           />
         </div>
 
@@ -97,14 +99,14 @@ export default function LoginPage() {
               className="h-4 w-4 rounded border-[var(--s-border)] text-[var(--s-accent)] focus:ring-[var(--s-accent-ring)]"
             />
             <label htmlFor="remember" className="ml-2 text-sm text-[var(--s-ink-faint)]">
-              Keep me logged in
+              {t("remember")}
             </label>
           </div>
           <Link
             href={prefilledEmail ? `/forgot-password?email=${encodeURIComponent(prefilledEmail)}` : "/forgot-password"}
             className="text-sm text-[var(--s-ink-faint)] underline-offset-2 transition-colors hover:text-[var(--s-accent)] hover:underline"
           >
-            Forgot Password?
+            {t("forgot")}
           </Link>
         </div>
 
@@ -120,7 +122,7 @@ export default function LoginPage() {
           disabled={isPending}
           className="w-full rounded-[10px] bg-[var(--s-cta-bg)] py-3.5 font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? "Signing in..." : "Sign in"}
+          {isPending ? t("submitting") : t("submit")}
         </button>
       </form>
     </AuthShell>

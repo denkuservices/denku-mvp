@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { updatePasswordAction } from "./updatePasswordAction";
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("auth.reset");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,13 +28,13 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell
-      title="Choose a new password"
-      subtitle="Enter a new password for your account."
+      title={t("title")}
+      subtitle={t("subtitle")}
       footer={
         <p className="text-sm text-[var(--s-ink-faint)]">
-          Need a new link?{" "}
+          {t("needLink")}{" "}
           <Link className="font-medium text-[var(--s-accent)] underline-offset-2 hover:underline" href="/forgot-password">
-            Request another
+            {t("requestAnother")}
           </Link>
         </p>
       }
@@ -40,7 +42,7 @@ export default function ResetPasswordPage() {
       <form action={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
-            New password
+            {t("passwordLabel")}
           </label>
           <input
             id="password"
@@ -50,13 +52,13 @@ export default function ResetPasswordPage() {
             minLength={8}
             autoComplete="new-password"
             className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
-            placeholder="At least 8 characters"
+            placeholder={t("passwordPlaceholder")}
           />
         </div>
 
         <div>
           <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-[var(--s-ink)]">
-            Confirm new password
+            {t("confirmLabel")}
           </label>
           <input
             id="confirmPassword"
@@ -66,7 +68,7 @@ export default function ResetPasswordPage() {
             minLength={8}
             autoComplete="new-password"
             className="w-full rounded-[10px] border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] transition-colors focus:border-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)]"
-            placeholder="Re-enter your new password"
+            placeholder={t("confirmPlaceholder")}
           />
         </div>
 
@@ -81,7 +83,7 @@ export default function ResetPasswordPage() {
           disabled={isPending}
           className="w-full rounded-[10px] bg-[var(--s-cta-bg)] py-3.5 font-medium text-[var(--s-cta-fg)] transition-all hover:bg-[var(--s-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? "Saving..." : "Update password"}
+          {isPending ? t("submitting") : t("submit")}
         </button>
       </form>
     </AuthShell>

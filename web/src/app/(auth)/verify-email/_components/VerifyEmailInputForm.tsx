@@ -14,6 +14,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
   const router = useRouter();
   // The same two sentences the signup form uses — one wording, one translation, one meaning.
   const t = useTranslations("auth.signup");
+  const tv = useTranslations("auth.verify");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   /** True once we refused to send because the address already has an account. */
@@ -26,7 +27,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      setError("Please enter a valid email address.");
+      setError(t("invalidEmail"));
       return;
     }
 
@@ -62,7 +63,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">Email address</label>
+        <label className="block text-sm font-medium text-[var(--s-ink)] mb-1.5">{tv("emailLabel")}</label>
         <input
           type="email"
           value={email}
@@ -75,7 +76,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
           required
           autoComplete="email"
           className="w-full rounded-xl border border-[var(--s-border)] bg-[var(--s-panel)] px-4 py-3 text-[var(--s-ink)] placeholder:text-[var(--s-ink-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:border-[var(--s-accent)] disabled:opacity-60 transition-colors"
-          placeholder="you@company.com"
+          placeholder={tv("emailPlaceholder")}
         />
       </div>
 
@@ -106,7 +107,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
         disabled={isPending || !email.trim()}
         className="w-full rounded-xl bg-[var(--s-cta-bg)] text-white py-3.5 font-medium hover:bg-[var(--s-accent)] active:bg-[var(--s-accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isPending ? "Sending..." : "Send verification email"}
+        {isPending ? tv("sending") : tv("sendCode")}
       </button>
 
       <div className="text-center">
@@ -114,7 +115,7 @@ export function VerifyEmailInputForm({ onEmailSet }: VerifyEmailInputFormProps) 
           className="text-sm text-[var(--s-ink-soft)] hover:text-[var(--s-ink)] underline transition-colors"
           href="/signup"
         >
-          Go to signup
+          {tv("goToSignup")}
         </Link>
       </div>
     </form>

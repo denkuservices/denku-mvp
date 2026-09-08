@@ -5,9 +5,7 @@ import { DashboardLocaleProvider } from "@/components/dashboard-i18n/DashboardLo
 import { getOnboardingComplete } from "@/lib/auth/checkOnboarding";
 import { platformUxEnabled } from "@/lib/platform/flags";
 import { getDashboardDictionary } from "@/i18n/dashboardMessages";
-import { routing, type Locale } from "@/i18n/routing";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCachedUser } from "@/lib/auth/currentUser";
+import { getDashboardLocale } from "@/i18n/dashboardLocale.server";
 import { GATE_COOKIE_NAME, readGateDecision } from "@/lib/auth/gateCookie";
 
 const dmSans = DM_Sans({
@@ -52,28 +50,9 @@ export default async function AppLayout({
   // legacy nav). Resolved server-side; a boolean crosses to the client shell.
   const platformUx = platformUxEnabled();
 
-  const cookieLocale = jar.get("NEXT_LOCALE")?.value;
-  let locale: Locale = routing.locales.includes(cookieLocale as Locale)
-    ? (cookieLocale as Locale)
-    : routing.defaultLocale;
-
-  // The cookie gives an instant same-device response; the profile is the cross-device source of
-  // truth and is also what transactional email uses.
-  if (!cookieLocale) {
-    const supabase = await createSupabaseServerClient();
-    const user = await getCachedUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("ui_locale")
-        .eq("auth_user_id", user.id)
-        .limit(1)
-        .maybeSingle<{ ui_locale: string | null }>();
-      if (routing.locales.includes(profile?.ui_locale as Locale)) {
-        locale = profile?.ui_locale as Locale;
-      }
-    }
-  }
+  // One resolver, shared with the pages that set a browser-tab title. See its own file for why
+  // the order matters and why the database is asked last.
+  const locale = await getDashboardLocale();
 
   return (
     <>

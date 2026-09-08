@@ -32,7 +32,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  if (!getEmployee(slug)) return { title: "Not found" };
+  if (!getEmployee(slug)) return { title: (await getTranslations({ locale, namespace: "subpage" }))("notFound") };
   const t = await getTranslations({ locale, namespace: `employees.items.${slug}` });
   return {
     title: t("role"),

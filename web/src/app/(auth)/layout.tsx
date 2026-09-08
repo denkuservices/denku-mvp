@@ -1,8 +1,6 @@
 import React from "react";
-import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
-import { hasLocale } from "next-intl";
-import { routing } from "@/i18n/routing";
+import { getAuthLocale } from "@/i18n/authLocale";
 
 /**
  * The auth group's ground.
@@ -22,11 +20,16 @@ import { routing } from "@/i18n/routing";
  * `--s-bg`, letting the previous page show through during navigation.
  */
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const requested = cookieStore.get("NEXT_LOCALE")?.value;
-  const locale = hasLocale(routing.locales, requested)
-    ? requested
-    : routing.defaultLocale;
+  const locale = await getAuthLocale();
+
+  /*
+   * Deliberately NOT `setRequestLocale`. It is next-intl's opt-in to static rendering, and these
+   * pages cannot be static: /forgot-password reads `useSearchParams` with no Suspense boundary of
+   * its own, so prerendering it fails the build outright. Server components here take the locale
+   * explicitly instead (`getTranslations({ locale, … })`), and `AuthShell` is a client component
+   * so its chrome reads the provider below rather than a request store nothing filled.
+   */
+
   const messages = (await import(`../../messages/${locale}.json`)).default;
 
   return (

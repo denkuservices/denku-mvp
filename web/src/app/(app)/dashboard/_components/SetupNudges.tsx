@@ -38,9 +38,17 @@ export default async function SetupNudges() {
               <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
               <div>
                 <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                  Your AI has answered {n.conversations}{" "}
-                  {n.conversations === 1 ? "conversation" : "conversations"} without knowing
-                  anything about your business.
+                  {/*
+                   * One text node, not five. The locale boundary translates a DOM text node at a
+                   * time, so a sentence split around {n.conversations} reached a Turkish reader as
+                   * three translated fragments with an English "conversations" wedged in the
+                   * middle and the clauses in English order. Composed here, it matches a single
+                   * counted rule in `dashboardRuntime`, which is free to put the words where the
+                   * language wants them.
+                   */}
+                  {`Your AI has answered ${n.conversations} ${
+                    n.conversations === 1 ? "conversation" : "conversations"
+                  } without knowing anything about your business.`}
                 </p>
                 <p className="mt-1 text-sm text-amber-800 dark:text-amber-300/90">
                   It will not invent an answer, so anything it is not told becomes a ticket for
@@ -65,8 +73,9 @@ export default async function SetupNudges() {
               <MessageSquarePlus className="mt-0.5 h-5 w-5 shrink-0 text-brand-600 dark:text-brand-300" />
               <div>
                 <p className="text-sm font-semibold text-navy-700 dark:text-white">
-                  You are paying for {n.slots} chat {n.slots === 1 ? "channel" : "channels"} and
-                  using {n.connected}.
+                  {`You are paying for ${n.slots} chat ${
+                    n.slots === 1 ? "channel" : "channels"
+                  } and using ${n.connected}.`}
                 </p>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                   Connect another channel and your AI answers there too, at no extra cost.

@@ -214,15 +214,18 @@
       },
       "messenger": {
         "label": "Messenger",
-        "line": "Facebook page messages."
+        "line": "Facebook page messages.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "whatsapp": {
         "label": "WhatsApp",
-        "line": "Business messaging."
+        "line": "Business messaging.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "sms": {
         "label": "SMS",
-        "line": "Texts back missed calls."
+        "line": "Texts back missed calls.",
+        "caveat": "Not built yet, and not included in any plan."
       },
       "webchat": {
         "label": "Web chat",
@@ -263,7 +266,120 @@
       "alreadyRegisteredTitle": "This email is already registered",
       "alreadyRegisteredBody": "We didn't send anything. Sign in with your password instead.",
       "goToSignIn": "Go to sign in",
-      "forgotPassword": "Forgot your password?"
+      "forgotPassword": "Forgot your password?",
+      "sendCodeFailed": "Failed to send verification code. Please try again.",
+      "tooManyRequests": "Too many requests. Please wait a moment and try again."
+    },
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Enter your email and password to sign in!",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "remember": "Keep me logged in",
+      "forgot": "Forgot Password?",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "noAccount": "Not registered yet?",
+      "createAccount": "Create an account",
+      "errorTitle": "Login error",
+      "loading": "Loading..."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email and we'll send you a link to set a new password.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "submit": "Send reset link",
+      "submitting": "Sending...",
+      "sent": "If an account exists for that email, a password reset link is on its way. Check your inbox (and spam folder) and follow the link to choose a new password.",
+      "remembered": "Remembered it?",
+      "backToSignIn": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account.",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmLabel": "Confirm new password",
+      "confirmPlaceholder": "Re-enter your new password",
+      "submit": "Update password",
+      "submitting": "Saving...",
+      "needLink": "Need a new link?",
+      "requestAnother": "Request another"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "subtitleWithEmail": "Enter the 8-digit code we sent to your email to continue.",
+      "subtitleNoEmail": "Enter your email address to receive a verification code.",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@company.com",
+      "sendCode": "Send verification email",
+      "sending": "Sending...",
+      "goToSignup": "Go to signup",
+      "codeLabel": "Verification code",
+      "codeSentTo": "Enter the 8-digit code sent to {email}",
+      "codeTooShort": "Enter the 8-digit code.",
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "resend": "Resend verification code",
+      "resendIn": "Resend code in {seconds}s",
+      "resendShort": "Resend code",
+      "resendFailed": "Failed to resend code",
+      "passwordIntro": "Create a password for your account.",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Minimum 8 characters",
+      "confirmLabel": "Confirm password",
+      "confirmPlaceholder": "Confirm your password",
+      "tooShort": "Password must be at least 8 characters.",
+      "mismatch": "Passwords do not match.",
+      "setPassword": "Set password and continue",
+      "settingPassword": "Setting password..."
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "signInFailed": "Failed to sign in. Please try again.",
+      "unexpected": "An unexpected error occurred. Please try again.",
+      "resetFailed": "Could not update your password. Please try again.",
+      "resetLinkExpired": "Your reset link has expired. Please request a new one.",
+      "sendCodeFailed": "Failed to send verification code. Please try again.",
+      "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+      "setPasswordFailed": "Failed to set password. Please try again.",
+      "passwordMismatch": "Passwords do not match",
+      "sessionExpired": "Session expired. Please verify again.",
+      "resendFailed": "Failed to resend code. Please try again.",
+      "invalidCode": "Invalid verification code. Please try again.",
+      "verifyFailed": "Verification failed. Please try again.",
+      "resetRequestFailed": "Could not send the reset link. Please try again.",
+      "passwordRequired": "Password is required.",
+      "passwordTooShort": "Password must be at least {min} characters."
+    },
+    "sceneContent": {
+      "incomingCall": "Incoming call",
+      "closed": "You're closed",
+      "pickedUp": "Denku picked up",
+      "greeting": "“Thanks for calling — how can I help this evening?”",
+      "askThursday": "Do you have anything Thursday?",
+      "offerTimes": "9:30am or 2pm — which suits?",
+      "acceptTime": "9:30 works.",
+      "appointment": "Appointment",
+      "appointmentCreated": "Thu 9:30am · created",
+      "callCount": "4th call · since March",
+      "timeline": [
+        [
+          "Mar 4",
+          "Called about a leak"
+        ],
+        [
+          "Mar 6",
+          "Booked Thu 9:30am"
+        ],
+        [
+          "Today",
+          "Greeted by name"
+        ]
+      ]
     }
   },
   "request": {
@@ -309,7 +425,9 @@
         "label": "Which systems should it talk to?",
         "placeholder": "e.g. HubSpot, Google Calendar, our own API"
       }
-    }
+    },
+    "emailPlaceholder": "you@company.com",
+    "companyPlaceholder": "Company name"
   },
   "subpage": {
     "dayTitle": "A day in the life.",
@@ -324,7 +442,8 @@
     "platform": "Platform",
     "doneForYou": "Done for you",
     "pricePrinted": "Price printed",
-    "quoted": "Quoted"
+    "quoted": "Quoted",
+    "notFound": "Not found"
   },
   "employeeCard": {
     "onShift": "On shift",
@@ -833,7 +952,9 @@
         ]
       }
     },
-    "planCta": "Get started"
+    "planCta": "Get started",
+    "metaTitle": "Pricing",
+    "metaDescription": "Simple, transparent pricing for Denku's AI voice employee — included minutes, phone numbers, and concurrency per plan, with pay-as-you-go overage."
   },
   "securityPage": {
     "eyebrow": "Security & trust",
@@ -975,9 +1096,18 @@
         "headline": "One message becomes finished work.",
         "sub": "Every conversation follows one clear path: answered, understood, and visible to your team.",
         "steps": [
-          { "title": "A message arrives", "body": "From Telegram, email, or web chat." },
-          { "title": "Iris responds", "body": "With the context intact, in your voice." },
-          { "title": "The work gets done", "body": "As a ticket, lead, or appointment in your Inbox." }
+          {
+            "title": "A message arrives",
+            "body": "From Telegram, email, or web chat."
+          },
+          {
+            "title": "Iris responds",
+            "body": "With the context intact, in your voice."
+          },
+          {
+            "title": "The work gets done",
+            "body": "As a ticket, lead, or appointment in your Inbox."
+          }
         ]
       },
       "headline": "The messages, answered.",
@@ -1162,5 +1292,408 @@
         }
       }
     }
+  },
+  "legalPages": {
+    "eyebrow": "Legal",
+    "privacyTitle": "Privacy Policy",
+    "privacyIntro": "A summary of what we collect, why, and how to reach us about it. We expand this document as the product grows — if anything here is unclear, ask us and we will answer plainly.",
+    "privacySections": [
+      {
+        "title": "Data we collect",
+        "body": "We may collect account details, contact information, and operational metadata needed to provide the service (e.g., usage events, logs, and configuration data)."
+      },
+      {
+        "title": "How we use data",
+        "body": "We use data to operate the platform, provide support, improve reliability, and maintain security. We do not sell personal data."
+      },
+      {
+        "title": "Contact",
+        "body": "For privacy questions, contact us via the Contact page."
+      }
+    ],
+    "termsTitle": "Terms of Service",
+    "termsIntro": "The terms you agree to when you use Denku. Plain language, kept short on purpose.",
+    "termsSections": [
+      {
+        "title": "Use of the service",
+        "body": "You agree to use the service in compliance with applicable laws and not to misuse or interfere with the platform."
+      },
+      {
+        "title": "Availability",
+        "body": "The service is provided on an \"as is\" basis. We may change features as we iterate and improve, and we will tell you before anything you rely on goes away."
+      },
+      {
+        "title": "Limitation of liability",
+        "body": "To the extent permitted by law, we are not liable for indirect or consequential damages. Enterprise terms may be provided under separate agreement."
+      }
+    ]
+  },
+  "aboutPage": {
+    "metaTitle": "About",
+    "metaDescription": "About Denku — building AI voice employees so businesses never miss a call.",
+    "eyebrow": "About",
+    "title": "About {name}",
+    "intro": "{name} helps teams deploy AI agents—voice, chat, and automation—on an architecture designed for multi-tenant SaaS products.",
+    "missionEyebrow": "Mission",
+    "missionTitle": "Make AI agents production-ready for modern businesses.",
+    "missionBody": "We focus on safe deployment patterns: explicit tools, scoped access, and clean observability — so companies can ship agents fast and operate them with confidence.",
+    "pillars": [
+      {
+        "title": "Multi-tenant architecture",
+        "desc": "Tenant-isolated data access and scoped tooling—built for SaaS scale and clean customer separation."
+      },
+      {
+        "title": "Operational control",
+        "desc": "Explicit tools, policies, and guardrails so agents operate safely in production."
+      },
+      {
+        "title": "Observability",
+        "desc": "Structured events and logs that support audits, iteration, and reliability."
+      }
+    ],
+    "principlesTitle": "Principles",
+    "principles": [
+      "Tenant isolation by default",
+      "Least-privilege tools and scoped access",
+      "Auditable operations with structured events",
+      "Secure integrations and webhook hygiene",
+      "Fast onboarding without sacrificing control"
+    ],
+    "whatYouGetTitle": "What you get",
+    "whatYouGetBody": "A platform that starts simple and grows with you: from one AI employee to many, starting with voice and adding channels as we ship them, from basic logging to advanced access controls.",
+    "viewPricing": "View pricing",
+    "talkToUs": "Talk to us"
+  },
+  "contactPage": {
+    "eyebrow": "Contact",
+    "title": "Contact",
+    "intro": "Tell us your industry, channels, and what you want the agent to handle. We'll propose a workflow and a deployment plan.",
+    "outcomesTitle": "Typical outcomes",
+    "outcomes": [
+      "Lower support volume and faster response times",
+      "Higher conversion on inbound calls and chats",
+      "Structured data capture into your CRM or systems"
+    ],
+    "includeTitle": "What to include",
+    "includeBody": "Your website, your primary channel (phone/web), languages, and 2–3 top tasks you want automated.",
+    "formTitle": "Request a demo",
+    "formNote": "Submitting opens an email to our team at {email}.",
+    "emailLabel": "Work email",
+    "emailPlaceholder": "you@company.com",
+    "companyLabel": "Company",
+    "companyPlaceholder": "Company name",
+    "websiteLabel": "Website",
+    "channelLabel": "Primary channel",
+    "channelVoice": "Voice (phone)",
+    "channelChat": "Chat (website)",
+    "channelBoth": "Both",
+    "languageLabel": "Language",
+    "languageEnglish": "English",
+    "languageSpanish": "Spanish",
+    "languageTurkish": "Turkish",
+    "languageOther": "Other",
+    "messageLabel": "What should the agent handle?",
+    "messagePlaceholder": "Example: Appointment booking, order status, FAQs, lead qualification...",
+    "submit": "Submit request",
+    "consent": "By submitting, you agree to be contacted about {name}. No spam.",
+    "mailSubject": "Denku demo request",
+    "mailFrom": "From",
+    "mailCompany": "Company",
+    "mailChannel": "Primary channel"
+  },
+  "useCasesPage": {
+    "metaTitle": "Use Cases",
+    "metaDescription": "See how businesses use Denku's AI voice employee to answer every call, qualify leads, and book appointments 24/7 — for trades, clinics, salons, and more.",
+    "eyebrow": "Use cases",
+    "titleLead": "What do you want your AI employee to",
+    "titleEmphasis": "handle",
+    "sub": "Pick a workflow. See how it works in production.",
+    "viewFlow": "View flow",
+    "howItWorks": "How it works",
+    "whatItDoes": "What the agent does",
+    "ctaTitle": "Want to see this live?",
+    "ctaBody": "Try the live voice agent now, then we'll help you set up your own workflow.",
+    "ctaTalk": "Talk to Denku",
+    "ctaStart": "Get started",
+    "cases": {
+      "support": {
+        "title": "Customer Support",
+        "description": "Reduce ticket volume and improve response time.",
+        "flow": [
+          "Incoming call",
+          "AI answers instantly",
+          "Checks system (CRM / Helpdesk)",
+          "Resolves or escalates"
+        ],
+        "bullets": [
+          "Answers FAQs and product questions instantly",
+          "Creates tickets with structured payloads",
+          "Escalates to humans with full context"
+        ]
+      },
+      "sales": {
+        "title": "Sales Intake",
+        "description": "Capture and route leads with structured intake.",
+        "flow": [
+          "Incoming lead call",
+          "AI qualifies instantly",
+          "Scores and routes",
+          "Pushes to CRM"
+        ],
+        "bullets": [
+          "Asks qualifying questions automatically",
+          "Scores and routes leads to the right team",
+          "Pushes to CRM via webhook/tool"
+        ]
+      },
+      "appointment": {
+        "title": "Appointment Booking",
+        "description": "Book, reschedule, and confirm through voice or chat.",
+        "flow": [
+          "Customer requests booking",
+          "AI checks availability",
+          "Books or suggests times",
+          "Sends confirmation"
+        ],
+        "bullets": [
+          "Checks calendar availability in real-time",
+          "Books or reschedules appointments",
+          "Sends confirmations and reminders"
+        ]
+      },
+      "order-status": {
+        "title": "Order Status & Updates",
+        "description": "Automate \"where is my order?\" and status requests.",
+        "flow": [
+          "Customer asks for status",
+          "AI checks order system",
+          "Provides update instantly",
+          "Proactive notifications"
+        ],
+        "bullets": [
+          "Checks order status via tool/webhook",
+          "Provides proactive updates when needed",
+          "Deflects repetitive inbound queries"
+        ]
+      }
+    }
+  },
+  "instagramDeletion": {
+    "title": "Instagram data deletion",
+    "intro": "This page shows the status of a data deletion request for a Denku-connected Instagram account.",
+    "noCode": "No confirmation code provided. Use the link Instagram gave you.",
+    "statusLabel": "Status",
+    "codeLabel": "Confirmation code",
+    "requestedLabel": "Requested",
+    "completedLabel": "Completed",
+    "notFound": "No request found for confirmation code",
+    "footnote": "Deletion removes the stored Instagram connection and any persisted Instagram events for the account. Questions? Contact support.",
+    "statusNeedsAttention": "Needs attention",
+    "statusInProgress": "In progress",
+    "statusNotFound": "Not found"
+  },
+  "requestPage": {
+    "namePlaceholder": "Jane Doe",
+    "topicLabel": "What are you asking about?"
+  },
+  "docsPage": {
+    "metaTitle": "Docs",
+    "metaDescription": "How Denku works — what your AI employee does on a call, where it answers, what it produces, and what it needs from you.",
+    "eyebrow": "Documentation",
+    "title": "How Denku works",
+    "sub": "What your AI employee does, where it answers, and what it needs from you. Written to be checkable against the product.",
+    "getStarted": "Start free",
+    "talkToDenku": "Ask the AI yourself",
+    "gettingStartedTitle": "Getting started",
+    "gettingStartedSub": "Four steps. The number is live the same day; teaching it about your business carries on afterwards.",
+    "steps": [
+      {
+        "title": "Tell it about your business",
+        "description": "Your name, what you do, and the language you want it to answer in. We draft the rest from your website — you correct it before it is saved."
+      },
+      {
+        "title": "Choose what it answers",
+        "description": "Your phone, your messages, or both. You are only shown plans for what you pick, and nothing is charged until you say so."
+      },
+      {
+        "title": "Connect a channel",
+        "description": "Take a number from us, point your existing one at us, paste the web-chat snippet, connect a Telegram bot, or forward an email address."
+      },
+      {
+        "title": "It starts its shift",
+        "description": "From the next ring or the next message. Every conversation lands in your Inbox with a transcript and whatever it produced."
+      }
+    ],
+    "channelsTitle": "Where it answers",
+    "channelsSub": "The badge on each one is the honest status, not a roadmap. A channel is only sold when the AI actually replies there.",
+    "channelsNote": "Voice is billed in minutes on a voice plan. Every chat channel counts against the channel allowance on a chat plan.",
+    "outputTitle": "What you get after every conversation",
+    "outputSub": "The AI never just takes a message and loses it. Every finished conversation becomes something you can act on.",
+    "outputs": [
+      {
+        "title": "A request, or an appointment",
+        "description": "A task with the detail the caller gave, or a booking request with the time they asked for. If the AI did not create one during the conversation, the system creates it afterwards from the transcript — a conversation is never lost."
+      },
+      {
+        "title": "A customer record",
+        "description": "Everyone it speaks to is saved, with their history across every channel. The next call starts from something rather than from zero."
+      },
+      {
+        "title": "The recording and the transcript",
+        "description": "Attached to the conversation, so you can hear exactly what was said rather than take our word for what it heard."
+      },
+      {
+        "title": "An email when something needs you",
+        "description": "You are told when a new request or appointment lands, at the address you choose — not your personal inbox unless you say so."
+      }
+    ],
+    "knowledgeTitle": "Teaching it about your business",
+    "knowledgeSub": "The AI never invents a fact it was not given. Anything you leave blank becomes a request for you instead of an answer — which is safe, but it is not what you are paying for.",
+    "knowledgePoints": [
+      {
+        "title": "Fill in what it should know",
+        "description": "What you sell, your hours, your service area, your booking and cancellation rules, the questions you are asked most, and the tone you want."
+      },
+      {
+        "title": "Or upload what you already have",
+        "description": "A price list, a services page, a policy document. We read it and fill in what it says, leaving the rest blank rather than guessing."
+      },
+      {
+        "title": "You review before it is saved",
+        "description": "Denku can draft those fields from your website, but the draft is always shown for you to correct — anything in there is said to your customers as though you had said it."
+      }
+    ],
+    "languagesTitle": "Languages",
+    "languagesSub": "It speaks and listens in these, on calls and in chat. In chat it replies in whichever language the customer writes in.",
+    "languagesNote": "A call starts in the employee's main language and switches if the caller speaks another one you have ticked.",
+    "languageNames": {
+      "en": "English",
+      "es": "Spanish",
+      "de": "German",
+      "tr": "Turkish"
+    },
+    "sensesTitle": "What it can read and hear",
+    "sensesSub": "On chat channels, a customer does not have to type.",
+    "senses": [
+      {
+        "title": "Photos",
+        "description": "A customer sends a picture of the part, the damage or the label, and the AI reads what is in it and answers."
+      },
+      {
+        "title": "Voice notes",
+        "description": "A voice message is heard and answered as if it had been typed."
+      },
+      {
+        "title": "And when it can't",
+        "description": "If a file cannot be read, it says so rather than guessing at what was in it."
+      }
+    ],
+    "takeoverTitle": "Taking over from the AI",
+    "takeoverBody": "On chat channels, every conversation lives in one Inbox and you can take it over and reply yourself; the AI stops answering that conversation until you hand it back.",
+    "takeoverCaveat": "On a phone call it cannot transfer the caller to a person mid-call. It takes the message and creates a request so someone calls back.",
+    "hoursTitle": "Opening hours",
+    "hoursBody": "Denku answers around the clock, on every channel, at every hour. Opening hours describe when your staff are in — they never stop the AI from answering.",
+    "hoursCaveat": "You choose whether it mentions that you are currently closed before carrying on and helping fully, or simply does not raise it.",
+    "storeTitle": "Connecting your online store",
+    "storeBody": "Denku can read an e-commerce catalogue so the AI answers product questions — what exists, what it costs, and what is in stock, down to the colour and size. IdeaSoft is the first system supported. The customer still talks on your website or Telegram; the product facts come from your store.",
+    "storeCaveat": "This is built but has not yet run against a real store, so we set it up with you and verify it together. Order lookup — “where is my order” — is deliberately not available, because an anonymous visitor must never be able to read a stranger's order.",
+    "faqTitle": "Fair questions",
+    "faqs": [
+      {
+        "question": "How long does setup take?",
+        "answer": "The guided setup is a few minutes and a number from us is live the same day. Your own number takes as long as your carrier needs to point it at us. Teaching the AI about your business is done afterwards and improves at any time."
+      },
+      {
+        "question": "Can I keep my existing number?",
+        "answer": "Yes, without porting it away from your carrier. Your carrier forwards calls for that number to us over a SIP trunk and the AI answers. Netgsm is proven and has a ready-made preset; any other carrier works in principle but we set it up with you rather than leaving it self-serve."
+      },
+      {
+        "question": "What happens if it doesn't know the answer?",
+        "answer": "It says so and creates a request for you, with what the customer asked. It will not invent an answer. That is the behaviour to design around: the more you put in Knowledge, the fewer of those you get."
+      },
+      {
+        "question": "Do you read my email?",
+        "answer": "Only what you forward. You forward a published address such as info@ to an address we issue you — we never ask for your mailbox password and we never see anything you do not forward. Forwarding also brings nothing from the past: only mail arriving after you switch the rule on appears."
+      },
+      {
+        "question": "Can it send email as my own domain?",
+        "answer": "Once you publish the DNS records we give you. Until then it receives, reads and drafts, and a person sends. There is no fallback to a Denku address, because a reply from a stranger's domain is worse than no reply."
+      },
+      {
+        "question": "Is there an API?",
+        "answer": "Not yet. Denku is used through the dashboard and the channels above. If you need something integrated, tell us what and we will say honestly whether it exists."
+      }
+    ],
+    "ctaTitle": "Still have a question?",
+    "ctaBody": "Ask the AI on our own site — it answers from the same facts this page is written from — or write to a person.",
+    "ctaTalk": "Ask the AI",
+    "ctaSupport": "Talk to a person"
+  },
+  "supportPage": {
+    "metaTitle": "Support",
+    "metaDescription": "How to reach Denku support, what we can help with, and fixes for the things that most often go wrong.",
+    "eyebrow": "Support",
+    "titleLead": "Help from",
+    "titleEmphasis": "people who built it",
+    "sub": "We are a small team. You get an answer from someone who can change the product, not a ticket number.",
+    "contactSupport": "Email support",
+    "readDocs": "Read the docs",
+    "pathsTitle": "Three ways to get help",
+    "paths": [
+      {
+        "title": "Read the docs",
+        "desc": "How it works, what it produces, and what each channel needs from you.",
+        "label": "Go to docs"
+      },
+      {
+        "title": "Ask our own AI",
+        "desc": "The assistant on this site answers from the same facts the docs are written from. No signup.",
+        "label": "Ask the AI"
+      },
+      {
+        "title": "Write to us",
+        "desc": "A real person reads it. Include your workspace name and what you were doing.",
+        "label": "Email support"
+      }
+    ],
+    "answerTitle": "How we answer",
+    "answerBody": "A person reads every email and answers it. Anything that stops customers reaching you — a line not ringing, a channel gone silent — comes first.",
+    "answerHonesty": "There is no support tier to buy and no contractual response time. We are not big enough to promise one, and we would rather say that than print a number we might miss.",
+    "fixesTitle": "Things that most often go wrong",
+    "fixes": [
+      {
+        "q": "A brand-new number does not ring yet",
+        "a": "The phone network takes a minute or two to publish a new number before calls can reach it. Nothing is lost — the number stays yours and starts answering the moment the carrier finishes. If it is still silent after ten minutes, write to us."
+      },
+      {
+        "q": "My own number reaches you but matches nothing",
+        "a": "Almost always the number format. Your carrier must send the caller and called numbers in full international format. Check the prefixes in your carrier panel, and that the SIP server is a numeric IP address rather than a hostname."
+      },
+      {
+        "q": "The chat widget does not appear on my site",
+        "a": "The widget only runs on the domains you listed when you installed it, and an empty list refuses everywhere. Add every address the site is served from, including the builder preview domain on Shopify, Wix or Squarespace."
+      },
+      {
+        "q": "Forwarded email is not arriving",
+        "a": "Check the forwarding rule is switched on and confirmed at your mail host — Gmail asks for a confirmation. Remember that forwarding brings nothing from before you switched it on, so send a fresh test message from another account."
+      },
+      {
+        "q": "The Telegram bot receives but does not answer",
+        "a": "Either the workspace has no chat plan, or the bot is not assigned to an AI employee. Both are shown on the channel's own page in your dashboard."
+      },
+      {
+        "q": "The AI keeps saying it does not know",
+        "a": "That is the design — it never invents an answer. Fill in the Knowledge section for the employee, or upload a price list or services page, and it will answer those itself instead of turning them into requests for you."
+      },
+      {
+        "q": "A question about an invoice or minutes",
+        "a": "Billing, usage and every past invoice are in Settings → Billing. If a figure looks wrong, send us the invoice reference and we will explain exactly how it was calculated."
+      }
+    ],
+    "statusTitle": "Is it down?",
+    "statusBody": "There is no public status page yet. If Denku is not answering for you, write to us and say so — that is the fastest signal we get, and we will tell you what we find.",
+    "ctaTitle": "Tell us what happened",
+    "ctaBody": "Your workspace name, the channel, and roughly when. That is usually enough for us to find it in the logs.",
+    "ctaButton": "Email support"
   }
 }

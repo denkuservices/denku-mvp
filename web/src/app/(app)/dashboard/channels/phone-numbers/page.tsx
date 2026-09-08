@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { dashboardTitle } from "@/i18n/dashboardTitle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCachedUser } from "@/lib/auth/currentUser";
 import { getPhoneLinesWithTodayCounts } from "@/lib/phone-lines/queries";
@@ -7,9 +8,10 @@ import PhoneLinesClient from "./PhoneLinesClient";
 import { AddPhoneNumberButton } from "./_components/AddPhoneNumberButton";
 import { byoNumbersEnabled } from "@/lib/platform/flags";
 
-export const metadata = {
-  title: "Phone Lines",
-};
+export async function generateMetadata() {
+  // The tab title is outside the locale boundary's reach — it walks the body, not the head.
+  return { title: await dashboardTitle("Phone Lines") };
+}
 
 export const dynamic = "force-dynamic";
 
