@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { RequestForm } from "@/components/marketing/landing/RequestForm";
+import { localeAlternates } from "@/i18n/alternates";
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "request" });
-  return { title: t("headline"), description: t("sub"), alternates: { canonical: "/request" } };
+  return {
+    alternates: localeAlternates(locale, '/request'), title: t("headline"), description: t("sub") };
 }
 
 // Next.js 16: searchParams is a Promise and must be awaited.
 export default async function RequestPage({
   params,
-  searchParams,
+  searchParams
 }: {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ service?: string }>;
@@ -33,7 +35,7 @@ export default async function RequestPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">

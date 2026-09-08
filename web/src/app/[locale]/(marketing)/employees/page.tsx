@@ -6,23 +6,25 @@ import { EMPLOYEES } from "@/lib/marketing/employees";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
+import { localeAlternates } from "@/i18n/alternates";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "employees" });
-  return { title: t("eyebrow"), description: t("sub"), alternates: { canonical: "/employees" } };
+  return {
+    alternates: localeAlternates(locale, '/employees'), title: t("eyebrow"), description: t("sub") };
 }
 
 export default async function EmployeesIndexPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -38,7 +40,7 @@ export default async function EmployeesIndexPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">

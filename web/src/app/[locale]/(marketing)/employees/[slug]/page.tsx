@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EMPLOYEES, getEmployee } from "@/lib/marketing/employees";
 import { routing } from "@/i18n/routing";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
+import { localeAlternates } from "@/i18n/alternates";
 import {
   CapabilityColumns,
   DayTimeline,
@@ -37,7 +38,7 @@ export async function generateMetadata({
   return {
     title: t("role"),
     description: t("sub"),
-    alternates: { canonical: `/employees/${slug}` },
+    alternates: localeAlternates(locale, `/employees/${slug}`),
   };
 }
 

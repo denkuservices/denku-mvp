@@ -11,7 +11,16 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   applicationName: siteConfig.name,
   robots: { index: true, follow: true },
-  alternates: { canonical: '/' },
+  /*
+   * No `alternates` here, deliberately.
+   *
+   * This layout wraps every locale, so a canonical declared at this level is inherited by all
+   * of them — which is how `/tr/pricing` came to announce `https://www.denku.io` as its
+   * canonical URL, telling Google the Turkish page is the English home page and should not be
+   * indexed on its own. Each localised page declares its own through `localeAlternates()`
+   * (src/i18n/alternates.ts); a page that declares none is better off with no canonical than
+   * with somebody else's.
+   */
   openGraph: {
     type: 'website',
     siteName: siteConfig.name,

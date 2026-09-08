@@ -5,23 +5,25 @@ import Link from "next/link";
 import { INDUSTRIES } from "@/lib/marketing/industries";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
+import { localeAlternates } from "@/i18n/alternates";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "industries" });
-  return { title: t("eyebrow"), description: t("headline"), alternates: { canonical: "/industries" } };
+  return {
+    alternates: localeAlternates(locale, '/industries'), title: t("eyebrow"), description: t("headline") };
 }
 
 export default async function IndustriesIndexPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -37,7 +39,7 @@ export default async function IndustriesIndexPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">

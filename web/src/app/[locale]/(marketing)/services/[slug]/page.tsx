@@ -8,6 +8,7 @@ import { Reveal } from "@/components/marketing/landing/primitives";
 import { ChannelGrid } from "@/components/marketing/landing/ChannelGrid";
 import { SubpageCta, SubpageHero } from "@/components/marketing/landing/SubpageShell";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
+import { localeAlternates } from "@/i18n/alternates";
 import {
   StudioMakes,
   StudioPlans,
@@ -40,7 +41,7 @@ export async function generateMetadata({
   return {
     title: t("name"),
     description: t("sub"),
-    alternates: { canonical: `/services/${slug}` },
+    alternates: localeAlternates(locale, `/services/${slug}`),
   };
 }
 

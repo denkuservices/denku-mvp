@@ -12,18 +12,19 @@ import {
   MessageSquare,
   PhoneOff,
   Send,
-  Sparkles,
+  Sparkles
 } from 'lucide-react';
 import { getSupportEmail, getSupportMailto } from '@/lib/support';
 import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
+import { localeAlternates } from '@/i18n/alternates';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
@@ -32,7 +33,7 @@ export async function generateMetadata({
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
-    alternates: { canonical: '/support' },
+    alternates: localeAlternates(locale, '/support')
   };
 }
 
@@ -61,7 +62,7 @@ const FIX_ICONS = [PhoneOff, PhoneOff, Globe, MailQuestion, Send, MessageSquare,
  * with no plan or no employee, an empty Knowledge section).
  */
 export default async function SupportPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {

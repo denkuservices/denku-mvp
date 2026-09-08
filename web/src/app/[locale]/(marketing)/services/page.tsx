@@ -6,23 +6,25 @@ import { SERVICES } from "@/lib/marketing/content/services";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { ChannelGrid } from "@/components/marketing/landing/ChannelGrid";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
+import { localeAlternates } from "@/i18n/alternates";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "services" });
-  return { title: t("eyebrow"), description: t("sub"), alternates: { canonical: "/services" } };
+  return {
+    alternates: localeAlternates(locale, '/services'), title: t("eyebrow"), description: t("sub") };
 }
 
 export default async function ServicesIndexPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -39,7 +41,7 @@ export default async function ServicesIndexPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">
@@ -67,7 +69,7 @@ export default async function ServicesIndexPage({
                     style={{
                       background:
                         "linear-gradient(150deg, rgba(47,163,154,.24), rgba(200,148,104,.16))",
-                      border: "1px solid var(--d-border)",
+                      border: "1px solid var(--d-border)"
                     }}
                   >
                     {s.glyph}
