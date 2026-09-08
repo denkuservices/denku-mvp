@@ -2,13 +2,14 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { AboutPage } from '@/components/marketing/about-page';
 import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
+import { localeAlternates } from '@/i18n/alternates';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
@@ -17,12 +18,12 @@ export async function generateMetadata({
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
-    alternates: { canonical: '/about' },
+    alternates: localeAlternates(locale, '/about')
   };
 }
 
 export default async function AboutRoutePage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {

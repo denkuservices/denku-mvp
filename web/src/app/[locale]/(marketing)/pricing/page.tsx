@@ -7,6 +7,7 @@ import { routing } from "@/i18n/routing";
 import { Reveal } from "@/components/marketing/landing/primitives";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
 import { ChatPlans } from "@/components/marketing/landing/ChatPlans";
+import { localeAlternates } from "@/i18n/alternates";
 
 /**
  * Pricing — restyle and translate only.
@@ -32,21 +33,21 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "pricingPage" });
   return {
+    alternates: localeAlternates(locale, '/pricing'),
     title: t("eyebrow"),
-    description: t("sub"),
-    alternates: { canonical: "/pricing" },
+    description: t("sub")
   };
 }
 
 export default async function PricingPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -71,7 +72,7 @@ export default async function PricingPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">

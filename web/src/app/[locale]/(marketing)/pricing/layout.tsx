@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { localeAlternates } from "@/i18n/alternates";
 
 // Pricing page is a client component, so its metadata lives in this route layout (R-067).
 export async function generateMetadata({
@@ -12,7 +13,7 @@ export async function generateMetadata({
   return {
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: { canonical: "/pricing" },
+    alternates: localeAlternates(locale, "/pricing"),
   };
 }
 

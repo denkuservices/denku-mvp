@@ -5,19 +5,21 @@ import { Reveal } from "@/components/marketing/landing/primitives";
 import { ChannelGrid } from "@/components/marketing/landing/ChannelGrid";
 import { SubpageCta } from "@/components/marketing/landing/SubpageShell";
 import { routing } from "@/i18n/routing";
+import { localeAlternates } from "@/i18n/alternates";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "companyPage" });
-  return { title: t("eyebrow"), description: t("sub"), alternates: { canonical: "/company" } };
+  return {
+    alternates: localeAlternates(locale, '/company'), title: t("eyebrow"), description: t("sub") };
 }
 
 /**
@@ -33,7 +35,7 @@ export async function generateMetadata({
 
 
 export default async function CompanyPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -51,7 +53,7 @@ export default async function CompanyPage({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)",
+              "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(47,163,154,.20), transparent 65%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl">

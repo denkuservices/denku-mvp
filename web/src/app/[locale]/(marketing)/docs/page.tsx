@@ -11,20 +11,21 @@ import {
   Ear,
   Image as ImageIcon,
   MessageSquare,
-  UserRound,
+  UserRound
 } from 'lucide-react';
 import { MARKETING_CHANNELS, STATUS_ORDER } from '@/lib/marketing/content/channels';
 import { LANGUAGE_CODES } from '@/lib/language/registry';
 import { getSupportMailto } from '@/lib/support';
 import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
+import { localeAlternates } from '@/i18n/alternates';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
@@ -33,7 +34,7 @@ export async function generateMetadata({
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
-    alternates: { canonical: '/docs' },
+    alternates: localeAlternates(locale, '/docs')
   };
 }
 
@@ -60,7 +61,7 @@ const SENSE_ICONS = [ImageIcon, Ear, Boxes];
  * site answers prospects from. If the product changes, those change, and this page follows.
  */
 export default async function DocsPage({
-  params,
+  params
 }: {
   params: Promise<{ locale: string }>;
 }) {
@@ -82,7 +83,7 @@ export default async function DocsPage({
   const statusTone: Record<string, string> = {
     live: 'border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]',
     limited: 'border-[#E4C9A8] bg-[#FBF3E9] text-[#8A5A2B]',
-    beta: 'border-[var(--s-border)] bg-[var(--s-panel-2)] text-[var(--s-ink-faint)]',
+    beta: 'border-[var(--s-border)] bg-[var(--s-panel-2)] text-[var(--s-ink-faint)]'
   };
 
   return (

@@ -7,6 +7,7 @@ import { getEmployee } from "@/lib/marketing/employees";
 import { routing } from "@/i18n/routing";
 import { EmployeeCard } from "@/components/marketing/landing/EmployeeCard";
 import { Reveal } from "@/components/marketing/landing/primitives";
+import { localeAlternates } from "@/i18n/alternates";
 import {
   SubpageCta,
   SubpageFaq,
@@ -30,7 +31,7 @@ export async function generateMetadata({
   return {
     title: t("name"),
     description: t("sub"),
-    alternates: { canonical: `/industries/${slug}` },
+    alternates: localeAlternates(locale, `/industries/${slug}`),
   };
 }
 

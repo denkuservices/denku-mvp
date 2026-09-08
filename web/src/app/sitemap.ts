@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
-import { siteConfig } from "@/config/site";
 import { EMPLOYEES } from "@/lib/marketing/employees";
 import { INDUSTRIES } from "@/lib/marketing/industries";
 import { SERVICES } from "@/lib/marketing/content/services";
 import { routing } from "@/i18n/routing";
+// One definition of "where does this path live in this language" — the page metadata needs the
+// same answer, and two copies of it would drift.
+import { localeHref as href } from "@/i18n/alternates";
 
 /**
  * sitemap.xml (R-067) — the public marketing routes, in every language.
@@ -56,11 +58,6 @@ const entries: Entry[] = [
     changeFrequency: "monthly" as const,
   })),
 ];
-
-function href(locale: string, path: string): string {
-  const prefix = locale === routing.defaultLocale ? "" : `/${locale}`;
-  return `${siteConfig.url}${prefix}${path}`;
-}
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
