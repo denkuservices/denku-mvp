@@ -7,13 +7,14 @@ import {
   MAX_WEBCHAT_UPLOAD_BYTES,
   storeVisitorUpload,
   webChatUploadKind,
+  webChatUploadLimit,
   withinUploadBudget,
 } from "@/lib/webchat/uploads";
 
 export const dynamic = "force-dynamic";
 
 /**
- * A website visitor attaches a photo or a voice memo.
+ * A website visitor attaches a photo, a video, a voice memo or a document.
  *
  * The endpoint is deliberately dumb: it takes ONE file, checks it against everything in
  * `lib/webchat/uploads.ts`, stores it, and returns the key. It does not create a message, touch a
@@ -58,11 +59,16 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return refuse("bad_request", 400);
 
   // The declared size first — refusing a 40 MB video before reading it is the difference between
-  // a fast 413 and a function that spends its memory budget on something it will throw away.
+  // a fast 413 and a function that spends its memory budget on something it will throw away. This
+  // is the ceiling for the largest kind; the per-kind one is applied once we know which it is.
   if (file.size > MAX_WEBCHAT_UPLOAD_BYTES) return refuse("too_large", 413);
 
   const mime = (file.type || "").split(";")[0].trim().toLowerCase();
-  if (!webChatUploadKind(mime)) return refuse("unsupported_type", 415);
+  const kind = webChatUploadKind(mime);
+  if (!kind) return refuse("unsupported_type", 415);
+
+  const limit = webChatUploadLimit(kind);
+  if (file.size > limit) return refuse("too_large", 413);
 
   if (!(await withinUploadBudget(session.orgId, session.id))) {
     console.warn("[WEBCHAT][UPLOAD][BUDGET][EXHAUSTED]", { org_id: session.orgId, session_id: session.id });
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   // Checked again on the real bytes: `File.size` is what the client said, and this is what arrived.
-  if (bytes.byteLength > MAX_WEBCHAT_UPLOAD_BYTES) return refuse("too_large", 413);
+  if (bytes.byteLength > limit) return refuse("too_large", 413);
 
   const stored = await storeVisitorUpload({
     orgId: session.orgId,

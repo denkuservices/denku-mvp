@@ -148,6 +148,58 @@ In the widget, every message is inserted with `textContent`, never as markup: th
 by two untrusted parties — a stranger on the internet and a language model — and rendered in a
 document that holds a session token.
 
+## Who the visitor thinks they are talking to
+
+The header is a face, a name and a role, and all three are the business's to choose
+(`display_name`, `header_subtitle`, `avatar_path`; migration `20260908063203`).
+
+Four things about it are decisions rather than styling:
+
+- **A default that is drawn, not photographed.** `public/webchat/agent-avatar.svg` is an
+  illustrated support agent. A stock photograph of a real person, sitting at the top of thousands
+  of shops' chat panels, is somebody's actual likeness being used to imply they work there — in
+  every workspace at once. The illustration makes the same promise (a friendly person is waiting)
+  and none of the false one.
+- **The picture is stored, never linked.** See the CSP note above. Uploads land in the private
+  `channel-media` bucket under `<org>/webchat/branding/<connection>/<uuid>.<ext>` and are streamed
+  back by `/api/webchat/avatar/<siteKey>` on our own origin. PNG/JPEG/WebP only — **an SVG is a
+  document with script in it**, and served same-origin it would be script in the frame holding the
+  visitor's session token — capped at 512 KB, and the first bytes must agree with the declared
+  type, because `File.type` is whatever the uploader said.
+- **A new upload is a new URL.** The `?v=` is the stored file's own uuid, so the response is
+  cached `immutable` and a replaced logo is still visible immediately. A stable URL would have
+  meant choosing between a stale avatar and re-fetching on every page view of the customer's site.
+- **The role line is optional and empty means localised.** `header_subtitle` NULL renders the
+  widget's own default in the visitor's language, which beats an English one for most of them.
+
+### The widget speaks the visitor's language now
+
+`lib/webchat/copy.ts` holds the widget's own furniture — placeholder, Send, the attachment errors,
+the default role line — in all four locales, resolved by the embed route from the `locale` the
+loader passes and delivered in the boot payload. It is a third localisation mechanism on purpose:
+the widget is reachable by neither of the two in landmine #22 (it is a static ES5 file inside an
+iframe, and the dashboard boundary walks a different document), so its chrome was English for
+everybody, under conversations the AI was holding in Turkish. `app.js` keeps an English fallback
+for every key so a browser holding an older cached copy never renders a blank button.
+
+## What a visitor may send
+
+Uploads go through `/api/webchat/upload` (session token, then the rules in
+`lib/webchat/uploads.ts`) and the key comes back for the next `send`, which re-checks that the key
+belongs to *that* session. Since 2026-09-08 the allow-list carries **images, audio, video and
+documents** (PDF, Word, Excel, CSV, plain text); it started at images and audio, and refusing the
+invoice and the ten-second clip of the fault sent exactly the customer this channel exists for
+back to email.
+
+The ceiling is **per kind** (`WEBCHAT_UPLOAD_LIMITS`: 8 MB image, 15 MB audio and video, 10 MB
+document) and must stay at or under `MEDIA_BYTE_LIMITS` in the perception stage — a higher one
+here means accepting an upload the AI then reports back as too large, paid for and useless. All of
+them stay under the bucket's own 20 MB limit.
+
+Still an allow-list, and the absences are the point: **no SVG** (script), **no archives or
+executables** (nobody asking a shop a question needs one, and accepting them makes a public
+endpoint a file drop for someone else's malware).
+
 ## Files
 
 | Path | What it is |
@@ -159,17 +211,23 @@ document that holds a session token.
 | `lib/webchat/sessions.ts` | Visitor threads + the volume caps |
 | `lib/webchat/http.ts` | Shared refusal/CORS discipline for the three public endpoints |
 | `lib/webchat/thread.ts` | What the visitor may read back |
+| `lib/webchat/uploads.ts` | What a visitor may attach: allow-list, per-kind ceilings, per-session count, ownership check |
+| `lib/webchat/branding.ts` | The header avatar: allow-list, byte sniff, storage keys, the cache-busting URL |
+| `lib/webchat/copy.ts` | The widget's own words in en/es/de/tr |
+| `app/api/webchat/upload/route.ts` · `avatar/[siteKey]/route.ts` | Take one file in; stream the avatar back out |
+| `public/webchat/agent-avatar.svg` | The default support agent — drawn, not photographed |
+| `supabase/migrations/20260908063203_web_chat_agent_identity.sql` | `avatar_path`, `header_subtitle` |
 | `lib/platform/adapters/webchat.ts` · `transports/webchat.ts` | The two registry halves |
 | `app/api/webchat/{session,send,poll}/route.ts` | The public API |
 | `app/embed/chat/route.ts` | The iframe document + per-connection `frame-ancestors` |
 | `public/widget.js` | The loader — the only Denku code that runs in a customer's page |
 | `public/webchat/app.{js,css}` | The widget itself, inside the iframe |
 | `app/(app)/dashboard/channels/web/*` | The install surface |
-| `test/webchat-security.test.ts` · `test/webchat-adapter.test.ts` | 18 tests |
+| `test/webchat-security.test.ts` · `test/webchat-adapter.test.ts` · `test/webchat-agent-identity.test.ts` | Origins, tokens, colours, the adapter, the avatar and the widget's copy |
 
 ## Before it can be sold
 
-1. Apply the migration (operator action — never via MCP; see landmine #10).
+1. Apply the migrations. (Both are applied to prod: `20260901090000` and `20260908063203`.)
 2. Confirm `SECRET_ENCRYPTION_KEY` is set. The channel **refuses** to issue sessions without it, and
    both the install page and `/embed/chat` say so rather than failing silently.
 3. Create an install, add the real domain, paste the snippet on the site.
@@ -180,8 +238,13 @@ document that holds a session token.
 
 ## Deliberately not built
 
-- **Attachments.** Accepting uploads from anonymous visitors on a public endpoint is its own abuse
-  and storage decision, not a widget feature. `capabilities.attachments` is `false` and says so.
+- **A read of what is inside a document.** A visitor may SEND a PDF, and the business sees it in
+  the Inbox — but nothing extracts its text, so the AI is told a file arrived and forbidden to
+  guess what it says. Reading documents is a perception-stage change (`isUnderstandableMime`),
+  not a web-chat one, and it would land on every channel at once.
+- **A picture on someone else's host.** The avatar is uploaded to our bucket, never linked. The
+  embed document's CSP is `img-src 'self' data:`, and the alternative — widening it per
+  connection from a settings field — is a security header written by whoever last edited a form.
 - **Proactive / triggered messages** ("Still there?", "10% off"). A message the business never wrote,
   sent to someone who did not ask, is a product decision nobody has made.
 - **Multiple installs per workspace in the UI.** The table allows several (a group with three brand

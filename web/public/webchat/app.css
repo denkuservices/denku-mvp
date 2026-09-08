@@ -54,9 +54,51 @@ body {
   flex: 0 0 auto;
 }
 
-.denku-header strong {
+.denku-header .denku-who {
   font-size: 15px;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * The face at the top of the panel.
+ *
+ * A fixed square with `object-fit: cover`, because the picture a shop uploads is whatever shape
+ * came off their phone, and a letterboxed portrait in a circle looks like a mistake in OUR
+ * product rather than in their photograph. The ring is white at low opacity so it reads on a
+ * brand colour of any darkness without needing a second theme token.
+ */
+.denku-avatar {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  width: 38px;
+  height: 38px;
+}
+
+.denku-avatar img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* Answering, always — this channel has no closing time (see skills/business-hours.md). */
+.denku-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #27c26a;
+  box-shadow: 0 0 0 2px var(--denku-header-bg);
 }
 
 .denku-header .denku-sub {
@@ -64,6 +106,9 @@ body {
   font-size: 12px;
   opacity: 0.85;
   font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .denku-close {

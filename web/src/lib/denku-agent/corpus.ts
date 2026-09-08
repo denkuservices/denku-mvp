@@ -211,12 +211,17 @@ export const CORPUS: readonly CorpusChunk[] = [
   {
     id: "media-understanding",
     title: "Can the AI see photos and hear voice notes?",
-    tags: ["photo", "image", "picture", "voice note", "audio", "attachment", "see", "hear"],
+    tags: [
+      "photo", "image", "picture", "voice note", "audio", "attachment", "see", "hear",
+      "video", "document", "pdf", "file",
+    ],
     body:
       "Yes, on chat channels. A customer can send a photo and the AI reads what is in it, or send " +
       "a voice note and the AI hears it and answers as if it had been typed. This works the same " +
-      "way on every chat channel that can carry a file. If a file cannot be read, the AI says so " +
-      "rather than guessing at its contents.",
+      "way on every chat channel that can carry a file. Documents such as a PDF invoice can also " +
+      "be sent: they are saved and shown to the business in the Inbox, but the AI does not read " +
+      "what is inside them. If a file cannot be read, the AI says so rather than guessing at its " +
+      "contents.",
   },
   {
     id: "training-the-ai",
@@ -264,13 +269,21 @@ export const CORPUS: readonly CorpusChunk[] = [
   {
     id: "web-chat-widget",
     title: "Putting the AI on the business's own website",
-    tags: ["website", "widget", "embed", "web chat", "site", "snippet", "script"],
+    tags: [
+      "website", "widget", "embed", "web chat", "site", "snippet", "script",
+      "logo", "avatar", "branding", "agent name",
+    ],
     body:
       "There is a chat widget the business pastes into their own website as a short snippet, and " +
       "it appears as a launcher in the corner of their pages. Access is controlled by the list of " +
       "domains the business says it will be used on, so the widget only runs on their own site — " +
       "which means they must tell us their domain when they install it. Human takeover works " +
-      "there like every other chat channel, and the AI can see photos a visitor uploads.\n\n" +
+      "there like every other chat channel, and a visitor can send photos, videos, voice notes " +
+      "and documents — the AI sees the photos and hears the voice notes.\n\n" +
+      "The business chooses what the widget looks like: its colours, the name and role shown at " +
+      "the top of the chat, and the picture beside them — their own logo or a photo of their " +
+      "team. Until they upload one it shows a friendly support agent, so it never looks " +
+      "unfinished.\n\n" +
       "Web chat counts as one of the channels on a chat plan, the same as Telegram or email. If " +
       "a business has no chat plan the widget still appears and the conversation is visible in " +
       "their Inbox for a person to answer, but the AI does not reply — so a visitor never meets a " +

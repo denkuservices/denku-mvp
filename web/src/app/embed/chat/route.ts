@@ -4,6 +4,8 @@ import { isOriginAllowed, normalizeOrigin } from "@/lib/webchat/origins";
 import { issueFrameToken, isTokenSigningConfigured } from "@/lib/webchat/token";
 import { isSelfOrigin, selfOrigins } from "@/lib/webchat/http";
 import { resolveTheme } from "@/lib/webchat/theme";
+import { avatarUrlFor } from "@/lib/webchat/branding";
+import { widgetCopy } from "@/lib/webchat/copy";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +119,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const copy = widgetCopy(locale);
+
   const frameToken = issueFrameToken({
     cid: connection.id,
     org: connection.orgId,
@@ -131,7 +135,21 @@ export async function GET(req: NextRequest) {
     // accent it was given.
     theme: resolveTheme(connection.theme, connection.accentColor),
     displayName: connection.displayName,
+    /**
+     * The line under the name, and the face above it.
+     *
+     * Both resolved here rather than in the widget for the same reason the theme is: the widget
+     * renders once, from a static file, and every decision it does not have to make is a decision
+     * that cannot be made differently in the dashboard preview than on the customer's own site.
+     * A business that has chosen neither gets the localised default and the built-in avatar, which
+     * is why an install created before this existed still looks finished.
+     */
+    subtitle: connection.headerSubtitle || copy.subtitle,
+    avatarUrl: avatarUrlFor(connection),
     greeting: connection.greeting,
+    // The widget's own furniture, in the language the loader asked for. See lib/webchat/copy.ts
+    // for why this travels in the payload instead of living in the static file.
+    copy,
   });
 
   /**
@@ -152,7 +170,7 @@ export async function GET(req: NextRequest) {
 
   return html(
     `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">

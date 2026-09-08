@@ -321,6 +321,25 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     reply engine's spend guard are the real ceiling; (d) the transport **sends nothing** — the row
     in `messages` IS the delivery, and the visitor's browser fetches it, which is why human takeover
     from the Inbox works here with no channel-specific code. See `skills/webchat-integration.md`.
+    **Extended 2026-09-08 — the widget has a face, and it is stored, not linked.** The header now
+    carries an avatar, a name and a role the business chooses (`avatar_path`, `header_subtitle`;
+    migration `20260908063203`). Three rules fall out of that CSP and must not be traded away for
+    convenience: (a) the picture is **uploaded to the private `channel-media` bucket and streamed
+    back from `/api/webchat/avatar/<siteKey>`** — the embed document is `img-src 'self' data:`, so
+    an external URL renders as a broken image, and widening the CSP per connection would mean a
+    security header assembled from a settings field; (b) **PNG/JPEG/WebP only, and the first bytes
+    must agree with the declared type** — an SVG is a document with script in it, and served
+    same-origin it would be script in the frame holding a visitor's session token; (c) **a new
+    upload is a new URL** (`?v=` is the file's own uuid), which is what lets the response be cached
+    `immutable` without a shop ever seeing the logo they just replaced. The default is an
+    illustration (`public/webchat/agent-avatar.svg`), never a stock photo of a real person — that
+    would be somebody's likeness implying they work at every shop at once. The widget is also the
+    one surface neither localisation mechanism in #22 reaches (a static ES5 file inside an iframe),
+    so its own chrome lives in `lib/webchat/copy.ts` and travels in the boot payload. Uploads
+    widened the same day from images+audio to **video and documents**, with the byte ceiling now
+    **per kind** (`WEBCHAT_UPLOAD_LIMITS`) and required to stay at or under `MEDIA_BYTE_LIMITS` — a
+    higher one here means taking an upload the AI then reports as too large. A document is stored
+    and shown, **never read**: `isUnderstandableMime` still governs what the AI may claim to know.
 
 15. **Supabase Auth owns the auth emails a real customer sees.** `signInWithOtp` and
     `resetPasswordForEmail` hand the send to Supabase, which renders from templates stored in
@@ -590,7 +609,7 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
 - `skills/vapi-integration.md` — assistants, numbers, webhook pipeline, tools, demo agent
 - `skills/instagram-integration.md` — Instagram channel foundation (OAuth, per-tenant creds, receive-only webhook)
 - `skills/telegram-integration.md` — the Telegram channel AND the channel-agnostic **reply engine** (`lib/platform/reply/*`, `lib/platform/transports/*`) — the first channel Denku answers on itself
-- `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, and the transport that delivers by storing
+- `skills/webchat-integration.md` — the Web Chat channel: why the site key is public, where the origin allowlist can honestly be enforced, the transport that delivers by storing, and who the visitor thinks they are talking to (the header avatar, name and role, and what a visitor may attach)
 - `skills/media-perception.md` — how the AI sees and hears on every chat channel: the shared perception stage, why the description lives in `messages.content`, the resolver-per-channel split, and the limits that make an anonymous upload endpoint defensible
 - `skills/email-integration.md` — the Email channel: why forwarding beats Gmail OAuth (CASA), RFC threading, quote stripping, the loop guard, and what is deliberately not built yet
 - `skills/commerce-integrations.md` — **IdeaSoft and any future e-commerce backend** (İkas, Ticimax, Shopify): why an integration is not a channel, the OAuth/token traps, the catalogue tools, and the identity rule that stops a stranger reading someone else's order. Built 2026-09-02, **never run against a real store.** Read this before writing a line of IdeaSoft API code.

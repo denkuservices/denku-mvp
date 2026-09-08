@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCachedUser } from "@/lib/auth/currentUser";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listConnections } from "@/lib/webchat/connections";
+import { avatarUrlFor } from "@/lib/webchat/branding";
 import { isTokenSigningConfigured } from "@/lib/webchat/token";
 import { llmConfigured } from "@/lib/llm/provider";
 import { getBaseUrl } from "@/lib/utils/url";
@@ -109,6 +110,11 @@ export default async function WebChatPage() {
                 siteName: connection.siteName,
                 allowedOrigins: connection.allowedOrigins,
                 displayName: connection.displayName,
+                headerSubtitle: connection.headerSubtitle,
+                // The URL, not the storage key: the dashboard has no business knowing where in
+                // the bucket a picture lives, and this is the same address the widget loads.
+                avatarUrl: avatarUrlFor(connection),
+                hasCustomAvatar: Boolean(connection.avatarPath),
                 accentColor: connection.accentColor,
                 greeting: connection.greeting,
                 theme: connection.theme,
