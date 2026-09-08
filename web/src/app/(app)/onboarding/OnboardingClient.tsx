@@ -59,7 +59,7 @@ type OnboardingState = {
   profileFullName: string | null;
   profilePhone: string | null;
   workspaceStatus: "active" | "paused";
-  pausedReason: "manual" | "hard_cap" | "past_due" | null;
+  pausedReason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
   planCode: string | null;
   isPlanActive: boolean;
   plans: Array<{

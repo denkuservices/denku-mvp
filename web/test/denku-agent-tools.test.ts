@@ -160,11 +160,24 @@ describe("chat tool execution", () => {
 });
 
 describe("the landing page calls Denku's own assistant", () => {
-  const route = fs
-    .readFileSync(path.join(process.cwd(), "src/app/api/vapi/start/route.ts"), "utf8")
-    // Strip comments: the old id and the dead variable are DISCUSSED there on purpose.
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const strip = (file: string) =>
+    fs
+      .readFileSync(path.join(process.cwd(), file), "utf8")
+      // Strip comments: the old id and the dead variable are DISCUSSED there on purpose.
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  /*
+   * Both files, concatenated.
+   *
+   * The id moved into `marketingAssistant.ts` when the platform console needed the same value to
+   * separate marketing spend from customer spend. Reading only the route would have let this test
+   * pass while the resolution it is pinning had quietly moved somewhere it no longer checks —
+   * which is the failure mode the test exists to prevent, one level up.
+   */
+  const route = [strip("src/app/api/vapi/start/route.ts"), strip("src/lib/denku-agent/marketingAssistant.ts")].join(
+    "\n"
+  );
 
   it("does not read VAPI_AGENT_ID, the variable that used to pin the old assistant", () => {
     // The trap this pins: `VAPI_AGENT_ID=155b21ad…` was configured in production until it was

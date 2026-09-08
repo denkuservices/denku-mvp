@@ -86,7 +86,7 @@ export default async function WorkspaceSettingsPage() {
 
   const accessLabel = role === "owner" ? "Owner" : role === "admin" ? "Admin" : role || "Member";
   const workspaceStatus = (settings?.workspace_status as "active" | "paused") || "active";
-  const pausedReason = settings?.paused_reason as "manual" | "hard_cap" | "past_due" | null | undefined;
+  const pausedReason = settings?.paused_reason as "manual" | "hard_cap" | "past_due" | "trial_ended" | null | undefined;
   const displayName = orgName?.trim() || "Your workspace";
 
   /*

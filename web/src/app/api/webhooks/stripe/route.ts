@@ -688,7 +688,7 @@ export async function POST(req: NextRequest) {
                 .eq("org_id", orgIdFromMetadata)
                 .maybeSingle<{
                   workspace_status: "active" | "paused" | null;
-                  paused_reason: "manual" | "hard_cap" | "past_due" | null;
+                  paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
                 }>();
 
               const pausedReason = orgSettings?.paused_reason;
@@ -811,7 +811,7 @@ export async function POST(req: NextRequest) {
                 .eq("org_id", orgIdForPaidInvoice)
                 .maybeSingle<{
                   workspace_status: "active" | "paused" | null;
-                  paused_reason: "manual" | "hard_cap" | "past_due" | null;
+                  paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
                 }>();
 
               const pausedReason = orgSettings?.paused_reason;

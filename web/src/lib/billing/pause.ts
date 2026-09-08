@@ -203,7 +203,7 @@ export async function getOrgBillingStatus(
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused" | null;
-      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
     }>();
 
   if (!data) {

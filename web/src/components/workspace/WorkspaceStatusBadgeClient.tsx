@@ -9,7 +9,7 @@ import { WorkspaceStatusBadge } from "./WorkspaceStatusBadge";
  */
 export function WorkspaceStatusBadgeClient({ className }: { className?: string }) {
   const [workspaceStatus, setWorkspaceStatus] = React.useState<"active" | "paused">("active");
-  const [pausedReason, setPausedReason] = React.useState<"manual" | "hard_cap" | "past_due" | null>(null);
+  const [pausedReason, setPausedReason] = React.useState<"manual" | "hard_cap" | "past_due" | "trial_ended" | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -19,7 +19,7 @@ export function WorkspaceStatusBadgeClient({ className }: { className?: string }
         const data = await res.json();
         if (data.ok) {
           const status = (data.workspace_status as "active" | "paused") || "active";
-          const reason = (data.paused_reason as "manual" | "hard_cap" | "past_due" | null) || null;
+          const reason = (data.paused_reason as "manual" | "hard_cap" | "past_due" | "trial_ended" | null) || null;
           setWorkspaceStatus(status);
           setPausedReason(reason);
         }
