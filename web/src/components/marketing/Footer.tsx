@@ -27,7 +27,7 @@ const COLUMNS = [
   {
     heading: "company",
     links: [
-      { key: "about", href: "/about", ns: "footer" },
+      { key: "about", href: "/company", ns: "footer" },
       { key: "security", href: "/security", ns: "footer" },
       { key: "docs", href: "/docs", ns: "footer" },
       { key: "support", href: "/support", ns: "footer" },

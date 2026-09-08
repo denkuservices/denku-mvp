@@ -5,44 +5,85 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Container } from './Container';
 import { Section } from './Section';
-import { Headphones, Phone, Calendar, Package, ArrowRight, CheckCircle2, Database, MessageSquare, Mic } from 'lucide-react';
-import { ExternalToLocale } from "@/components/marketing/ExternalToLocale";
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  Inbox,
+  MessageSquare,
+  Mic,
+  PhoneMissed,
+  PhoneCall,
+  Send,
+  UserRound,
+} from 'lucide-react';
+import { ExternalToLocale } from '@/components/marketing/ExternalToLocale';
 
-type UseCase = 'support' | 'sales' | 'appointment' | 'order-status';
+type UseCase = 'missed-calls' | 'booking' | 'questions' | 'messages';
 
 type UseCaseCopy = {
   title: string;
   description: string;
   flow: string[];
   bullets: string[];
+  notYet: string[];
 };
 
-/*
- * Icons and ordering live here; every word lives in the message files.
- * The flow icons are paired positionally with the four translated flow steps.
+/**
+ * What people hand over to the AI first.
+ *
+ * Rewritten 2026-09-08. What was here before was pre-V3 copy written against a product
+ * roadmap rather than a product: it promised the AI would check a CRM or helpdesk mid-call,
+ * score leads and route them to the right team, push them to a CRM "via webhook/tool", check
+ * calendar availability in real time, reschedule appointments, send reminders, look up order
+ * status and send proactive notifications. None of that is built. Two of them are refused on
+ * purpose — order lookup, because an anonymous caller must never be able to read a stranger's
+ * order, and a mid-call transfer, because the AI cannot hand a live caller to a person.
+ *
+ * The replacement is organised the way `/employees` is: what it does, and — in the same card,
+ * not a footnote — what it does NOT do yet. A prospect who reads the second list and buys
+ * anyway is a customer who stays. The four workflows below are the four things the shipped
+ * pipeline actually performs, and every claim is checkable against `lib/denku-agent/corpus.ts`,
+ * which is what the assistant on this site answers prospects from.
+ *
+ * Icons and ordering live here; every word lives in the message files. The flow icons pair
+ * positionally with the four translated flow steps.
  */
-const CASE_CHROME: { id: UseCase; icon: typeof Phone; flowIcons: (typeof Phone)[] }[] = [
-  { id: 'support', icon: Headphones, flowIcons: [Phone, MessageSquare, Database, CheckCircle2] },
-  { id: 'sales', icon: Phone, flowIcons: [Phone, MessageSquare, Database, CheckCircle2] },
-  { id: 'appointment', icon: Calendar, flowIcons: [Phone, Database, Calendar, CheckCircle2] },
-  { id: 'order-status', icon: Package, flowIcons: [Phone, Database, MessageSquare, CheckCircle2] },
+const CASE_CHROME: { id: UseCase; icon: typeof PhoneCall; flowIcons: (typeof PhoneCall)[] }[] = [
+  {
+    id: 'missed-calls',
+    icon: PhoneMissed,
+    flowIcons: [PhoneCall, MessageSquare, FileText, Inbox],
+  },
+  {
+    id: 'booking',
+    icon: CalendarClock,
+    flowIcons: [PhoneCall, MessageSquare, CalendarClock, CheckCircle2],
+  },
+  {
+    id: 'questions',
+    icon: BookOpen,
+    flowIcons: [MessageSquare, BookOpen, UserRound, Inbox],
+  },
+  {
+    id: 'messages',
+    icon: Send,
+    flowIcons: [MessageSquare, BookOpen, Send, Inbox],
+  },
 ];
 
 export function UseCasesPage() {
   const t = useTranslations('useCasesPage');
-  const [activeUseCase, setActiveUseCase] = useState<UseCase>('support');
+  const [activeUseCase, setActiveUseCase] = useState<UseCase>('missed-calls');
   const cases = t.raw('cases') as Record<UseCase, UseCaseCopy>;
   const activeChrome = CASE_CHROME.find((c) => c.id === activeUseCase) ?? CASE_CHROME[0];
   const activeData = cases[activeChrome.id];
 
-  const scrollToHero = (e: React.MouseEvent) => {
-    e.preventDefault();
-    document.querySelector('#product')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <>
-      {/* Hero */}
+      {/* Hero + the four workflows */}
       <Section className="py-16 md:py-24">
         <Container>
           <div className="mb-12 text-center">
@@ -55,15 +96,19 @@ export function UseCasesPage() {
 
           <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
             {CASE_CHROME.map((chrome) => {
-              const useCase = { id: chrome.id, ...cases[chrome.id] };
+              const useCase = cases[chrome.id];
               const Icon = chrome.icon;
-              const isActive = activeUseCase === useCase.id;
+              const isActive = activeUseCase === chrome.id;
               return (
                 <button
-                  key={useCase.id}
-                  onClick={() => setActiveUseCase(useCase.id)}
+                  key={chrome.id}
+                  type="button"
+                  onClick={() => setActiveUseCase(chrome.id)}
+                  aria-pressed={isActive}
                   className={`group relative rounded-[18px] border p-6 text-left transition-all ${
-                    isActive ? 'border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] brand-shadow-sm' : 'border-[var(--s-border)] bg-[var(--s-panel-2)] hover:border-[var(--s-border)]'
+                    isActive
+                      ? 'border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] brand-shadow-sm'
+                      : 'border-[var(--s-border)] bg-[var(--s-panel-2)] hover:border-[var(--s-border)]'
                   }`}
                 >
                   <div className="flex items-start gap-4">
@@ -71,7 +116,7 @@ export function UseCasesPage() {
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{useCase.title}</h3>
+                      <h2 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{useCase.title}</h2>
                       <p className="mt-0.5 text-sm text-[var(--s-ink-faint)]">{useCase.description}</p>
                     </div>
                   </div>
@@ -86,7 +131,7 @@ export function UseCasesPage() {
         </Container>
       </Section>
 
-      {/* Flow */}
+      {/* The flow, what it does, and what it does not do — the third block is the point */}
       <Section className="border-t border-[var(--s-border)] bg-[var(--s-panel-2)]">
         <Container>
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
@@ -98,7 +143,7 @@ export function UseCasesPage() {
                   const isLast = index === activeData.flow.length - 1;
                   const isFirst = index === 0;
                   return (
-                    <div key={index} className="relative pb-8">
+                    <div key={step} className="relative pb-8">
                       <div className="flex items-center gap-4">
                         <div className="relative shrink-0">
                           <div className={`flex h-14 w-14 items-center justify-center rounded-[14px] border-2 transition-all ${isFirst ? 'border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]' : 'border-[var(--s-border)] bg-[var(--s-bg)] text-[var(--s-ink-faint)]'}`}>
@@ -118,19 +163,62 @@ export function UseCasesPage() {
                 })}
               </div>
             </div>
+
             <div className="lg:col-span-1">
-              <div className="sticky top-24 rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
-                <h3 className="mb-4 font-display text-[16px] font-medium text-[var(--s-ink)]">{t('whatItDoes')}</h3>
-                <ul className="space-y-3">
-                  {activeData.bullets.map((bullet, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--s-accent)]" />
-                      <span className="text-sm leading-relaxed text-[var(--s-ink-soft)]">{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="sticky top-24 space-y-4">
+                <div className="rounded-[18px] border border-[var(--s-border)] bg-[var(--s-bg)] p-6">
+                  <h3 className="mb-4 font-display text-[16px] font-medium text-[var(--s-ink)]">{t('whatItDoes')}</h3>
+                  <ul className="space-y-3">
+                    {activeData.bullets.map((bullet) => (
+                      <li key={bullet} className="flex items-start gap-3">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--s-accent)]" />
+                        <span className="text-sm leading-relaxed text-[var(--s-ink-soft)]">{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Deliberately as prominent as the list above it. Copper rather than the teal
+                    accent so the eye separates the two lists, and drawn from the theme tokens —
+                    the marketing surface remaps `--s-*` to the dark V3 palette, so a literal
+                    warm hex here would be a cream slab on a near-black page. */}
+                <div className="rounded-[18px] border border-[rgba(200,148,104,.35)] bg-[rgba(200,148,104,.08)] p-6">
+                  <h3 className="mb-4 font-display text-[16px] font-medium text-[var(--d-copper)]">{t('whatItDoesNot')}</h3>
+                  <ul className="space-y-3">
+                    {activeData.notYet.map((line) => (
+                      <li key={line} className="flex items-start gap-3">
+                        <span aria-hidden="true" className="mt-[9px] h-[2px] w-4 shrink-0 rounded-full bg-[var(--d-copper)]" />
+                        <span className="text-sm leading-relaxed text-[var(--s-ink-soft)]">{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
+          </div>
+        </Container>
+      </Section>
+
+      {/* Two ways to keep reading, instead of a dead end */}
+      <Section>
+        <Container>
+          <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
+            <Link href="/industries" className="group flex flex-col rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-6 transition-all hover:border-[var(--s-accent)]">
+              <h2 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{t('byTradeTitle')}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--s-ink-soft)]">{t('byTradeBody')}</p>
+              <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[var(--s-accent)]">
+                {t('byTradeLink')}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+            <Link href="/employees" className="group flex flex-col rounded-[18px] border border-[var(--s-border)] bg-[var(--s-panel-2)] p-6 transition-all hover:border-[var(--s-accent)]">
+              <h2 className="font-display text-[17px] font-medium text-[var(--s-ink)]">{t('byEmployeeTitle')}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--s-ink-soft)]">{t('byEmployeeBody')}</p>
+              <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[var(--s-accent)]">
+                {t('byEmployeeLink')}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
           </div>
         </Container>
       </Section>
@@ -142,10 +230,13 @@ export function UseCasesPage() {
             <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-cta-fg)]">{t('ctaTitle')}</h2>
             <p className="mx-auto mb-8 max-w-xl text-[17px] text-[var(--s-cta-fg)]">{t('ctaBody')}</p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <button onClick={scrollToHero} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-accent)] px-6 text-sm font-medium text-white transition-all hover:bg-[var(--s-accent)] sm:w-auto">
+              {/* The old button scrolled to `#product`, an anchor that lives on the pre-V3 hero
+                  and is not on the page any more — it silently did nothing. `#demo` is the
+                  live demo section on the current landing page. */}
+              <Link href="/#demo" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-accent)] px-6 text-sm font-medium text-white transition-all hover:bg-[var(--s-accent)] sm:w-auto">
                 <Mic className="h-4 w-4" />
                 {t('ctaTalk')}
-              </button>
+              </Link>
               <ExternalToLocale href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)] sm:w-auto">
                 {t('ctaStart')}
               </ExternalToLocale>

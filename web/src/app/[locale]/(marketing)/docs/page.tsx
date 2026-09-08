@@ -80,9 +80,11 @@ export default async function DocsPage({
     (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
   );
 
+  // The same three tones `ChannelGrid` uses — the marketing surface is dark, so the literal
+  // cream that was here read as a light chip in a row of dark ones.
   const statusTone: Record<string, string> = {
     live: 'border-[var(--s-accent-ring)] bg-[var(--s-accent-soft)] text-[var(--s-accent-deep)]',
-    limited: 'border-[#E4C9A8] bg-[#FBF3E9] text-[#8A5A2B]',
+    limited: 'border-[rgba(200,148,104,.30)] bg-[rgba(200,148,104,.10)] text-[var(--d-copper)]',
     beta: 'border-[var(--s-border)] bg-[var(--s-panel-2)] text-[var(--s-ink-faint)]'
   };
 

@@ -1038,8 +1038,8 @@
         "body": "Cada llamada terminada produce algo — un ticket o una solicitud de cita — incluso si la IA no llegó a usar ninguna herramienta. Es una garantía del sistema, no una instrucción que esperamos que se cumpla."
       },
       {
-        "title": "Con el dinero fallamos hacia el 'no'.",
-        "body": "Los controles de acceso fallan hacia el 'sí' para que un cliente que paga nunca quede fuera. Las escrituras de facturación fallan hacia el 'no' para que nada se adivine. Cuando ambas chocan, pierde el dinero."
+        "title": "Con el dinero, pecamos de prudentes.",
+        "body": "Si falla una comprobación de acceso, dejamos pasar: un cliente que paga nunca debe quedarse fuera. Si falla una operación de facturación, no escribimos nada: ningún importe se adivina. Cuando las dos chocan, el coste lo asumimos nosotros, no el cliente."
       },
       {
         "title": "Todo puede pasar dos veces.",
@@ -1328,42 +1328,6 @@
       }
     ]
   },
-  "aboutPage": {
-    "metaTitle": "Quiénes somos",
-    "metaDescription": "Sobre Denku: creamos empleados de IA por voz para que ningún negocio pierda una llamada.",
-    "eyebrow": "Quiénes somos",
-    "title": "Sobre {name}",
-    "intro": "{name} ayuda a los equipos a desplegar agentes de IA —voz, chat y automatización— sobre una arquitectura pensada para productos SaaS multiinquilino.",
-    "missionEyebrow": "Misión",
-    "missionTitle": "Hacer que los agentes de IA estén listos para producción en negocios reales.",
-    "missionBody": "Nos centramos en patrones de despliegue seguros: herramientas explícitas, acceso acotado y una observabilidad limpia, para que las empresas lancen agentes rápido y los operen con confianza.",
-    "pillars": [
-      {
-        "title": "Arquitectura multiinquilino",
-        "desc": "Acceso a datos aislado por inquilino y herramientas acotadas: pensado para escalar en SaaS con una separación limpia entre clientes."
-      },
-      {
-        "title": "Control operativo",
-        "desc": "Herramientas, políticas y salvaguardas explícitas para que los agentes funcionen con seguridad en producción."
-      },
-      {
-        "title": "Observabilidad",
-        "desc": "Eventos y registros estructurados que permiten auditar, iterar y mantener la fiabilidad."
-      }
-    ],
-    "principlesTitle": "Principios",
-    "principles": [
-      "Aislamiento entre inquilinos por defecto",
-      "Herramientas con el mínimo privilegio y acceso acotado",
-      "Operaciones auditables con eventos estructurados",
-      "Integraciones seguras y buena higiene de webhooks",
-      "Puesta en marcha rápida sin renunciar al control"
-    ],
-    "whatYouGetTitle": "Lo que te llevas",
-    "whatYouGetBody": "Una plataforma que empieza sencilla y crece contigo: de un empleado de IA a muchos, empezando por la voz y añadiendo canales según los lanzamos, del registro básico a controles de acceso avanzados.",
-    "viewPricing": "Ver precios",
-    "talkToUs": "Hablar con nosotros"
-  },
   "contactPage": {
     "eyebrow": "Contacto",
     "title": "Contacto",
@@ -1403,77 +1367,104 @@
   },
   "useCasesPage": {
     "metaTitle": "Casos de uso",
-    "metaDescription": "Descubre cómo los negocios usan el empleado de IA por voz de Denku para responder todas las llamadas, cualificar clientes potenciales y reservar citas 24/7: oficios, clínicas, salones y más.",
+    "metaDescription": "Los cuatro trabajos que las empresas delegan primero en Denku: llamadas perdidas, peticiones de cita, preguntas repetidas y mensajes. Con lo que la IA hace hoy y lo que sigue dejando en tus manos.",
     "eyebrow": "Casos de uso",
-    "titleLead": "¿De qué quieres que se encargue tu",
-    "titleEmphasis": "empleado de IA",
-    "sub": "Elige un flujo de trabajo y ve cómo funciona en producción.",
-    "viewFlow": "Ver el flujo",
+    "titleLead": "¿Qué quieres que",
+    "titleEmphasis": "te quite de encima",
+    "sub": "Cuatro tareas que las empresas delegan primero. Cada una dice lo que la IA hace hoy y, justo al lado, lo que sigue dejando en tus manos.",
+    "viewFlow": "Ver cómo funciona",
     "howItWorks": "Cómo funciona",
-    "whatItDoes": "Qué hace el agente",
-    "ctaTitle": "¿Quieres verlo en directo?",
-    "ctaBody": "Prueba ahora el agente de voz en vivo y luego te ayudamos a montar tu propio flujo.",
+    "whatItDoes": "Lo que hace",
+    "whatItDoesNot": "Lo que todavía no hace",
+    "byTradeTitle": "¿Prefieres leerlo para tu sector?",
+    "byTradeBody": "El mismo producto, contado para climatización y fontanería, clínicas dentales, centros de estética y despachos de abogados.",
+    "byTradeLink": "Ver sectores",
+    "byEmployeeTitle": "¿Prefieres contratar un puesto?",
+    "byEmployeeBody": "Cinco empleados listos para trabajar: recepcionista, asistente de citas, recuperador de llamadas perdidas, turno de noche y agente de soporte.",
+    "byEmployeeLink": "Conoce a los empleados",
+    "ctaTitle": "Se entiende mejor oyéndolo que leyéndolo.",
+    "ctaBody": "Llama a la línea de demostración y juzga el producto en lugar de la página. Darte de alta es un proceso guiado y corto, y el número queda operativo el mismo día.",
     "ctaTalk": "Habla con Denku",
     "ctaStart": "Empezar",
     "cases": {
-      "support": {
-        "title": "Atención al cliente",
-        "description": "Reduce el volumen de tickets y mejora el tiempo de respuesta.",
+      "missed-calls": {
+        "title": "Las llamadas que nadie coge",
+        "description": "Por la tarde, el fin de semana, y la hora que pasaste debajo de un fregadero.",
         "flow": [
-          "Llamada entrante",
-          "La IA responde al instante",
-          "Consulta el sistema (CRM / helpdesk)",
-          "Resuelve o escala"
+          "El teléfono suena a las ocho de la tarde",
+          "La IA contesta al primer tono",
+          "Pregunta qué necesitan y lo anota",
+          "Está en tu panel antes de que lo mires"
         ],
         "bullets": [
-          "Responde al instante preguntas frecuentes y de producto",
-          "Crea tickets con datos estructurados",
-          "Escala a una persona con todo el contexto"
+          "Contesta a cualquier hora. Tu horario le dice cuándo está tu equipo, no cuándo puede descolgar.",
+          "Una llamada terminada siempre deja algo: una incidencia o una petición de cita, aunque nada más haya salido según lo previsto.",
+          "Guarda a quien llama como contacto, para que la próxima vez no sea un desconocido.",
+          "Te avisa por correo cuando hay algo nuevo que necesita a una persona."
+        ],
+        "notYet": [
+          "No puede pasarte la llamada mientras está en curso. Toma el recado y crea la incidencia para que alguien devuelva la llamada.",
+          "No decide qué es urgente. Lo pregunta, anota la respuesta y te deja a ti la organización del trabajo."
         ]
       },
-      "sales": {
-        "title": "Captación de ventas",
-        "description": "Capta y enruta clientes potenciales con una toma de datos estructurada.",
+      "booking": {
+        "title": "Peticiones de cita",
+        "description": "Convertir una conversación en un hueco en la agenda.",
         "flow": [
-          "Llamada de un cliente potencial",
-          "La IA cualifica al instante",
-          "Puntúa y enruta",
-          "Lo envía al CRM"
+          "Alguien pide cita",
+          "La IA reúne lo que hace falta para reservar",
+          "Escribe la petición de cita",
+          "Tu equipo la confirma"
         ],
         "bullets": [
-          "Hace las preguntas de cualificación automáticamente",
-          "Puntúa y enruta los leads al equipo adecuado",
-          "Los envía al CRM mediante webhook o herramienta"
+          "Pregunta los datos que tú dijiste que hacen falta: quién es, para qué y cuándo le viene bien.",
+          "Crea una petición de cita en cada llamada de reserva, con la transcripción adjunta.",
+          "Nunca da por hecha una cita que no ha anotado.",
+          "Funciona igual por teléfono que por chat."
+        ],
+        "notYet": [
+          "La sincronización con tu calendario no está disponible. La IA no lee tu agenda ni puede bloquear un hueco: la petición llega al panel para que una persona la confirme.",
+          "No cambia ni cancela citas por su cuenta, y no envía recordatorios."
         ]
       },
-      "appointment": {
-        "title": "Reserva de citas",
-        "description": "Reserva, reprograma y confirma por voz o por chat.",
+      "questions": {
+        "title": "Las preguntas que respondes veinte veces al día",
+        "description": "Horario, precios, zona de servicio, qué haces y qué no aceptas.",
         "flow": [
-          "El cliente pide una cita",
-          "La IA consulta la disponibilidad",
-          "Reserva o propone horarios",
-          "Envía la confirmación"
+          "Alguien pregunta cuánto cuesta",
+          "La IA responde con lo que tú le contaste",
+          "Se guardan la conversación y el contacto",
+          "Lo lees después y corriges lo que sabía"
         ],
         "bullets": [
-          "Consulta la disponibilidad del calendario en tiempo real",
-          "Reserva o reprograma citas",
-          "Envía confirmaciones y recordatorios"
+          "Responde a partir de una sección de Conocimiento que rellenas tú, más los documentos que subas: una lista de precios, una carta de servicios.",
+          "Dice que no lo sabe en lugar de inventarse la respuesta.",
+          "Contesta en el idioma en que le han escrito, en cualquiera de los idiomas que habla Denku.",
+          "Guarda todas las transcripciones, para que puedas leer exactamente qué se dijo en tu nombre."
+        ],
+        "notYet": [
+          "Solo sabe lo que le has dado. Una sección de Conocimiento vacía es una IA muy educada que no puede ayudar a nadie.",
+          "No entra por su cuenta a leer tu web. Sabe lo que hayas escrito o subido."
         ]
       },
-      "order-status": {
-        "title": "Estado del pedido y avisos",
-        "description": "Automatiza el \"¿dónde está mi pedido?\" y las consultas de estado.",
+      "messages": {
+        "title": "Mensajes, no solo llamadas",
+        "description": "Telegram, el correo que reenvías y un chat en tu propia web.",
         "flow": [
-          "El cliente pregunta por el estado",
-          "La IA consulta el sistema de pedidos",
-          "Da la respuesta al instante",
-          "Avisos proactivos"
+          "Llega un mensaje por un canal que has conectado",
+          "La IA lo lee: texto, una foto o una nota de voz",
+          "Responde, o te deja el borrador para que lo envíes tú",
+          "Todas las conversaciones caen en una sola bandeja"
         ],
         "bullets": [
-          "Consulta el estado del pedido mediante herramienta o webhook",
-          "Envía avisos proactivos cuando hace falta",
-          "Descarga de consultas repetitivas"
+          "Responde en Telegram, en el correo que reenvías y en el chat de tu web.",
+          "Ve las fotos y escucha las notas de voz, y lo dice claramente cuando no puede leer un archivo.",
+          "Una persona puede tomar el control de cualquier conversación, y la IA deja de responder en esa.",
+          "Por defecto los correos se quedan en borrador para que una persona los apruebe, y eso se puede cambiar."
+        ],
+        "notYet": [
+          "Instagram entrega los mensajes directos en tu bandeja, pero todavía no puede responder desde Denku. WhatsApp, Messenger y SMS no están construidos y no entran en ningún plan.",
+          "El correo sale desde tu propio dominio solo cuando publicas sus registros DNS. Recibir, leer y redactar funcionan desde el día en que activas el reenvío; el envío espera a eso."
         ]
       }
     }

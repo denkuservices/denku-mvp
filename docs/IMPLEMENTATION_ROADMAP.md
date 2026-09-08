@@ -30,7 +30,10 @@
 > English with the saved preference ignored. **R-159** — /docs promising Zendesk, Salesforce, API
 > access and custom models, /support promising a contractual SLA — is fixed for those two pages,
 > rewritten from the same registries and corpus the site's own sales assistant answers from.
-> /use-cases and /about remain, still selling the pre-V3 product.)
+> /use-cases and /about followed on 2026-09-08: /use-cases rewritten around four workflows the
+> product performs, each with an equally prominent "what it does not do yet" card, and /about
+> retired into a 308 to /company — the current about-us page the V3 rebuild had left unlinked
+> while the stale one kept the footer link.)
 > **Prior:** 2026-09-07 (**R-157 closed out.** The last item it deferred — Settings →
 > Workspace reading one `organization_settings` row **four times** — is fixed, and it needed none
 > of the risk that deferred it: `getWorkspaceGeneral` already does `select("*")`, so the page was
@@ -2857,8 +2860,7 @@ tested pure function, but no human has seen a first run in Turkish.
 
 ### R-159 — /docs and /support promise integrations and SLAs that do not exist
 
-**Priority:** Medium · **Effort:** M · **Status:** Fixed for /docs and /support (2026-09-07);
-**/use-cases and /about still open** · **Source:** R-158
+**Priority:** Medium · **Effort:** M · **Status:** Fixed (2026-09-08) · **Source:** R-158
 
 **Problem.** Both pages are pre-V3 copy that the landing rewrite never reached, and they are now
 translated into four languages, so the claims travel further than before.
@@ -2890,10 +2892,46 @@ there is no support tier to buy and no contractual response time, and its seven 
 failure modes from this repo rather than a generic troubleshooting list. The old message
 namespaces were deleted rather than merged over, so no removed claim survives as an unused key.
 
-**Still open: `/use-cases` and `/about`.** Both still describe the pre-V3 product — "deploy AI
-agents on an architecture designed for multi-tenant SaaS products", a CRM/helpdesk flow diagram —
-rather than the AI-employee positioning the landing page leads with. Neither states anything
-false, which is why they were left; they are simply selling an older product.
+**`/use-cases` and `/about`, closed 2026-09-08.** The earlier read — "softer, but stale" — was
+too generous to `/use-cases`. Held against the shipped pipeline it promised the AI would check a
+CRM or helpdesk mid-call, score leads and route them to the right team, push them to a CRM "via
+webhook/tool", check calendar availability in real time, reschedule appointments, send reminders,
+look up order status and send proactive notifications. None of that is built, and two of them are
+refused **on purpose**: order lookup, because an anonymous caller must never be able to read a
+stranger's order (`skills/commerce-integrations.md` §7), and the mid-call transfer, because the AI
+cannot hand a live caller to a person. It also carried a dead CTA — a button scrolling to
+`#product`, an anchor that lives on the pre-V3 hero and is not on the page any more.
+
+Rewritten as four workflows the product actually performs — calls nobody picks up, booking
+requests, the questions answered twenty times a day, and messages on the chat channels — each with
+a **"what it does not do yet"** card rendered as prominently as the capability list beside it, the
+shape `/employees` already uses for `notYet`. That card is where the two deliberate refusals now
+live, alongside the calendar-sync limit, Instagram being receive-only, and the Email DNS
+precondition.
+
+`/about` was a different problem, and rewriting it would have been the wrong fix. There were
+**two** about-us pages: `/company`, written for the V3 site and current, and `/about`, the pre-V3
+one. The rebuild never repointed the footer, so the stale page stayed the linked one and the good
+page was reachable only from the sitemap. A third variant would have competed with `/company` for
+the same search results. `/about` is now a locale-aware **308** to `/company` (`/tr/about` →
+`/tr/company`), the footer points at `/company`, the redirect is out of the sitemap, and the
+`aboutPage` namespace is deleted from all four message files. One about-us page to keep true
+instead of two.
+
+While there, two of `/company`'s principles were retranslated: "fail open" / "fail closed" had been
+rendered word for word as *açık/kapalı başarısız olur*, *scheitern offen/geschlossen* and *fallan
+hacia el sí/no* — an engineering idiom that carries nothing once translated literally, and exactly
+the class of defect this whole sweep is about. `/about` now lands on that page, so it is read far
+more than it was.
+
+**Verification.** Production build, all four locales: no removed claim survives anywhere
+(`CRM|Helpdesk|Salesforce|HubSpot|Calendly|Zendesk|lead scoring|multi-tenant|SOC 2|HIPAA`), no raw
+message key renders, the workflow tabs switch client-side and swap both cards, and `/about`,
+`/tr/about`, `/de/about`, `/es/about` each answer `308 → /<locale>/company`. A new assertion in
+`test/locale-alternates.test.ts` pins the redirect so the duplicate cannot come back, and exempts
+redirect-only routes from the "every page declares alternates" rule — a route that renders no
+document has no metadata to carry them, and they belong to the page it points at. 1786 tests pass;
+`next build` green.
 
 ---
 

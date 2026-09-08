@@ -1035,11 +1035,11 @@
     "principles": [
       {
         "title": "Arama asla çıkmaza girmez.",
-        "body": "Biten her arama bir şey üretir — bir kayıt ya da randevu talebi — AI hiçbir araca uzanmasa bile. Bu, tutmasını umduğumuz bir talimat değil, hattaki bir garanti."
+        "body": "Biten her arama geride bir şey bırakır — bir talep ya da bir randevu isteği — AI hiçbir araç çağırmamış olsa bile. Bu, tutmasını umduğumuz bir talimat değil; akışın içine gömülü bir garanti."
       },
       {
-        "title": "Parada kapalı başarısız oluruz.",
-        "body": "Geçit kontrolleri açık başarısız olur, böylece ödeyen bir müşteri asla dışarıda kalmaz. Faturalama yazımları kapalı başarısız olur, böylece hiçbir şey tahmin edilmez. Bu ikisi çakıştığında para kaybeder."
+        "title": "Para söz konusuysa temkinli davranırız.",
+        "body": "Bir erişim kontrolü hata verdiğinde kapıyı açık bırakırız: ödeme yapan bir müşteri asla dışarıda kalmasın diye. Bir faturalama işlemi hata verdiğinde ise hiçbir şey yazmayız: hiçbir tutar tahminle belirlenmesin diye. İkisi çakıştığında zararına biz katlanırız, müşteri değil."
       },
       {
         "title": "Her şey iki kez olabilir.",
@@ -1328,42 +1328,6 @@
       }
     ]
   },
-  "aboutPage": {
-    "metaTitle": "Hakkımızda",
-    "metaDescription": "Denku hakkında — işletmeler tek bir aramayı bile kaçırmasın diye sesli yapay zekâ çalışanları geliştiriyoruz.",
-    "eyebrow": "Hakkımızda",
-    "title": "{name} hakkında",
-    "intro": "{name}, ekiplerin yapay zekâ çalışanlarını — ses, sohbet ve otomasyon — çok kiracılı SaaS ürünleri için tasarlanmış bir mimari üzerinde devreye almasına yardımcı olur.",
-    "missionEyebrow": "Misyon",
-    "missionTitle": "Yapay zekâ çalışanlarını bugünün işletmeleri için üretime hazır hâle getirmek.",
-    "missionBody": "Güvenli devreye alma kalıplarına odaklanıyoruz: açıkça tanımlı araçlar, dar kapsamlı erişim ve temiz izlenebilirlik — böylece şirketler yapay zekâ çalışanlarını hızla yayına alır ve güvenle işletir.",
-    "pillars": [
-      {
-        "title": "Çok kiracılı mimari",
-        "desc": "Kiracı bazında yalıtılmış veri erişimi ve dar kapsamlı araçlar — SaaS ölçeği ve müşteriler arasında temiz ayrım için tasarlandı."
-      },
-      {
-        "title": "Operasyonel denetim",
-        "desc": "Açıkça tanımlı araçlar, kurallar ve koruma bantları sayesinde çalışanlar üretimde güvenle iş görür."
-      },
-      {
-        "title": "İzlenebilirlik",
-        "desc": "Denetimi, iyileştirmeyi ve güvenilirliği destekleyen yapılandırılmış olaylar ve kayıtlar."
-      }
-    ],
-    "principlesTitle": "İlkeler",
-    "principles": [
-      "Varsayılan olarak kiracı yalıtımı",
-      "En az yetkili araçlar ve dar kapsamlı erişim",
-      "Yapılandırılmış olaylarla denetlenebilir işleyiş",
-      "Güvenli entegrasyonlar ve temiz web kancası pratiği",
-      "Denetimden ödün vermeden hızlı başlangıç"
-    ],
-    "whatYouGetTitle": "Elde ettikleriniz",
-    "whatYouGetBody": "Sade başlayıp sizinle büyüyen bir platform: tek bir yapay zekâ çalışanından birçoğuna, sesle başlayıp yayınladıkça yeni kanallar ekleyerek, temel kayıt tutmadan gelişmiş erişim denetimlerine.",
-    "viewPricing": "Fiyatları gör",
-    "talkToUs": "Bizimle konuşun"
-  },
   "contactPage": {
     "eyebrow": "İletişim",
     "title": "İletişim",
@@ -1402,78 +1366,105 @@
     "mailChannel": "Ana kanal"
   },
   "useCasesPage": {
-    "metaTitle": "Kullanım örnekleri",
-    "metaDescription": "İşletmeler Denku'nun sesli yapay zekâ çalışanını her aramayı yanıtlamak, potansiyel müşteri nitelemek ve 7/24 randevu almak için nasıl kullanıyor: esnaf, klinik, salon ve daha fazlası.",
-    "eyebrow": "Kullanım örnekleri",
-    "titleLead": "Yapay zekâ çalışanınızın neyi",
-    "titleEmphasis": "üstlenmesini istersiniz",
-    "sub": "Bir iş akışı seçin. Gerçek işleyişte nasıl çalıştığını görün.",
-    "viewFlow": "Akışı gör",
-    "howItWorks": "Nasıl çalışır",
-    "whatItDoes": "Yapay zekâ çalışanı ne yapar",
-    "ctaTitle": "Canlı görmek ister misiniz?",
-    "ctaBody": "Şimdi canlı sesli yapay zekâyı deneyin, sonra kendi akışınızı kurmanıza yardım edelim.",
+    "metaTitle": "Kullanım senaryoları",
+    "metaDescription": "İşletmelerin Denku'ya ilk devrettiği dört iş: cevaplanamayan aramalar, randevu talepleri, gün içinde defalarca tekrarlanan sorular ve mesajlar. Yapay zekânın bugün ne yaptığı ve neyi hâlâ size bıraktığı, yan yana.",
+    "eyebrow": "Kullanım senaryoları",
+    "titleLead": "Hangi işi üzerinizden",
+    "titleEmphasis": "almasını istersiniz",
+    "sub": "İşletmelerin ilk devrettiği dört iş. Her birinde yapay zekânın bugün ne yaptığı ve hemen yanında neyi hâlâ size bıraktığı yazıyor.",
+    "viewFlow": "Nasıl işlediğine bakın",
+    "howItWorks": "Nasıl işliyor",
+    "whatItDoes": "Ne yapıyor",
+    "whatItDoesNot": "Henüz ne yapmıyor",
+    "byTradeTitle": "Kendi sektörünüz için mi okumak istersiniz?",
+    "byTradeBody": "Aynı ürün; tesisat ve iklimlendirme, diş klinikleri, güzellik merkezleri ve hukuk bürosu görüşmeleri için anlatılmış hâli.",
+    "byTradeLink": "Sektörlere göz atın",
+    "byEmployeeTitle": "Yoksa bir pozisyon mu işe alsanız?",
+    "byEmployeeBody": "Hazır beş çalışan: resepsiyonist, randevu asistanı, kaçan aramaları kurtaran, mesai dışı vardiyası ve destek uzmanı.",
+    "byEmployeeLink": "Çalışanlarla tanışın",
+    "ctaTitle": "Okumaktansa dinlemek daha iyi anlatır.",
+    "ctaBody": "Demo hattını arayın; sayfayı değil ürünü değerlendirin. Kendi kurulumunuz kısa ve yönlendirmeli bir kayıt akışı, numara da aynı gün çalışmaya başlıyor.",
     "ctaTalk": "Denku ile konuşun",
     "ctaStart": "Başlayın",
     "cases": {
-      "support": {
-        "title": "Müşteri desteği",
-        "description": "Talep yükünü azaltın, yanıt süresini kısaltın.",
+      "missed-calls": {
+        "title": "Kimsenin açamadığı aramalar",
+        "description": "Akşamlar, hafta sonları ve lavabonun altında geçen o bir saat.",
         "flow": [
-          "Gelen arama",
-          "Yapay zekâ anında yanıtlar",
-          "Sistemi kontrol eder (CRM / yardım masası)",
-          "Çözer veya üst kademeye taşır"
+          "Telefon akşam sekizde çalıyor",
+          "Yapay zekâ ilk çalışta açıyor",
+          "Ne istediklerini soruyor ve not ediyor",
+          "Siz bakmadan panonuzda oluyor"
         ],
         "bullets": [
-          "Sık sorulan ve ürün sorularını anında yanıtlar",
-          "Yapılandırılmış içerikle talep oluşturur",
-          "Tüm bağlamıyla birlikte bir kişiye devreder"
+          "Her saat açıyor. Çalışma saatleriniz ona ekibinizin ne zaman içeride olduğunu söyler, ne zaman telefon açabileceğini değil.",
+          "Biten her arama geride mutlaka bir şey bırakır: bir talep ya da bir randevu isteği. Başka her şey ters gitse bile.",
+          "Arayanı kişi kaydı olarak tutar; aynı kişi bir dahaki sefere yabancı olmaz.",
+          "Bir kişinin bakması gereken yeni bir şey olduğunda size e-posta gönderir."
+        ],
+        "notYet": [
+          "Görüşme sürerken arayanı size aktaramaz. Mesajı alır ve talebi yazar, böylece biri geri dönebilir.",
+          "Kimin acil olduğuna karar vermez. Sorar, cevabı kaydeder, işi dağıtmayı size bırakır."
         ]
       },
-      "sales": {
-        "title": "Satış karşılama",
-        "description": "Potansiyel müşterileri yapılandırılmış biçimde toplayın ve yönlendirin.",
+      "booking": {
+        "title": "Randevu talepleri",
+        "description": "Bir konuşmayı deftere yazılmış bir saate dönüştürmek.",
         "flow": [
-          "Potansiyel müşteriden arama",
-          "Yapay zekâ anında niteler",
-          "Puanlar ve yönlendirir",
-          "CRM'e aktarır"
+          "Biri randevu istiyor",
+          "Yapay zekâ randevu için gerekenleri topluyor",
+          "Randevu talebini yazıyor",
+          "Ekibiniz onaylıyor"
         ],
         "bullets": [
-          "Niteleme sorularını otomatik sorar",
-          "Potansiyel müşterileri puanlayıp doğru ekibe yönlendirir",
-          "Web kancası veya araç üzerinden CRM'e aktarır"
+          "Randevu için gerekli dediğiniz bilgileri sorar: kim, ne için ve ne zaman uygun.",
+          "Her randevu aramasında, görüşme dökümü ekli bir randevu talebi oluşturur.",
+          "Yazmadığı bir randevuyu asla olmuş gibi göstermez.",
+          "Telefonda da yazışmada da aynı şekilde çalışır."
+        ],
+        "notYet": [
+          "Takviminizle çift yönlü eşleşme yok. Yapay zekâ takviminizi okumaz ve bir saati tutamaz; talep panoya düşer, onayı bir kişi verir.",
+          "Randevuyu kendiliğinden ertelemez ya da iptal etmez, hatırlatma da göndermez."
         ]
       },
-      "appointment": {
-        "title": "Randevu alma",
-        "description": "Sesle ya da sohbetle randevu alın, erteleyin ve onaylayın.",
+      "questions": {
+        "title": "Günde yirmi kez cevapladığınız sorular",
+        "description": "Çalışma saatleri, fiyatlar, hizmet bölgesi, neyi yaptığınız ve neyi almadığınız.",
         "flow": [
-          "Müşteri randevu ister",
-          "Yapay zekâ uygunluğu kontrol eder",
-          "Randevu alır veya saat önerir",
-          "Onay gönderir"
+          "Biri fiyatı soruyor",
+          "Yapay zekâ ona anlattıklarınızla cevaplıyor",
+          "Görüşme ve kişi kaydediliyor",
+          "Siz sonradan okuyup bildiklerini düzeltiyorsunuz"
         ],
         "bullets": [
-          "Takvim uygunluğunu anlık kontrol eder",
-          "Randevu alır veya erteler",
-          "Onay ve hatırlatma gönderir"
+          "Sizin doldurduğunuz Bilgi bölümünden ve yüklediğiniz belgelerden cevap verir: fiyat listesi, hizmet menüsü.",
+          "Cevap uydurmak yerine bilmediğini söyler.",
+          "Müşteri hangi dilde yazdıysa o dilde cevaplar; Denku'nun konuştuğu her dilde.",
+          "Bütün görüşme dökümlerini saklar; sizin adınıza tam olarak ne söylendiğini okuyabilirsiniz."
+        ],
+        "notYet": [
+          "Yalnızca ona verdiğinizi bilir. Boş bir Bilgi bölümü, kimseye yardım edemeyen çok kibar bir yapay zekâ demektir.",
+          "Kendi başına gidip sitenizi okumaz. Bildiği şey, sizin yazdığınız ya da yüklediğinizdir."
         ]
       },
-      "order-status": {
-        "title": "Sipariş durumu ve bilgilendirme",
-        "description": "\"Siparişim nerede?\" ve durum sorularını otomatikleştirin.",
+      "messages": {
+        "title": "Yalnızca aramalar değil, mesajlar da",
+        "description": "Telegram, yönlendirdiğiniz e-posta ve kendi sitenizdeki sohbet penceresi.",
         "flow": [
-          "Müşteri durumu sorar",
-          "Yapay zekâ sipariş sistemini kontrol eder",
-          "Anında bilgi verir",
-          "Önden bilgilendirme"
+          "Bağladığınız bir kanaldan mesaj geliyor",
+          "Yapay zekâ okuyor: yazı, fotoğraf ya da sesli mesaj",
+          "Cevaplıyor ya da size taslak hazırlıyor",
+          "Bütün görüşmeler tek bir gelen kutusunda toplanıyor"
         ],
         "bullets": [
-          "Sipariş durumunu araç veya web kancasıyla kontrol eder",
-          "Gerektiğinde önden bilgi verir",
-          "Tekrar eden soruları karşılar"
+          "Telegram'da, yönlendirdiğiniz e-postada ve sitenizdeki sohbet penceresinde cevap verir.",
+          "Fotoğrafları görür, sesli mesajları duyar; bir dosyayı okuyamadığında da bunu açıkça söyler.",
+          "Bir kişi istediği görüşmeyi devralabilir; yapay zekâ o görüşmede cevap vermeyi bırakır.",
+          "E-posta cevapları varsayılan olarak bir kişinin onayına taslak gider, bunu değiştirebilirsiniz."
+        ],
+        "notYet": [
+          "Instagram, direkt mesajları gelen kutunuza getirir ama Denku üzerinden henüz cevap veremez. WhatsApp, Messenger ve SMS geliştirilmedi ve hiçbir pakete dâhil değil.",
+          "E-posta, ancak siz kendi alan adınızın DNS kayıtlarını yayımladıktan sonra o alan adından gönderilir. Alma, okuma ve taslak yazma yönlendirmeyi açtığınız gün çalışır; gönderme bunu bekler."
         ]
       }
     }

@@ -24,12 +24,12 @@ import { routing } from "@/i18n/routing";
  *
  * ## The rules
  *
- * `localePrefix: "as-needed"` means English has no prefix, so `/about` and `/tr/about` are the
+ * `localePrefix: "as-needed"` means English has no prefix, so `/pricing` and `/tr/pricing` are the
  * same page in two languages. `x-default` points at English — it is what a crawler serves to a
  * visitor whose language matches none of the four, and omitting it makes the group ambiguous.
  *
- * `path` is the UNPREFIXED route (`/about`, `""` for the home page). Passing an already
- * prefixed path would produce `/tr/tr/about`, so callers hand over what they know statically:
+ * `path` is the UNPREFIXED route (`/pricing`, `""` for the home page). Passing an already
+ * prefixed path would produce `/tr/tr/pricing`, so callers hand over what they know statically:
  * their own route.
  */
 
@@ -48,7 +48,7 @@ export interface LocaleAlternates {
  * The `alternates` block for one page in one locale.
  *
  * Canonical is absolute rather than relative on purpose: a relative canonical is resolved
- * against `metadataBase`, which has no locale, so `/about` on the Turkish page would resolve
+ * against `metadataBase`, which has no locale, so `/pricing` on the Turkish page would resolve
  * back to the English URL — the exact bug this replaces, in a quieter form.
  */
 export function localeAlternates(locale: string, path = ""): LocaleAlternates {
