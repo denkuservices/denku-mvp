@@ -1038,8 +1038,8 @@
         "body": "Jeder beendete Anruf erzeugt etwas — ein Ticket oder eine Terminanfrage — auch wenn die KI nie zu einem Werkzeug greift. Das ist eine Garantie in der Verarbeitung, keine Anweisung, auf deren Wirkung wir hoffen."
       },
       {
-        "title": "Beim Geld scheitern wir geschlossen.",
-        "body": "Zugangsprüfungen scheitern offen, damit ein zahlender Kunde nie ausgesperrt wird. Abrechnungsvorgänge scheitern geschlossen, damit nie geraten wird. Wenn beides kollidiert, verliert das Geld."
+        "title": "Beim Geld sind wir lieber vorsichtig.",
+        "body": "Schlägt eine Zugangsprüfung fehl, lassen wir durch — ein zahlender Kunde darf nie ausgesperrt werden. Schlägt eine Abrechnung fehl, schreiben wir nichts — kein Betrag wird geraten. Wenn beides kollidiert, tragen wir die Kosten, nicht der Kunde."
       },
       {
         "title": "Alles kann zweimal passieren.",
@@ -1328,42 +1328,6 @@
       }
     ]
   },
-  "aboutPage": {
-    "metaTitle": "Über uns",
-    "metaDescription": "Über Denku – wir bauen KI-Mitarbeiter fürs Telefon, damit kein Unternehmen einen Anruf verpasst.",
-    "eyebrow": "Über uns",
-    "title": "Über {name}",
-    "intro": "{name} hilft Teams, KI-Agenten – Sprache, Chat und Automatisierung – auf einer Architektur zu betreiben, die für mandantenfähige SaaS-Produkte gebaut ist.",
-    "missionEyebrow": "Mission",
-    "missionTitle": "KI-Agenten produktionsreif machen – für Unternehmen von heute.",
-    "missionBody": "Wir konzentrieren uns auf sichere Betriebsmuster: klar definierte Werkzeuge, eng gefasste Zugriffe und saubere Nachvollziehbarkeit – damit Unternehmen Agenten schnell ausrollen und mit Vertrauen betreiben können.",
-    "pillars": [
-      {
-        "title": "Mandantenfähige Architektur",
-        "desc": "Mandantengetrennter Datenzugriff und eng gefasste Werkzeuge – gebaut für SaaS-Maßstab und saubere Trennung zwischen Kunden."
-      },
-      {
-        "title": "Betriebliche Kontrolle",
-        "desc": "Klar definierte Werkzeuge, Richtlinien und Leitplanken, damit Agenten im Produktivbetrieb sicher arbeiten."
-      },
-      {
-        "title": "Beobachtbarkeit",
-        "desc": "Strukturierte Ereignisse und Protokolle, die Audits, Weiterentwicklung und Zuverlässigkeit tragen."
-      }
-    ],
-    "principlesTitle": "Prinzipien",
-    "principles": [
-      "Mandantentrennung standardmäßig",
-      "Werkzeuge mit minimalen Rechten und eng gefasstem Zugriff",
-      "Prüfbare Abläufe mit strukturierten Ereignissen",
-      "Sichere Integrationen und saubere Webhook-Praxis",
-      "Schneller Einstieg, ohne die Kontrolle aufzugeben"
-    ],
-    "whatYouGetTitle": "Was Sie bekommen",
-    "whatYouGetBody": "Eine Plattform, die einfach anfängt und mit Ihnen wächst: von einem KI-Mitarbeiter zu vielen, beginnend mit Telefonie und mit weiteren Kanälen, sobald wir sie ausliefern, von einfachen Protokollen bis zu feingranularen Zugriffsrechten.",
-    "viewPricing": "Preise ansehen",
-    "talkToUs": "Sprechen Sie mit uns"
-  },
   "contactPage": {
     "eyebrow": "Kontakt",
     "title": "Kontakt",
@@ -1403,77 +1367,104 @@
   },
   "useCasesPage": {
     "metaTitle": "Anwendungsfälle",
-    "metaDescription": "So nutzen Unternehmen den KI-Mitarbeiter von Denku, um jeden Anruf zu beantworten, Leads zu qualifizieren und rund um die Uhr Termine zu buchen – für Handwerk, Praxen, Salons und mehr.",
+    "metaDescription": "Die vier Aufgaben, die Unternehmen zuerst an Denku abgeben: verpasste Anrufe, Terminanfragen, ewig gleiche Fragen und Nachrichten. Mit dem, was die KI heute tut, und dem, was sie Ihnen weiterhin überlässt.",
     "eyebrow": "Anwendungsfälle",
-    "titleLead": "Was soll Ihr KI-Mitarbeiter",
-    "titleEmphasis": "übernehmen",
-    "sub": "Wählen Sie einen Ablauf und sehen Sie, wie er im Betrieb funktioniert.",
+    "titleLead": "Was soll sie Ihnen",
+    "titleEmphasis": "abnehmen",
+    "sub": "Vier Abläufe, die Unternehmen zuerst abgeben. Bei jedem steht, was die KI heute tut — und direkt daneben, was sie Ihnen weiterhin überlässt.",
     "viewFlow": "Ablauf ansehen",
-    "howItWorks": "So funktioniert es",
-    "whatItDoes": "Was der Agent tut",
-    "ctaTitle": "Möchten Sie das live sehen?",
-    "ctaBody": "Testen Sie jetzt den Live-Sprachagenten, danach richten wir gemeinsam Ihren eigenen Ablauf ein.",
+    "howItWorks": "So läuft es ab",
+    "whatItDoes": "Was sie tut",
+    "whatItDoesNot": "Was sie noch nicht tut",
+    "byTradeTitle": "Lieber für Ihre Branche?",
+    "byTradeBody": "Dasselbe Produkt, erklärt für Heizung und Sanitär, Zahnarztpraxen, Kosmetikstudios und Salons sowie Kanzleien.",
+    "byTradeLink": "Branchen ansehen",
+    "byEmployeeTitle": "Lieber eine Rolle einstellen?",
+    "byEmployeeBody": "Fünf fertige Mitarbeiter: Empfang, Terminassistenz, Rückholer verpasster Anrufe, Nachtschicht und Support.",
+    "byEmployeeLink": "Die Mitarbeiter kennenlernen",
+    "ctaTitle": "Hören sagt mehr als lesen.",
+    "ctaBody": "Rufen Sie die Demo-Nummer an und beurteilen Sie das Produkt statt der Seite. Die Einrichtung ist ein kurzer geführter Ablauf, und die Nummer ist noch am selben Tag erreichbar.",
     "ctaTalk": "Mit Denku sprechen",
     "ctaStart": "Loslegen",
     "cases": {
-      "support": {
-        "title": "Kundensupport",
-        "description": "Weniger Tickets, schnellere Antworten.",
+      "missed-calls": {
+        "title": "Anrufe, die niemand annimmt",
+        "description": "Abends, am Wochenende und in der Stunde unter dem Waschbecken.",
         "flow": [
-          "Eingehender Anruf",
-          "Die KI antwortet sofort",
-          "Prüft das System (CRM / Helpdesk)",
-          "Löst oder eskaliert"
+          "Um 20 Uhr klingelt das Telefon",
+          "Die KI geht beim ersten Klingeln ran",
+          "Sie fragt, worum es geht, und schreibt es auf",
+          "Es steht im Dashboard, bevor Sie hinsehen"
         ],
         "bullets": [
-          "Beantwortet häufige und Produktfragen sofort",
-          "Legt Tickets mit strukturierten Daten an",
-          "Übergibt mit vollem Kontext an einen Menschen"
+          "Nimmt zu jeder Stunde ab. Ihre Öffnungszeiten sagen ihr, wann Ihr Team da ist — nicht, wann sie rangehen darf.",
+          "Ein beendeter Anruf hinterlässt immer etwas: ein Ticket oder eine Terminanfrage, auch wenn sonst nichts nach Plan lief.",
+          "Legt den Anrufer als Kontakt an, damit dieselbe Person beim nächsten Mal keine Unbekannte ist.",
+          "Schickt Ihnen eine E-Mail, sobald etwas Neues einen Menschen braucht."
+        ],
+        "notYet": [
+          "Sie kann den Anruf nicht zu Ihnen durchstellen. Sie nimmt die Nachricht auf und schreibt das Ticket, damit jemand zurückrufen kann.",
+          "Sie entscheidet nicht, was dringend ist. Sie fragt, hält die Antwort fest und überlässt Ihnen die Einteilung."
         ]
       },
-      "sales": {
-        "title": "Vertriebsannahme",
-        "description": "Leads strukturiert erfassen und weiterleiten.",
+      "booking": {
+        "title": "Terminanfragen",
+        "description": "Aus einem Gespräch wird ein Eintrag im Kalender.",
         "flow": [
-          "Anruf eines Interessenten",
-          "Die KI qualifiziert sofort",
-          "Bewertet und leitet weiter",
-          "Übergibt ans CRM"
+          "Jemand möchte einen Termin",
+          "Die KI sammelt, was für eine Buchung nötig ist",
+          "Sie schreibt die Terminanfrage",
+          "Ihr Team bestätigt sie"
         ],
         "bullets": [
-          "Stellt Qualifizierungsfragen automatisch",
-          "Bewertet Leads und leitet sie an das richtige Team",
-          "Übergibt sie per Webhook oder Werkzeug ans CRM"
+          "Fragt genau die Angaben ab, die Sie für eine Buchung festgelegt haben: wer, wofür und wann es passt.",
+          "Erstellt bei jedem Terminanruf eine Terminanfrage, mit angehängtem Gesprächsprotokoll.",
+          "Behauptet nie eine Buchung, die sie nicht festgehalten hat.",
+          "Funktioniert am Telefon genauso wie im Chat."
+        ],
+        "notYet": [
+          "Ein Kalenderabgleich in beide Richtungen gibt es nicht. Die KI liest Ihren Kalender nicht und kann keinen Slot reservieren — die Anfrage landet im Dashboard und ein Mensch bestätigt sie.",
+          "Sie verlegt oder storniert nichts von sich aus und verschickt keine Erinnerungen."
         ]
       },
-      "appointment": {
-        "title": "Terminbuchung",
-        "description": "Buchen, verschieben und bestätigen – per Telefon oder Chat.",
+      "questions": {
+        "title": "Die Fragen, die Sie zwanzigmal am Tag beantworten",
+        "description": "Öffnungszeiten, Preise, Einzugsgebiet, was Sie machen und was nicht.",
         "flow": [
-          "Kunde möchte einen Termin",
-          "Die KI prüft die Verfügbarkeit",
-          "Bucht oder schlägt Zeiten vor",
-          "Sendet die Bestätigung"
+          "Jemand fragt, was es kostet",
+          "Die KI antwortet mit dem, was Sie ihr gesagt haben",
+          "Gespräch und Kontakt werden festgehalten",
+          "Sie lesen es nach und korrigieren, was sie wusste"
         ],
         "bullets": [
-          "Prüft die Kalenderverfügbarkeit in Echtzeit",
-          "Bucht oder verschiebt Termine",
-          "Sendet Bestätigungen und Erinnerungen"
+          "Antwortet aus einem Wissensbereich, den Sie ausfüllen, plus Dokumenten, die Sie hochladen — eine Preisliste, eine Leistungsübersicht.",
+          "Sagt lieber, dass sie es nicht weiß, als sich eine Antwort auszudenken.",
+          "Antwortet in der Sprache, in der geschrieben wurde — in jeder Sprache, die Denku spricht.",
+          "Bewahrt jedes Protokoll auf, damit Sie genau nachlesen können, was in Ihrem Namen gesagt wurde."
+        ],
+        "notYet": [
+          "Sie weiß nur, was Sie ihr gegeben haben. Ein leerer Wissensbereich ergibt eine höfliche KI, die niemandem helfen kann.",
+          "Sie liest Ihre Website nicht von selbst. Sie weiß, was Sie geschrieben oder hochgeladen haben."
         ]
       },
-      "order-status": {
-        "title": "Bestellstatus & Updates",
-        "description": "Automatisiert \"Wo ist meine Bestellung?\" und Statusanfragen.",
+      "messages": {
+        "title": "Nachrichten, nicht nur Anrufe",
+        "description": "Telegram, weitergeleitete E-Mails und ein Chat auf Ihrer eigenen Website.",
         "flow": [
-          "Kunde fragt nach dem Status",
-          "Die KI prüft das Bestellsystem",
-          "Antwortet sofort",
-          "Proaktive Benachrichtigungen"
+          "Eine Nachricht kommt über einen verbundenen Kanal",
+          "Die KI liest sie — Text, ein Foto oder eine Sprachnachricht",
+          "Sie antwortet oder schreibt Ihnen einen Entwurf",
+          "Alle Gespräche landen in einem Posteingang"
         ],
         "bullets": [
-          "Prüft den Bestellstatus per Werkzeug oder Webhook",
-          "Meldet sich proaktiv, wenn es nötig ist",
-          "Fängt wiederkehrende Anfragen ab"
+          "Antwortet auf Telegram, auf weitergeleitete E-Mails und im Chat auf Ihrer Website.",
+          "Sieht Fotos und hört Sprachnachrichten — und sagt es deutlich, wenn sie eine Datei nicht lesen kann.",
+          "Ein Mensch kann jedes Gespräch übernehmen; die KI antwortet in diesem Gespräch dann nicht mehr.",
+          "E-Mail-Antworten sind standardmäßig Entwürfe, die ein Mensch freigibt — das lässt sich umstellen."
+        ],
+        "notYet": [
+          "Instagram liefert Direktnachrichten in Ihren Posteingang, kann aus Denku aber noch nicht antworten. WhatsApp, Messenger und SMS sind nicht gebaut und in keinem Tarif enthalten.",
+          "E-Mails gehen erst dann von Ihrer eigenen Domain raus, wenn Sie deren DNS-Einträge veröffentlicht haben. Empfangen, Lesen und Entwerfen laufen ab dem Tag der Weiterleitung; das Senden wartet darauf."
         ]
       }
     }

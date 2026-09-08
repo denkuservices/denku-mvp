@@ -37,7 +37,7 @@ const entries: Entry[] = [
   { path: "/security", priority: 0.7, changeFrequency: "monthly" },
   { path: "/docs", priority: 0.7, changeFrequency: "monthly" },
   { path: "/support", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/about", priority: 0.6, changeFrequency: "monthly" },
+  // `/about` is a permanent redirect to `/company`; a redirect does not belong in a sitemap.
   { path: "/company", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.6, changeFrequency: "monthly" },
   { path: "/terms", priority: 0.3, changeFrequency: "yearly" },

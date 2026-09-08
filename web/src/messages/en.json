@@ -1328,42 +1328,6 @@
       }
     ]
   },
-  "aboutPage": {
-    "metaTitle": "About",
-    "metaDescription": "About Denku — building AI voice employees so businesses never miss a call.",
-    "eyebrow": "About",
-    "title": "About {name}",
-    "intro": "{name} helps teams deploy AI agents—voice, chat, and automation—on an architecture designed for multi-tenant SaaS products.",
-    "missionEyebrow": "Mission",
-    "missionTitle": "Make AI agents production-ready for modern businesses.",
-    "missionBody": "We focus on safe deployment patterns: explicit tools, scoped access, and clean observability — so companies can ship agents fast and operate them with confidence.",
-    "pillars": [
-      {
-        "title": "Multi-tenant architecture",
-        "desc": "Tenant-isolated data access and scoped tooling—built for SaaS scale and clean customer separation."
-      },
-      {
-        "title": "Operational control",
-        "desc": "Explicit tools, policies, and guardrails so agents operate safely in production."
-      },
-      {
-        "title": "Observability",
-        "desc": "Structured events and logs that support audits, iteration, and reliability."
-      }
-    ],
-    "principlesTitle": "Principles",
-    "principles": [
-      "Tenant isolation by default",
-      "Least-privilege tools and scoped access",
-      "Auditable operations with structured events",
-      "Secure integrations and webhook hygiene",
-      "Fast onboarding without sacrificing control"
-    ],
-    "whatYouGetTitle": "What you get",
-    "whatYouGetBody": "A platform that starts simple and grows with you: from one AI employee to many, starting with voice and adding channels as we ship them, from basic logging to advanced access controls.",
-    "viewPricing": "View pricing",
-    "talkToUs": "Talk to us"
-  },
   "contactPage": {
     "eyebrow": "Contact",
     "title": "Contact",
@@ -1402,78 +1366,105 @@
     "mailChannel": "Primary channel"
   },
   "useCasesPage": {
-    "metaTitle": "Use Cases",
-    "metaDescription": "See how businesses use Denku's AI voice employee to answer every call, qualify leads, and book appointments 24/7 — for trades, clinics, salons, and more.",
+    "metaTitle": "Use cases",
+    "metaDescription": "The four jobs businesses hand to Denku first — missed calls, booking requests, repeat questions and messages — with what the AI does today and what it still leaves to you.",
     "eyebrow": "Use cases",
-    "titleLead": "What do you want your AI employee to",
-    "titleEmphasis": "handle",
-    "sub": "Pick a workflow. See how it works in production.",
-    "viewFlow": "View flow",
-    "howItWorks": "How it works",
-    "whatItDoes": "What the agent does",
-    "ctaTitle": "Want to see this live?",
-    "ctaBody": "Try the live voice agent now, then we'll help you set up your own workflow.",
+    "titleLead": "What do you want it to",
+    "titleEmphasis": "take off your hands",
+    "sub": "Four workflows businesses hand over first. Each one lists what the AI does today — and, right beside it, what it still leaves to you.",
+    "viewFlow": "See how it runs",
+    "howItWorks": "How it runs",
+    "whatItDoes": "What it does",
+    "whatItDoesNot": "What it does not do yet",
+    "byTradeTitle": "Rather read it for your trade?",
+    "byTradeBody": "The same product, described for HVAC and plumbing, dental practices, med spas and salons, and legal intake.",
+    "byTradeLink": "Browse industries",
+    "byEmployeeTitle": "Rather hire a role?",
+    "byEmployeeBody": "Five ready-made employees: a receptionist, a booking assistant, a missed-call rescuer, an after-hours answerer and a support agent.",
+    "byEmployeeLink": "Meet the employees",
+    "ctaTitle": "Easier to hear than to read.",
+    "ctaBody": "Call the demo line and judge the product instead of the page. Setting up your own is a short guided signup, and the number is live the same day.",
     "ctaTalk": "Talk to Denku",
     "ctaStart": "Get started",
     "cases": {
-      "support": {
-        "title": "Customer Support",
-        "description": "Reduce ticket volume and improve response time.",
+      "missed-calls": {
+        "title": "Calls nobody picks up",
+        "description": "Evenings, weekends, and the hour you spent under a sink.",
         "flow": [
-          "Incoming call",
-          "AI answers instantly",
-          "Checks system (CRM / Helpdesk)",
-          "Resolves or escalates"
+          "The phone rings at 8pm",
+          "The AI answers on the first ring",
+          "It asks what they need and writes it down",
+          "It is on your dashboard before you look"
         ],
         "bullets": [
-          "Answers FAQs and product questions instantly",
-          "Creates tickets with structured payloads",
-          "Escalates to humans with full context"
+          "Answers at every hour. Your opening hours tell it when your staff are in, not when it may pick up.",
+          "A finished call always leaves something behind — a ticket or an appointment request — even if nothing else went to plan.",
+          "Records the caller as a contact, so the same person is not a stranger next time.",
+          "Emails you when something new needs a person."
+        ],
+        "notYet": [
+          "It cannot put a caller through to you mid-call. It takes the message and writes the ticket, so someone can call back.",
+          "It does not decide who is urgent. It asks, records the answer, and leaves the dispatching to you."
         ]
       },
-      "sales": {
-        "title": "Sales Intake",
-        "description": "Capture and route leads with structured intake.",
+      "booking": {
+        "title": "Booking requests",
+        "description": "Turning a conversation into a slot on the sheet.",
         "flow": [
-          "Incoming lead call",
-          "AI qualifies instantly",
-          "Scores and routes",
-          "Pushes to CRM"
+          "Someone asks for an appointment",
+          "The AI collects what a booking needs",
+          "It writes the appointment request",
+          "Your team confirms it"
         ],
         "bullets": [
-          "Asks qualifying questions automatically",
-          "Scores and routes leads to the right team",
-          "Pushes to CRM via webhook/tool"
+          "Asks for the details you said a booking needs: who, what for, and when suits them.",
+          "Writes an appointment request on every booking call, with the transcript attached.",
+          "Never claims a booking it did not write down.",
+          "Works the same way on the phone and in chat."
+        ],
+        "notYet": [
+          "Two-way calendar sync is not live. The AI does not read your calendar and cannot hold a slot — the request lands in the dashboard for a person to confirm.",
+          "It does not reschedule or cancel on its own, and it does not send reminders."
         ]
       },
-      "appointment": {
-        "title": "Appointment Booking",
-        "description": "Book, reschedule, and confirm through voice or chat.",
+      "questions": {
+        "title": "The questions you answer twenty times a day",
+        "description": "Hours, prices, service area, what you do and what you don't take on.",
         "flow": [
-          "Customer requests booking",
-          "AI checks availability",
-          "Books or suggests times",
-          "Sends confirmation"
+          "Someone asks what you charge",
+          "The AI answers from what you told it",
+          "The conversation and the contact are recorded",
+          "You read it back and correct what it knew"
         ],
         "bullets": [
-          "Checks calendar availability in real-time",
-          "Books or reschedules appointments",
-          "Sends confirmations and reminders"
+          "Answers from a Knowledge section you fill in, plus documents you upload — a price list, a service menu.",
+          "Says it does not know rather than inventing an answer.",
+          "Replies in the language the customer wrote in, across every language Denku speaks.",
+          "Keeps every transcript, so you can read exactly what was said in your name."
+        ],
+        "notYet": [
+          "It only knows what you gave it. An empty Knowledge section means a polite AI that cannot help anybody.",
+          "It does not go and read your website by itself. What it knows is what you wrote or uploaded."
         ]
       },
-      "order-status": {
-        "title": "Order Status & Updates",
-        "description": "Automate \"where is my order?\" and status requests.",
+      "messages": {
+        "title": "Messages, not just calls",
+        "description": "Telegram, forwarded email, and a chat widget on your own site.",
         "flow": [
-          "Customer asks for status",
-          "AI checks order system",
-          "Provides update instantly",
-          "Proactive notifications"
+          "A message arrives on a channel you connected",
+          "The AI reads it — text, a photo or a voice note",
+          "It replies, or drafts a reply for you to send",
+          "Every conversation lands in one Inbox"
         ],
         "bullets": [
-          "Checks order status via tool/webhook",
-          "Provides proactive updates when needed",
-          "Deflects repetitive inbound queries"
+          "Answers on Telegram, on forwarded email, and in the chat widget on your website.",
+          "Reads photos and hears voice notes — and says so plainly when a file cannot be read.",
+          "A person can take over any conversation, and the AI stops answering that one.",
+          "Email replies are drafted for a person to approve by default, and you can change that."
+        ],
+        "notYet": [
+          "Instagram delivers DMs into your Inbox but cannot reply from Denku yet. WhatsApp, Messenger and SMS are not built, and are in no plan.",
+          "Email sends from your own domain only once you publish DNS records for it. Receiving, reading and drafting work from the day you forward; sending waits on that."
         ]
       }
     }

@@ -101,6 +101,9 @@ describe("every marketing page declares its own alternates", () => {
   it("declares alternates on every page, through the helper", () => {
     const missing = [...sources]
       .filter(([f]) => f.endsWith("page.tsx"))
+      // A route that only redirects renders no document, so it has no metadata to carry
+      // alternates in — and should not: the alternates belong to the page it points at.
+      .filter(([, s]) => !/\bpermanentRedirect\(|\bredirect\(/.test(s))
       // A page whose metadata lives in its route layout is covered by that layout.
       .filter(([f, s]) => {
         if (s.includes("localeAlternates(")) return false;
@@ -109,6 +112,15 @@ describe("every marketing page declares its own alternates", () => {
       })
       .map(([f]) => f);
     expect(missing).toEqual([]);
+  });
+
+  it("redirects rather than duplicating a page that already exists", () => {
+    // `/about` and `/company` were two about-us pages competing for the same search results,
+    // and the linked one was the stale one. Guarding the redirect so a future edit cannot
+    // quietly restore the duplicate.
+    const about = sources.get(join(MARKETING, "about", "page.tsx"));
+    expect(about).toBeDefined();
+    expect(about).toMatch(/permanentRedirect\(\{\s*href:\s*['"]\/company['"]/);
   });
 
   it("never declares alternates twice in one file", () => {

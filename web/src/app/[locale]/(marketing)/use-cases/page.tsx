@@ -22,6 +22,10 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Copy rewritten 2026-09-08 — see the header of `use-cases-page.tsx` for what was removed
+ * and why. The page itself is unchanged in shape; every word moved.
+ */
 export default async function UseCasesRoutePage({
   params
 }: {

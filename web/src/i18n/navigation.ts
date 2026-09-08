@@ -6,5 +6,5 @@ import { routing } from "./routing";
  * instead of `next/link` so an href written once resolves to `/pricing` in
  * English and `/tr/pricing` in Turkish without any call site knowing.
  */
-export const { Link, redirect, usePathname, useRouter, getPathname } =
+export const { Link, redirect, permanentRedirect, usePathname, useRouter, getPathname } =
   createNavigation(routing);
