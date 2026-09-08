@@ -30,13 +30,24 @@ import { telegramAdapter, telegramAttachments } from "@/lib/platform/adapters/te
 import { instagramAdapter } from "@/lib/platform/adapters/instagram";
 import { emailAdapter, type InboundEmail } from "@/lib/platform/adapters/email";
 import { webChatAdapter } from "@/lib/platform/adapters/webchat";
-import { kindForMime, isUnderstandableMime, MAX_ATTACHMENTS_PER_MESSAGE } from "@/lib/platform/media/types";
+import {
+  kindForMime,
+  isUnderstandableMime,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MEDIA_BYTE_LIMITS,
+} from "@/lib/platform/media/types";
 import {
   composeMessageContent,
   processInboundMedia,
   renderAttachment,
 } from "@/lib/platform/media/understand";
-import { isOwnedUpload, sanitizeFilename, webChatAttachmentsFrom, webChatUploadKind } from "@/lib/webchat/uploads";
+import {
+  isOwnedUpload,
+  sanitizeFilename,
+  webChatAttachmentsFrom,
+  webChatUploadKind,
+  webChatUploadLimit,
+} from "@/lib/webchat/uploads";
 import { buildChatSystemPrompt } from "@/lib/platform/reply/prompt";
 import { channelMeta, CHANNEL_ORDER } from "@/lib/platform/channels";
 import { ingestInboundMessage } from "@/lib/platform/ingest";
@@ -200,12 +211,34 @@ describe("email adapter — what is worth reading", () => {
 });
 
 describe("web chat uploads — the only channel where the sender is a stranger", () => {
-  it("accepts photos and audio, refuses everything else", () => {
+  it("accepts what a customer actually sends, and nothing that is not a file to look at", () => {
     expect(webChatUploadKind("image/png")).toBe("image");
     expect(webChatUploadKind("audio/webm")).toBe("audio");
-    // SVG is script. A PDF is fine elsewhere but not from an anonymous browser.
+    // A ten-second clip of the fault and the PDF invoice: both were refused until the widget
+    // stopped being an images-and-audio channel, and both sent that customer to email instead.
+    expect(webChatUploadKind("video/mp4")).toBe("video");
+    expect(webChatUploadKind("application/pdf")).toBe("file");
+    expect(webChatUploadKind("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).toBe("file");
+    // SVG is script, whatever the `image/` prefix suggests, and this is the one place where that
+    // matters most: a public endpoint anyone on the internet can post to.
     expect(webChatUploadKind("image/svg+xml")).toBeNull();
-    expect(webChatUploadKind("application/pdf")).toBeNull();
+    expect(webChatUploadKind("application/zip")).toBeNull();
+    expect(webChatUploadKind("application/x-msdownload")).toBeNull();
+    expect(webChatUploadKind("text/html")).toBeNull();
+  });
+
+  it("a video may be bigger than a photo, and nothing may exceed the bucket", () => {
+    // The ceiling is per kind now. It has to stay at or under what the perception stage will
+    // accept, or we take an upload the AI then reports back as too large — paid for, and useless.
+    expect(webChatUploadLimit("image")).toBe(MEDIA_BYTE_LIMITS.image);
+    expect(webChatUploadLimit("video")).toBe(MEDIA_BYTE_LIMITS.video);
+    expect(webChatUploadLimit("audio")).toBeLessThanOrEqual(MEDIA_BYTE_LIMITS.audio);
+    expect(webChatUploadLimit("video")).toBeGreaterThan(webChatUploadLimit("image"));
+    // 20 MB is the `channel-media` bucket's own limit (migration 20260901110952). Going over it
+    // would mean an upload our own code approved and storage then refused.
+    for (const kind of ["image", "audio", "video", "file"] as const) {
+      expect(webChatUploadLimit(kind)).toBeLessThanOrEqual(20 * 1024 * 1024);
+    }
   });
 
   it("a storage key from another session or another org is not this visitor's file", () => {

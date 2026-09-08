@@ -267,9 +267,16 @@ export const CHANNELS: Readonly<Record<Channel, ChannelMeta>> = Object.freeze({
     /**
      * Attachments are ON as of Sprint 8 — and the note that used to sit here was right that this
      * is a decision rather than a feature. It was taken deliberately: the visitor uploads through
-     * a session-token endpoint with an allow-list of formats, a byte ceiling and a per-session
-     * count, all in `lib/webchat/uploads.ts`, because a shop's customer photographing the item
-     * they are asking about is the most valuable thing this channel could carry.
+     * a session-token endpoint with an allow-list of formats, a byte ceiling per kind and a
+     * per-session count, all in `lib/webchat/uploads.ts`, because a shop's customer photographing
+     * the item they are asking about is the most valuable thing this channel could carry.
+     *
+     * Widened on 2026-09-08 from images and audio to video and documents (PDF, Office, CSV,
+     * plain text), because refusing the invoice and the ten-second clip of the fault sent exactly
+     * the customer this channel exists for back to email. `imageUnderstanding` and
+     * `audioUnderstanding` are unchanged and still describe what the AI can READ: a document is
+     * carried and shown, not understood, and the perception stage records it as `stored_only`
+     * rather than letting the model guess at its contents.
      */
     capabilities: chat({ outbound: true }),
     /**

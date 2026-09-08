@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Support agent">
+  <!--
+    The face the widget wears when a business has not chosen one.
+
+    Drawn rather than photographed, on purpose. A stock photograph of a real person put at the top
+    of thousands of shops' chat panels is somebody's actual likeness being used to imply they work
+    there, in every workspace at once. An illustration makes the same promise the reference design
+    makes — a friendly person on a headset is waiting — while promising nothing about who.
+
+    Self-contained: no external font, no filter, no reference to anything the widget's CSP would
+    refuse. It is served from /webchat/ on Denku's own origin, which is what `img-src 'self'` in
+    the embed document allows.
+  -->
+  <defs>
+    <clipPath id="denku-avatar-clip"><circle cx="48" cy="48" r="48"/></clipPath>
+    <linearGradient id="denku-avatar-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4EDE6"/>
+      <stop offset="1" stop-color="#E7DBCE"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#denku-avatar-clip)">
+    <rect width="96" height="96" fill="url(#denku-avatar-bg)"/>
+
+    <!-- Shoulders: a plain top in the brand teal, so the mark reads as staff rather than customer. -->
+    <path d="M48 62c16 0 27 9 30 22 1 5 1 9 1 12H17c0-3 0-7 1-12 3-13 14-22 30-22z" fill="#1B6E6E"/>
+    <path d="M40 60h16v10a8 8 0 0 1-16 0z" fill="#E8B99B"/>
+
+    <!-- Hair behind the face. -->
+    <path d="M25 46c0-14 10-25 23-25s23 11 23 25c0 6-1 12-3 16l-4-3c1-4 2-8 2-12 0-3-2-5-5-6-4-1-8-3-11-6-4 5-11 9-18 10-3 1-4 3-4 7 0 3 1 7 2 10l-4 3c-1-5-1-12-1-19z" fill="#5A3A2E"/>
+
+    <!-- Face. -->
+    <path d="M48 26c11 0 18 8 18 20 0 13-8 22-18 22s-18-9-18-22c0-12 7-20 18-20z" fill="#F2C4A4"/>
+
+    <!-- Eyes, brows, mouth: four marks, because more detail at 40px is mud. -->
+    <ellipse cx="41" cy="45" rx="2.1" ry="2.6" fill="#3B2A22"/>
+    <ellipse cx="55" cy="45" rx="2.1" ry="2.6" fill="#3B2A22"/>
+    <path d="M37.5 39.5c2-1.4 4.4-1.4 6.4 0M52.1 39.5c2-1.4 4.4-1.4 6.4 0" stroke="#4A342A" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    <path d="M43 55c1.6 1.8 3.4 2.7 5 2.7s3.4-.9 5-2.7" stroke="#B4705A" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+    <!-- Fringe over the forehead, drawn last so it sits on the face. -->
+    <path d="M30 44c-1-13 7-21 18-21s19 8 18 21c-2-6-6-9-11-11-4 4-11 7-19 8-3 0-5 1-6 3z" fill="#6B4535"/>
+
+    <!-- The headset. The single detail that says "support" without a word of copy. -->
+    <path d="M28 47v-4c0-11 9-20 20-20s20 9 20 20v4" stroke="#26323F" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+    <rect x="24" y="44" width="8" height="13" rx="4" fill="#26323F"/>
+    <rect x="64" y="44" width="8" height="13" rx="4" fill="#26323F"/>
+    <path d="M68 57v5c0 4-3 7-7 7h-5" stroke="#26323F" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <circle cx="55" cy="69" r="2.6" fill="#26323F"/>
+  </g>
+</svg>

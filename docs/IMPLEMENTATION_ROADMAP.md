@@ -5,7 +5,17 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-07 (**R-158 · R-159 · R-160.** Half the product was English in every
+> **Last updated:** 2026-09-08 (**R-161.** The web chat widget had no face and refused the file
+> its visitor was holding. Its header now carries an avatar, a name and a role the business
+> chooses — the picture uploaded to our own bucket and streamed from our own origin, because the
+> embed document's CSP admits images from nowhere else and widening it per connection would mean a
+> security header assembled from a settings field. The default is a drawn support agent, not a
+> stock photograph of a real person implying they work at every shop at once. Uploads widened from
+> images-and-audio to video and documents, with the byte ceiling now per kind; a document is
+> stored and shown but never read, so nothing lets the AI describe a PDF it has not opened. The
+> widget also stopped being the one surface no localisation reaches: its chrome now ships in all
+> four languages.)
+> **Prior:** 2026-09-07 (**R-158 · R-159 · R-160.** Half the product was English in every
 > language but English. The dashboard is not localised at the call site — the components hold
 > literal English and a DOM boundary swaps it against a dictionary — so a missing entry is not a
 > failure, it is just English, and **763** strings had no entry. Onboarding was excluded from that
@@ -2924,3 +2934,68 @@ and writes both cookies; a round trip through the marketing homepage — which d
 `NEXT_LOCALE` to `en` — leaves the dashboard Turkish. Eight unit tests pin the order, including
 that a value which is not a locale we serve is refused at every level, and that the two cookie
 names never converge.
+
+---
+
+### R-161 — The web chat widget had no face, and refused the file its visitor was holding
+
+**Priority:** Medium · **Effort:** M · **Status:** Fixed (2026-09-08) · **Source:** owner request,
+with a reference screenshot of a Turkish e-commerce vendor's own support widget
+
+**Problem.** Three things, all of them the same thing — the widget looked and behaved like a form,
+not like a person.
+
+1. **No avatar.** The header was a name and one hardcoded English sentence ("Usually replies in a
+   moment"). Every competitor's widget opens with a photograph of somebody, and a visitor deciding
+   whether to type into a box is deciding whether anyone is there.
+2. **Nothing about the header was the business's to choose** beyond the name — no role line, no
+   picture, so a shop's own branding stopped at the colour of the bar.
+3. **A visitor could send a photo or a voice note and nothing else.** `lib/webchat/uploads.ts`
+   allow-listed images and audio only, so the customer with a PDF invoice or a ten-second clip of
+   the fault was refused and sent to email — precisely the outcome this channel exists to prevent.
+
+**Fix.**
+
+*Identity.* Two additive columns (`avatar_path`, `header_subtitle`; migration `20260908063203`,
+applied). The picture is uploaded to the private `channel-media` bucket and streamed back from
+`/api/webchat/avatar/<siteKey>`, never linked from an external host: the embed document's CSP is
+`img-src 'self' data:`, and the alternative — widening it per connection — is a security header
+assembled from a settings field. PNG/JPEG/WebP only (an SVG is script, and same-origin it would be
+script in the frame holding a visitor's session token), 512 KB, and the first bytes must match the
+declared type because `File.type` is whatever the uploader said. The URL carries the stored file's
+own uuid, so the response is cached `immutable` and a replaced logo is still visible at once. The
+default is a drawn support agent (`public/webchat/agent-avatar.svg`), not a stock photograph of a
+real person implying they work at every shop at once.
+
+*Language.* The widget was the one surface neither localisation mechanism in landmine #22 reaches —
+a static ES5 file inside an iframe, while the dashboard boundary walks a different document — so
+its chrome was English for everybody, above conversations the AI was holding in Turkish.
+`lib/webchat/copy.ts` holds it in all four locales; the embed route resolves it from the `locale`
+the loader already passes and sends it in the boot payload, with an English fallback in `app.js` so
+a cached copy never renders a blank Send button.
+
+*Files.* The allow-list now carries video and documents (PDF, Word, Excel, CSV, plain text), with
+the byte ceiling **per kind** (`WEBCHAT_UPLOAD_LIMITS`: 8/15/15/10 MB) rather than one number that
+stopped being honest the moment video was allowed. Each stays at or under `MEDIA_BYTE_LIMITS`, or
+we would accept an upload the perception stage then reports as too large — paid for, and useless —
+and under the bucket's own 20 MB limit. Still an allow-list: no SVG, no archives, no executables. A
+document is stored and shown but **not read**; `isUnderstandableMime` still decides what the AI may
+claim to know, and the rendition says so rather than letting it guess.
+
+The settings screen gained an avatar picker (choosing the file is the save — an owner who picks a
+logo and wanders off has, in every product they have ever used, changed their logo) and a role
+field, both beside the live preview that was already there. `requireOrgAdmin` in that action file
+was also the hand-rolled role check landmine #16 was written about; it now delegates to
+`guard("manage_channels")`.
+
+**Verification.** Full suite green (1785 → 1795 tests, 123 → 124 files) and a production build.
+The widget was rendered headless against the new boot payload and matches the reference: avatar
+with presence dot, name, role, Turkish chrome. `test/webchat-agent-identity.test.ts` pins the
+format allow-list, the byte sniff (a `logo.png` that is actually HTML is refused), the ownership
+check on storage keys, the cache-busting URL, and four-locale copy coverage;
+`test/channel-media.test.ts` pins the widened upload list and the per-kind ceilings against
+`MEDIA_BYTE_LIMITS` and the bucket limit.
+
+**Not done, deliberately.** Nothing extracts text from a document — that is a perception-stage
+change that would land on every channel at once, and until it exists the AI is told a file arrived
+and forbidden to describe it.

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { AlertTriangle, Check, CheckCircle2, Copy, Globe, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Copy, Globe, RefreshCw, Upload } from "lucide-react";
 import { Surface, Pill } from "../../../_platform/ui";
 import { DEFAULT_THEME, THEME_KEYS, type WebChatTheme } from "@/lib/webchat/theme";
 import ColorField from "./ColorField";
@@ -10,9 +10,11 @@ import {
   assignWebChatEmployeeAction,
   createWebChatAction,
   removeWebChatAction,
+  removeWebChatAvatarAction,
   rotateWebChatKeyAction,
   setWebChatStatusAction,
   updateWebChatAction,
+  updateWebChatAvatarAction,
 } from "../_actions";
 import { CONTROL_CLASS } from "@/components/ui-horizon/controls";
 import { horizonButtonClass } from "@/components/ui-horizon/button";
@@ -24,6 +26,10 @@ export interface WebChatSummary {
   siteName: string | null;
   allowedOrigins: string[];
   displayName: string | null;
+  headerSubtitle: string | null;
+  /** Where the widget loads the header picture from — the built-in one, or this install's own. */
+  avatarUrl: string;
+  hasCustomAvatar: boolean;
   accentColor: string | null;
   greeting: string | null;
   theme: WebChatTheme;
@@ -83,8 +89,24 @@ export function WebChatCard({
    * worse than no preview: two answers to the same question, side by side.
    */
   const [previewVersion, setPreviewVersion] = useState(0);
+  const avatarInput = React.useRef<HTMLInputElement>(null);
   const setColor = (key: (typeof THEME_KEYS)[number], next: string) =>
     setTheme((prev) => ({ ...prev, [key]: next || undefined }));
+
+  /**
+   * Choosing the file IS the save.
+   *
+   * The picture does not live in the settings form below it, and deliberately: an owner who picks
+   * a logo and then wanders off without pressing Save has, in every product they have ever used,
+   * changed their logo. Uploading on selection is also what lets the preview beside them show the
+   * real thing a second later, which is the whole reason the preview is a live widget.
+   */
+  function pickAvatar(file: File | null | undefined) {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("avatar", file);
+    run(() => updateWebChatAvatarAction(connection!.id, fd), "Picture updated");
+  }
 
   React.useEffect(() => {
     if (!saved) return;
@@ -371,6 +393,80 @@ export function WebChatCard({
                 placeholder={employees[0]?.name ?? "Assistant"}
                 className={`mt-1.5 w-full ${CONTROL_CLASS}`}
               />
+            </div>
+            <div>
+              <label htmlFor="header_subtitle" className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                Role under the name
+              </label>
+              <input
+                id="header_subtitle"
+                name="header_subtitle"
+                defaultValue={connection.headerSubtitle ?? ""}
+                placeholder="Customer Support"
+                className={`mt-1.5 w-full ${CONTROL_CLASS}`}
+              />
+              {/* Empty is a real answer, not a gap: the widget writes its own line, in the
+                  visitor's language, which is better than an English one for most of them. */}
+              <p className="mt-1.5 text-xs text-gray-500">
+                Leave empty for a line in the visitor&apos;s own language.
+              </p>
+            </div>
+          </div>
+
+          {/* Directly under the name and the role, because the three are one thing: what a
+              visitor sees at the top of the panel. Split apart, a shop ends up with its own logo
+              beside a header that still says "Assistant". */}
+          <div>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Picture in the chat header</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Leave it as it is and your visitors see a friendly support agent; upload your own
+              logo or a photo of your team to make it yours.
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a runtime storage URL, not a
+                  build-time asset: next/image would try to optimise a route it cannot know the
+                  dimensions of, for a 38px circle. */}
+              <img
+                src={`${connection.avatarUrl}${connection.avatarUrl.includes("?") ? "&" : "?"}r=${previewVersion}`}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-full border border-gray-200 bg-white object-cover dark:border-white/10"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={avatarInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    pickAvatar(e.target.files?.[0]);
+                    // Cleared so picking the same file twice still fires a change event.
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={pending || !canManage}
+                  onClick={() => avatarInput.current?.click()}
+                  className={`inline-flex items-center gap-1.5 ${horizonButtonClass("secondary", "sm")}`}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload a picture
+                </button>
+                {connection.hasCustomAvatar ? (
+                  <button
+                    type="button"
+                    disabled={pending || !canManage}
+                    onClick={() =>
+                      run(() => removeWebChatAvatarAction(connection.id), "Default picture restored")
+                    }
+                    className={`${horizonButtonClass("secondary", "sm")}`}
+                  >
+                    Use the default
+                  </button>
+                ) : null}
+                <p className="w-full text-xs text-gray-500">PNG, JPG or WebP, up to 512 KB. Square looks best.</p>
+              </div>
             </div>
           </div>
 

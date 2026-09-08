@@ -1,14 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createConnection,
   deleteConnection,
+  getConnectionById,
   rotateSiteKey,
   updateConnection,
 } from "@/lib/webchat/connections";
 import { defaultEmployeeIdForOrg } from "@/lib/platform/defaultEmployee";
+import { guard } from "@/lib/auth/permissions";
+import { MAX_AVATAR_BYTES, avatarExtension, deleteAvatar, isOwnedAvatar, storeAvatar } from "@/lib/webchat/branding";
 
 /**
  * Web Chat install actions.
@@ -21,25 +23,19 @@ import { defaultEmployeeIdForOrg } from "@/lib/platform/defaultEmployee";
 async function requireOrgAdmin(): Promise<
   { ok: true; orgId: string; userId: string } | { ok: false; error: string }
 > {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id, role")
-    .eq("auth_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ org_id: string | null; role: string | null }>();
-
-  if (!profile?.org_id) return { ok: false, error: "No organization" };
-  if (profile.role !== "owner" && profile.role !== "admin") {
-    return { ok: false, error: "Only owners and admins can manage the chat widget" };
-  }
-  return { ok: true, orgId: profile.org_id, userId: user.id };
+  /**
+   * One capability, read live with the service-role client.
+   *
+   * This used to be a hand-rolled `role !== "owner" && role !== "admin"` check against a profile
+   * fetched through the cookie client — the exact shape landmine #16 was written about. `guard`
+   * resolves the profile by id *then* auth_user_id (this repo carries both), treats an
+   * unrecognised role as no role, and does not depend on an RLS policy staying permissive. The
+   * capability is `manage_channels` because that is what editing an allowlist, a name or the face
+   * of the widget on a customer's website actually is.
+   */
+  const gate = await guard("manage_channels");
+  if (!gate.ok) return { ok: false, error: gate.denial.error };
+  return { ok: true, orgId: gate.viewer.orgId, userId: gate.viewer.userId ?? "" };
 }
 
 function revalidate() {
@@ -94,11 +90,102 @@ export async function updateWebChatAction(
     siteName: String(formData.get("site_name") ?? ""),
     allowedOrigins: String(formData.get("allowed_origins") ?? ""),
     displayName: String(formData.get("display_name") ?? ""),
+    // Empty means "use the widget's own localised default", not "show nothing" — an empty string
+    // is stored as NULL by `updateConnection`, which is what the widget reads as "not chosen".
+    headerSubtitle: String(formData.get("header_subtitle") ?? ""),
     greeting: String(formData.get("greeting") ?? ""),
     theme,
   });
 
   if (!result.ok) return { ok: false, error: result.error };
+  revalidate();
+  return { ok: true };
+}
+
+/**
+ * Replace the picture at the top of the chat panel.
+ *
+ * Separate from `updateWebChatAction` on purpose: that one is a settings form the owner presses
+ * Save on, and it must not be the thing that re-uploads a 400 KB image every time somebody
+ * corrects a typo in the greeting. Here, choosing a file IS the action.
+ *
+ * The old file is deleted only after the column has moved on. The reverse order has one failure
+ * mode — a delete that succeeds and an update that does not — and it leaves the business's widget
+ * pointing at bytes that are gone.
+ */
+export async function updateWebChatAvatarAction(
+  connectionId: string,
+  formData: FormData
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose an image first." };
+  if (!avatarExtension(file.type)) {
+    return { ok: false, error: "Use a PNG, JPG or WebP image." };
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    return { ok: false, error: "That image is larger than 512 KB. Please use a smaller one." };
+  }
+
+  // Read against the workspace, so a connection id from another org resolves to nothing here
+  // rather than to a row we then write an avatar onto.
+  const connection = await getConnectionById(connectionId);
+  if (!connection || connection.orgId !== auth.orgId) return { ok: false, error: "Missing connection." };
+
+  const stored = await storeAvatar({
+    orgId: auth.orgId,
+    connectionId,
+    mime: file.type.split(";")[0].trim().toLowerCase(),
+    bytes: Buffer.from(await file.arrayBuffer()),
+  });
+
+  if (!stored.ok) {
+    return {
+      ok: false,
+      error:
+        stored.error === "unsupported_type"
+          ? "That file is not a PNG, JPG or WebP image."
+          : stored.error === "too_large"
+            ? "That image is larger than 512 KB. Please use a smaller one."
+            : "Could not save that image. Try again.",
+    };
+  }
+
+  const result = await updateConnection(auth.orgId, connectionId, { avatarPath: stored.path });
+  if (!result.ok) {
+    // Nothing points at the file we just wrote, so it is litter — remove it rather than leave it.
+    await deleteAvatar(stored.path);
+    return { ok: false, error: result.error };
+  }
+
+  // Only now, and only if it was genuinely this connection's own file.
+  if (isOwnedAvatar(connection.avatarPath, auth.orgId, connectionId)) {
+    await deleteAvatar(connection.avatarPath);
+  }
+
+  console.info("[WEBCHAT][AVATAR][UPDATED]", { org_id: auth.orgId, connection_id: connectionId });
+  revalidate();
+  return { ok: true };
+}
+
+/** Go back to the built-in support-agent picture. */
+export async function removeWebChatAvatarAction(
+  connectionId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const auth = await requireOrgAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const connection = await getConnectionById(connectionId);
+  if (!connection || connection.orgId !== auth.orgId) return { ok: false, error: "Missing connection." };
+
+  const result = await updateConnection(auth.orgId, connectionId, { avatarPath: null });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  if (isOwnedAvatar(connection.avatarPath, auth.orgId, connectionId)) {
+    await deleteAvatar(connection.avatarPath);
+  }
   revalidate();
   return { ok: true };
 }

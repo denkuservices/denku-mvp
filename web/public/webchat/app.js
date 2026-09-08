@@ -102,29 +102,112 @@
 
   applyTheme(boot.theme);
 
+  /**
+   * The widget's own words, in the visitor's language.
+   *
+   * The server resolves them (see `lib/webchat/copy.ts`) and sends them in the boot payload. The
+   * English fallback is not decoration: this file is a static asset a browser may have cached from
+   * before the payload carried `copy`, and a cached widget must never render a blank Send button.
+   */
+  var FALLBACK = {
+    subtitle: "Customer Support",
+    placeholder: "Write a message\u2026",
+    send: "Send",
+    close: "Close chat",
+    attach: "Attach a photo, video or document",
+    photo: "Photo",
+    voice: "Voice message",
+    video: "Video",
+    file: "File",
+    attachments: "{n} attachments",
+    removeAttachment: "Remove attachment",
+    tooManyFiles: "You can attach up to four files at a time.",
+    errRateLimited: "That is a lot of messages at once. Give it a minute and try again.",
+    errTooLarge: "That file is too big. Please send a smaller one.",
+    errUnsupported: "You can attach a photo, a video, an audio clip or a document.",
+    errUnavailable: "This chat is not available right now.",
+    errGeneric: "Something went wrong. Please try again.",
+    errUpload: "That file did not upload. Check your connection and try again.",
+    errSend: "That message did not go through. Check your connection and try again.",
+  };
+
+  function t(key) {
+    var copy = boot.copy || {};
+    return typeof copy[key] === "string" && copy[key] ? copy[key] : FALLBACK[key];
+  }
+
+  /**
+   * What the file picker offers.
+   *
+   * Kept in step with the server's allow-list in `lib/webchat/uploads.ts` by hand, and only ever
+   * as a HINT: the browser treats `accept` as a filter, not a rule, and the endpoint is what
+   * actually decides. Listing it here is about the visitor's file dialog opening on the right
+   * things, not about security.
+   */
+  /** Shipped with the widget, on our own origin — what `img-src 'self'` in the embed CSP allows. */
+  var DEFAULT_AVATAR = "/webchat/agent-avatar.svg";
+
+  var ACCEPT =
+    "image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif," +
+    "audio/*,video/mp4,video/quicktime,video/webm," +
+    "application/pdf,text/plain,text/csv," +
+    "application/msword," +
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
+    "application/vnd.ms-excel," +
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
   // ---------------------------------------------------------------- rendering
 
   var log, input, sendButton, typing, fileInput, attachmentBar;
 
   function build() {
+    /**
+     * The header: a face, a name, a role.
+     *
+     * It used to be a name and a hardcoded English sentence. A person is what a visitor is
+     * hoping for when they open a chat on a shop's website, and the difference between a bare
+     * word and someone with a name and a job is the difference between a form and a conversation
+     * — which is exactly the thing this product sells.
+     *
+     * `boot.avatarUrl` is always same-origin (our own default asset, or the business's uploaded
+     * one streamed back through /api/webchat/avatar). That is not a style choice: the embed
+     * document's CSP is `img-src 'self' data:`, so anything else would render as a broken image.
+     */
     document.body.innerHTML =
       '<div class="denku-header">' +
-      "<strong>" +
+      '<span class="denku-avatar">' +
+      '<img id="denku-face" src="' + escapeHtml(boot.avatarUrl || DEFAULT_AVATAR) + '" alt="">' +
+      '<i class="denku-dot" aria-hidden="true"></i>' +
+      "</span>" +
+      '<strong class="denku-who">' +
       escapeHtml(boot.displayName || "Chat") +
-      '<span class="denku-sub">Usually replies in a moment</span></strong>' +
-      '<button class="denku-close" type="button" aria-label="Close chat">&times;</button>' +
+      '<span class="denku-sub">' +
+      escapeHtml(boot.subtitle || t("subtitle")) +
+      "</span></strong>" +
+      '<button class="denku-close" type="button" aria-label="' + escapeHtml(t("close")) + '">&times;</button>' +
       "</div>" +
       '<div class="denku-log" id="denku-log" role="log" aria-live="polite"></div>' +
       '<div class="denku-attachments" id="denku-attachments"></div>' +
       '<form class="denku-form" id="denku-form">' +
-      '<input type="file" id="denku-file" class="denku-file" tabindex="-1" ' +
-      'accept="image/jpeg,image/png,image/webp,image/gif,image/heic,audio/*">' +
-      '<button class="denku-attach" id="denku-attach" type="button" aria-label="Attach a photo or voice note">' +
-      "&#128206;</button>" +
-      '<textarea class="denku-input" id="denku-input" rows="1" placeholder="Write a message…" ' +
-      'aria-label="Write a message"></textarea>' +
-      '<button class="denku-send" id="denku-send" type="submit">Send</button>' +
+      '<input type="file" id="denku-file" class="denku-file" tabindex="-1" accept="' + ACCEPT + '">' +
+      '<button class="denku-attach" id="denku-attach" type="button" aria-label="' +
+      escapeHtml(t("attach")) + '">&#128206;</button>' +
+      '<textarea class="denku-input" id="denku-input" rows="1" placeholder="' +
+      escapeHtml(t("placeholder")) + '" aria-label="' + escapeHtml(t("placeholder")) + '"></textarea>' +
+      '<button class="denku-send" id="denku-send" type="submit">' + escapeHtml(t("send")) + "</button>" +
       "</form>";
+
+    /**
+     * A business's uploaded picture that 404s falls back to the built-in one.
+     *
+     * Bound here rather than as an `onerror` attribute: the embed document's CSP is
+     * `script-src 'self'` with no `unsafe-inline`, so an inline handler is refused and the
+     * fallback would silently never run — leaving a broken-image icon at the top of the panel.
+     */
+    var face = document.getElementById("denku-face");
+    face.addEventListener("error", function () {
+      if (face.src.indexOf(DEFAULT_AVATAR) === -1) face.src = DEFAULT_AVATAR;
+    });
 
     log = document.getElementById("denku-log");
     input = document.getElementById("denku-input");
@@ -288,7 +371,7 @@
    */
   function upload(file) {
     if (pendingFiles.length + uploading >= 4) {
-      addNote("You can attach up to four files at a time.");
+      addNote(t("tooManyFiles"));
       return;
     }
 
@@ -328,7 +411,7 @@
       .catch(function () {
         uploading -= 1;
         removeChip(chip);
-        addNote("That file did not upload. Check your connection and try again.");
+        addNote(t("errUpload"));
         updateSendState();
       });
   }
@@ -345,7 +428,7 @@
     var remove = document.createElement("button");
     remove.type = "button";
     remove.className = "denku-chip-x";
-    remove.setAttribute("aria-label", "Remove attachment");
+    remove.setAttribute("aria-label", t("removeAttachment"));
     remove.textContent = "×";
     remove.addEventListener("click", function () {
       // The uploaded copy is left in storage: it expires with the session's own cleanup, and
@@ -432,9 +515,10 @@
   /** What the visitor's own bubble says while an attachment-only message is in flight. */
   function attachmentSummary(attachments) {
     if (attachments.length === 1) {
-      return attachments[0].kind === "audio" ? "Voice message" : "Photo";
+      var kind = attachments[0].kind;
+      return t(kind === "audio" ? "voice" : kind === "video" ? "video" : kind === "file" ? "file" : "photo");
     }
-    return attachments.length + " attachments";
+    return t("attachments").replace("{n}", String(attachments.length));
   }
 
   function send(text, clientMessageId, mayRetry, attachments) {
@@ -468,7 +552,7 @@
       })
       .catch(function () {
         finish();
-        addNote("That message did not go through. Check your connection and try again.");
+        addNote(t("errSend"));
       });
   }
 
@@ -493,17 +577,19 @@
   function messageForError(code) {
     switch (code) {
       case "rate_limited":
-        return "That is a lot of messages at once. Give it a minute and try again.";
+        return t("errRateLimited");
       case "too_large":
-        return "That file is too big. Please send something under 8 MB.";
+        // Deliberately no number: the ceiling is per kind now (8 MB for a photo, 15 for a video),
+        // and a sentence naming the wrong one is worse than a sentence naming none.
+        return t("errTooLarge");
       case "unsupported_type":
-        return "You can attach a photo or an audio clip.";
+        return t("errUnsupported");
       case "disabled":
       case "origin_not_allowed":
       case "unknown_site":
-        return "This chat is not available right now.";
+        return t("errUnavailable");
       default:
-        return "Something went wrong. Please try again.";
+        return t("errGeneric");
     }
   }
 

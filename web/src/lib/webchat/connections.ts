@@ -30,6 +30,15 @@ export interface WebChatConnection {
   allowedOrigins: string[];
   assignedAgentId: string | null;
   displayName: string | null;
+  /** The line under the name in the widget header ("Customer Support"). Null = widget default. */
+  headerSubtitle: string | null;
+  /**
+   * Object key in the `channel-media` bucket for the header picture, or null for the built-in one.
+   *
+   * A key rather than a URL: the bucket is private and the widget's CSP allows images from our own
+   * origin only, so the bytes are streamed back through `/api/webchat/avatar/<siteKey>`.
+   */
+  avatarPath: string | null;
   accentColor: string | null;
   greeting: string | null;
   /** Widget colours. Always sanitized — see lib/webchat/theme.ts. */
@@ -48,6 +57,8 @@ type Row = {
   allowed_origins: string[] | null;
   assigned_agent_id: string | null;
   display_name: string | null;
+  header_subtitle: string | null;
+  avatar_path: string | null;
   accent_color: string | null;
   greeting: string | null;
   theme: unknown;
@@ -58,7 +69,7 @@ type Row = {
 };
 
 const COLUMNS =
-  "id, org_id, site_key, site_name, allowed_origins, assigned_agent_id, display_name, accent_color, greeting, theme, status, last_error, last_inbound_at, created_at";
+  "id, org_id, site_key, site_name, allowed_origins, assigned_agent_id, display_name, header_subtitle, avatar_path, accent_color, greeting, theme, status, last_error, last_inbound_at, created_at";
 
 function toConnection(row: Row): WebChatConnection {
   return {
@@ -69,6 +80,8 @@ function toConnection(row: Row): WebChatConnection {
     allowedOrigins: row.allowed_origins ?? [],
     assignedAgentId: row.assigned_agent_id,
     displayName: row.display_name,
+    headerSubtitle: row.header_subtitle,
+    avatarPath: row.avatar_path,
     accentColor: row.accent_color,
     greeting: row.greeting,
     theme: sanitizeTheme(row.theme),
@@ -254,6 +267,9 @@ export interface UpdateInput {
   allowedOrigins?: string[] | string;
   assignedAgentId?: string | null;
   displayName?: string | null;
+  headerSubtitle?: string | null;
+  /** Pass null to go back to the built-in avatar; pass a key to point at an uploaded one. */
+  avatarPath?: string | null;
   accentColor?: string | null;
   greeting?: string | null;
   theme?: unknown;
@@ -273,6 +289,8 @@ export async function updateConnection(
   if (patch.allowedOrigins !== undefined) row.allowed_origins = normalizeOriginList(patch.allowedOrigins);
   if (patch.assignedAgentId !== undefined) row.assigned_agent_id = patch.assignedAgentId;
   if (patch.displayName !== undefined) row.display_name = patch.displayName?.trim() || null;
+  if (patch.headerSubtitle !== undefined) row.header_subtitle = patch.headerSubtitle?.trim() || null;
+  if (patch.avatarPath !== undefined) row.avatar_path = patch.avatarPath;
   if (patch.accentColor !== undefined) row.accent_color = patch.accentColor?.trim() || null;
   if (patch.greeting !== undefined) row.greeting = patch.greeting?.trim() || null;
   // Sanitized on the way in, so a bad colour can never reach a visitor's browser even if it

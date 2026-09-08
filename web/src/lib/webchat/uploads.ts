@@ -22,10 +22,12 @@ import { kindForMime, type InboundAttachment, type MediaKind, type MediaResolver
  *
  *   1. **A signed session token, checked first.** No token, no upload: the same door `send` uses,
  *      so an uploader is at least a visitor the embed route already vetted by Referer.
- *   2. **An allow-list of formats**, not a block-list. Images and audio are what a customer sends
- *      to ask a question; an executable, an archive or an SVG (which is script) is not, and would
- *      make this endpoint a file drop for someone else's malware.
- *   3. **A hard byte ceiling**, enforced on the actual bytes rather than a declared length.
+ *   2. **An allow-list of formats**, not a block-list. A photo, a video, a voice note and a
+ *      document are what a customer sends to ask a question; an executable, an archive or an SVG
+ *      (which is script) is not, and would make this endpoint a file drop for someone else's
+ *      malware.
+ *   3. **A hard byte ceiling per kind**, enforced on the actual bytes rather than a declared
+ *      length.
  *   4. **A per-session count**, so one visitor cannot turn a shop's storage into their backup
  *      drive. Counted in the bucket itself, because that is the only number that cannot be lied
  *      about.
@@ -38,7 +40,27 @@ import { kindForMime, type InboundAttachment, type MediaKind, type MediaResolver
  * the honest goal.
  */
 
-/** What a website visitor may send. Images to show a thing, audio to say a thing. */
+/**
+ * What a website visitor may send.
+ *
+ * It started as images and audio, and that was too narrow for the job the widget is doing. The
+ * shop customer with a question about an order has a PDF invoice; the one reporting a fault has a
+ * ten-second video of it, because a photograph of an intermittent noise is not a thing. A channel
+ * that refuses both sends that person to email, which is the outcome this product exists to
+ * prevent.
+ *
+ * It is still an ALLOW-list, and the two absences are deliberate:
+ *
+ *   - **No SVG.** An SVG is a document with script in it, not a picture.
+ *   - **No archives or executables** (`.zip`, `.exe`, `.js`, ...). Nobody asking a shop a question
+ *     needs to send one, and accepting them turns a public endpoint into a file drop for someone
+ *     else's malware.
+ *
+ * A document is stored and shown, not read: the perception stage understands images, audio and
+ * video, and records a PDF as `stored_only`, which the Inbox states honestly rather than letting
+ * the AI guess at what is inside. That is a smaller promise than "the AI reads your invoice", and
+ * it is the true one.
+ */
 const ALLOWED: Record<string, MediaKind> = {
   "image/jpeg": "image",
   "image/jpg": "image",
@@ -55,16 +77,52 @@ const ALLOWED: Record<string, MediaKind> = {
   "audio/wav": "audio",
   "audio/x-wav": "audio",
   "audio/webm": "audio",
+  "video/mp4": "video",
+  "video/quicktime": "video",
+  "video/webm": "video",
+  // What a shop's paperwork actually consists of.
+  "application/pdf": "file",
+  "text/plain": "file",
+  "text/csv": "file",
+  "application/msword": "file",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "file",
+  "application/vnd.ms-excel": "file",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "file",
 };
 
 /**
- * 8 MB.
+ * The byte ceiling, per kind.
  *
- * A phone photo is 2–5 MB and a two-minute voice memo is under 2 MB, so this fits what people
- * actually send with room to spare — while staying well under the point where a serverless
- * function holding the bytes plus a base64 copy of them becomes a memory problem.
+ * One number stopped being honest the moment video was allowed: 8 MB is generous for a phone
+ * photo and about four seconds of 1080p. These match `MEDIA_BYTE_LIMITS` in the perception stage
+ * wherever that stage will look at the file, because a ceiling here that is higher than the one
+ * there means accepting an upload the AI then reports as too large - the worst of both, and the
+ * customer waited for it.
+ *
+ * Everything stays under the `channel-media` bucket's own 20 MB limit, which is enforced
+ * independently of this file in case a future caller forgets.
  */
-export const MAX_WEBCHAT_UPLOAD_BYTES = 8 * 1024 * 1024;
+export const WEBCHAT_UPLOAD_LIMITS: Record<MediaKind, number> = {
+  image: 8 * 1024 * 1024,
+  audio: 15 * 1024 * 1024,
+  video: 15 * 1024 * 1024,
+  // A document is stored, never sent to a model, so the model's inline limit does not apply - but
+  // a serverless function holding the bytes while it uploads them still does.
+  file: 10 * 1024 * 1024,
+};
+
+/**
+ * The largest anything may be, whatever it turns out to be.
+ *
+ * Used for the early refusal on the size the client declared, before the kind is known. The
+ * per-kind limit above is what decides once we know what arrived.
+ */
+export const MAX_WEBCHAT_UPLOAD_BYTES = Math.max(...Object.values(WEBCHAT_UPLOAD_LIMITS));
+
+/** What this kind of file may weigh. */
+export function webChatUploadLimit(kind: MediaKind): number {
+  return WEBCHAT_UPLOAD_LIMITS[kind] ?? WEBCHAT_UPLOAD_LIMITS.file;
+}
 
 /** How many files one visitor session may leave behind. */
 export const MAX_UPLOADS_PER_SESSION = 10;
@@ -127,7 +185,7 @@ export async function storeVisitorUpload(input: {
 }): Promise<StoredUpload | null> {
   const kind = webChatUploadKind(input.mime);
   if (!kind) return null;
-  if (input.bytes.byteLength === 0 || input.bytes.byteLength > MAX_WEBCHAT_UPLOAD_BYTES) return null;
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > webChatUploadLimit(kind)) return null;
 
   const path = `${sessionUploadPrefix(input.orgId, input.sessionId)}/${randomUUID()}.${extensionFor(input.mime)}`;
 
@@ -197,9 +255,12 @@ export function webChatMediaResolver(orgId: string, sessionId: string): MediaRes
       }
 
       const bytes = Buffer.from(await data.arrayBuffer());
-      if (bytes.byteLength > MAX_WEBCHAT_UPLOAD_BYTES) return null;
-
       const mime = attachment.mime || data.type || "application/octet-stream";
+      // The same ceiling the upload endpoint applied, re-applied on the way back out: this file
+      // was ours, but the limits are per kind now and a resolver that trusts the write path is one
+      // migration away from handing a model a payload it will reject.
+      if (bytes.byteLength > webChatUploadLimit(kindForMime(mime))) return null;
+
       return {
         mime,
         base64: bytes.toString("base64"),
