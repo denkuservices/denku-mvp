@@ -1,4 +1,4 @@
-import { KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { KeyRound, Mail, ShieldCheck, TriangleAlert, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCachedUser } from "@/lib/auth/currentUser";
 import Avatar from "@/app/(app)/dashboard/_platform/Avatar";
@@ -8,8 +8,11 @@ import {
   SettingsSection,
   StatusPill,
 } from "@/app/(app)/dashboard/_platform/settings/ui";
+import { getViewer } from "@/lib/auth/permissions";
+import { accountHasPassword, previewAccountDeletion } from "@/lib/account/deleteAccount";
 import ProfileSection from "./_components/ProfileSection";
 import SecuritySection from "./_components/SecuritySection";
+import { DeleteAccountCard } from "./_components/DeleteAccountCard";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +62,15 @@ export default async function AccountSettingsPage() {
 
   const displayName = fullName?.trim() || email || "Your account";
 
+  /*
+   * What the delete control will actually do, resolved here rather than in the browser: whether
+   * this account takes the workspace with it depends on how many owners the workspace has, and
+   * that is a database question. `deleteMyAccount` re-derives it at the moment of the write, so
+   * this is what the customer is *told*, never what is acted on.
+   */
+  const viewer = await getViewer();
+  const deletionPreview = await previewAccountDeletion(viewer, accountHasPassword(user));
+
   return (
     <div className="space-y-8">
       <SettingsHero
@@ -98,6 +110,20 @@ export default async function AccountSettingsPage() {
         hint="Your password and where you are signed in."
       >
         <SecuritySection />
+      </SettingsSection>
+
+      {/*
+        Last, and only last. A destructive control that shares a screen with the forms people use
+        every week gets clicked by accident eventually; at the bottom of the page it is found by
+        someone who went looking for it. The section is `danger`-toned for the same reason.
+      */}
+      <SettingsSection
+        id="danger"
+        icon={TriangleAlert}
+        title="Danger zone"
+        hint="Permanent, and not reversible by us."
+      >
+        <DeleteAccountCard preview={deletionPreview} />
       </SettingsSection>
     </div>
   );

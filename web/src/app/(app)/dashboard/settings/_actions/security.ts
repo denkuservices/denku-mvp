@@ -2,9 +2,9 @@
 
 import { cookies } from "next/headers";
 
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { verifyPassword } from "@/lib/auth/reauthenticate";
 import { GATE_COOKIE_NAME } from "@/lib/auth/gateCookie";
 import { notifyPasswordChanged } from "@/lib/notifications/securityNotifications";
 import { getViewer } from "@/lib/auth/permissions";
@@ -26,43 +26,6 @@ const ChangePasswordSchema = z
   });
 
 export type ChangePasswordResult = { ok: true } | { ok: false; error: string };
-
-/**
- * Prove the person at the keyboard is the account holder.
- *
- * `supabase.auth.updateUser({ password })` does NOT ask for the old one — anyone who reaches a
- * signed-in tab (a shared laptop, a stolen session cookie, an unlocked phone) could set a new
- * password and lock the real owner out of their own business. That is the single most valuable
- * thing an attacker can do with a borrowed session, and it was one form away.
- *
- * Verifying means signing in again with the current password, which is destructive if done on the
- * request's own client: `signInWithPassword` would rotate the session and rewrite the auth cookies
- * mid-request. So it runs on a **throwaway client with `persistSession: false`** that shares no
- * storage with the caller's session — the sign-in happens, the result is read, and the token it
- * minted is discarded.
- *
- * A wrong password returns the same generic message either way, and the failure is recorded.
- */
-async function verifyCurrentPassword(email: string, currentPassword: string): Promise<boolean> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    // Fail CLOSED. If we cannot prove who this is, we do not change their password.
-    console.error("[SECURITY][REAUTH] Supabase public env missing; refusing password change");
-    return false;
-  }
-
-  const throwaway = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-
-  const { error } = await throwaway.auth.signInWithPassword({ email, password: currentPassword });
-  if (error) return false;
-
-  // Drop the token this verification minted; it must not outlive the check.
-  await throwaway.auth.signOut({ scope: "local" }).catch(() => {});
-  return true;
-}
 
 /**
  * Change the account password. Requires the current one.
@@ -89,7 +52,7 @@ export async function changePassword(input: {
     return { ok: false, error: firstMsg };
   }
 
-  const reauthenticated = await verifyCurrentPassword(user.email, validation.data.currentPassword);
+  const reauthenticated = await verifyPassword(user.email, validation.data.currentPassword);
   if (!reauthenticated) {
     const viewer = await getViewer();
     if (viewer.orgId) {
