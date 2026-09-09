@@ -1,3 +1,4 @@
+import { defaultGreeting } from "@/lib/language/greeting";
 import { LANGUAGES, LANGUAGE_CODES, toLanguageCode, type LanguageCode } from "@/lib/language/registry";
 import { resolveModelTier, type ModelTier } from "@/lib/llm/modelTiers";
 
@@ -298,8 +299,10 @@ export function toUpdateAgentConfigPayload(agentId: string, state: SetupFormStat
 }
 
 /** The default greeting the previous form pre-filled when a row had no `first_message`. */
-export function defaultFirstMessage(employeeName: string): string {
-  return `Hello, thanks for calling ${employeeName}. How can I help you today?`;
+export function defaultFirstMessage(employeeName: string, language?: string | null): string {
+  // The editor prefills this, and whatever it prefills is what an owner who never touches the
+  // field ships to their callers. It has to be in their language.
+  return defaultGreeting(language, employeeName);
 }
 
 /** Editor state from a stored employee row. Inverse of `toUpdateAgentConfigPayload`. */
@@ -326,7 +329,7 @@ export function toSetupFormState(row: {
     timezone: row.timezone || DEFAULT_TIMEZONE,
     behaviorPresetId: row.behaviorPreset || null,
     agentType: row.agentType || "",
-    firstMessage: row.firstMessage || defaultFirstMessage(row.name),
+    firstMessage: row.firstMessage || defaultFirstMessage(row.name, row.language),
     emphasisPoints: normalizeEmphasisPoints(row.emphasisPoints),
     businessContext: toBusinessContext(row.businessContext),
     voice: row.voice || null,

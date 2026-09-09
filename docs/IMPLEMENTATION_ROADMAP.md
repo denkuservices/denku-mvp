@@ -5,7 +5,19 @@
 > tracks priority, effort, dependencies, and status. One issue = one `R-###` entry, forever —
 > IDs are never reused or renumbered. Update this file in the same change that resolves a finding.
 >
-> **Last updated:** 2026-09-08 (**R-161.** The web chat widget had no face and refused the file
+> **Last updated:** 2026-09-09 (**R-164 · R-165.** Onboarding was the least translated surface in
+> the product and the coverage test could not see it: `desc` was not a property it collected, bare
+> `setError("…")` arguments were not collected at all, and its oracle was "did the string change?"
+> — so a pattern rule that MANGLED a string counted as a translation. "Select plan" was shipping as
+> "plan kişisini seç" and "Not connected", on three channel cards, as "Not bağlı". 127 dictionary
+> entries, guards on the two over-broad rules, and a test that now refuses a source literal answered
+> by a pattern. Verified by walking a throwaway production workspace through all six screens in
+> three languages. **R-165** is the platform console — cross-tenant analytics and an operator grant
+> system that hands out trial capacity without writing a row any revenue figure would count. It was
+> filed as R-161, which already belonged to the web chat widget; renumbered here, and the three
+> references to it updated. The header rule says IDs are never renumbered, and that rule assumes
+> they are unique — when two findings share one, the newer one moves.)
+> **Prior:** 2026-09-08 (**R-161.** The web chat widget had no face and refused the file
 > its visitor was holding. Its header now carries an avatar, a name and a role the business
 > chooses — the picture uploaded to our own bucket and streamed from our own origin, because the
 > embed document's CSP admits images from nowhere else and widening it per connection would mean a
@@ -3040,7 +3052,90 @@ and forbidden to describe it.
 
 ---
 
-### R-161 — Platform console: cross-tenant analytics and an operator grant system
+### R-162 — Two implementations of Vapi line provisioning
+
+**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-165
+
+`/api/phone-lines/purchase` and `lib/vapi/grantedLine.ts` both create an assistant, attach tools via
+`ensureAssistantConfig`, buy a number, poll for its E.164 form, link the agent to it and insert a
+`phone_lines` row. They differ only in the money: one increments an `extra_phone` add-on and
+compensates on failure, the other does not. The shared half should be one function that both call,
+with the Stripe steps staying in the route. Doing it needs care — the purchase route's rollback
+blocks are the delicate part, and the reason it was not attempted alongside R-165.
+
+---
+
+### R-163 — Chat replies have no recorded cost
+
+**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-165
+
+`calls.cost_usd` makes voice COGS exact. Chat has no equivalent: `messages` carries no cost column,
+so the platform console reports chat LLM spend as "not measured" and the margin figure covers voice
+only. The reply engine knows the model and the token counts at the moment it answers; writing them
+into `messages.meta` (and the perception stage doing the same for vision and transcription, which
+are billed separately) would close it. Until then, do not let any report imply chat is free.
+### R-164 — Onboarding was English in every language but English
+
+**Priority:** High · **Effort:** M · **Status:** Fixed (2026-09-09) · **Source:** asked to walk
+onboarding end to end in Turkish
+
+**Problem.** Onboarding was the least translated surface in the product. Measured against the real
+runtime (`getDashboardDictionary(locale)` + `translateDashboardCopy`, not a reimplementation of
+them): of 96 candidate strings, **one** had a dictionary entry, **six** were answered only by a
+pattern rule — all six mangled — and **eighty-nine** had no answer at all. Roughly eighty of those
+are copy a customer reads: the six step descriptions in the progress rail (on screen at every
+step), the goal options, every question and explanation on the plan step, the whole activation
+screen, the channel-connect step, and fifteen error messages.
+
+`test/dashboard-i18n-coverage.test.ts` walks `src/app/(app)`, which includes onboarding, and
+passed the whole time. Three blind spots, each of which had to be true for this to survive:
+
+1. **`desc` was not in `COPY_PROPERTIES`** — `description` was. The step rail is a `desc:` table,
+   so all six descriptions were never collected.
+2. **Bare call arguments were not collected.** `setError("Something went wrong.")` is how most
+   error copy reaches a screen, and none of it was checked. Widening the walk to `set*Error` /
+   `toast` / `alert` arguments immediately surfaced **41 more untranslated strings across the
+   product** — billing, members, two-step verification, connecting a channel, the Inbox composer.
+3. **The oracle was "did the string change?"** So a pattern rule that mangles a string counted as
+   a translation. `^(Select|Open|Call|View details for) (.+)$` and `^(.+) connected$` were written
+   for aria-labels built around workspace data and their `(.+)` swallowed ordinary sentences:
+   "Select plan" became *"plan kişisini seç"* (select the person named plan), "Call your AI now"
+   became *"your AI now kişisini ara"*, and "Not connected" on three channel cards became
+   *"Not bağlı"* — a status indicator reading as noise. Nine strings product-wide.
+
+A fourth, separate leak: `ALLOWED_ENGLISH` exempted "Invalid plan_code", "Checkout session created
+but no URL returned" and friends as *"operator-facing, never renders as customer copy"*. Every
+onboarding call site did `setError(result.error || "…")`, so they rendered — in English, on a
+translated page, usually while the customer was trying to pay.
+
+**Fix.** 127 dictionary entries in Spanish, German and Turkish. Guards on the two over-broad
+pattern rules (`looksLikeDataValue`, `looksLikeChannelList`) so a capture meant to be a name or a
+channel list cannot be a sentence; exact dictionary entries for the nine mangled strings, which
+win over any rule. `onScreenError` in `OnboardingClient.tsx` logs an internal failure and shows a
+translated message instead, which is what makes the `ALLOWED_ENGLISH` block honest — if that guard
+is removed, those strings belong in the dictionary, not the allowlist. The coverage test now
+collects `desc:` and bare call arguments, and a new assertion forbids a source literal being
+answered by a pattern rule at all: rules exist for copy assembled at runtime, which this walk
+cannot see as a literal anyway.
+
+**Verification.** A throwaway workspace was created in production, walked through the step machine
+(DB steps 1–6 across the voice, chat and free branches — nine screens), and the rendered markup of
+each screen was run through the real locale boundary **in all three languages**. That is stronger
+than a source scan: it sees text React composes at runtime, and it found three more classes of
+English no static pass could — `"Step 4 of 6 · Plan"`, `"Back to What it answers"` and
+`"Pick any 2 of these"`, now runtime rules guarded on a known step label. The account and its
+workspace were deleted and the deletion verified. Nothing was charged: the free branch touches
+neither Stripe nor Vapi, and fetching markup fires no server action.
+
+**Not fixed, and worth its own look:** `runActivation` builds the Vapi assistant's opening line as
+a hardcoded English template (`Hi — thanks for calling ${workspaceName}. How can I help today?`)
+while passing `onboarding_language` separately for voice and transcription. Whether a Turkish
+workspace ends up greeting callers in English depends on what overwrites `firstMessage` later,
+which was not traced here.
+
+---
+
+### R-165 — Platform console: cross-tenant analytics and an operator grant system
 
 **Priority:** High · **Effort:** L · **Status:** Code-complete (2026-09-09), migration pending ·
 **Source:** owner request — "give a prospect 30 voice minutes and one chat channel for 7 days"
@@ -3111,83 +3206,58 @@ column the analytics module reads was confirmed present in prod.
 
 ---
 
-### R-162 — Two implementations of Vapi line provisioning
+### R-166 — Every phone line said hello in English, whatever language the business chose
 
-**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-161
+**Priority:** High · **Effort:** M · **Status:** Fixed (2026-09-09) · **Source:** follow-up flagged
+by R-164
 
-`/api/phone-lines/purchase` and `lib/vapi/grantedLine.ts` both create an assistant, attach tools via
-`ensureAssistantConfig`, buy a number, poll for its E.164 form, link the agent to it and insert a
-`phone_lines` row. They differ only in the money: one increments an `extra_phone` add-on and
-compensates on failure, the other does not. The shared half should be one function that both call,
-with the Stripe steps staying in the route. Doing it needs care — the purchase route's rollback
-blocks are the delicate part, and the reason it was not attempted alongside R-161.
+**Problem.** `prompt-derivation.ts` already draws the line this finding sits on, and names it:
+everything in a system prompt is an *instruction to the model* and may safely be written in
+English, because the model reads English and answers in the language it was told to — but a
+sentence quoted under "say exactly" is **speech**, and speech has to be in the caller's language.
+That was found on 2026-09-03 on the first Turkish workspace, when a Turkish caller heard an
+English apology at the one moment the call had already gone wrong (`SPOKEN_FALLBACK`).
 
----
+`firstMessage` is the same kind of sentence and by far the most heard one Denku produces — every
+caller, every call, before anything else — and it was hardcoded English in five places. A
+workspace that picked Turkish in onboarding got a Turkish ear, a Turkish voice, and an English
+hello. Denku had localised the greeting of its *own* marketing demo into these four languages
+(`lib/marketing/demoCall.ts`) while leaving its customers' in English.
 
-### R-163 — Chat replies have no recorded cost
+Two of the five were worse than a greeting. `/api/phone-lines/purchase` and
+`lib/vapi/grantedLine.ts` create the backing employee with `language: "en"`, `voice: "jennifer"`,
+`timezone: "America/New_York"` **hardcoded**, and call `ensureAssistantConfig` with no language at
+all — so a Turkish workspace buying a second number, or being granted a trial line, got an
+employee that was English end to end: ear, voice and greeting. This is the identical bug the BYON
+path had and fixed; `resolveWorkspaceLineDefaults` exists precisely for it, with a comment saying
+"Hardcoding English here was wrong in an obvious way", and neither of these two routes called it.
 
-**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-161
+**Observed, not inferred.** Read live: the one Turkish customer's assistant has `transcriber.language: "tr"`,
+a multilingual voice, and a **Turkish** greeting — because a person typed it by hand. The Settings
+editor warns about this, but only when someone *changes* the language later; it says nothing when
+Denku generated the greeting in a language the customer never chose. Nothing was broken for that
+customer; the next one who does not notice would have been.
 
-`calls.cost_usd` makes voice COGS exact. Chat has no equivalent: `messages` carries no cost column,
-so the platform console reports chat LLM spend as "not measured" and the margin figure covers voice
-only. The reply engine knows the model and the token counts at the moment it answers; writing them
-into `messages.meta` (and the perception stage doing the same for vision and transcription, which
-are billed separately) would close it. Until then, do not let any report imply chat is free.
-### R-164 — Onboarding was English in every language but English
+**Fix.** `lib/language/greeting.ts` — `defaultGreeting(language, businessName?)`, four languages,
+falling back to English on anything unrecognised (the same rule `SPOKEN_FALLBACK` uses, and for the
+same reason). Wired into onboarding activation, the purchase route, the granted trial line, the
+BYON path and the employee editor's prefill. The purchase route and the granted line now resolve
+the workspace's real language, voice and timezone through `resolveWorkspaceLineDefaults` and pass
+the language into `ensureAssistantConfig`.
 
-**Priority:** High · **Effort:** M · **Status:** Fixed (2026-09-09) · **Source:** asked to walk
-onboarding end to end in Turkish
+**English is unchanged, byte for byte** — both the unnamed sentence the provisioning paths used and
+the named one the editor prefilled — so no existing workspace's greeting moves. Only the other
+three languages stop being English. A test pins that, and a second one walks `src/app` and
+`src/lib` and fails if any path assigns a hardcoded English greeting to `firstMessage` again.
 
-**Problem.** Onboarding was the least translated surface in the product. Measured against the real
-runtime (`getDashboardDictionary(locale)` + `translateDashboardCopy`, not a reimplementation of
-them): of 96 candidate strings, **one** had a dictionary entry, **six** were answered only by a
-pattern rule — all six mangled — and **eighty-nine** had no answer at all. Roughly eighty of those
-are copy a customer reads: the six step descriptions in the progress rail (on screen at every
-step), the goal options, every question and explanation on the plan step, the whole activation
-screen, the channel-connect step, and fifteen error messages.
+Turkish deliberately puts the business in a position that takes no case suffix. The natural
+phrasing needs `'a` or `'e` depending on the last vowel of a name we do not control, and a
+generated greeting that gets a customer's own name wrong is worse than a plainer one that never
+can.
 
-`test/dashboard-i18n-coverage.test.ts` walks `src/app/(app)`, which includes onboarding, and
-passed the whole time. Three blind spots, each of which had to be true for this to survive:
-
-1. **`desc` was not in `COPY_PROPERTIES`** — `description` was. The step rail is a `desc:` table,
-   so all six descriptions were never collected.
-2. **Bare call arguments were not collected.** `setError("Something went wrong.")` is how most
-   error copy reaches a screen, and none of it was checked. Widening the walk to `set*Error` /
-   `toast` / `alert` arguments immediately surfaced **41 more untranslated strings across the
-   product** — billing, members, two-step verification, connecting a channel, the Inbox composer.
-3. **The oracle was "did the string change?"** So a pattern rule that mangles a string counted as
-   a translation. `^(Select|Open|Call|View details for) (.+)$` and `^(.+) connected$` were written
-   for aria-labels built around workspace data and their `(.+)` swallowed ordinary sentences:
-   "Select plan" became *"plan kişisini seç"* (select the person named plan), "Call your AI now"
-   became *"your AI now kişisini ara"*, and "Not connected" on three channel cards became
-   *"Not bağlı"* — a status indicator reading as noise. Nine strings product-wide.
-
-A fourth, separate leak: `ALLOWED_ENGLISH` exempted "Invalid plan_code", "Checkout session created
-but no URL returned" and friends as *"operator-facing, never renders as customer copy"*. Every
-onboarding call site did `setError(result.error || "…")`, so they rendered — in English, on a
-translated page, usually while the customer was trying to pay.
-
-**Fix.** 127 dictionary entries in Spanish, German and Turkish. Guards on the two over-broad
-pattern rules (`looksLikeDataValue`, `looksLikeChannelList`) so a capture meant to be a name or a
-channel list cannot be a sentence; exact dictionary entries for the nine mangled strings, which
-win over any rule. `onScreenError` in `OnboardingClient.tsx` logs an internal failure and shows a
-translated message instead, which is what makes the `ALLOWED_ENGLISH` block honest — if that guard
-is removed, those strings belong in the dictionary, not the allowlist. The coverage test now
-collects `desc:` and bare call arguments, and a new assertion forbids a source literal being
-answered by a pattern rule at all: rules exist for copy assembled at runtime, which this walk
-cannot see as a literal anyway.
-
-**Verification.** A throwaway workspace was created in production, walked through the step machine
-(DB steps 1–6 across the voice, chat and free branches — nine screens), and the rendered markup of
-each screen was run through the real locale boundary **in all three languages**. That is stronger
-than a source scan: it sees text React composes at runtime, and it found three more classes of
-English no static pass could — `"Step 4 of 6 · Plan"`, `"Back to What it answers"` and
-`"Pick any 2 of these"`, now runtime rules guarded on a known step label. The account and its
-workspace were deleted and the deletion verified. Nothing was charged: the free branch touches
-neither Stripe nor Vapi, and fetching markup fires no server action.
-
-**Not fixed, and worth its own look:** `runActivation` builds the Vapi assistant's opening line as
-a hardcoded English template (`Hi — thanks for calling ${workspaceName}. How can I help today?`)
-while passing `onboarding_language` separately for voice and transcription. Whether a Turkish
-workspace ends up greeting callers in English depends on what overwrites `firstMessage` later,
-which was not traced here.
+**Also deleted: `/api/vapi/assistants`.** Dead and broken — nothing references it, it sends a
+top-level `tools` field that Vapi rejects with a 400 (landmine #6), it derives `serverUrl` from
+`VERCEL_URL`/localhost, which is exactly the pattern R-077 fixed after live assistants ended up
+pointing at a dev machine, and it inserts a `status` column `agents` does not have. Keeping a
+broken route that re-implements two things the repo centralised after production incidents is an
+invitation to "fix" it and reintroduce them.

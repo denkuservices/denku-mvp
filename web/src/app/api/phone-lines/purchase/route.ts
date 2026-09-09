@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
+import { resolveWorkspaceLineDefaults } from "@/lib/phone-lines/connectByo";
+import { defaultGreeting } from "@/lib/language/greeting";
 import { isWorkspacePaused } from "@/lib/workspace-status";
 import { getEffectiveLimits } from "@/lib/billing/limits";
 import { logEvent } from "@/lib/observability/logEvent";
@@ -171,6 +173,15 @@ export async function POST(req: NextRequest) {
     // write back what is there. Only the cost of a redundant call on an already-failing path.
 
     // 7) Create backing agent and provision phone number
+    /*
+     * An extra line is another mouth for the SAME business, so it inherits the business's
+     * language, voice and timezone — the rule `resolveWorkspaceLineDefaults` was written for when
+     * the BYON path had this exact bug. This route still hardcoded English: a Turkish workspace
+     * that bought a second number got an employee with an English ear, an English voice and an
+     * English hello. Never throws; a lookup failure returns the same defaults as before.
+     */
+    const lineDefaults = await resolveWorkspaceLineDefaults(org_id);
+
     // Wrap in try/catch for rollback on failure
     try {
       // Create Vapi assistant for backing agent
@@ -198,7 +209,7 @@ export async function POST(req: NextRequest) {
                 },
               ],
             },
-            firstMessage: "Hi, thanks for calling. How can I help you today?",
+            firstMessage: defaultGreeting(lineDefaults.language),
             // Tools + canonical webhook server.url are attached after creation via
             // ensureAssistantConfig (Vapi rejects a top-level "tools" field on create).
           }),
@@ -274,7 +285,12 @@ export async function POST(req: NextRequest) {
       // server.url to the backing assistant (R-050 + R-077). Non-fatal — a line whose
       // tool-merge hiccups still gets the deterministic post-call fallback, and the
       // reconciliation endpoint can re-apply; don't roll back a paid purchase over it.
-      const backingConfig = await ensureAssistantConfig({ assistantId: backingAssistantId });
+      const backingConfig = await ensureAssistantConfig({
+        assistantId: backingAssistantId,
+        language: lineDefaults.language,
+        additionalLanguages: lineDefaults.additionalLanguages,
+        voiceId: lineDefaults.voice,
+      });
       if (!backingConfig.ok) {
         console.error("[purchase] ensureAssistantConfig failed (non-fatal):", backingConfig.error);
       }
@@ -287,9 +303,9 @@ export async function POST(req: NextRequest) {
           org_id: org_id,
           name: `Phone Line Support Agent`,
           created_by: user.id, // Required: user who created this agent
-          language: "en", // Default: English
-          voice: "jennifer", // Default voice
-          timezone: "America/New_York", // Default timezone
+          language: lineDefaults.language,
+          voice: lineDefaults.voice,
+          timezone: lineDefaults.timezone,
           vapi_assistant_id: backingAssistantId,
           behavior_preset: "friendly-support",
           agent_type: "phone_line_backing",

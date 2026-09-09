@@ -5,6 +5,7 @@ import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { resolveLanguage } from "@/lib/vapi/assistantConfig";
 import { toLanguageCode } from "@/lib/language/registry";
+import { defaultGreeting } from "@/lib/language/greeting";
 import { logEvent } from "@/lib/observability/logEvent";
 import {
   createSipTrunkCredential,
@@ -345,7 +346,8 @@ export async function connectByoNumber(input: ConnectByoInput): Promise<ConnectB
             },
           ],
         },
-        firstMessage: "Hi, thanks for calling. How can I help you today?",
+        // The line already inherits the workspace's language; the hello has to as well.
+        firstMessage: defaultGreeting(defaults.language),
       }),
     });
 
