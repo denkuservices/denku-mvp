@@ -115,7 +115,7 @@ export function SetPasswordForm({ email, orgName, fullName }: SetPasswordFormPro
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl bg-[var(--s-cta-bg)] text-white py-3.5 font-medium hover:bg-[var(--s-accent)] active:bg-[var(--s-accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-xl bg-[var(--s-cta-bg)] text-[var(--s-cta-fg)] py-3.5 font-medium hover:bg-[var(--s-accent)] active:bg-[var(--s-accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--s-accent-ring)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         {isPending ? t("settingPassword") : t("setPassword")}
       </button>
