@@ -169,6 +169,24 @@ describe("business hours — how it reads", () => {
     expect(describeBusinessHours(weekdays9to5())).toBe("Mon–Fri 09:00–17:00, Sat–Sun closed");
   });
 
+  it("renders the days in the labels it is given", () => {
+    /*
+     * The voice prompt for a Turkish employee is written in Turkish, and this line is a FACT the
+     * assistant may read aloud. Left English it produced "Mon-Fri 08:00-18:00, Sat-Sun closed"
+     * inside an otherwise Turkish prompt, which is why the first Turkish workspace was told to
+     * keep free-text hours and leave the structured ones alone.
+     */
+    expect(
+      describeBusinessHours(weekdays9to5(), {
+        short: ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
+        closed: "kapalı",
+      })
+    ).toBe("Pzt–Cum 09:00–17:00, Cmt–Paz kapalı");
+
+    // No labels means English, so the Settings card and the audit log are untouched.
+    expect(describeBusinessHours(weekdays9to5())).toBe("Mon–Fri 09:00–17:00, Sat–Sun closed");
+  });
+
   it("names every day of the week in Date.getDay() order", () => {
     // The data is indexed Sunday-first to match `Date.getDay()`; the editor displays it
     // Monday-first. A mismatch here would silently move everyone's Sunday.

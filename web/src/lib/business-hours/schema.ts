@@ -252,10 +252,30 @@ function formatInterval(i: Interval): string {
  * a person says it, and an assistant reading seven separate lines aloud sounds like a machine
  * reading a table — which is exactly what it would be doing.
  */
-export function describeBusinessHours(hours: BusinessHours | null): string {
+/**
+ * What the days and the word "closed" are called.
+ *
+ * Optional, and English by default, because two of the three callers render into an English
+ * surface (the Settings card and the audit log). The third is the VOICE prompt, where these words
+ * are read aloud to a caller — "Mon–Fri 08:00–18:00, Sat–Sun closed" in the middle of an otherwise
+ * Turkish prompt is the one thing that made structured hours worse than free text for a Turkish
+ * workspace, which is why that workspace was told to avoid the feature.
+ */
+export interface DayLabels {
+  /** Seven short day names, Sunday first — the order `Date.getDay()` uses. */
+  short: readonly string[];
+  closed: string;
+}
+
+const EN_DAY_LABELS: DayLabels = {
+  short: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  closed: "closed",
+};
+
+export function describeBusinessHours(hours: BusinessHours | null, labels: DayLabels = EN_DAY_LABELS): string {
   if (!hours) return "";
 
-  const short = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const short = labels.short;
   // Start the week on Monday: it is how opening hours are written nearly everywhere.
   const order = [1, 2, 3, 4, 5, 6, 0];
 
@@ -272,7 +292,9 @@ export function describeBusinessHours(hours: BusinessHours | null): string {
 
   const parts = groups.map((g) => {
     const label = g.from === g.to ? short[g.from] : `${short[g.from]}–${short[g.to]}`;
-    return g.sig === "closed" ? `${label} closed` : `${label} ${g.sig}`;
+    // `sig` is an internal marker, never the rendered word — hence the substitution rather than a
+    // comparison against `labels.closed`.
+    return g.sig === "closed" ? `${label} ${labels.closed}` : `${label} ${g.sig}`;
   });
 
   return parts.join(", ");
