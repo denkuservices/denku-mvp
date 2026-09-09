@@ -226,18 +226,35 @@ export function UseCasesPage() {
       {/* CTA */}
       <Section className="py-16 md:py-24">
         <Container>
-          <div className="mx-auto max-w-3xl overflow-hidden rounded-[24px] border border-[var(--s-border)] bg-[var(--s-cta-bg)] p-8 text-center md:p-12 brand-shadow-lg">
-            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-cta-fg)]">{t('ctaTitle')}</h2>
-            <p className="mx-auto mb-8 max-w-xl text-[17px] text-[var(--s-cta-fg)]">{t('ctaBody')}</p>
+          {/*
+            The page ground, not a slab.
+
+            This block used to be a filled card: `bg-[var(--s-cta-bg)]` across the whole panel with
+            the buttons styled for a dark surface. That token is a BUTTON colour — dark navy in the
+            warm theme, and remapped to copper `#C89468` on the marketing surface — so on the dark
+            site it painted a large copper plate in the middle of a near-black page, and the two
+            controls inside it stopped working as controls: the primary was white-on-teal at
+            **3.08:1** (WCAG AA wants 4.5 for body text, and this is the page's main action), and
+            the secondary's `--s-border` hairline is a 10%-alpha near-white written for a dark
+            ground, which over copper is invisible — it read as bare text.
+
+            Measured on production 2026-09-09. The fix is not new styling: it is the CTA `/docs`
+            and `/support` already ship. Copper becomes the primary BUTTON against the page ground
+            (dark text on copper = 7.03:1), and the secondary keeps the hairline that was designed
+            for that ground.
+          */}
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="mb-3 font-display text-[clamp(28px,3.4vw,42px)] font-normal tracking-[-1px] text-[var(--s-ink)]">{t('ctaTitle')}</h2>
+            <p className="mx-auto mb-8 max-w-xl text-[17px] text-[var(--s-ink-soft)]">{t('ctaBody')}</p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               {/* The old button scrolled to `#product`, an anchor that lives on the pre-V3 hero
                   and is not on the page any more — it silently did nothing. `#demo` is the
                   live demo section on the current landing page. */}
-              <Link href="/#demo" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-accent)] px-6 text-sm font-medium text-white transition-all hover:bg-[var(--s-accent)] sm:w-auto">
+              <Link href="/#demo" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--s-cta-bg)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:-translate-y-0.5 hover:bg-[var(--s-accent)] sm:w-auto">
                 <Mic className="h-4 w-4" />
                 {t('ctaTalk')}
               </Link>
-              <ExternalToLocale href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-cta-fg)] transition-all hover:border-[var(--s-border)] sm:w-auto">
+              <ExternalToLocale href="/signup" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--s-border)] px-6 text-sm font-medium text-[var(--s-ink)] transition-all hover:border-[var(--s-accent)] hover:text-[var(--s-accent)] sm:w-auto">
                 {t('ctaStart')}
               </ExternalToLocale>
             </div>
