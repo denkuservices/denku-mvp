@@ -18,7 +18,18 @@ const BusinessContextSchema = z
     services: z.string().max(2000).nullable().optional(),
     openingHours: z.string().max(1000).nullable().optional(),
     serviceArea: z.string().max(1000).nullable().optional(),
-    faqs: z.string().max(4000).nullable().optional(),
+    /**
+     * 8000, raised from 4000 on 2026-09-09 by the first real FAQ that hit it.
+     *
+     * A medical-uniform retailer's answers to "how do I return this", "when does my money come
+     * back", "when do you restock" run to about 5,000 characters — 25 short question/answer pairs,
+     * every one of them a call the business is actually getting. The old ceiling was not a
+     * considered cost limit; it was a round number, and the textarea it guards has no `maxLength`,
+     * so a customer typing a real FAQ met a raw zod error on save with no idea which field was too
+     * long. The prompt this feeds is around 11,000 characters at that size, which is unremarkable
+     * for the model and cheap next to a caller hearing "I'll pass that to the team".
+     */
+    faqs: z.string().max(8000).nullable().optional(),
     bookingPolicy: z.string().max(2000).nullable().optional(),
     cancellationPolicy: z.string().max(2000).nullable().optional(),
     tone: z.string().max(500).nullable().optional(),
