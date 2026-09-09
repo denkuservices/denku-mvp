@@ -35,10 +35,56 @@ function replaceMatch(
   pattern: RegExp,
   replacements: Partial<Record<Exclude<Locale, "en">, (...parts: string[]) => string>>,
   locale: Exclude<Locale, "en">,
+  /**
+   * An extra condition on the captured groups. A rule whose pattern ends in `(.+)` matches far
+   * more than it was written for, and a rule that MANGLES a string is worse than one that leaves
+   * it English: the coverage test counts any change as a translation, so the broken output is
+   * invisible to it and ships. Where a capture is meant to be workspace data, say so here.
+   */
+  guard?: (...parts: string[]) => boolean,
 ): string | null {
   const match = source.match(pattern);
   const replacement = replacements[locale];
-  return match && replacement ? replacement(...match.slice(1)) : null;
+  if (!match || !replacement) return null;
+  const parts = match.slice(1);
+  if (guard && !guard(...parts)) return null;
+  return replacement(...parts);
+}
+
+/**
+ * Does this capture look like DATA the workspace supplied — a person's name, a handle, a phone
+ * number, a line name — rather than English prose the source happened to write?
+ *
+ * `Select|Open|Call|View details for (.+)` exists for aria-labels built around a value:
+ * `Call ${contact.primaryHandle}`, `View details for ${line.display_name}`. Every real call site
+ * interpolates data. But `(.+)` also matched ordinary sentences sitting in the source, and did —
+ * "Select plan" became "plan kişisini seç" ("select the person named plan"), "Open the call"
+ * became "the call kaydını aç", and "Call your AI now" became "your AI now kişisini ara" on the
+ * last screen of onboarding.
+ */
+function looksLikeDataValue(value: string, dictionary: DashboardDictionary): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  if (/[.!?]$/.test(v)) return false;                            // a sentence, not a name
+  if (dictionary[v] !== undefined) return true;                  // a term we already translate
+  if (/^@/.test(v)) return true;                                 // a handle
+  if (/^\+?\d[\d\s()-]{5,}$/.test(v)) return true;               // a phone number
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return true;         // an email
+  const words = v.split(/\s+/);
+  if (words.length > 4) return false;
+  // A name reads as a name: every word starts with a capital or a digit.
+  return words.every((w) => /^[\p{Lu}\p{N}]/u.test(w));
+}
+
+/**
+ * `(.+) connected` is produced in exactly one place — a joined list of channel labels
+ * (`workspaceLaunchpadModel.ts`). It also matched two static labels that mean the opposite or
+ * nothing at all: "Not connected", on three channel cards, became "Not bağlı", and onboarding's
+ * "Your AI is connected" became "Your AI is bağlı". Prose gives itself away with a copula or a
+ * negation; a channel list never contains one.
+ */
+function looksLikeChannelList(value: string): boolean {
+  return !/\b(is|are|was|were|not|Not|No|isn't|aren't)\b/.test(value.trim());
 }
 
 /**
@@ -248,11 +294,43 @@ export function translateDashboardCopy(
       de: (amount) => `${amount}/6 nützliche Wissensbereiche ausgefüllt`,
       tr: (amount) => `6 yararlı bilgi alanından ${amount} tanesi dolu`,
     }, targetLocale),
+    /*
+     * The onboarding wizard's chrome, assembled around a step label. These three are the only
+     * strings a Turkish customer still met in English after the dictionary pass, and no source
+     * scan could have found them: they exist only once React has joined a number, a separator
+     * and a label together. Found by running this boundary over the rendered markup of all nine
+     * onboarding screens (2026-09-09).
+     *
+     * The label is guarded to a step name we actually translate, so these cannot start
+     * swallowing prose the way `Select|Open|Call (.+)` did.
+     */
+    replaceMatch(source, /^Back to (.+)$/, {
+      /*
+       * A colon rather than a preposition, in all three. The label is a step name and two of
+       * the six are clauses, not nouns: "Zurück zu" wants the dative ("zu Ihrem Unternehmen")
+       * and cannot get it from a variable, "Volver a Qué responde" reads like a broken
+       * sentence, and "X adımına dön" only works after a noun. A colon is what a back button
+       * says anyway, and it takes any label.
+       */
+      es: (label) => `Volver a: ${dictionary[label] ?? label}`,
+      de: (label) => `Zurück: ${dictionary[label] ?? label}`,
+      tr: (label) => `Geri: ${dictionary[label] ?? label}`,
+    }, targetLocale, (label) => dictionary[label] !== undefined),
+    replaceMatch(source, /^Step (\d+) of (\d+) · (.+)$/, {
+      es: (n, total, label) => `Paso ${n} de ${total} · ${dictionary[label] ?? label}`,
+      de: (n, total, label) => `Schritt ${n} von ${total} · ${dictionary[label] ?? label}`,
+      tr: (n, total, label) => `Adım ${n}/${total} · ${dictionary[label] ?? label}`,
+    }, targetLocale, (_n, _total, label) => dictionary[label] !== undefined),
+    replaceMatch(source, /^Pick any (\d+) of these$/, {
+      es: (count) => `Elige ${count} de estos`,
+      de: (count) => `Wählen Sie ${count} davon`,
+      tr: (count) => `Bunlardan ${count} tanesini seçin`,
+    }, targetLocale),
     replaceMatch(source, /^(.+) connected$/, {
       es: (channels) => `${localizeList(channels)} conectados`,
       de: (channels) => `${localizeList(channels)} verbunden`,
       tr: (channels) => `${localizeList(channels)} bağlı`,
-    }, targetLocale),
+    }, targetLocale, looksLikeChannelList),
     replaceMatch(source, /^(\d+) people have access$/, {
       es: (amount) => `${amount} personas tienen acceso`,
       de: (amount) => `${amount} Personen haben Zugriff`,
@@ -357,7 +435,7 @@ export function translateDashboardCopy(
       es: (action, value) => `${action === "Select" ? "Seleccionar" : action === "Open" ? "Abrir" : action === "Call" ? "Llamar a" : "Ver detalles de"} ${dictionary[value] ?? value}`,
       de: (action, value) => `${action === "Select" ? "Auswählen" : action === "Open" ? "Öffnen" : action === "Call" ? "Anrufen:" : "Details anzeigen für"} ${dictionary[value] ?? value}`,
       tr: (action, value) => `${dictionary[value] ?? value} ${action === "Select" ? "kişisini seç" : action === "Open" ? "kaydını aç" : action === "Call" ? "kişisini ara" : "ayrıntılarını görüntüle"}`,
-    }, targetLocale),
+    }, targetLocale, (_action, value) => looksLikeDataValue(value, dictionary)),
     replaceMatch(source, /^(.+) isn't available yet$/, {
       es: (channel) => `${dictionary[channel] ?? channel} aún no está disponible`,
       de: (channel) => `${dictionary[channel] ?? channel} ist noch nicht verfügbar`,

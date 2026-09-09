@@ -146,6 +146,32 @@ const STEPS = [
   { id: 5, label: "First day", desc: "Your AI starts answering" },
 ];
 
+/**
+ * What to actually put on screen when a server action fails.
+ *
+ * Actions return two very different things in `error`. Some are sentences written for the
+ * customer ("This phone number is already in use…"). Others are written for us: "Invalid
+ * plan_code", "Stripe initialization failed", "Checkout session created but no URL returned",
+ * "Provisioned line, waiting for number assignment". Every call site rendered `result.error`
+ * verbatim, so the second kind reached the customer — in English, on a translated page, usually
+ * at the moment they were trying to pay.
+ *
+ * The rule is the repo's own (log the detail, show a safe message), enforced by shape: a message
+ * carrying a code identifier, or one of the known internal prefixes, is logged and replaced with
+ * the caller's fallback — which IS translated, because it is a literal the dictionary covers.
+ */
+const INTERNAL_ERROR =
+  /[a-z]_[a-z]|^(Invalid |Stripe |Customer creation|Checkout session|Provisioned line|Failed to bootstrap|Unknown |No user)/;
+
+function onScreenError(raw: string | null | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  if (INTERNAL_ERROR.test(raw)) {
+    console.error("[onboarding] internal error not shown to the customer:", raw);
+    return fallback;
+  }
+  return raw;
+}
+
 // Shared brand styling
 const inputClass =
   "w-full rounded-[10px] border border-[#0A1A2F]/12 bg-white px-4 py-3 text-[#0A1A2F] placeholder:text-[#6B7888]/60 outline-none transition-colors focus:border-[#1B6E6E] focus:ring-2 focus:ring-[#1B6E6E]/15 disabled:opacity-60";
@@ -566,7 +592,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
     }
 
     if (!result.ok) {
-      return { ok: false, error: result.error || "Something went wrong." };
+      return { ok: false, error: onScreenError(result.error, "Something went wrong.") };
     }
 
     /*
@@ -609,7 +635,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         setError(null); // Don't show generic error for phone duplicate
       } else {
         setPhoneFieldError(null);
-        setError(formState.error || "Something went wrong.");
+        setError(onScreenError(formState.error, "Something went wrong."));
       }
     } else {
       setError(null);
@@ -649,7 +675,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
                 setActivationError("Activation completed but could not refresh. Please refresh the page.");
               });
           } else {
-            setActivationError(result.error || "Activation failed. Please try again.");
+            setActivationError(onScreenError(result.error, "Activation failed. Please try again."));
           }
         })
         .catch((err) => {
@@ -951,7 +977,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       const saved = await savePhonePreferences(fd);
       if (!saved.ok) {
         setCheckoutLoading(false);
-        setError(saved.error || "We couldn't save your number preference. Please try again.");
+        setError(onScreenError(saved.error, "We couldn't save your number preference. Please try again."));
         return;
       }
 
@@ -968,7 +994,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         } else if (result.error === "BILLING_PAUSED") {
           setError("BILLING_PAUSED");
         } else {
-          setError(result.error || "Failed to start checkout");
+          setError(onScreenError(result.error, "Failed to start checkout"));
         }
       }
     });
@@ -990,7 +1016,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
         } else if (result.error === "BILLING_PAUSED") {
           setError("BILLING_PAUSED");
         } else {
-          setError(result.error || "Failed to start checkout");
+          setError(onScreenError(result.error, "Failed to start checkout"));
         }
       }
     });
@@ -1020,7 +1046,7 @@ export function OnboardingClient({ initialState, checkoutStatus }: OnboardingCli
       if (result.ok) {
         window.location.assign("/dashboard");
       } else {
-        setError(result.error || "Failed to finish setup");
+        setError(onScreenError(result.error, "Failed to finish setup"));
       }
     });
   };
