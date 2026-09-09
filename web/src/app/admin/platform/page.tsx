@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPlatformAdmin } from "@/lib/platform-admin/access";
 import { getPlatformOverview, type UsageTotals, type OrgBucket } from "@/lib/platform-admin/metrics";
-import { listGrantsForOrg } from "@/lib/billing/grants";
+import { listAllGrants, type GrantRow } from "@/lib/billing/grants";
 import { GrantPanel } from "./_components/GrantPanel";
 
 /**
@@ -102,14 +102,19 @@ export default async function PlatformConsolePage() {
 
   const overview = await getPlatformOverview();
 
-  // Grant history for workspaces that have ever had one, so the panel can show what was given
-  // before. Only fetched for the handful of rows that need it.
-  const withGrants = overview.orgs.filter(
-    (o) => o.grants.voiceMinutes > 0 || o.grants.chatSlots > 0 || o.grants.phoneNumbers > 0
-  );
-  const history = new Map<string, Awaited<ReturnType<typeof listGrantsForOrg>>>();
-  for (const row of withGrants) {
-    history.set(row.orgId, await listGrantsForOrg(row.orgId, 10));
+  /*
+   * Every grant, in one query, grouped here.
+   *
+   * The first version fetched history only for workspaces holding a LIVE grant, which meant a grant
+   * disappeared from the panel the instant it was withdrawn — precisely when the operator is
+   * looking for confirmation that the withdrawal worked. Fetching per-org instead would be one
+   * round trip per workspace, and there are 43.
+   */
+  const history = new Map<string, GrantRow[]>();
+  for (const grant of await listAllGrants()) {
+    const list = history.get(grant.org_id) ?? [];
+    if (list.length < 10) list.push(grant);
+    history.set(grant.org_id, list);
   }
 
   const m = overview.members;

@@ -170,6 +170,31 @@ export async function listGrantsForOrg(orgId: string, limit = 50): Promise<Grant
 }
 
 /**
+ * Every grant on every workspace, newest first — the operator console's history.
+ *
+ * ONE query rather than one per workspace. The console lists 43 of them and climbing, and asking
+ * per-org meant either 43 round trips or the compromise the page shipped with: history fetched only
+ * for workspaces holding a LIVE grant, so a withdrawn one vanished from the panel the moment it was
+ * withdrawn — exactly when the operator is looking for confirmation that it happened.
+ *
+ * Bounded by `limit` rather than paged: grants are handed out by a human, one at a time, and a
+ * platform that has issued more than a few hundred has earned a proper screen.
+ */
+export async function listAllGrants(limit = 500): Promise<GrantRow[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("org_grants")
+      .select("id, org_id, kind, amount, starts_at, expires_at, status, note, granted_by, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data as GrantRow[];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Billable minutes this workspace has spent since `since`.
  *
  * `ceil(seconds / 60)` **per call**, matching `org_daily_usage` exactly — a trial that counted

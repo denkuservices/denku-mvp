@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * The grant form — the only place in the product where capacity is handed out for free.
@@ -42,6 +43,11 @@ const KINDS = [
   { value: "phone_numbers", label: "Phone-number slots", unit: "numbers", max: 2 },
 ] as const;
 
+/** "1 channel", not "1 channels". Every unit here is a plain plural, so trimming the s is enough. */
+function unitFor(amount: number, unit: string): string {
+  return amount === 1 ? unit.replace(/s$/, "") : unit;
+}
+
 const C = {
   ink: "#0a1a2f",
   muted: "#64748b",
@@ -82,11 +88,41 @@ export function GrantPanel({ orgs }: { orgs: PanelOrg[] }) {
   const [note, setNote] = React.useState<string>("");
   const [provisionLine, setProvisionLine] = React.useState(false);
   const [areaCode, setAreaCode] = React.useState("");
+  const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const org = orgs.find((o) => o.orgId === orgId) ?? null;
   const spec = KINDS.find((k) => k.value === kind)!;
+
+  /*
+   * Which workspace is selected lives in the URL.
+   *
+   * It started as the fix for the dropdown snapping back to the first workspace after a grant —
+   * `router.refresh()` now keeps the selection on its own, so that is no longer the reason. What it
+   * still buys is a console whose state survives a manual reload and can be sent to somebody:
+   * `/admin/platform?org=<id>` opens on the workspace being discussed rather than on whichever one
+   * happens to sort first.
+   *
+   * Read in an effect rather than in the initial state, so the server-rendered HTML and the first
+   * client render agree and hydration stays quiet.
+   */
+  React.useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("org");
+    if (fromUrl && orgs.some((o) => o.orgId === fromUrl)) setOrgId(fromUrl);
+    // Only on mount: afterwards the select owns the value and writes the URL, not the other way
+    // round, or choosing a workspace would fight the effect that restored one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function selectOrg(next: string) {
+    setOrgId(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("org", next);
+    // `replaceState`, not `push`: a dropdown is not a navigation, and Back should leave the console
+    // rather than walk through every workspace the operator glanced at.
+    window.history.replaceState(null, "", url.toString());
+  }
 
   // Ticking the box on a non-phone grant would be refused by the API anyway; clearing it here means
   // the operator never sees that refusal.
@@ -129,12 +165,30 @@ export function GrantPanel({ orgs }: { orgs: PanelOrg[] }) {
           : " The grant is in place but the phone number could NOT be provisioned — retry, or check the logs."
         : "";
 
+      /*
+       * The unit comes from what was SENT, not from the dropdown.
+       *
+       * A preset button overrides `kind` in its payload without touching the form's state, so
+       * reading `spec` here reported the wrong noun for the one path an operator uses most:
+       * clicking "1 chat channel" while the form still said Voice minutes confirmed "Granted 1
+       * minute". The grant itself was always correct — only the sentence describing it was wrong,
+       * which is the worse kind of wrong, because it is the part anybody checks.
+       */
+      const grantedUnit = KINDS.find((k) => k.value === payload.kind)?.unit ?? payload.kind;
+
       setMessage({
         tone: data.lineRequested && !data.line ? "err" : "ok",
-        text: `Granted ${payload.amount} ${spec.unit} for ${payload.days} day(s).${lineNote}`,
+        text: `Granted ${payload.amount} ${unitFor(payload.amount, grantedUnit)} for ${payload.days} ${unitFor(payload.days, "days")}.${lineNote}`,
       });
-      // A grant changes the table above it, so the page has to be re-read rather than patched.
-      setTimeout(() => window.location.reload(), 1400);
+      /*
+       * `router.refresh()`, not `window.location.reload()`.
+       *
+       * The table above is server-rendered and genuinely has to be re-read. A full reload did that
+       * and also remounted this component, which threw away the confirmation the operator had just
+       * been given — click Grant, read half a sentence, watch it vanish. `refresh()` re-runs the
+       * server tree and leaves client state alone, so the message stays until they move on.
+       */
+      router.refresh();
     } catch (err) {
       setMessage({ tone: "err", text: err instanceof Error ? err.message : "Request failed" });
     } finally {
@@ -157,7 +211,7 @@ export function GrantPanel({ orgs }: { orgs: PanelOrg[] }) {
         tone: "ok",
         text: `Withdrawn. ${data.linesReleased} phone line(s) released.`,
       });
-      setTimeout(() => window.location.reload(), 1400);
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -168,7 +222,7 @@ export function GrantPanel({ orgs }: { orgs: PanelOrg[] }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={label}>Workspace</label>
-          <select style={input} value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+          <select style={input} value={orgId} onChange={(e) => selectOrg(e.target.value)}>
             {orgs.map((o) => (
               <option key={o.orgId} value={o.orgId}>
                 {o.name} {o.ownerEmail ? `· ${o.ownerEmail}` : ""} {o.voicePlanCode ? `· ${o.voicePlanCode}` : "· no voice plan"}
@@ -328,7 +382,7 @@ export function GrantPanel({ orgs }: { orgs: PanelOrg[] }) {
               >
                 <span>
                   <strong>
-                    {g.amount} {KINDS.find((k) => k.value === g.kind)?.unit ?? g.kind}
+                    {g.amount} {unitFor(g.amount, KINDS.find((k) => k.value === g.kind)?.unit ?? g.kind)}
                   </strong>{" "}
                   until {new Date(g.expiresAt).toLocaleDateString()}
                   {g.note ? <span style={{ color: C.muted }}> — {g.note}</span> : null}
