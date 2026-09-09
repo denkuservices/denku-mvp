@@ -13,6 +13,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/observability/logEvent";
 import { unbindOrgPhoneNumbers, rebindOrgPhoneNumbers } from "@/lib/vapi/phoneNumberBinding";
+import { pauseBlocksTelephony } from "@/lib/workspace/pauseReasons";
 
 /**
  * Enforce telephony pause state based on DB settings.
@@ -34,7 +35,7 @@ export async function enforceTelephonyPause(
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused" | null;
-      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
     }>();
 
   if (fetchError) {
@@ -65,10 +66,15 @@ export async function enforceTelephonyPause(
   const workspaceStatus = orgSettings.workspace_status ?? "active";
   const pausedReason = orgSettings.paused_reason;
 
-  // Check if org should be paused (billing-paused or manual pause)
-  const shouldBePaused =
-    workspaceStatus === "paused" &&
-    (pausedReason === "hard_cap" || pausedReason === "past_due" || pausedReason === "manual");
+  /*
+   * Check if org should be paused.
+   *
+   * This used to enumerate the three reasons inline, which made adding a fourth (`trial_ended`)
+   * a silent behaviour change: an unlisted reason read as "not paused", so the numbers were never
+   * unbound and a paused workspace went on answering. The enumeration now lives in
+   * `pauseReasons.ts`, where an unknown reason counts as paused rather than as ignorable.
+   */
+  const shouldBePaused = workspaceStatus === "paused" && pauseBlocksTelephony(pausedReason);
 
   if (!shouldBePaused) {
     // Org is not paused - no enforcement needed
@@ -182,7 +188,7 @@ export async function enforceTelephonyResume(
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused" | null;
-      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
     }>();
 
   if (fetchError) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
+import { denkuMarketingAssistantId } from '@/lib/denku-agent/marketingAssistant';
 
 /**
  * API Route: /api/vapi/start
@@ -43,11 +44,12 @@ import { demoAssistantOverrides } from '@/lib/marketing/demoCall';
  * `155b21ad…` keeps its phone line and is untouched — splitting the jobs is most of the fix.
  *
  * Regenerate it with `scripts/register-denku-agent.mts` after a channel flips or a price changes.
- * The env var wins so an environment can point at its own copy without a deploy; the literal is
- * the id that script created, kept here so the demo works with nothing configured.
+ *
+ * The id itself now lives in `lib/denku-agent/marketingAssistant.ts`, because the platform
+ * analytics page needs the same value to tell marketing spend apart from customer spend — and two
+ * copies of a hardcoded Vapi id is precisely what landmine #5 warns about.
  */
-const MARKETING_AGENT_ID =
-  process.env.VAPI_DENKU_ASSISTANT_ID || 'a7846579-78b9-451a-8821-2c5764a3fc6f';
+const MARKETING_AGENT_ID = denkuMarketingAssistantId();
 
 export async function POST(req: NextRequest) {
   try {

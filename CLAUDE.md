@@ -555,6 +555,38 @@ system) and to `/api/tools/*` (shared-secret header) during live calls. Resend s
     `test/dashboard-locale-resolution.test.ts`; the first two allowlist only dead files,
     form-field names, proper nouns and words identical in all four languages, and nothing else.
 
+23. **Capacity that was GIVEN never goes in a billing table.** Built 2026-09-09 (R-161). The
+    platform console (`/admin/platform`) is the one surface that reads across every tenant — the
+    documented exception to "every query carries `.eq("org_id", …)`" — and the one place capacity
+    is handed out for free. Six rules. **(a) Two locks, both required.** `/admin/*` is behind Basic
+    Auth in the middleware; `guardPlatformAdmin()` additionally requires the signed-in account to
+    be on `PLATFORM_ADMIN_EMAILS` (default `adkirikci@gmail.com`). The email is read from
+    **Supabase Auth, never `profiles.email`** — the latter is application-writable, so anyone who
+    could write their own profile row could name themselves the operator — and via `getUser()`,
+    **not** the R-157 gate cookie or `getClaims()`: those made the DASHBOARD gate cheap, and this
+    is the money side. An empty allowlist admits nobody. It refuses with **404, not 403**, so a
+    customer who guesses the URL learns nothing. **(b) A trial is an `org_grants` row, never a
+    `billing_org_addons` one.** Those rows are what every revenue figure is computed from, and a
+    $299 line nobody paid becomes a number somebody acts on — the same argument
+    `chatEntitlement.ts` already makes about the internal workspace. Grants fold into exactly
+    three readers (`getEffectiveLimits`, `getChatEntitlement`, `getPlanState`); adding a fourth
+    consumer means adding it there, not re-deriving grants locally. **(c) The date is enforced in
+    the READER, the sweep only tidies** — copied from `addonSchedule.ts`, because a cron that has
+    not run must never leave somebody holding capacity that lapsed at 3am. **(d) A live grant must
+    make `hasAnyPlan` true** (`PlanState.onTrial`), or `isPreviewMode` gates the trial customer out
+    of the thing you just gave them. **(e) The minute cap is real but LATE.** It works by pausing,
+    which genuinely unbinds the Vapi numbers — but Denku learns a call's length from the
+    end-of-call webhook, so the call that crosses the line always completes and a 30-minute trial
+    can overrun by one call (landmine #3's gap again). Never describe it as real-time; the console
+    says so on the page. **(f) A granted phone number is the only part that spends money**, and
+    `/api/internal/grant-sweep` (nightly) is the only thing that ever hands it back — skipping that
+    cron does not break a trial, it just bills forever. `trial_ended` is a `paused_reason`: the
+    pause email branches on the reason and `hard_cap` would have told a free-trial user their bill
+    hit its ceiling. Adding it exposed a live bug — `enforcePause.ts` enumerated three reasons
+    inline and read a fourth as "not paused", leaving numbers bound on a paused workspace — so the
+    enumeration now lives in `lib/workspace/pauseReasons.ts` and fails closed. Chat LLM cost is
+    **not measured anywhere**; the console prints "not measured", never `$0` (R-163).
+
 ## Design system (per-surface, do not cross-contaminate)
 
 - **Marketing + auth + onboarding + pre-onboarding chrome:** warm "luxury" theme — bone `#F7F5F1`,

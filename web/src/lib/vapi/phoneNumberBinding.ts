@@ -12,7 +12,7 @@ import { getEffectiveLimits, isWorkspacePaused } from "@/lib/billing/limits";
  */
 export async function unbindOrgPhoneNumbers(
   orgId: string,
-  reason: "manual" | "hard_cap" | "past_due"
+  reason: "manual" | "hard_cap" | "past_due" | "trial_ended"
 ): Promise<void> {
   // Fetch all agents with vapi_assistant_id and vapi_phone_number_id for this org
   const { data: agents, error: agentsErr } = await supabaseAdmin

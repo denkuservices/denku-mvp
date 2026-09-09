@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { effectiveAddonQty } from "@/lib/billing/addonSchedule";
+import { getActiveGrants } from "@/lib/billing/grants";
 
 /**
  * Get effective limits for an organization (plan base + add-ons).
@@ -17,6 +18,8 @@ export async function getEffectiveLimits(orgId: string): Promise<{
   included_phones: number;
   plan_key: string;
   addons: { extra_concurrency: number; extra_phone: number };
+  /** How much of `included_phones` came from an operator grant rather than a purchase. */
+  granted_phones: number;
 }> {
   // 1) Get org's current plan code
   const { data: planLimits } = await supabaseAdmin
@@ -68,9 +71,19 @@ export async function getEffectiveLimits(orgId: string): Promise<{
     }
   }
 
-  // 4) Compute effective limits
+  /**
+   * 4) Capacity Denku GAVE this workspace, on top of what it bought.
+   *
+   * A trial needs a line slot the customer has not paid for, and the only alternative was writing
+   * an `extra_phone` add-on row with no Stripe subscription behind it — which would then be summed
+   * into revenue. `lib/billing/grants.ts` says why that is the one thing not to do. Reads as zero
+   * on any failure and before the migration is applied, so this addition cannot over-grant.
+   */
+  const grants = await getActiveGrants(orgId);
+
+  // 5) Compute effective limits
   const maxConcurrentCalls = baseConcurrency + extraConcurrency;
-  const includedPhones = basePhones + extraPhone;
+  const includedPhones = basePhones + extraPhone + grants.phoneNumbers;
 
   return {
     max_concurrent_calls: Math.max(0, maxConcurrentCalls), // Ensure non-negative
@@ -80,6 +93,7 @@ export async function getEffectiveLimits(orgId: string): Promise<{
       extra_concurrency: extraConcurrency,
       extra_phone: extraPhone,
     },
+    granted_phones: grants.phoneNumbers,
   };
 }
 

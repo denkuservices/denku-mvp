@@ -12,7 +12,7 @@ import * as React from "react";
 
 type WorkspaceStatusBadgeProps = {
   workspace_status: "active" | "paused";
-  paused_reason?: "manual" | "hard_cap" | "past_due" | null;
+  paused_reason?: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
   className?: string;
 };
 

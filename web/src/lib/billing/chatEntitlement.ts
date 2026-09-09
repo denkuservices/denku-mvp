@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CHANNELS, type Channel } from "@/lib/platform/channels";
+import { getActiveGrants } from "@/lib/billing/grants";
 import { CHAT_ADDON_SLOTS } from "./chatPlanKeys";
 
 /**
@@ -63,7 +64,7 @@ export async function getChatEntitlement(orgId: string): Promise<ChatEntitlement
   if (!orgId) return EMPTY;
 
   try {
-    const [addons, active, org] = await Promise.all([
+    const [addons, active, org, grants] = await Promise.all([
       supabaseAdmin
         .from("billing_org_addons")
         .select("addon_key, qty")
@@ -81,6 +82,14 @@ export async function getChatEntitlement(orgId: string): Promise<ChatEntitlement
         .select("is_internal")
         .eq("id", orgId)
         .maybeSingle<{ is_internal: boolean | null }>(),
+      /**
+       * Slots Denku GAVE this workspace — a trial, a goodwill week after an outage.
+       *
+       * Fetched alongside the purchase rather than written as a `billing_org_addons` row for
+       * exactly the reason the internal-workspace note below gives: those rows are what revenue
+       * is computed from. A grant is capacity, not a sale. Reads as zero on any failure.
+       */
+      getActiveGrants(orgId),
     ]);
 
     // A missing table (before the migration is applied) or a failed read reads as "not
@@ -110,7 +119,10 @@ export async function getChatEntitlement(orgId: string): Promise<ChatEntitlement
       return sum + per * Math.max(0, qty);
     }, 0);
 
-    const slots = isInternal ? Math.max(INTERNAL_SLOTS, purchased) : purchased;
+    // Bought + given. An internal workspace still floors at INTERNAL_SLOTS, so a grant can only
+    // ever add to what a workspace already has, never take away.
+    const entitled = purchased + grants.chatSlots;
+    const slots = isInternal ? Math.max(INTERNAL_SLOTS, entitled) : entitled;
 
     const activeIds = active.error
       ? []

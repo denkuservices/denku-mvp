@@ -684,7 +684,7 @@ export async function getOnboardingState() {
     profileFullName: profileFullName as string | null,
     profilePhone: profilePhone as string | null,
     workspaceStatus: workspaceStatus as "active" | "paused",
-    pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | null,
+    pausedReason: pausedReason as "manual" | "hard_cap" | "past_due" | "trial_ended" | null,
     planCode,
     isPlanActive,
     plans: plans.map((p) => ({
@@ -1552,7 +1552,7 @@ export async function runActivation(): Promise<
     .eq("org_id", orgId)
     .maybeSingle<{
       workspace_status: "active" | "paused" | null;
-      paused_reason: "manual" | "hard_cap" | "past_due" | null;
+      paused_reason: "manual" | "hard_cap" | "past_due" | "trial_ended" | null;
       onboarding_language: string | null;
       onboarding_goal?: string | null;
       business_description?: string | null;

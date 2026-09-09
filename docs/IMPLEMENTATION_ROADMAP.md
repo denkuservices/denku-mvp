@@ -3037,3 +3037,99 @@ check on storage keys, the cache-busting URL, and four-locale copy coverage;
 **Not done, deliberately.** Nothing extracts text from a document — that is a perception-stage
 change that would land on every channel at once, and until it exists the AI is told a file arrived
 and forbidden to describe it.
+
+---
+
+### R-161 — Platform console: cross-tenant analytics and an operator grant system
+
+**Priority:** High · **Effort:** L · **Status:** Code-complete (2026-09-09), migration pending ·
+**Source:** owner request — "give a prospect 30 voice minutes and one chat channel for 7 days"
+
+**Problem.** There was no way to see the business. Every screen in the product is scoped to one
+workspace, deliberately and correctly, so the questions an owner actually asks — how many members,
+how many minutes has everything burned, what has Vapi charged, what did the landing-page agent cost
+— had no surface at all and were answered by hand in the SQL editor. And there was no way to let
+somebody try the product: capacity comes from `org_plan_limits` and `billing_org_addons`, both of
+which mean *money changed hands*, so handing out a trial meant writing a row that a revenue figure
+would then count.
+
+**Fix.** Three pieces.
+
+*Access.* `lib/platform-admin/access.ts` — an allowlist keyed on the **Supabase Auth** email
+(`profiles.email` is application-writable; `auth.users.email` is not), requiring a confirmed
+address, using `getUser()` rather than the cached gate cookie or `getClaims()` because R-157's
+cheap local verification is explicitly not for the money side. Refuses with **404**, so a
+signed-in customer who guesses the URL learns nothing. It is the second lock: `/admin/*` is
+already behind Basic Auth in the middleware, and both are required.
+
+*Analytics.* `/admin/platform` reads across every tenant — the documented exception to the
+`.eq("org_id", …)` rule — from the baselined `org_daily_usage` chain rather than by summing
+`calls`, so the page does not degrade with volume and a minute here is the minute the invoice
+charges for. Figures are split three ways (customers / Denku internal / trials) with the
+landing-page assistant broken out on its own as marketing spend. Observed costs and estimates are
+kept apart: `calls.cost_usd` is what Vapi reported, number rental is a labelled estimate, and chat
+LLM cost is rendered as **"not measured"** rather than `$0`, because nothing records it.
+
+*Grants.* `org_grants` (migration `20260908222350`) holds capacity that was **given**, never
+`billing_org_addons`, for the reason `chatEntitlement.ts` already argues about the internal
+workspace: an add-on row with no Stripe subscription behind it is a number in a revenue report that
+nobody pays. Three kinds — `voice_minutes`, `chat_slots`, `phone_numbers` — read through
+`lib/billing/grants.ts` and folded into exactly three existing readers (`getEffectiveLimits`,
+`getChatEntitlement`, `getPlanState`). **The date is enforced in the reader, not the sweep**, the
+rule copied from `addonSchedule.ts`. `getPlanState` gained `onTrial` because otherwise
+`isPreviewMode` would gate a trial customer out of the thing they had just been handed.
+
+The minute cap is enforced by **pausing**, which is real — it PATCHes the org's Vapi numbers to
+`assistantId: null`. It is checked in the Vapi webhook the moment a call is finalised, and again in
+a nightly sweep (`/api/internal/grant-sweep`) that also releases granted phone numbers, which is
+the only thing that stops a trial number billing monthly forever. **It cannot stop a call already
+in progress**, so a 30-minute trial can overrun by one call — the same structural gap as landmine
+#3, stated on the page rather than papered over.
+
+`trial_ended` joined the `paused_reason` enum instead of reusing `hard_cap`, because the pause
+email branches on it and would otherwise have told somebody on a free trial that their bill hit its
+ceiling. Adding it exposed a live bug: `enforcePause.ts` enumerated the three reasons inline and
+read a fourth as "not really paused" — a workspace paused in the dashboard whose numbers stayed
+bound and kept answering. The enumeration moved to `lib/workspace/pauseReasons.ts` where an
+unrecognised reason fails closed, and a test pins it.
+
+**Verification.** Full suite green (1824 → 1856 tests, 126 → 127 files) and a production build.
+Both locks proved against a real production build over HTTP: no Basic Auth → 401, correct Basic
+Auth with no session → 404 (page and API), cron without the secret → 401. The sweep run against
+prod with the table absent returns `ok: false` and a 200 rather than throwing. Every table and
+column the analytics module reads was confirmed present in prod.
+
+**Open.**
+- **The migration is not applied.** Written and committed; applying it was blocked in the session
+  that wrote it. Until it lands, grants degrade to "none" and the console says so in its caveats.
+- **`lib/vapi/grantedLine.ts` duplicates the Vapi half of `/api/phone-lines/purchase`.** That route
+  is 795 lines wrapped in a Stripe transaction whose rollback blocks CLAUDE.md warns must be kept in
+  sync, and rewriting it to serve a transaction it was not built for was a larger change than this
+  feature justified. Consolidating them is filed as **R-162**.
+- **Chat COGS is unmeasured.** Recording model cost in `messages.meta` at reply time would make the
+  margin figure whole. Filed as **R-163**.
+
+---
+
+### R-162 — Two implementations of Vapi line provisioning
+
+**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-161
+
+`/api/phone-lines/purchase` and `lib/vapi/grantedLine.ts` both create an assistant, attach tools via
+`ensureAssistantConfig`, buy a number, poll for its E.164 form, link the agent to it and insert a
+`phone_lines` row. They differ only in the money: one increments an `extra_phone` add-on and
+compensates on failure, the other does not. The shared half should be one function that both call,
+with the Stripe steps staying in the route. Doing it needs care — the purchase route's rollback
+blocks are the delicate part, and the reason it was not attempted alongside R-161.
+
+---
+
+### R-163 — Chat replies have no recorded cost
+
+**Priority:** Medium · **Effort:** M · **Status:** Open · **Source:** R-161
+
+`calls.cost_usd` makes voice COGS exact. Chat has no equivalent: `messages` carries no cost column,
+so the platform console reports chat LLM spend as "not measured" and the margin figure covers voice
+only. The reply engine knows the model and the token counts at the moment it answers; writing them
+into `messages.meta` (and the perception stage doing the same for vision and transcription, which
+are billed separately) would close it. Until then, do not let any report imply chat is free.

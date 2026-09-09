@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getChatEntitlement } from "@/lib/billing/chatEntitlement";
+import { getActiveGrants } from "@/lib/billing/grants";
 import { isVoicePlanCode, type VoicePlanCode } from "@/lib/billing/chatPlanKeys";
 
 /**
@@ -33,7 +34,18 @@ export interface PlanState {
   voicePlanCode: VoicePlanCode | null;
   /** How many chat channels it may answer on. 0 means chat was not bought. */
   chatSlots: number;
-  /** True when it holds voice, chat, or both. */
+  /**
+   * True when Denku has granted this workspace capacity it did not pay for — a trial.
+   *
+   * Separate from the two products because it answers a different question: `voicePlanCode` and
+   * `chatSlots` say what was BOUGHT, and every revenue figure downstream depends on that staying
+   * true. This says what was GIVEN, and its only job is to stop the gate below shutting a trial
+   * customer out of the thing they were handed.
+   */
+  onTrial: boolean;
+  /** When the trial lapses, if there is one. */
+  trialEndsAt: string | null;
+  /** True when it holds voice, chat, a live grant, or any combination. */
   hasAnyPlan: boolean;
   /**
    * Whether the voice-plan read actually succeeded.
@@ -49,19 +61,27 @@ export interface PlanState {
   resolved: boolean;
 }
 
-const NOTHING: PlanState = { voicePlanCode: null, chatSlots: 0, hasAnyPlan: false, resolved: false };
+const NOTHING: PlanState = {
+  voicePlanCode: null,
+  chatSlots: 0,
+  onTrial: false,
+  trialEndsAt: null,
+  hasAnyPlan: false,
+  resolved: false,
+};
 
 export async function getPlanState(orgId: string): Promise<PlanState> {
   if (!orgId) return NOTHING;
 
   try {
-    const [limits, chat] = await Promise.all([
+    const [limits, chat, grants] = await Promise.all([
       supabaseAdmin
         .from("org_plan_limits")
         .select("plan_code")
         .eq("org_id", orgId)
         .maybeSingle<{ plan_code: string | null }>(),
       getChatEntitlement(orgId),
+      getActiveGrants(orgId),
     ]);
 
     const raw = limits.data?.plan_code ?? null;
@@ -73,10 +93,23 @@ export async function getPlanState(orgId: string): Promise<PlanState> {
     const voicePlanCode = raw && isVoicePlanCode(raw) ? raw : null;
     const chatSlots = chat.slots;
 
+    /**
+     * A live grant counts as "has something", and it has to.
+     *
+     * `isPreviewMode` gates paid and destructive features behind `hasAnyPlan`. Without this line,
+     * giving somebody a 7-day trial would hand them capacity and then lock them out of using it —
+     * the product would show an upgrade prompt where the thing they were given should be. A chat
+     * grant already reaches this through `chat.slots`; a voice-minutes or phone-line grant would
+     * not, so the flag is read directly rather than inferred from the two products.
+     */
+    const onTrial = grants.voiceMinutes > 0 || grants.chatSlots > 0 || grants.phoneNumbers > 0;
+
     return {
       voicePlanCode,
       chatSlots,
-      hasAnyPlan: Boolean(voicePlanCode) || chatSlots > 0,
+      onTrial,
+      trialEndsAt: grants.endsAt,
+      hasAnyPlan: Boolean(voicePlanCode) || chatSlots > 0 || onTrial,
       // A "no rows" answer is a resolved question: this workspace has no voice plan.
       resolved: !limits.error,
     };

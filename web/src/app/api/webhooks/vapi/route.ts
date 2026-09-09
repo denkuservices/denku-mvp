@@ -22,6 +22,7 @@ import { recordVoiceCall } from "@/lib/platform/wiring/recordVoiceCall";
 import { ensureCurrentRevision } from "@/lib/platform/manifest/revisions";
 import { loadOrgHours } from "@/lib/business-hours/read";
 import { evaluateBusinessHours, type BusinessHours } from "@/lib/business-hours/schema";
+import { enforceTrialVoiceCap } from "@/lib/billing/trialEnforcement";
 
 const VapiWebhookSchema = z
   .object({
@@ -2813,6 +2814,24 @@ export async function POST(req: NextRequest) {
         vapi_call_id: vapiCallId,
         affected_rows: updated?.length ?? 0,
       });
+
+      /*
+       * Has a trial just spent the last of its granted minutes?
+       *
+       * Checked HERE, immediately after the call's duration lands, because this is the earliest
+       * moment the answer can change — and the alternative, waiting for the nightly sweep, would
+       * let a 30-minute trial run all afternoon. It cannot stop the call that crossed the line
+       * (that call is already over) and it cannot refuse one already ringing; it unbinds the
+       * numbers so the NEXT caller reaches nobody. See `lib/billing/trialEnforcement.ts` for why
+       * that overshoot is structural rather than an oversight.
+       *
+       * Awaited, not fired-and-forgotten: a serverless function that returns stops executing, so a
+       * floating promise here would be cancelled roughly whenever it mattered most. It never
+       * throws, so it cannot turn a correctly-recorded call into a 500 that Vapi then retries.
+       */
+      if (actualOrgId) {
+        await enforceTrialVoiceCap(actualOrgId);
+      }
 
       // DEMO GUARDRAIL: Check for web call abuse (duration + off-topic content)
       // Only apply to web calls (webCall type or daily transport provider)
