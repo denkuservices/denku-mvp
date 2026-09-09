@@ -3,6 +3,8 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { vapiFetch } from "@/lib/vapi/server";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
+import { resolveWorkspaceLineDefaults } from "@/lib/phone-lines/connectByo";
+import { defaultGreeting } from "@/lib/language/greeting";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
 import { logEvent } from "@/lib/observability/logEvent";
 
@@ -100,6 +102,12 @@ export async function provisionGrantedLine(
     }
   };
 
+  /*
+   * A trial line is still this business's line — it inherits the workspace's language, voice and
+   * timezone rather than being born English. Same rule as the BYON path and the purchase route.
+   */
+  const lineDefaults = await resolveWorkspaceLineDefaults(orgId);
+
   try {
     // 1) The assistant that will answer this number.
     const assistant = await vapiFetch<{ id: string }>("/assistant", {
@@ -117,7 +125,7 @@ export async function provisionGrantedLine(
             },
           ],
         },
-        firstMessage: "Hi, thanks for calling. How can I help you today?",
+        firstMessage: defaultGreeting(lineDefaults.language),
         // No top-level `tools` — Vapi rejects it on create. They are merged in below.
       }),
     });
@@ -126,7 +134,12 @@ export async function provisionGrantedLine(
 
     // Tools + the canonical webhook URL. Non-fatal, exactly as the purchase route treats it: a
     // line whose tool merge hiccups still gets the deterministic post-call artifact fallback.
-    const config = await ensureAssistantConfig({ assistantId });
+    const config = await ensureAssistantConfig({
+      assistantId,
+      language: lineDefaults.language,
+      additionalLanguages: lineDefaults.additionalLanguages,
+      voiceId: lineDefaults.voice,
+    });
     if (!config.ok) {
       logEvent({
         tag: "[GRANT][LINE][ASSISTANT_CONFIG][FAILED]",
@@ -146,9 +159,9 @@ export async function provisionGrantedLine(
         org_id: orgId,
         name: "Trial Phone Line Agent",
         created_by: createdBy,
-        language: "en",
-        voice: "jennifer",
-        timezone: "America/New_York",
+        language: lineDefaults.language,
+        voice: lineDefaults.voice,
+        timezone: lineDefaults.timezone,
         vapi_assistant_id: assistantId,
         behavior_preset: "friendly-support",
         agent_type: "phone_line_backing",

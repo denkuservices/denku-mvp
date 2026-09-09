@@ -10,6 +10,7 @@ import { getStripeClient, ensureStripeCustomer } from "@/app/api/billing/stripe/
 import { getBaseUrl } from "@/lib/utils/url";
 import { logEvent } from "@/lib/observability/logEvent";
 import { vapiFetch } from "@/lib/vapi/server";
+import { defaultGreeting } from "@/lib/language/greeting";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
 import { toLanguageCode } from "@/lib/language/registry";
 import { linkAgentToPhoneNumber } from "@/lib/vapi/agentPhoneLink";
@@ -1611,7 +1612,9 @@ export async function runActivation(): Promise<
       // webhook server.url are attached right after creation via ensureAssistantConfig (R-050/R-077).
       const assistantPayload = {
         name: "Main Line",
-        firstMessage: `Hi — thanks for calling ${workspaceName}. How can I help today?`,
+        // Speech, not an instruction: it must be in the language chosen two screens ago.
+        // See `lib/language/greeting.ts`.
+        firstMessage: defaultGreeting(settings?.onboarding_language, workspaceName),
         model: {
           provider: "openai",
           model: "gpt-4o",
