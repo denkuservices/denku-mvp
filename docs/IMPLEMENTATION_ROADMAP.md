@@ -3261,3 +3261,49 @@ top-level `tools` field that Vapi rejects with a 400 (landmine #6), it derives `
 pointing at a dev machine, and it inserts a `status` column `agents` does not have. Keeping a
 broken route that re-implements two things the repo centralised after production incidents is an
 invitation to "fix" it and reintroduce them.
+
+---
+
+### R-167 — Two live surfaces had their main action below the contrast floor
+
+**Priority:** Medium · **Effort:** S · **Status:** Fixed (2026-09-09) · **Source:** looking at the
+shipped pages in a browser
+
+**Problem.** Nothing in the suite looked at colour, so the product shipped two buttons whose text
+was not readable on the colour it was painted on. Both have one cause: `--s-cta-bg` and
+`--s-accent` are BUTTON colours written against the warm theme (dark navy, teal) and **remapped on
+the marketing surface** to copper `#C89468` and teal `#2FA39A`. A `text-white` that was correct on
+navy becomes white-on-copper the moment the dark surface applies — and the auth pages are on that
+surface too, which is easy to miss because CLAUDE.md files them under the warm theme.
+
+Measured in a browser on the built site:
+
+| | |
+|---|---|
+| white on copper (`--s-cta-bg`) | **2.66:1** — the three verify-email buttons, resting state |
+| white on teal (`--s-accent`) | **3.08:1** — the `/use-cases` CTA's primary action |
+| dark on copper (`--s-cta-fg`) | 7.03:1 — what every other auth button already used |
+| dark on teal | 6.08:1 |
+
+AA wants 4.5 for body-sized text. The verify-email one is the worse of the two and sits in the
+funnel **every new customer passes through**; `/use-cases` was a copper panel with both of its
+controls styled for the dark ground they no longer stood on — the secondary's `--s-border` hairline
+is a 10%-alpha near-white, invisible over copper, so it read as bare text with no affordance.
+
+**Fix.** `--s-cta-fg` in place of `text-white` on the three live verify-email buttons — it clears AA
+on copper (7.03), on the teal hover (6.08) and on the light-teal active state, which is why it is
+the answer rather than a new colour. `/use-cases` now uses the CTA `/docs` and `/support` already
+ship: copper as the primary BUTTON against the page ground, secondary keeping the hairline that was
+designed for that ground. Heading 7.03 → 17.17, body 7.03 → 10.75, primary 3.08 → 7.03.
+
+`VerifyEmailHoldingPage.tsx` still carries the old pairing and was deliberately left: nothing
+imports it, and this suite already records it as unreachable.
+
+**What stops it recurring.** `test/marketing-contrast.test.ts` — no live marketing or auth
+component may pair `text-white` with either of those two grounds, and `--s-cta-bg` may not be used
+as a panel background. It was verified by reintroducing the defect and watching it fail, then
+removing it again; a guard nobody has seen fail is a guard nobody knows works.
+
+**Note on process.** The `/use-cases` half shipped in PR #57 without a roadmap entry, which breaks
+this file's own rule that it is updated in the same change. Recorded here with the auth half rather
+than left out.
