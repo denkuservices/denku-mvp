@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log";
 import { ensureAssistantConfig } from "@/lib/vapi/assistantConfig";
-import { deriveEffectivePrompt } from "../_lib/prompt-derivation";
+import { deriveEffectivePrompt, promptFrameFor } from "../_lib/prompt-derivation";
 import { loadOrgHours } from "@/lib/business-hours/read";
 import { describeBusinessHours } from "@/lib/business-hours/schema";
 import { isWorkspacePaused } from "@/lib/workspace-status";
@@ -18,7 +18,18 @@ const BusinessContextSchema = z
     services: z.string().max(2000).nullable().optional(),
     openingHours: z.string().max(1000).nullable().optional(),
     serviceArea: z.string().max(1000).nullable().optional(),
-    faqs: z.string().max(4000).nullable().optional(),
+    /**
+     * 8000, raised from 4000 on 2026-09-09 by the first real FAQ that hit it.
+     *
+     * A medical-uniform retailer's answers to "how do I return this", "when does my money come
+     * back", "when do you restock" run to about 5,000 characters — 25 short question/answer pairs,
+     * every one of them a call the business is actually getting. The old ceiling was not a
+     * considered cost limit; it was a round number, and the textarea it guards has no `maxLength`,
+     * so a customer typing a real FAQ met a raw zod error on save with no idea which field was too
+     * long. The prompt this feeds is around 11,000 characters at that size, which is unremarkable
+     * for the model and cheap next to a caller hearing "I'll pass that to the team".
+     */
+    faqs: z.string().max(8000).nullable().optional(),
     bookingPolicy: z.string().max(2000).nullable().optional(),
     cancellationPolicy: z.string().max(2000).nullable().optional(),
     tone: z.string().max(500).nullable().optional(),
@@ -78,8 +89,17 @@ export type UpdateAgentConfigResult =
  *
  * Returns nulls when no hours are set, and the prompt then reads exactly as it did before this
  * existed.
+ *
+ * `language` is the EMPLOYEE's language, because both strings below land inside the prompt that
+ * `deriveEffectivePrompt` writes in that language. Rendered in English regardless — which is what
+ * this did until 2026-09-09 — structured hours produced "Mon–Fri 08:00–18:00, Sat–Sun closed"
+ * inside an otherwise Turkish prompt, and a day name the caller might hear read aloud. That is why
+ * the first Turkish workspace was told to keep free-text hours and leave this feature alone.
  */
-async function hoursForPrompt(orgId: string): Promise<{
+async function hoursForPrompt(
+  orgId: string,
+  language: string | null
+): Promise<{
   summary: string | null;
   instruction: string | null;
 }> {
@@ -87,14 +107,15 @@ async function hoursForPrompt(orgId: string): Promise<{
     const { hours, timeZone, behaviour } = await loadOrgHours(orgId);
     if (!hours) return { summary: null, instruction: null };
 
-    const summary = `${describeBusinessHours(hours)} (${timeZone || "UTC"})`;
-    const shared =
-      "You answer this line 24 hours a day. The hours above are when STAFF are in, not when you work — never refuse a caller, end a call early, or decline to take a booking because of them.";
+    const frame = promptFrameFor(language);
+    const summary = frame.businessHours.summary(
+      describeBusinessHours(hours, frame.businessHours.dayLabels),
+      timeZone || "UTC"
+    );
 
-    const instruction =
-      behaviour === "answer_normally"
-        ? `${shared} Do not raise the opening hours unless the caller asks.`
-        : `${shared} If a caller reaches you outside those hours, say briefly that the business is closed right now, then carry on and help them fully. Be honest that a person will follow up once it reopens, and never promise a specific callback time or that someone is available now.`;
+    const instruction = `${frame.businessHours.alwaysOn} ${
+      behaviour === "answer_normally" ? frame.businessHours.answerNormally : frame.businessHours.noteHours
+    }`;
 
     return { summary, instruction };
   } catch {
@@ -171,7 +192,7 @@ export async function updateAgentConfiguration(
 
   // 7) Derive effective system prompt
   // Note: behaviorPreset is stored as ID (e.g., "professional"), not label
-  const promptHours = await hoursForPrompt(orgId);
+  const promptHours = await hoursForPrompt(orgId, validated.language || existingAgent.language || null);
   const effectivePrompt = deriveEffectivePrompt({
     orgName,
     agentName: existingAgent.name || "Agent",
@@ -541,7 +562,7 @@ export async function updateAgentPromptOverride(
   let effectivePrompt = existingAgent.effective_system_prompt || "";
   if (!validated.system_prompt_override || validated.system_prompt_override.trim() === "") {
     // Re-derive prompt from current config
-    const promptHours = await hoursForPrompt(orgId);
+    const promptHours = await hoursForPrompt(orgId, existingAgent.language || null);
     effectivePrompt = deriveEffectivePrompt({
       orgName,
       agentName: existingAgent.name || "Agent",

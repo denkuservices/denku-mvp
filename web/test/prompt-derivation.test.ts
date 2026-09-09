@@ -130,15 +130,50 @@ describe("deriveEffectivePrompt speaks the caller's language", () => {
     expect(code).toBe(label);
   });
 
-  it("forbids drifting into English when the employee is not English", () => {
+  /**
+   * The stronger form of "don't drift into English": there is no English left to drift into.
+   *
+   * The prompt used to argue with the model — "these instructions are written in English for
+   * internal reasons… speak ONLY Turkish" — because the frame around the Turkish facts was
+   * English. A Turkish frame removes the asymmetry instead of restating the prohibition, so the
+   * assertion is about the ABSENCE of the scaffold, not the presence of a warning about it.
+   */
+  it("writes the whole prompt in Turkish for a Turkish employee", () => {
     const prompt = deriveEffectivePrompt({ ...base, language: "tr" });
-    expect(prompt).toMatch(/Speak ONLY Turkish/);
+
+    expect(prompt).toContain("sesli asistansın");
+    expect(prompt).toContain("TELEFONDAKİ BİR İNSAN GİBİ KONUŞ");
+    expect(prompt).toContain("ÇOK ÖNEMLİ:");
+
+    expect(prompt).not.toMatch(/You are a calm and empathetic/);
+    expect(prompt).not.toMatch(/SPEAK LIKE A PERSON ON A PHONE/);
+    // A quoted example the AI is shown as something to SAY — R-166's rule, in the one place it
+    // still applied after the fallback sentence was fixed.
+    expect(prompt).not.toMatch(/Want me to run through the options/);
+    expect(prompt).not.toMatch(/These instructions are written in English/);
+  });
+
+  it("names the language in the frame's own words", () => {
+    // "Konuşma dili: Turkish" was the one English word left in an otherwise Turkish prompt — and
+    // it sat in the very line telling the model which language to speak.
+    expect(deriveEffectivePrompt({ ...base, language: "tr" })).toContain("Konuşma dili: Türkçe");
+    expect(deriveEffectivePrompt({ ...base, language: "en" })).toContain("Primary language: English");
+  });
+
+  it("still names the asymmetry for a language with no frame of its own", () => {
+    // Spanish has its own spoken fallback but no frame, so everything around it is still English
+    // — which is exactly when the model has to be told twice not to answer in it.
+    const prompt = deriveEffectivePrompt({ ...base, language: "es" });
+    expect(prompt).toMatch(/Speak ONLY Spanish/);
     expect(prompt).toMatch(/including when you are confused/i);
   });
 
   it("leaves an English employee byte-for-byte unchanged", () => {
     const prompt = deriveEffectivePrompt({ ...base, language: "en" });
     expect(prompt).toContain('"I\'ll notify our team and make sure someone follows up shortly."');
+    expect(prompt).toContain("You are NOTUS AI, a voice assistant for NOTUS.");
+    expect(prompt).toContain("SPEAK LIKE A PERSON ON A PHONE, NOT A BROCHURE:");
+    expect(prompt).toContain('(e.g. "Want me to run through the options?")');
     expect(prompt).not.toMatch(/Speak ONLY/);
   });
 
